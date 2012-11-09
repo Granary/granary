@@ -11,6 +11,6 @@
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *) {
-        printf("Notified about module state change!!\n");
+        granary::printf("Notified about module state change!!\n");
     }
 }

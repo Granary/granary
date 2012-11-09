@@ -6,18 +6,18 @@
  *     Version: $Id$
  */
 
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
-#include <linux/printk.h>
 
 #include "granary/module.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct kernel_module *modules = NULL;
-extern int (*printf)(const char *, ...);
+extern int (**kernel_printf)(const char *, ...);
 extern void notify_module_state_change(struct kernel_module *);
 
 /// Find the Granary-representation for an internal module.
@@ -76,7 +76,7 @@ static struct notifier_block notifier_block = {
 static int init_granary(void) {
     printk("Loading Granary...\n");
 
-    printf = printk;
+    *kernel_printf = printk;
 
     register_module_notifier(&notifier_block);
     return 0;
@@ -85,11 +85,10 @@ static int init_granary(void) {
 
 /// Remove Granary.
 static void exit_granary(void) {
-    printk("Unloading Granary... Goodbye!\n");
-
     struct kernel_module *mod = modules;
     struct kernel_module *next_mod = NULL;
 
+    printk("Unloading Granary... Goodbye!\n");
     unregister_module_notifier(&notifier_block);
 
     // free the memory associated with internal modules

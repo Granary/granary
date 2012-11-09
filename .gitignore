@@ -2,6 +2,22 @@
 *.slo
 *.lo
 *.o
+*.ko
+
+# Generated files
+*.S
+*.cmd.c
+*.ko.cmd
+*.o.cmd
+*.symvers
+*.order
+
+# Random things
+.settings
+.project
+.cproject
+.DS_Store
+.tmp_versions
 
 # Compiled Dynamic libraries
 *.so

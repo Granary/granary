@@ -13,9 +13,15 @@
 extern "C" {
 #endif
 
-extern int (*printf)(const char *, ...);
+extern int (**kernel_printf)(const char *, ...);
 
 #ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+namespace granary {
+    extern int (*printf)(const char *, ...);
 }
 #endif
 

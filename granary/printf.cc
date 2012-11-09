@@ -8,13 +8,11 @@
 
 #include "granary/printf.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int (*printf)(const char *, ...);
-
-#ifdef __cplusplus
+namespace granary {
+    int (*printf)(const char *, ...);
 }
-#endif
+
+extern "C" {
+    int (**kernel_printf)(const char *, ...) = &(granary::printf);
+}
 
