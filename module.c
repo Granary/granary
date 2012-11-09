@@ -24,6 +24,8 @@ extern void notify_module_state_change(struct kernel_module *);
 static struct kernel_module *find_interal_module(void *vmod) {
     struct kernel_module *module = modules;
     struct kernel_module **next_link = &modules;
+    const int has_modules = NULL != modules;
+    struct module *mod = NULL;
 
     for(; NULL != module; module = module->next) {
         if(module->address == vmod) {
@@ -32,8 +34,20 @@ static struct kernel_module *find_interal_module(void *vmod) {
         next_link = &(module->next);
     }
 
-    *next_link = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
-    return *next_link;
+    module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
+    mod = (struct module *) vmod;
+
+    // initialize
+    module->is_granary = has_modules;
+    module->init = &(mod->init);
+    module->exit = &(mod->exit);
+    module->address = vmod;
+    module->text_begin = mod->module_core;
+    module->text_end = mod->module_core + mod->core_text_size;
+
+    // chain it in and return
+    *next_link = module;
+    return module;
 }
 
 
@@ -43,16 +57,8 @@ static int module_load_notifier(
     unsigned long mod_state,
     void *vmod
 ) {
-    struct module *mod = (struct module *) vmod;
-    struct kernel_module *internal_mod = find_interal_module(mod);
-
-    internal_mod->init = &(mod->init);
-    internal_mod->exit = &(mod->exit);
-    internal_mod->address = vmod;
-    internal_mod->text_begin = mod->module_core;
-    internal_mod->text_end = mod->module_core + mod->core_text_size;
+    struct kernel_module *internal_mod = find_interal_module(vmod);
     internal_mod->state = mod_state;
-
     notify_module_state_change(internal_mod);
     return 0;
 }

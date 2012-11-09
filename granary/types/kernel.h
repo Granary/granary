@@ -9,6 +9,10 @@
 #ifndef DRK_KERNEL_TYPES_HPP_
 #define DRK_KERNEL_TYPES_HPP_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef DONT_INCLUDE_HEADERS
 #   include <stdbool.h>
 #else
@@ -3520,5 +3524,9 @@ struct thread_info {
     void * sysenter_return ;
     int uaccess_err ;
 } ;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* DRK_KERNEL_TYPES_HPP_ */
