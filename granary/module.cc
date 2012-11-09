@@ -6,11 +6,22 @@
  *     Version: $Id$
  */
 
+#include "utils.h"
 #include "module.h"
 #include "printf.h"
 
+#include "granary/types/kernel.h"
+
 extern "C" {
-    void notify_module_state_change(struct kernel_module *) {
-        granary::printf("Notified about module state change!!\n");
+    void notify_module_state_change(struct kernel_module *module) {
+        if(module->is_granary) {
+            return;
+        }
+
+        kernel::module *kernel_module(granary::unsafe_cast<kernel::module *>(module->address));
+
+        granary::printf("Notified about module (%s) state change!!\n", kernel_module->name);
+
+        (void) kernel_module;
     }
 }

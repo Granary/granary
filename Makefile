@@ -11,7 +11,7 @@ GR_CXX = g++-4.6
 GR_DEBUG_LEVEL = -g3
 GR_CC_FLAGS = -mcmodel=kernel -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -mcmodel=kernel -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions -std=c++0x
-GR_CXX_FLAGS += -ansi -pedantic -pedantic-errors -Wall -Werror -Wextra -Wno-variadic-macros -Wno-long-long
+GR_CXX_FLAGS += -ansi -Wall -Werror -Wextra -Wno-variadic-macros -Wno-long-long
 
 GR_OBJS = 
 

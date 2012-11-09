@@ -24,7 +24,7 @@ extern void notify_module_state_change(struct kernel_module *);
 static struct kernel_module *find_interal_module(void *vmod) {
     struct kernel_module *module = modules;
     struct kernel_module **next_link = &modules;
-    const int has_modules = NULL != modules;
+    const int is_granary = NULL == modules;
     struct module *mod = NULL;
 
     for(; NULL != module; module = module->next) {
@@ -38,7 +38,7 @@ static struct kernel_module *find_interal_module(void *vmod) {
     mod = (struct module *) vmod;
 
     // initialize
-    module->is_granary = has_modules;
+    module->is_granary = is_granary;
     module->init = &(mod->init);
     module->exit = &(mod->exit);
     module->address = vmod;
