@@ -51,6 +51,12 @@ bin/dr/%.o: dr/%.asm
 bin/granary/%.o: granary/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -S -o bin/granary/$*.S
 
+install:
+	-mkdir bin
+	-mkdir bin/granary
+	-mkdir bin/dr
+	-mkdir bin/dr/x86
+
 all: $(GR_OBJS)
 	make -C $(KERNEL_DIR) M=$(PWD) modules
 
