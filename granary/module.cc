@@ -6,9 +6,9 @@
  *     Version: $Id$
  */
 
-#include "utils.h"
-#include "module.h"
-#include "printf.h"
+#include "granary/utils.h"
+#include "granary/module.h"
+#include "granary/printf.h"
 
 #include "granary/types/kernel.h"
 
