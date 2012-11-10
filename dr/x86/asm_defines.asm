@@ -76,7 +76,7 @@ CHECK2(.type symbol, %function)
 # define DECLARE_GLOBAL(symbol) \
 GLOBAL SYMBOL(symbol) @N@\
 CHECK(.hidden symbol)
-# define GLOBAL_LABEL(label) _ ## label
+# define GLOBAL_LABEL(label) SYMBOL(label)
 # define ADDRTAKEN_LABEL(label) label
 # define BYTE byte ptr
 # define WORD word ptr
