@@ -45,16 +45,18 @@
 # define X64
 #endif
 
-#if !defined(__clang__)
+#if defined(__clang__)
+#   define GLOBAL .globl
+#   define CHECK(x)
+#   define CHECK2(x, y)
+#   define SYMBOL(x) _ ## x
+#elif defined(__GNUC__)
 #   define GLOBAL .global
 #   define CHECK(x) x
 #   define CHECK2(x, y) x, y
 #   define SYMBOL(x) x
 #else
-#   define GLOBAL .globl
-#   define CHECK(x)
-#   define CHECK2(x, y)
-#   define SYMBOL(x) _ ## x
+#   error "Not sure what compiler is being used."
 #endif
 
 /****************************************************/
