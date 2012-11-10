@@ -7,11 +7,30 @@ GR_CPP = cpp
 GR_CC = gcc
 GR_CXX = g++-4.6
 
+# Conditional compilation for kernel code; useful for testing if Granary code
+# compiles independent of the Linux kernel.
+KERNEL ?= 1
+KERNEL_MAKE = make -C $(KERNEL_DIR) M=$(PWD) modules
+KERNEL_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean
+KERNEL_MODEL = -mcmodel=kernel
+ifneq ($(KERNEL),1)
+	KERNEL_MAKE =
+	KERNEL_CLEAN =
+	KERNEL_MODEL =
+endif
+
 # Compilation options
 GR_DEBUG_LEVEL = -g3
-GR_CC_FLAGS = -mcmodel=kernel -I$(PWD) $(GR_DEBUG_LEVEL)
-GR_CXX_FLAGS = -mcmodel=kernel -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions -std=c++0x
-GR_CXX_FLAGS += -ansi -Wall -Werror -Wextra -Wno-variadic-macros -Wno-long-long
+GR_CC_FLAGS = $(KERNEL_MODEL) -I$(PWD) $(GR_DEBUG_LEVEL)
+GR_CXX_FLAGS = $(KERNEL_MODEL) -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions -std=c++0x
+GR_CXX_FLAGS += -ansi -Wall -Werror -Wextra
+GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long
+
+# Compilation options that are conditional on the compiler
+ifneq (,$(findstring clang,$(GR_CC))) # clang
+	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
+	GR_CXX_FLAGS += -Wno-gnu
+endif
 
 GR_OBJS = 
 
@@ -32,6 +51,7 @@ GR_OBJS += bin/dr/x86/x86.o
 GR_OBJS += bin/granary/module.o
 GR_OBJS += bin/granary/heap.o
 GR_OBJS += bin/granary/printf.o
+GR_OBJS += bin/granary/instruction.o
 
 # Module objects
 obj-m += granary.o
@@ -43,7 +63,7 @@ bin/dr/%.o: dr/%.c
 
 # DynamoRIO rules for assembly files
 bin/dr/%.o: dr/%.asm
-	$(GR_CPP) -I./src/dr/x86 -E $< -o bin/dr/$*.1.S
+	$(GR_CPP) -I$(PWD) -E $< > bin/dr/$*.1.S
 	sed 's/@N@/\n/g' bin/dr/$*.1.S > bin/dr/$*.S
 	rm bin/dr/$*.1.S
 
@@ -58,10 +78,10 @@ install:
 	-mkdir bin/dr/x86
 
 all: $(GR_OBJS)
-	make -C $(KERNEL_DIR) M=$(PWD) modules
+	$(KERNEL_MAKE)
 
 clean:
 	-rm bin/dr/*.S
 	-rm bin/dr/x86/*.S
 	-rm bin/granary/*.S
-	make -C $(KERNEL_DIR) M=$(PWD) clean
+	$(KERNEL_CLEAN)

@@ -152,4 +152,9 @@ typedef void (*generic_func_t)();
 
 extern dcontext_t DCONTEXT;
 extern dcontext_t *get_thread_private_dcontext(void);
+extern bool set_x86_mode(dcontext_t *dcontext, bool x86);
+extern uint atomic_swap(uint *addr, uint value);
+extern bool cpuid_supported(void);
+extern void our_cpuid(int res[4], int eax);
+
 #endif /* Granary_TYPES_H_ */

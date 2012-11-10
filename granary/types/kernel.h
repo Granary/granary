@@ -17,9 +17,12 @@ extern "C" {
 #define private private_
 #define public public_
 #define protected protected_
-#define bool KERN_BOOL
+#define bool char
 
-#include <stdbool.h>
+#ifdef __unused
+#   undef __unused
+#   define HAVE_OLD_UNUSED 0
+#endif
 
 //enum { false = 0 , true = 1 } ;
 
@@ -353,11 +356,11 @@ enum { PG_LEVEL_NONE , PG_LEVEL_4K , PG_LEVEL_2M , PG_LEVEL_1G , PG_LEVEL_NUM } 
 
 struct desc_struct { union { struct { unsigned int a ; unsigned int b ; } ; struct { u16 limit0 ; u16 base0 ; unsigned base1 : 8 , type : 4 , s : 1 , dpl : 2 , p : 1 ; unsigned limit : 4 , avl : 1 , l : 1 , d : 1 , g : 1 , base2 : 8 ; } ; } ; } __attribute__ ( ( packed ) ) ;
 
-enum { GATE_INTERRUPT = 0xE , GATE_TRAP = 0xF , GATE_CALL = 0xC , GATE_TASK = 0x5 , } ;
+enum { GATE_INTERRUPT = 0xE , GATE_TRAP = 0xF , GATE_CALL = 0xC , GATE_TASK = 0x5 } ;
 
 struct gate_struct64 { u16 offset_low ; u16 segment ; unsigned ist : 3 , zero0 : 5 , type : 5 , dpl : 2 , p : 1 ; u16 offset_middle ; u32 offset_high ; u32 zero1 ; } __attribute__ ( ( packed ) ) ;
 
-enum { DESC_TSS = 0x9 , DESC_LDT = 0x2 , DESCTYPE_S = 0x10 , } ;
+enum { DESC_TSS = 0x9 , DESC_LDT = 0x2 , DESCTYPE_S = 0x10 } ;
 
 struct ldttss_desc64 { u16 limit0 ; u16 base0 ; unsigned base1 : 8 , type : 5 , dpl : 2 , p : 1 ; unsigned limit1 : 4 , zero0 : 3 , g : 1 , base2 : 8 ; u32 base3 ; u32 zero1 ; } __attribute__ ( ( packed ) ) ;
 
@@ -407,7 +410,7 @@ struct pv_lock_ops { int ( * spin_is_locked ) ( struct raw_spinlock * lock ) ; i
 
 struct paravirt_patch_template { struct pv_init_ops pv_init_ops ; struct pv_time_ops pv_time_ops ; struct pv_cpu_ops pv_cpu_ops ; struct pv_irq_ops pv_irq_ops ; struct pv_apic_ops pv_apic_ops ; struct pv_mmu_ops pv_mmu_ops ; struct pv_lock_ops pv_lock_ops ; } ;
 
-enum paravirt_lazy_mode { PARAVIRT_LAZY_NONE , PARAVIRT_LAZY_MMU , PARAVIRT_LAZY_CPU , } ;
+enum paravirt_lazy_mode { PARAVIRT_LAZY_NONE , PARAVIRT_LAZY_MMU , PARAVIRT_LAZY_CPU } ;
 
 struct paravirt_patch_site { u8 * instr ; u8 instrtype ; u8 len ; u16 clobbers ; } ;
 
@@ -423,9 +426,9 @@ struct msr_regs_info { u32 * regs ; int err ; } ;
 
 struct exec_domain ;
 
-enum { ADDR_NO_RANDOMIZE = 0x0040000 , FDPIC_FUNCPTRS = 0x0080000 , MMAP_PAGE_ZERO = 0x0100000 , ADDR_COMPAT_LAYOUT = 0x0200000 , READ_IMPLIES_EXEC = 0x0400000 , ADDR_LIMIT_32BIT = 0x0800000 , SHORT_INODE = 0x1000000 , WHOLE_SECONDS = 0x2000000 , STICKY_TIMEOUTS = 0x4000000 , ADDR_LIMIT_3GB = 0x8000000 , } ;
+enum { ADDR_NO_RANDOMIZE = 0x0040000 , FDPIC_FUNCPTRS = 0x0080000 , MMAP_PAGE_ZERO = 0x0100000 , ADDR_COMPAT_LAYOUT = 0x0200000 , READ_IMPLIES_EXEC = 0x0400000 , ADDR_LIMIT_32BIT = 0x0800000 , SHORT_INODE = 0x1000000 , WHOLE_SECONDS = 0x2000000 , STICKY_TIMEOUTS = 0x4000000 , ADDR_LIMIT_3GB = 0x8000000 } ;
 
-enum { PER_LINUX = 0x0000 , PER_LINUX_32BIT = 0x0000 | ADDR_LIMIT_32BIT , PER_LINUX_FDPIC = 0x0000 | FDPIC_FUNCPTRS , PER_SVR4 = 0x0001 | STICKY_TIMEOUTS | MMAP_PAGE_ZERO , PER_SVR3 = 0x0002 | STICKY_TIMEOUTS | SHORT_INODE , PER_SCOSVR3 = 0x0003 | STICKY_TIMEOUTS | WHOLE_SECONDS | SHORT_INODE , PER_OSR5 = 0x0003 | STICKY_TIMEOUTS | WHOLE_SECONDS , PER_WYSEV386 = 0x0004 | STICKY_TIMEOUTS | SHORT_INODE , PER_ISCR4 = 0x0005 | STICKY_TIMEOUTS , PER_BSD = 0x0006 , PER_SUNOS = 0x0006 | STICKY_TIMEOUTS , PER_XENIX = 0x0007 | STICKY_TIMEOUTS | SHORT_INODE , PER_LINUX32 = 0x0008 , PER_LINUX32_3GB = 0x0008 | ADDR_LIMIT_3GB , PER_IRIX32 = 0x0009 | STICKY_TIMEOUTS , PER_IRIXN32 = 0x000a | STICKY_TIMEOUTS , PER_IRIX64 = 0x000b | STICKY_TIMEOUTS , PER_RISCOS = 0x000c , PER_SOLARIS = 0x000d | STICKY_TIMEOUTS , PER_UW7 = 0x000e | STICKY_TIMEOUTS | MMAP_PAGE_ZERO , PER_OSF4 = 0x000f , PER_HPUX = 0x0010 , PER_MASK = 0x00ff , } ;
+enum { PER_LINUX = 0x0000 , PER_LINUX_32BIT = 0x0000 | ADDR_LIMIT_32BIT , PER_LINUX_FDPIC = 0x0000 | FDPIC_FUNCPTRS , PER_SVR4 = 0x0001 | STICKY_TIMEOUTS | MMAP_PAGE_ZERO , PER_SVR3 = 0x0002 | STICKY_TIMEOUTS | SHORT_INODE , PER_SCOSVR3 = 0x0003 | STICKY_TIMEOUTS | WHOLE_SECONDS | SHORT_INODE , PER_OSR5 = 0x0003 | STICKY_TIMEOUTS | WHOLE_SECONDS , PER_WYSEV386 = 0x0004 | STICKY_TIMEOUTS | SHORT_INODE , PER_ISCR4 = 0x0005 | STICKY_TIMEOUTS , PER_BSD = 0x0006 , PER_SUNOS = 0x0006 | STICKY_TIMEOUTS , PER_XENIX = 0x0007 | STICKY_TIMEOUTS | SHORT_INODE , PER_LINUX32 = 0x0008 , PER_LINUX32_3GB = 0x0008 | ADDR_LIMIT_3GB , PER_IRIX32 = 0x0009 | STICKY_TIMEOUTS , PER_IRIXN32 = 0x000a | STICKY_TIMEOUTS , PER_IRIX64 = 0x000b | STICKY_TIMEOUTS , PER_RISCOS = 0x000c , PER_SOLARIS = 0x000d | STICKY_TIMEOUTS , PER_UW7 = 0x000e | STICKY_TIMEOUTS | MMAP_PAGE_ZERO , PER_OSF4 = 0x000f , PER_HPUX = 0x0010 , PER_MASK = 0x00ff } ;
 
 typedef void ( * handler_t ) ( int , struct pt_regs * ) ;
 
@@ -569,7 +572,7 @@ struct zone_reclaim_stat { unsigned long recent_rotated [ 2 ] ; unsigned long re
 
 struct zone { unsigned long watermark [ NR_WMARK ] ; unsigned long lowmem_reserve [ 4 ] ; int node ; unsigned long min_unmapped_pages ; unsigned long min_slab_pages ; struct per_cpu_pageset * pageset [ 64 ] ; spinlock_t lock ; struct free_area free_area [ 11 ] ; struct zone_padding _pad1_ ; spinlock_t lru_lock ; struct zone_lru { struct list_head list ; } lru [ NR_LRU_LISTS ] ; struct zone_reclaim_stat reclaim_stat ; unsigned long pages_scanned ; unsigned long flags ; atomic_long_t vm_stat [ NR_VM_ZONE_STAT_ITEMS ] ; int prev_priority ; unsigned int inactive_ratio ; struct zone_padding _pad2_ ; wait_queue_head_t * wait_table ; unsigned long wait_table_hash_nr_entries ; unsigned long wait_table_bits ; struct pglist_data * zone_pgdat ; unsigned long zone_start_pfn ; unsigned long spanned_pages ; unsigned long present_pages ; const char * name ; } __attribute__ ( ( __aligned__ ( 1 << ( ( 6 ) ) ) ) ) ;
 
-typedef enum { ZONE_ALL_UNRECLAIMABLE , ZONE_RECLAIM_LOCKED , ZONE_OOM_LOCKED , } zone_flags_t ;
+typedef enum { ZONE_ALL_UNRECLAIMABLE , ZONE_RECLAIM_LOCKED , ZONE_OOM_LOCKED } zone_flags_t ;
 
 struct zonelist_cache { unsigned short z_to_n [ ( ( 1 << 6 ) * 4 ) ] ; unsigned long fullzones [ ( ( ( ( ( 1 << 6 ) * 4 ) ) + ( 8 * sizeof ( long ) ) - 1 ) / ( 8 * sizeof ( long ) ) ) ] ; unsigned long last_full_zap ; } ;
 
@@ -613,7 +616,7 @@ struct zone ;
 
 struct mem_section ;
 
-enum memmap_context { MEMMAP_EARLY , MEMMAP_HOTPLUG , } ;
+enum memmap_context { MEMMAP_EARLY , MEMMAP_HOTPLUG } ;
 
 struct ctl_table ;
 
@@ -635,7 +638,7 @@ struct mpc_lintsrc { unsigned char type ; unsigned char irqtype ; unsigned short
 
 struct mpc_oemtable { char signature [ 4 ] ; unsigned short length ; char rev ; char checksum ; char mpc [ 8 ] ; } ;
 
-enum mp_bustype { MP_BUS_ISA = 1 , MP_BUS_EISA , MP_BUS_PCI , MP_BUS_MCA , } ;
+enum mp_bustype { MP_BUS_ISA = 1 , MP_BUS_EISA , MP_BUS_PCI , MP_BUS_MCA } ;
 
 struct screen_info { __u8 orig_x ; __u8 orig_y ; __u16 ext_mem_k ; __u16 orig_video_page ; __u8 orig_video_mode ; __u8 orig_video_cols ; __u16 unused2 ; __u16 orig_video_ega_bx ; __u16 unused3 ; __u8 orig_video_lines ; __u8 orig_video_isVGA ; __u16 orig_video_points ; __u16 lfb_width ; __u16 lfb_height ; __u16 lfb_depth ; __u32 lfb_base ; __u32 lfb_size ; __u16 cl_magic , cl_offset ; __u16 lfb_linelength ; __u8 red_size ; __u8 red_pos ; __u8 green_size ; __u8 green_pos ; __u8 blue_size ; __u8 blue_pos ; __u8 rsvd_size ; __u8 rsvd_pos ; __u16 vesapm_seg ; __u16 vesapm_off ; __u16 pages ; __u16 vesa_attributes ; __u32 capabilities ; __u8 _reserved [ 6 ] ; } __attribute__ ( ( packed ) ) ;
 
@@ -679,7 +682,7 @@ struct efi_info { __u32 efi_loader_signature ; __u32 efi_systab ; __u32 efi_memd
 
 struct boot_params { struct screen_info screen_info ; struct apm_bios_info apm_bios_info ; __u8 _pad2 [ 4 ] ; __u64 tboot_addr ; struct ist_info ist_info ; __u8 _pad3 [ 16 ] ; __u8 hd0_info [ 16 ] ; __u8 hd1_info [ 16 ] ; struct sys_desc_table sys_desc_table ; __u8 _pad4 [ 144 ] ; struct edid_info edid_info ; struct efi_info efi_info ; __u32 alt_mem_k ; __u32 scratch ; __u8 e820_entries ; __u8 eddbuf_entries ; __u8 edd_mbr_sig_buf_entries ; __u8 _pad6 [ 6 ] ; struct setup_header hdr ; __u8 _pad7 [ 0x290 - 0x1f1 - sizeof ( struct setup_header ) ] ; __u32 edd_mbr_sig_buffer [ 16 ] ; struct e820entry e820_map [ 128 ] ; __u8 _pad8 [ 48 ] ; struct edd_info eddbuf [ 6 ] ; __u8 _pad9 [ 276 ] ; } __attribute__ ( ( packed ) ) ;
 
-enum { X86_SUBARCH_PC = 0 , X86_SUBARCH_LGUEST , X86_SUBARCH_XEN , X86_SUBARCH_MRST , X86_NR_SUBARCHS , } ;
+enum { X86_SUBARCH_PC = 0 , X86_SUBARCH_LGUEST , X86_SUBARCH_XEN , X86_SUBARCH_MRST , X86_NR_SUBARCHS } ;
 
 struct mpc_bus ;
 
@@ -717,7 +720,7 @@ union ktime { s64 tv64 ; } ;
 
 typedef union ktime ktime_t ;
 
-enum debug_obj_state { ODEBUG_STATE_NONE , ODEBUG_STATE_INIT , ODEBUG_STATE_INACTIVE , ODEBUG_STATE_ACTIVE , ODEBUG_STATE_DESTROYED , ODEBUG_STATE_NOTAVAILABLE , ODEBUG_STATE_MAX , } ;
+enum debug_obj_state { ODEBUG_STATE_NONE , ODEBUG_STATE_INIT , ODEBUG_STATE_INACTIVE , ODEBUG_STATE_ACTIVE , ODEBUG_STATE_DESTROYED , ODEBUG_STATE_NOTAVAILABLE , ODEBUG_STATE_MAX } ;
 
 struct debug_obj_descr ;
 
@@ -747,15 +750,15 @@ typedef struct pm_message { int event ; } pm_message_t ;
 
 struct dev_pm_ops { int ( * prepare ) ( struct device * dev ) ; void ( * complete ) ( struct device * dev ) ; int ( * suspend ) ( struct device * dev ) ; int ( * resume ) ( struct device * dev ) ; int ( * freeze ) ( struct device * dev ) ; int ( * thaw ) ( struct device * dev ) ; int ( * poweroff ) ( struct device * dev ) ; int ( * restore ) ( struct device * dev ) ; int ( * suspend_noirq ) ( struct device * dev ) ; int ( * resume_noirq ) ( struct device * dev ) ; int ( * freeze_noirq ) ( struct device * dev ) ; int ( * thaw_noirq ) ( struct device * dev ) ; int ( * poweroff_noirq ) ( struct device * dev ) ; int ( * restore_noirq ) ( struct device * dev ) ; int ( * runtime_suspend ) ( struct device * dev ) ; int ( * runtime_resume ) ( struct device * dev ) ; int ( * runtime_idle ) ( struct device * dev ) ; } ;
 
-enum dpm_state { DPM_INVALID , DPM_ON , DPM_PREPARING , DPM_RESUMING , DPM_SUSPENDING , DPM_OFF , DPM_OFF_IRQ , } ;
+enum dpm_state { DPM_INVALID , DPM_ON , DPM_PREPARING , DPM_RESUMING , DPM_SUSPENDING , DPM_OFF , DPM_OFF_IRQ } ;
 
-enum rpm_status { RPM_ACTIVE = 0 , RPM_RESUMING , RPM_SUSPENDED , RPM_SUSPENDING , } ;
+enum rpm_status { RPM_ACTIVE = 0 , RPM_RESUMING , RPM_SUSPENDED , RPM_SUSPENDING } ;
 
-enum rpm_request { RPM_REQ_NONE = 0 , RPM_REQ_IDLE , RPM_REQ_SUSPEND , RPM_REQ_RESUME , } ;
+enum rpm_request { RPM_REQ_NONE = 0 , RPM_REQ_IDLE , RPM_REQ_SUSPEND , RPM_REQ_RESUME } ;
 
 struct dev_pm_info { pm_message_t power_state ; unsigned int can_wakeup : 1 ; unsigned int should_wakeup : 1 ; enum dpm_state status ; struct list_head entry ; struct timer_list suspend_timer ; unsigned long timer_expires ; struct work_struct work ; wait_queue_head_t wait_queue ; spinlock_t lock ; atomic_t usage_count ; atomic_t child_count ; unsigned int disable_depth : 3 ; unsigned int ignore_children : 1 ; unsigned int idle_notification : 1 ; unsigned int request_pending : 1 ; unsigned int deferred_resume : 1 ; enum rpm_request request ; enum rpm_status runtime_status ; int runtime_error ; } ;
 
-enum dpm_order { DPM_ORDER_NONE , DPM_ORDER_DEV_AFTER_PARENT , DPM_ORDER_PARENT_BEFORE_DEV , DPM_ORDER_DEV_LAST , } ;
+enum dpm_order { DPM_ORDER_NONE , DPM_ORDER_DEV_AFTER_PARENT , DPM_ORDER_PARENT_BEFORE_DEV , DPM_ORDER_DEV_LAST } ;
 
 struct local_apic { struct { unsigned int __reserved [ 4 ] ; } __reserved_01 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_02 ; struct { unsigned int __reserved_1 : 24 , phys_apic_id : 4 , __reserved_2 : 4 ; unsigned int __reserved [ 3 ] ; } id ; const struct { unsigned int version : 8 , __reserved_1 : 8 , max_lvt : 8 , __reserved_2 : 8 ; unsigned int __reserved [ 3 ] ; } version ; struct { unsigned int __reserved [ 4 ] ; } __reserved_03 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_04 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_05 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_06 ; struct { unsigned int priority : 8 , __reserved_1 : 24 ; unsigned int __reserved_2 [ 3 ] ; } tpr ; const struct { unsigned int priority : 8 , __reserved_1 : 24 ; unsigned int __reserved_2 [ 3 ] ; } apr ; const struct { unsigned int priority : 8 , __reserved_1 : 24 ; unsigned int __reserved_2 [ 3 ] ; } ppr ; struct { unsigned int eoi ; unsigned int __reserved [ 3 ] ; } eoi ; struct { unsigned int __reserved [ 4 ] ; } __reserved_07 ; struct { unsigned int __reserved_1 : 24 , logical_dest : 8 ; unsigned int __reserved_2 [ 3 ] ; } ldr ; struct { unsigned int __reserved_1 : 28 , model : 4 ; unsigned int __reserved_2 [ 3 ] ; } dfr ; struct { unsigned int spurious_vector : 8 , apic_enabled : 1 , focus_cpu : 1 , __reserved_2 : 22 ; unsigned int __reserved_3 [ 3 ] ; } svr ; struct { unsigned int bitfield ; unsigned int __reserved [ 3 ] ; } isr [ 8 ] ; struct { unsigned int bitfield ; unsigned int __reserved [ 3 ] ; } tmr [ 8 ] ; struct { unsigned int bitfield ; unsigned int __reserved [ 3 ] ; } irr [ 8 ] ; union { struct { unsigned int send_cs_error : 1 , receive_cs_error : 1 , send_accept_error : 1 , receive_accept_error : 1 , __reserved_1 : 1 , send_illegal_vector : 1 , receive_illegal_vector : 1 , illegal_register_address : 1 , __reserved_2 : 24 ; unsigned int __reserved_3 [ 3 ] ; } error_bits ; struct { unsigned int errors ; unsigned int __reserved_3 [ 3 ] ; } all_errors ; } esr ; struct { unsigned int __reserved [ 4 ] ; } __reserved_08 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_09 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_10 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_11 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_12 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_13 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_14 ; struct { unsigned int vector : 8 , delivery_mode : 3 , destination_mode : 1 , delivery_status : 1 , __reserved_1 : 1 , level : 1 , trigger : 1 , __reserved_2 : 2 , shorthand : 2 , __reserved_3 : 12 ; unsigned int __reserved_4 [ 3 ] ; } icr1 ; struct { union { unsigned int __reserved_1 : 24 , phys_dest : 4 , __reserved_2 : 4 ; unsigned int __reserved_3 : 24 , logical_dest : 8 ; } dest ; unsigned int __reserved_4 [ 3 ] ; } icr2 ; struct { unsigned int vector : 8 , __reserved_1 : 4 , delivery_status : 1 , __reserved_2 : 3 , mask : 1 , timer_mode : 1 , __reserved_3 : 14 ; unsigned int __reserved_4 [ 3 ] ; } lvt_timer ; struct { unsigned int vector : 8 , delivery_mode : 3 , __reserved_1 : 1 , delivery_status : 1 , __reserved_2 : 3 , mask : 1 , __reserved_3 : 15 ; unsigned int __reserved_4 [ 3 ] ; } lvt_thermal ; struct { unsigned int vector : 8 , delivery_mode : 3 , __reserved_1 : 1 , delivery_status : 1 , __reserved_2 : 3 , mask : 1 , __reserved_3 : 15 ; unsigned int __reserved_4 [ 3 ] ; } lvt_pc ; struct { unsigned int vector : 8 , delivery_mode : 3 , __reserved_1 : 1 , delivery_status : 1 , polarity : 1 , remote_irr : 1 , trigger : 1 , mask : 1 , __reserved_2 : 15 ; unsigned int __reserved_3 [ 3 ] ; } lvt_lint0 ; struct { unsigned int vector : 8 , delivery_mode : 3 , __reserved_1 : 1 , delivery_status : 1 , polarity : 1 , remote_irr : 1 , trigger : 1 , mask : 1 , __reserved_2 : 15 ; unsigned int __reserved_3 [ 3 ] ; } lvt_lint1 ; struct { unsigned int vector : 8 , __reserved_1 : 4 , delivery_status : 1 , __reserved_2 : 3 , mask : 1 , __reserved_3 : 15 ; unsigned int __reserved_4 [ 3 ] ; } lvt_error ; struct { unsigned int initial_count ; unsigned int __reserved_2 [ 3 ] ; } timer_icr ; const struct { unsigned int curr_count ; unsigned int __reserved_2 [ 3 ] ; } timer_ccr ; struct { unsigned int __reserved [ 4 ] ; } __reserved_16 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_17 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_18 ; struct { unsigned int __reserved [ 4 ] ; } __reserved_19 ; struct { unsigned int divisor : 4 , __reserved_1 : 28 ; unsigned int __reserved_2 [ 3 ] ; } timer_dcr ; struct { unsigned int __reserved [ 4 ] ; } __reserved_20 ; } __attribute__ ( ( packed ) ) ;
 
@@ -765,7 +768,7 @@ typedef struct { void * ldt ; int size ; struct mutex lock ; void * vdso ; } mm_
 
 struct bootnode ;
 
-enum vsyscall_num { __NR_vgettimeofday , __NR_vtime , __NR_vgetcpu , } ;
+enum vsyscall_num { __NR_vgettimeofday , __NR_vtime , __NR_vgetcpu } ;
 
 enum fixed_addresses { VSYSCALL_LAST_PAGE , VSYSCALL_FIRST_PAGE = VSYSCALL_LAST_PAGE + ( ( ( - 2UL << 20 ) - ( - 10UL << 20 ) ) >> 12 ) - 1 , VSYSCALL_HPET , FIX_DBGP_BASE , FIX_EARLYCON_MEM_BASE , FIX_APIC_BASE , FIX_IO_APIC_BASE_0 , FIX_IO_APIC_BASE_END = FIX_IO_APIC_BASE_0 + 128 - 1 , FIX_PARAVIRT_BOOTMAP , FIX_TEXT_POKE1 , FIX_TEXT_POKE0 , __end_of_permanent_fixed_addresses , FIX_BTMAP_END = __end_of_permanent_fixed_addresses + 256 - ( __end_of_permanent_fixed_addresses & 255 ) , FIX_BTMAP_BEGIN = FIX_BTMAP_END + 64 * 4 - 1 , __end_of_fixed_addresses } ;
 
@@ -807,7 +810,7 @@ struct key ;
 
 struct subprocess_info ;
 
-enum umh_wait { UMH_NO_WAIT = - 1 , UMH_WAIT_EXEC = 0 , UMH_WAIT_PROC = 1 , } ;
+enum umh_wait { UMH_NO_WAIT = - 1 , UMH_WAIT_EXEC = 0 , UMH_WAIT_PROC = 1 } ;
 
 struct user_i387_struct { unsigned short cwd ; unsigned short swd ; unsigned short twd ; unsigned short fop ; __u64 rip ; __u64 rdp ; __u32 mxcsr ; __u32 mxcsr_mask ; __u32 st_space [ 32 ] ; __u32 xmm_space [ 64 ] ; __u32 padding [ 24 ] ; } ;
 
@@ -949,7 +952,7 @@ struct pcpu_group_info { int nr_units ; unsigned long base_offset ; unsigned int
 
 struct pcpu_alloc_info { size_t static_size ; size_t reserved_size ; size_t dyn_size ; size_t unit_size ; size_t atom_size ; size_t alloc_size ; size_t __ai_size ; int nr_groups ; struct pcpu_group_info groups [ ] ; } ;
 
-enum pcpu_fc { PCPU_FC_AUTO , PCPU_FC_EMBED , PCPU_FC_PAGE , PCPU_FC_NR , } ;
+enum pcpu_fc { PCPU_FC_AUTO , PCPU_FC_EMBED , PCPU_FC_PAGE , PCPU_FC_NR } ;
 
 typedef void * ( * pcpu_fc_alloc_fn_t ) ( unsigned int cpu , size_t size , size_t align ) ;
 
@@ -973,17 +976,26 @@ struct module_kobject { struct kobject kobj ; struct module * mod ; struct kobje
 
 struct exception_table_entry ;
 
-enum module_state { MODULE_STATE_LIVE , MODULE_STATE_COMING , MODULE_STATE_GOING , } ;
+enum module_state { MODULE_STATE_LIVE , MODULE_STATE_COMING , MODULE_STATE_GOING } ;
 
 struct module { enum module_state state ; struct list_head list ; char name [ ( 64 - sizeof ( unsigned long ) ) ] ; struct module_kobject mkobj ; struct module_attribute * modinfo_attrs ; const char * version ; const char * srcversion ; struct kobject * holders_dir ; const struct kernel_symbol * syms ; const unsigned long * crcs ; unsigned int num_syms ; struct kernel_param * kp ; unsigned int num_kp ; unsigned int num_gpl_syms ; const struct kernel_symbol * gpl_syms ; const unsigned long * gpl_crcs ; const struct kernel_symbol * unused_syms ; const unsigned long * unused_crcs ; unsigned int num_unused_syms ; unsigned int num_unused_gpl_syms ; const struct kernel_symbol * unused_gpl_syms ; const unsigned long * unused_gpl_crcs ; const struct kernel_symbol * gpl_future_syms ; const unsigned long * gpl_future_crcs ; unsigned int num_gpl_future_syms ; unsigned int num_exentries ; struct exception_table_entry * extable ; int ( * init ) ( void ) ; void * module_init ; void * module_core ; unsigned int init_size , core_size ; unsigned int init_text_size , core_text_size ; struct mod_arch_specific arch ; unsigned int taints ; unsigned num_bugs ; struct list_head bug_list ; struct bug_entry * bug_table ; Elf64_Sym * symtab , * core_symtab ; unsigned int num_symtab , core_num_syms ; char * strtab , * core_strtab ; struct module_sect_attrs * sect_attrs ; struct module_notes_attrs * notes_attrs ; void * percpu ; char * args ; struct tracepoint * tracepoints ; unsigned int num_tracepoints ; const char * * trace_bprintk_fmt_start ; unsigned int num_trace_bprintk_fmt ; struct ftrace_event_call * trace_events ; unsigned int num_trace_events ; unsigned long * ftrace_callsites ; unsigned int num_ftrace_callsites ; struct list_head modules_which_use_me ; struct task_struct * waiter ; void ( * exit ) ( void ) ; char * refptr ; ctor_fn_t * ctors ; unsigned int num_ctors ; } ;
 
-struct symsearch { const struct kernel_symbol * start , * stop ; const unsigned long * crcs ; enum { NOT_GPL_ONLY , GPL_ONLY , WILL_BE_GPL_ONLY , } licence ; bool unused ; } ;
+struct symsearch { const struct kernel_symbol * start , * stop ; const unsigned long * crcs ; enum { NOT_GPL_ONLY , GPL_ONLY , WILL_BE_GPL_ONLY } licence ; bool unused ; } ;
 
 struct device_driver ;
 
 struct kernel_module { int is_granary ; int ( * * init ) ( void ) ; void ( * * exit ) ( void ) ; void * address ; void * text_begin ; void * text_end ; enum { KERNEL_MODULE_STATE_LIVE , KERNEL_MODULE_STATE_COMING , KERNEL_MODULE_STATE_GOING } state ; struct kernel_module * next ; } ;
 
 #undef KERN_BOOL
+
+#ifdef HAVE_OLD_UNUSED
+#   define __unused __attribute__((unused))
+#endif
+
+#undef private
+#undef public
+#undef protected
+#undef bool
 
 #ifdef __cplusplus
 } /* extern */

@@ -39,6 +39,7 @@
 #define API_EXPORT_ONLY
 #define dr_mcontext_as_priv_mcontext(x) (x)
 #define use_addr_prefix_on_short_disp() 0
+#define SHARED_FRAGMENTS_ENABLED() 0
 
 #define IF_LINUX(x) x
 #define IF_CLIENT_INTERFACE(x)
@@ -176,8 +177,10 @@ extern "C" {
 
 #define synchronize_dynamic_options()
 #define os_terminate(...) CLIENT_ASSERT(false, void)
+#define os_dump_core(...) CLIENT_ASSERT(false, void)
 #define DUMPCORE_FATAL_USAGE_ERROR 0
 #define DYNAMO_OPTION_NOT_STRING(opt) 0
+#define IF_HAVE_TLS_ELSE(if_true, if_false) (if_false)
 
 /* FIXME, eventually want usage_error to also be external (may also eventually
  * need non dynamic option synch form as well for usage errors while updating

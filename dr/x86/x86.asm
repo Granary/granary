@@ -64,12 +64,12 @@
  * Naturally the ARG* macros are only valid at function entry.
  */
 
-#include "asm_defines.asm"
+#include "dr/x86/asm_defines.asm"
 .intel_syntax noprefix;
 START_FILE
 
 #ifdef LINUX
-# include "syscall.h"
+# include "dr/linux/include/syscall.h"
 #endif
         
 #define RESTORE_FROM_DCONTEXT_VIA_REG(reg,offs,dest) mov dest, PTRSZ [offs + reg]

@@ -11,6 +11,7 @@
 #include "granary/printf.h"
 
 #include "granary/types/kernel.h"
+#include "granary/instruction.h"
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
