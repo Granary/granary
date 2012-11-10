@@ -63,6 +63,9 @@ KERNEL ?= 1
 
 # user space
 ifneq ($(KERNEL),1)
+	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
+	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
+	
 	GR_MAKE += gcc -c bin/dr/x86/x86.S -o bin/dr/x86/x86.o ; 
 	GR_MAKE += $(GR_CC) $(GR_CC_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
 	GR_CLEAN =
@@ -79,8 +82,8 @@ else
 	GR_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean
 	GR_OUTPUT_FORMAT = S
 	
-	GR_CC_FLAGS += -mcmodel=kernel -S
-	GR_CXX_FLAGS += -mcmodel=kernel -S
+	GR_CC_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
+	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 endif
 
 # DynamoRIO rules for C files

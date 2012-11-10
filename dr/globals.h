@@ -21,7 +21,7 @@
 #define STANDALONE_DECODER 1
 #define LOG(...)
 #define DODEBUG(...)
-#define CLIENT_ASSERT(cond, ...) { if(cond) { *((char *) 0) = 0; } }
+#define CLIENT_ASSERT(cond, ...) { if(!(cond)) { *((char *) 0) = 0; } }
 #define SELF_UNPROTECT_DATASEC(...)
 #define SELF_PROTECT_DATASEC(...)
 #define IF_X64(x) x

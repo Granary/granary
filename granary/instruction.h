@@ -11,6 +11,7 @@
 #include <cstring>
 #include <stdint.h>
 
+#include "granary/utils.h"
 #include "granary/types/dynamorio.h"
 
 namespace granary {
@@ -38,10 +39,22 @@ namespace granary {
         /// decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
-        inline instruction decode(uint8_t **pc) throw() {
+        template <typename T>
+        static inline instruction decode(T **pc) throw() {
             instruction self;
-            *pc = dynamorio::decode(DCONTEXT, *pc, &self);
+            uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
+            *pc = unsafe_cast<T *>(
+                dynamorio::decode_raw(DCONTEXT, byte_pc, &self));
+            dynamorio::decode(DCONTEXT, byte_pc, &self);
             return self;
+        }
+
+        /// encodes an instruction into a sequence of bytes
+        template <typename T>
+        inline T *encode(T *pc) {
+            uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
+            byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
+            return unsafe_cast<T *>(byte_pc);
         }
     };
 
