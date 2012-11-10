@@ -49,10 +49,12 @@
 #   define GLOBAL .global
 #   define CHECK(x) x
 #   define CHECK2(x, y) x, y
+#   define SYMBOL(x) x
 #else
 #   define GLOBAL .globl
 #   define CHECK(x)
 #   define CHECK2(x, y)
+#   define SYMBOL(x) _ ## x
 #endif
 
 /****************************************************/
@@ -61,16 +63,16 @@
 # define END_FILE /* nothing */
 # define DECLARE_FUNC(symbol) \
 .align 0 @N@ \
-GLOBAL _ ## symbol @N@ \
+GLOBAL SYMBOL(symbol) @N@ \
 CHECK(.hidden symbol @N@) \
 CHECK2(.type symbol, %function)
 # define DECLARE_EXPORTED_FUNC(symbol) \
 .align 0 @N@\
-GLOBAL _ ## symbol @N@\
+GLOBAL SYMBOL(symbol) @N@\
 CHECK2(.type symbol, %function)
 # define END_FUNC(symbol) /* nothing */
 # define DECLARE_GLOBAL(symbol) \
-GLOBAL _ ## symbol @N@\
+GLOBAL SYMBOL(symbol) @N@\
 CHECK(.hidden symbol)
 # define GLOBAL_LABEL(label) _ ## label
 # define ADDRTAKEN_LABEL(label) label
