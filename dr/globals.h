@@ -17,6 +17,7 @@
 #define IN
 #define INOUT
 #define OUT
+#define INSTR_INLINE
 #define STANDALONE_DECODER 1
 #define LOG(...)
 #define DODEBUG(...)

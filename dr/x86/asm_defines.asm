@@ -45,24 +45,34 @@
 # define X64
 #endif
 
+#if !defined(__clang__)
+#   define GLOBAL .global
+#   define CHECK(x) x
+#   define CHECK2(x, y) x, y
+#else
+#   define GLOBAL .globl
+#   define CHECK(x)
+#   define CHECK2(x, y)
+#endif
+
 /****************************************************/
 #if defined(ASSEMBLE_WITH_GAS)
 # define START_FILE .text
 # define END_FILE /* nothing */
 # define DECLARE_FUNC(symbol) \
-.align 0 @N@\
-.global symbol @N@\
-.hidden symbol @N@\
-.type symbol, %function
+.align 0 @N@ \
+GLOBAL _ ## symbol @N@ \
+CHECK(.hidden symbol @N@) \
+CHECK2(.type symbol, %function)
 # define DECLARE_EXPORTED_FUNC(symbol) \
 .align 0 @N@\
-.global symbol @N@\
-.type symbol, %function
+GLOBAL _ ## symbol @N@\
+CHECK2(.type symbol, %function)
 # define END_FUNC(symbol) /* nothing */
 # define DECLARE_GLOBAL(symbol) \
-.global symbol @N@\
-.hidden symbol
-# define GLOBAL_LABEL(label) label
+GLOBAL _ ## symbol @N@\
+CHECK(.hidden symbol)
+# define GLOBAL_LABEL(label) _ ## label
 # define ADDRTAKEN_LABEL(label) label
 # define BYTE byte ptr
 # define WORD word ptr
@@ -74,7 +84,7 @@
 # else
 #  define SYMREF(sym) [sym]
 # endif
-# define HEX(n) 0x##n
+# define HEX(n) 0x ## n
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) /* nothing */
 /* include newline so we can put multiple on one line */
@@ -153,7 +163,7 @@ ASSUME fs:_DATA @N@\
 # define DWORD dword
 # define QWORD qword
 # define SYMREF(sym) [sym]
-# define HEX(n) 0x##n
+# define HEX(n) 0x ## n
 # define SEGMEM(seg,mem) [seg:mem]
 # define DECL_EXTERN(symbol) EXTERN symbol
 # define RAW(n) error_not_implemented

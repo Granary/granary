@@ -3,6 +3,8 @@
 *.lo
 *.o
 *.ko
+*.pyc
+*.out
 
 # Generated files
 *.S
