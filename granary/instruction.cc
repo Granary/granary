@@ -20,5 +20,6 @@ namespace granary {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(this, true);
     }
+
 }
 

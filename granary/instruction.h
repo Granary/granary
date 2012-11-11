@@ -12,10 +12,15 @@
 #include <stdint.h>
 
 #include "granary/utils.h"
+#include "granary/list.h"
 #include "granary/types/dynamorio.h"
 
 namespace granary {
 
+    /// forward declaration
+    struct allocator;
+
+    /// Defines a decoded x86 instruction type.
     struct instruction : protected dynamorio::instr_t {
     private:
 
@@ -34,6 +39,11 @@ namespace granary {
         /// return the number of destination operands in this instruction
         inline unsigned num_destinations(void) const throw() {
             return this->num_dsts;
+        }
+
+        /// return true iff this instruction is a cti
+        inline bool is_cti(void) throw() {
+            return dynamorio::instr_is_cti(this);
         }
 
         /// decodes a raw byte, pointed to by *pc, and updated *pc to be the
@@ -58,6 +68,41 @@ namespace granary {
         }
     };
 
+    // declare that instructions form a doubly linked embedded list.
+    template <>
+    struct list_meta<instruction> {
+        enum {
+            EMBED = true,
+            UNROLL = 5,
+            NEXT_POINTER = true,
+            PREV_POINTER = true,
+            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
+            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
+        };
+    };
+
+    typedef list<instruction> instruction_list;
+
+    /*
+    /// Defines a list of decoded x86 instructions.
+    struct instruction_list {
+    private:
+
+        unsigned num_instructions;
+        instruction *first;
+        allocator *allocator;
+
+    public:
+
+        instruction_list(allocator &) throw();
+
+        void append(instruction in) throw();
+        void insert_before(instruction &pos, instruction in) throw();
+
+        void prepend(instruction in) throw();
+        void insert_after(instruction &pos, instruction in) throw();
+    };
+    */
 }
 
 #endif /* granary_INSTRUCTION_H_ */
