@@ -1,6 +1,27 @@
 /*
  * list.h
  *
+ * This file defines a generic list structure. The list structure is configured
+ * by specializing the list_meta template. Specializing this template allows the
+ * list to adapt to elements with/out embedded pointers, as well as to super-
+ * impose traversal pointers.
+ *
+ * Note:
+ *      - This class uses value semantics in many places. At low levels of
+ *        optimizations, this is likely to result in performance degradation.
+ *      - This class assumes that you have either no pointers, a next pointer,
+ *        or a next pointer and a previous pointer.
+ *      - This class is not thread safe.
+ *
+ * Limitations:
+ *      - If one type of traversal pointer is embedded, then this class cannot
+ *        super-impose the opposite kind of traversal pointer.
+ *      - This class is meant to contain structs/classes.
+ *      - The type being put into the list must be default constructible and
+ *        copy constructible.
+ *
+ *      - Currently this implementation only works for doubly linked lists!
+ *
  *   Copyright: Copyright 2012 Peter Goodman, all rights reserved.
  *      Author: Peter Goodman
  */
@@ -16,6 +37,10 @@
 
 namespace granary {
 
+    /// forward declaration
+    template <typename> struct list;
+
+
     /// configuration type for lists of type T. This enables singly and doubly
     /// linked lists, where list pointers are either embedded or super-imposed.
     template <typename T>
@@ -23,19 +48,17 @@ namespace granary {
         enum {
             EMBED = false,
             UNROLL = 1,
-            NEXT_POINTER = true,
-            PREV_POINTER = false,
 
             NEXT_POINTER_OFFSET = 0,
             PREV_POINTER_OFFSET = 0
         };
 
-        static T *allocate(void) throw() {
-            return heap_alloc(0, sizeof(T));
+        static void *allocate(unsigned size) throw() {
+            return heap_alloc(0, size);
         }
 
-        static void free(T *val) throw() {
-            heap_free(0, val, sizeof *val);
+        static void free(void *val, unsigned size) throw() {
+            heap_free(0, val, size);
         }
     };
 
@@ -43,74 +66,138 @@ namespace granary {
     template <typename T, bool embed>
     struct list_item;
 
+
+    template <typename T>
+    struct list_item_with_links;
+
+
     /// base class for a list item with/out a previous pointer
-    template <typename T, bool has_prev>
+    template <typename ItemT, typename T, bool has_prev>
     struct list_item_with_prev;
 
-    template <typename T>
-    struct list_item_with_prev<T, true> {
+
+    template <typename ItemT, typename T>
+    struct list_item_with_prev<ItemT, T, true> {
+    private:
+
+        template <typename> friend struct list;
+        template <typename, typename, bool> friend struct list_item_with_next;
+
+        inline ItemT **prev_pointer(void) throw() {
+            enum {
+                OFFSET = list_meta<T>::PREV_POINTER_OFFSET
+            };
+            char *byte_this(unsafe_cast<char *>(this));
+            return unsafe_cast<ItemT **>(byte_this + OFFSET);
+        }
+
     public:
-        T *&get_prev(void) throw() {
-            return *unsafe_cast<T **>(
-                unsafe_cast<char *>(this) + list_meta<T>::PREV_POINTER_OFFSET);
+
+        inline ItemT prev(void) const throw() {
+            enum {
+                OFFSET = list_meta<T>::PREV_POINTER_OFFSET
+            };
+            const char *byte_this(unsafe_cast<const char *>(this));
+            const ItemT *ptr(*unsafe_cast<const ItemT **>(byte_this + OFFSET));
+            if(nullptr == ptr) {
+                ItemT prev;
+
+                if(list_meta<T>::NEXT_POINTER) {
+                    *(prev.next_pointer()) = unsafe_cast<ItemT *>(this);
+                }
+
+                return prev;
+            }
+            return *ptr;
         }
     };
 
-    template <typename T>
-    struct list_item_with_prev<T, false> { };
+
+    template <typename ItemT, typename T>
+    struct list_item_with_prev<ItemT, T, false> {
+    private:
+
+        template <typename> friend struct list;
+        template <typename, typename, bool> friend struct list_item_with_next;
+
+        inline ItemT **prev_pointer(void) throw() {
+            return nullptr;
+        }
+    };
+
 
     /// base class for a list item with/out a previous pointer
-    template <typename T, bool has_next>
+    template <typename ItemT, typename T, bool has_next>
     struct list_item_with_next;
 
-    template <typename T>
-    struct list_item_with_next<T, true> {
+
+    template <typename ItemT, typename T>
+    struct list_item_with_next<ItemT, T, true> {
+    private:
+
+        template <typename> friend struct list;
+        template <typename, typename, bool> friend struct list_item_with_prev;
+
+        inline ItemT **next_pointer(void) throw() {
+            enum {
+                OFFSET = list_meta<T>::NEXT_POINTER_OFFSET
+            };
+            char *byte_this(unsafe_cast<char *>(this));
+            return unsafe_cast<ItemT **>(byte_this + OFFSET);
+        }
+
     public:
-        T *&get_next(void) throw() {
-            return *unsafe_cast<T **>(
-                unsafe_cast<char *>(this) + list_meta<T>::NEXT_POINTER_OFFSET);
+
+        inline ItemT next(void) const throw() {
+            enum {
+                OFFSET = list_meta<T>::NEXT_POINTER_OFFSET
+            };
+            const char *byte_this(unsafe_cast<const char *>(this));
+            const ItemT *ptr(*unsafe_cast<const ItemT **>(byte_this + OFFSET));
+            if(nullptr == ptr) {
+                ItemT next;
+                *(next.prev_pointer()) = unsafe_cast<ItemT *>(this);
+                return next;
+            }
+            return *ptr;
         }
     };
 
-    template <typename T>
-    struct list_item_with_next<T, false> { };
 
-    template <typename T>
-    struct list_item_with_links : public T {
-    public:
+    template <typename ItemT, typename T>
+    struct list_item_with_next<ItemT, T, false> {
+    private:
+        template <typename> friend struct list;
+        template <typename, typename, bool> friend struct list_item_with_prev;
 
-        typedef list_meta<T> internal_meta;
-        typedef list_item_with_links<T> self_type;
-
-        self_type *links[
-            internal_meta::NEXT_POINTER + internal_meta::PREV_POINTER];
-
-        inline T get_item(void) const throw() {
-            return *this;
+        inline ItemT **next_pointer(void) throw() {
+            return nullptr;
         }
     };
 
-    /// used for asserting that we don't accidentally choose the wrong method
-    /// for get_item based on argument dependent lookup
+
+    /// Here we super-impose link pointers onto the base class of type T.
     template <typename T>
-    struct is_list_item_with_links {
+    struct list_item_with_links {
     public:
-        typedef std::false_type type;
-        typedef T item_type;
-        enum {
-            value = false
-        };
+
+        typedef list_item<T, false> pointer_type;
+
+        T val;
+        pointer_type *next_;
+        pointer_type *prev_;
+
+        list_item_with_links(void)
+            : val()
+            , next_(nullptr)
+            , prev_(nullptr)
+        { }
+
+        inline T operator*(void) const throw() {
+            return this->val;
+        }
     };
 
-    template <typename T>
-    struct is_list_item_with_links<list_item_with_links<T> > {
-    public:
-        typedef std::true_type type;
-        typedef T item_type;
-        enum {
-            value = true
-        };
-    };
 
     /// meta information about a list of T, where T does not have embedded
     /// next/prev pointers, but where list_item<T, false> does have embedded
@@ -124,35 +211,30 @@ namespace granary {
         enum {
             EMBED = true,
             UNROLL = internal_meta::UNROLL,
-            NEXT_POINTER = internal_meta::NEXT_POINTER,
-            PREV_POINTER = internal_meta::PREV_POINTER,
-
-            HAS_NEXT = internal_meta::NEXT_POINTER,
-            HAS_PREV = internal_meta::PREV_POINTER,
-            NEXT_OFFSET = offsetof(item_type, links),
-            PREV_OFFSET =
-                NEXT_OFFSET + (HAS_NEXT && HAS_PREV ? sizeof(item_type *) : 0UL),
-
-            NEXT_POINTER_OFFSET = NEXT_OFFSET,
-            PREV_POINTER_OFFSET = PREV_OFFSET
+            NEXT_POINTER_OFFSET = offsetof(item_type, next_),
+            PREV_POINTER_OFFSET = offsetof(item_type, prev_)
         };
 
-        inline static item_type *allocate(void) throw() {
-            return internal_meta::heap_alloc(0, sizeof(item_type));
+        inline static void *allocate(unsigned size) throw() {
+            return internal_meta::allocate(0, size);
         }
 
-        inline static void free(item_type *val) throw() {
-            internal_meta::heap_free(0, val, sizeof *val);
+        inline static void free(void *val, unsigned size) throw() {
+            internal_meta::free(val, size);
         }
     };
 
-    /// an implementation of a linked list where next/previous pointers,
+
+    /// An implementation of a linked list where next/previous pointers,
     /// if any, are embedded in T.
+    ///
+    /// Note:
+    ///     We depend on the list_item_with_* base classes occupying zero
+    ///     size, which makes this class essentially T.
     template <typename T>
     struct list_item<T, true>
-      : T
-      , list_item_with_prev<T, list_meta<T>::PREV_POINTER>
-      , list_item_with_next<T, list_meta<T>::NEXT_POINTER>
+        : list_item_with_prev<list_item<T, true>, T, true>
+        , list_item_with_next<list_item<T, true>, T, true>
     {
     public:
 
@@ -160,31 +242,70 @@ namespace granary {
 
     private:
 
-        inline static typename is_list_item_with_links<T>::item_type
-        get_item(const self_type *self, std::true_type) throw() {
-            return self->T::get_item();
-        }
+        template <typename> friend class list;
 
-        inline static T get_item(const self_type *self, std::false_type) throw() {
-            return *self;
-        }
+        T val;
 
-        typedef typename is_list_item_with_links<T>::type bool_type;
+        /// get a raw pointer to the value, where the value does not have
+        /// embedded navigation pointers.
+        inline static T *get_raw_pointer(self_type *self) throw() {
+            return &(self->val);
+        }
 
     public:
 
-        inline decltype(get_item(nullptr, bool_type())) get_item(void) const throw() {
-            return get_item(this, bool_type());
+        list_item(void)
+            : val()
+        { }
+
+        inline T operator*(void) const throw() {
+            return val;
+        }
+
+        inline T *operator->(void) throw() {
+            return &(val);
         }
     };
+
 
     /// an implementation of a linked list where the next/previous pointers
     /// are part of the list item, and not of T.
     template <typename T>
-    struct list_item<T, false> : public list_item<list_item_with_links<T>, true> {
+    struct list_item<T, false>
+        : list_item_with_prev<list_item<T, false>, T, true>
+        , list_item_with_next<list_item<T, false>, T, true>
+    {
     public:
-        typedef list_item<T, true> self_type;
+
+        typedef list_item<T, false> self_type;
+
+    private:
+
+        template <typename> friend class list;
+
+        list_item_with_links<T> val;
+
+        /// get a raw pointer to the value, where the value does not have
+        /// embedded navigation pointers.
+        inline static T *get_raw_pointer(self_type *self) throw() {
+            return &(self->val.val);
+        }
+
+    public:
+
+        list_item(void)
+            : val()
+        { }
+
+        inline T operator*(void) const throw() {
+            return val.val;
+        }
+
+        inline T *operator->(void) throw() {
+            return &(val.val);
+        }
     };
+
 
     /// represents a generic list of T, where the properties of the list are
     /// configured by specializing list_meta<T>.
@@ -192,18 +313,42 @@ namespace granary {
     struct list {
     private:
 
-        typedef list_item<T, list_meta<T>::EMBED> item_type;
+        typedef list_meta<T> meta_type;
+        typedef list_item<T, meta_type::EMBED> item_type;
 
         item_type *first_;
         item_type *last_;
         item_type *cache_;
         unsigned length_;
 
+        /// get a pointer to either one of the next/previous pointers in an
+        /// item.
+        static item_type **get_link_pointer(item_type *item) throw() {
+            return item->next_pointer();
+        }
+
+        /// allocate a new list item
+        item_type *allocate(T val) throw() {
+            item_type *ptr(nullptr);
+            if(nullptr != cache_) {
+                ptr = cache_;
+                cache_ = *get_link_pointer(ptr);
+            } else {
+                ptr = (item_type *) meta_type::allocate(sizeof(item_type));
+            }
+
+            *item_type::get_raw_pointer(ptr) = val;
+            *(ptr->next_pointer()) = nullptr;
+            *(ptr->prev_pointer()) = nullptr;
+            return ptr;
+        }
+
     public:
 
         list(void) throw()
             : first_(nullptr)
             , last_(nullptr)
+            , cache_(nullptr)
             , length_(0U)
         { }
 
@@ -215,66 +360,212 @@ namespace granary {
         /// Clear the elements of the list, with the intention of re-using the
         /// already allocated list elements later.
         void clear_for_reuse(void) throw() {
+            if(!first_) {
+                return;
+            }
 
+            *get_link_pointer(last_) = cache_;
+            cache_ = first_;
+            first_ = nullptr;
+            last_ = nullptr;
+            length_ = 0;
         }
 
         /// Clear the elements of the list, and release any memory associated
         /// with the elements of the list
         void clear(void) throw() {
+            if(!first_) {
+                return;
+            }
 
+            // clear out all normal items
+            item_type *item(first_);
+            item_type *next(nullptr);
+            for(; nullptr != item; item = next) {
+                next = *get_link_pointer(item);
+                meta_type::free(item, sizeof *item);
+            }
+
+            // clear out any cached items
+            item = cache_;
+            next = nullptr;
+            for(; nullptr != item; item = next) {
+                next = *get_link_pointer(item);
+                meta_type::free(item, sizeof *item);
+            }
+
+            first_ = nullptr;
+            last_ = nullptr;
+            cache_ = nullptr;
+            length_ = 0;
         }
 
         /// Adds an element on to the end of the list.
-        inline void append(T val) throw() {
-            return insert_after(last(), val);
+        item_type append(T val) throw() {
+            item_type *item(allocate(val));
+            item_type *prev_last = last_;
+
+            if(nullptr == first_) {
+                first_ = item;
+                last_ = item;
+            } else {
+                last_ = item;
+            }
+
+            // next
+            *(item->next_pointer()) = nullptr;
+            if(prev_last) *(prev_last->next_pointer()) = item;
+
+            // prev
+            *(item->prev_pointer()) = prev_last;
+
+            ++length_;
+
+            return *item;
         }
 
         /// Adds an element on to the beginning of the list.
-        inline void prepend(T val) throw() {
-            return insert_before(first(), val);
+        item_type prepend(T val) throw() {
+            item_type *item(allocate(val));
+            item_type *prev_first = first_;
+
+            if(nullptr == first_) {
+                first_ = item;
+                last_ = item;
+            } else {
+                first_ = item;
+            }
+
+            // next
+            *(item->next_pointer()) = prev_first;
+
+            // prev
+            *(item->prev_pointer()) = nullptr;
+            if(prev_first) *(prev_first->prev_pointer()) = item;
+
+            ++length_;
+
+            return *item;
         }
 
         /// Return the first element in the list.
-        inline T first(void) const throw() {
+        inline item_type first(void) const throw() {
             if(!first_) {
-                return T();
+                return item_type();
             }
 
-            return first_->get_item();
+            return *first_;
         }
 
         /// Return the last element in the list.
-        inline T last(void) const throw() {
+        inline item_type last(void) const throw() {
             if(!last_) {
-                return T();
+                return item_type();
             }
 
-            return last_->get_item();
+            return *last_;
         }
 
-        /// Insert an element before another object in the list
-        void insert_before(T pos, T val) throw() {
-            (void) pos;
-            (void) val;
+        /// Insert an element before another object in the list.
+        item_type insert_before(item_type pos, T val) throw() {
+            if(1 >= length_) {
+                return prepend(val);
+            }
+
+            item_type *before_pos(nullptr);
+            item_type *after_pos(nullptr);
+            item_type *at_pos(nullptr);
+
+            // figure out where we are
+            pos_to_item(pos, &at_pos, &before_pos, &after_pos);
+
+            if(at_pos) {
+
+                item_type *item(allocate(val));
+                ++length_;
+
+                *(at_pos->prev_pointer()) = item;
+                *(item->next_pointer()) = at_pos;
+                *(item->prev_pointer()) = before_pos;
+
+                if(before_pos) {
+                    *(before_pos->next_pointer()) = item;
+                }
+
+                if(at_pos == first_) {
+                    first_ = item;
+                }
+
+                return *item;
+            } else {
+                return prepend(val);
+            }
+
+            (void) after_pos;
         }
 
         /// Insert an element after another object in the list
-        void insert_after(T pos, T val) throw() {
-            (void) pos;
-            (void) val;
+        item_type insert_after(item_type pos, T val) throw() {
+            if(1 >= length_) {
+                return append(val);
+            }
+
+            item_type *before_pos(nullptr);
+            item_type *after_pos(nullptr);
+            item_type *at_pos(nullptr);
+
+            // figure out where we are
+            pos_to_item(pos, &at_pos, &before_pos, &after_pos);
+
+            if(at_pos) {
+
+                item_type *item(allocate(val));
+                ++length_;
+
+                *(at_pos->next_pointer()) = item;
+                *(item->prev_pointer()) = at_pos;
+                *(item->next_pointer()) = after_pos;
+
+                if(after_pos) {
+                    *(after_pos->prev_pointer()) = item;
+                }
+
+                if(at_pos == last_) {
+                    last_ = item;
+                }
+
+                return *item;
+            } else {
+                return append(val);
+            }
+
+            (void) before_pos;
         }
 
         /// replace one element with another
-        void replace(T pos, T val) throw() {
+        void replace(item_type pos, T val) throw() {
             (void) pos;
             (void) val;
         }
 
     private:
 
-        static item_type *pos_to_item(T pos) throw() {
-            (void) pos;
-            return 0;
+        void pos_to_item(item_type pos, item_type **on, item_type **prev, item_type **next) throw() {
+
+            // try to find what's after pos
+            *next = *(pos.next_pointer());
+
+            // try to find what's before pos
+            *prev = *(pos.prev_pointer());
+
+            // try to find pos
+            if(nullptr != *prev) {
+                *on = *((*prev)->next_pointer());
+            }
+
+            if(nullptr != *next && nullptr == *on) {
+                *on = *((*next)->prev_pointer());
+            }
         }
     };
 }

@@ -8,20 +8,25 @@
 #ifndef granary_INSTRUCTION_H_
 #define granary_INSTRUCTION_H_
 
+#include <cstdio>
+
 #include <cstring>
 #include <stdint.h>
 
 #include "granary/utils.h"
 #include "granary/list.h"
+#include "granary/heap.h"
 #include "granary/types/dynamorio.h"
 
 namespace granary {
 
-    /// forward declaration
-    struct allocator;
+    /// Program counter type.
+    typedef dynamorio::app_pc app_pc;
 
-    /// Defines a decoded x86 instruction type.
-    struct instruction : protected dynamorio::instr_t {
+
+    /// Defines a decoded x86 instruction type. This is a straight extension of
+    /// DynamoRIO's instruction type.
+    struct instruction : public dynamorio::instr_t {
     private:
 
         static dynamorio::dcontext_t *DCONTEXT;
@@ -46,6 +51,10 @@ namespace granary {
             return dynamorio::instr_is_cti(this);
         }
 
+        inline app_pc pc(void) throw() {
+            return dynamorio::instr_get_app_pc(this);
+        }
+
         /// decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
@@ -56,6 +65,7 @@ namespace granary {
             *pc = unsafe_cast<T *>(
                 dynamorio::decode_raw(DCONTEXT, byte_pc, &self));
             dynamorio::decode(DCONTEXT, byte_pc, &self);
+            dynamorio::instr_set_translation(&self, byte_pc);
             return self;
         }
 
@@ -68,41 +78,30 @@ namespace granary {
         }
     };
 
-    // declare that instructions form a doubly linked embedded list.
+
+    /// Declare that instructions form a doubly linked list, where the next/prev
+    /// pointers are embedded in the list structure.
     template <>
     struct list_meta<instruction> {
         enum {
-            EMBED = true,
+            EMBED = false,
             UNROLL = 5,
-            NEXT_POINTER = true,
-            PREV_POINTER = true,
-            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
-            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
+            NEXT_POINTER_OFFSET = offsetof(instruction, next),
+            PREV_POINTER_OFFSET = offsetof(instruction, prev)
         };
+
+        static void *allocate(unsigned size) throw() {
+            return heap_alloc(nullptr, size);
+        }
+
+        static void free(void *val, unsigned size) throw() {
+            heap_free(nullptr, val, size);
+        }
     };
 
+
+    /// Represents a list of decoded instructions.
     typedef list<instruction> instruction_list;
-
-    /*
-    /// Defines a list of decoded x86 instructions.
-    struct instruction_list {
-    private:
-
-        unsigned num_instructions;
-        instruction *first;
-        allocator *allocator;
-
-    public:
-
-        instruction_list(allocator &) throw();
-
-        void append(instruction in) throw();
-        void insert_before(instruction &pos, instruction in) throw();
-
-        void prepend(instruction in) throw();
-        void insert_after(instruction &pos, instruction in) throw();
-    };
-    */
 }
 
 #endif /* granary_INSTRUCTION_H_ */

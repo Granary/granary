@@ -81,12 +81,24 @@ namespace std {
   TRAIT_INTEGRAL(long)
   TRAIT_INTEGRAL(long long)
 
+  struct true_type {
+      enum {
+          value = true
+      };
+  };
+  struct false_type {
+      enum {
+          value = false
+      };
+  };
+
   template <typename T0, typename T1>
   struct is_same {
   public:
       enum {
           value = false
       };
+      typedef false_type type;
   };
 
   template <typename T>
@@ -95,10 +107,14 @@ namespace std {
       enum {
           value = true
       };
+      typedef true_type type;
   };
 
-  struct true_type { };
-  struct false_type { };
+  template<bool B, class T, class F>
+  struct conditional { typedef T type; };
+
+  template<class T, class F>
+  struct conditional<false, T, F> { typedef F type; };
 }
 #else
 # include <type_traits>
