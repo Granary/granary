@@ -1248,6 +1248,77 @@ void instrlist_meta_fault_append ( instrlist_t * ilist , instr_t * inst ) ;
 
 struct ftrace_branch_data { const char * func ; const char * file ; unsigned line ; union { struct { unsigned long correct ; unsigned long incorrect ; } ; struct { unsigned long miss ; unsigned long hit ; } ; unsigned long miss_hit [ 2 ] ; } ; } ;
 
+void instr_set_note(instr_t *instr, void *value);
+
+void *
+instr_get_note(instr_t *instr);
+
+int
+instr_num_dsts(instr_t *instr);
+
+int
+instr_num_srcs(instr_t *instr);
+
+bool
+instr_ok_to_mangle(instr_t *instr);
+
+opnd_t
+opnd_create_pc(app_pc pc);
+
+opnd_t
+opnd_create_reg(reg_id_t r);
+
+opnd_t
+opnd_create_null(void);
+
+bool
+opnd_is_far_rel_addr(opnd_t opnd);
+
+bool
+opnd_is_near_rel_addr(opnd_t opnd);
+
+bool
+opnd_is_far_base_disp(opnd_t op);
+
+bool
+opnd_is_near_base_disp(opnd_t op);
+
+bool
+opnd_is_instr(opnd_t op);
+
+bool
+opnd_is_pc(opnd_t op);
+
+bool
+opnd_is_immed(opnd_t op);
+
+/* opnd_t predicates */
+
+/* Simple predicates */
+#define OPND_IS_NULL(op)        ((op).kind == NULL_kind)
+#define OPND_IS_IMMED_INT(op)   ((op).kind == IMMED_INTEGER_kind)
+#define OPND_IS_IMMED_FLOAT(op) ((op).kind == IMMED_FLOAT_kind)
+#define OPND_IS_NEAR_PC(op)     ((op).kind == PC_kind)
+#define OPND_IS_NEAR_INSTR(op)  ((op).kind == INSTR_kind)
+#define OPND_IS_REG(op)         ((op).kind == REG_kind)
+#define OPND_IS_BASE_DISP(op)   ((op).kind == BASE_DISP_kind)
+#define OPND_IS_FAR_PC(op)      ((op).kind == FAR_PC_kind)
+#define OPND_IS_FAR_INSTR(op)   ((op).kind == FAR_INSTR_kind)
+#define OPND_IS_MEM_INSTR(op)   ((op).kind == MEM_INSTR_kind)
+#define OPND_IS_VALID(op)       ((op).kind < LAST_kind)
+
+#define opnd_is_null            OPND_IS_NULL
+#define opnd_is_immed_int       OPND_IS_IMMED_INT
+#define opnd_is_immed_float     OPND_IS_IMMED_FLOAT
+#define opnd_is_near_pc         OPND_IS_NEAR_PC
+#define opnd_is_near_instr      OPND_IS_NEAR_INSTR
+#define opnd_is_reg             OPND_IS_REG
+#define opnd_is_base_disp       OPND_IS_BASE_DISP
+#define opnd_is_far_pc          OPND_IS_FAR_PC
+#define opnd_is_far_instr       OPND_IS_FAR_INSTR
+#define opnd_is_mem_instr       OPND_IS_MEM_INSTR
+#define opnd_is_valid           OPND_IS_VALID
+
 #ifdef __cplusplus
 } /* extern */
 } /* kernel namespace */

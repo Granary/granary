@@ -36,11 +36,18 @@ def emit_function(lines, i, instr, args):
       continue
     break
 
+  def typed_arg(p):
+    i, a = p
+    if "op" == a:
+      return "int " + a
+    else:
+      return "dynamorio::opnd_t " + a
+
   sub_lines.append(";")
 
   arg_list = "void"
   if 1 < len(args):
-    arg_list = ", ".join(map(lambda a: "dynamorio::opnd_t %s" % a, args[1:]))
+    arg_list = ", ".join(map(typed_arg, enumerate(args[1:])))
 
   # emit the new function
   H("    instruction ", instr, "_(", arg_list, ");")
@@ -61,6 +68,7 @@ def emit_function(lines, i, instr, args):
 
 with open("dr/x86/instr_create.h") as lines_:
 
+  C('#include <math.h>')
   C('#include "granary/types/dynamorio.h"')
   C('#include "granary/gen/instruction.h"')
   C('extern "C" {')

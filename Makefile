@@ -110,12 +110,13 @@ bin/main.o: main.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
 
 install:
-	python process_instr_create.py
 	-mkdir bin
 	-mkdir bin/granary
 	-mkdir bin/granary/gen
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
+	-mkdir granary/gen
+	python process_instr_create.py
 
 all: $(GR_OBJS)
 	$(GR_MAKE)
