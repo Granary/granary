@@ -128,6 +128,8 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
 bool
 get_x86_mode(dcontext_t *dcontext)
 {
+    return true;
+#if 0
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();
@@ -137,6 +139,7 @@ get_x86_mode(dcontext_t *dcontext)
         return initexit_x86_mode;
     } else
         return dcontext->x86_mode;
+#endif
 }
 #endif
 

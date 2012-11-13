@@ -21,6 +21,9 @@
 .DS_Store
 .tmp_versions
 
+# Generated files
+granary/gen/*
+
 # Compiled Dynamic libraries
 *.so
 

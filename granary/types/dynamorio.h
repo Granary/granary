@@ -362,7 +362,7 @@ typedef struct _instr_list_t instrlist_t ;
 
 typedef struct _module_data_t module_data_t ;
 
-typedef struct { bool x86_mode ; void * private_code ; } dcontext_t ;
+typedef struct { bool x86_mode ; void * private_code ; instr_t *allocated_instr; } dcontext_t ;
 
 typedef union _dr_ymm_t { uint64 u64 [ 4 ] ; uint u32 [ 8 ] ; byte u8 [ 32 ] ; reg_t reg [ 4 ] ; } dr_ymm_t ;
 
@@ -529,10 +529,6 @@ typedef struct _generated_code_t { byte * fcache_enter ; byte * fcache_return ; 
 typedef float float_t ;
 
 typedef double double_t ;
-
-enum { FP_NAN , FP_INFINITE , FP_ZERO , FP_SUBNORMAL , FP_NORMAL } ;
-
-typedef enum { _IEEE_ = - 1 , _SVID_ , _XOPEN_ , _POSIX_ , _ISOC_ } _LIB_VERSION_TYPE ;
 
 struct exception { int type ; char * name ; double arg1 ; double arg2 ; double retval ; } ;
 
@@ -1247,6 +1243,113 @@ void instrlist_meta_fault_postinsert ( instrlist_t * ilist , instr_t * where , i
 void instrlist_meta_fault_append ( instrlist_t * ilist , instr_t * inst ) ;
 
 struct ftrace_branch_data { const char * func ; const char * file ; unsigned line ; union { struct { unsigned long correct ; unsigned long incorrect ; } ; struct { unsigned long miss ; unsigned long hit ; } ; unsigned long miss_hit [ 2 ] ; } ; } ;
+
+void instr_set_note(instr_t *instr, void *value);
+
+void *
+instr_get_note(instr_t *instr);
+
+int
+instr_num_dsts(instr_t *instr);
+
+int
+instr_num_srcs(instr_t *instr);
+
+bool
+instr_ok_to_mangle(instr_t *instr);
+
+opnd_t
+opnd_create_pc(app_pc pc);
+
+opnd_t
+opnd_create_reg(reg_id_t r);
+
+opnd_t
+opnd_create_null(void);
+
+bool
+opnd_is_far_rel_addr(opnd_t opnd);
+
+bool
+opnd_is_near_rel_addr(opnd_t opnd);
+
+bool
+opnd_is_far_base_disp(opnd_t op);
+
+bool
+opnd_is_near_base_disp(opnd_t op);
+
+bool
+opnd_is_instr(opnd_t op);
+
+bool
+opnd_is_pc(opnd_t op);
+
+bool
+opnd_is_immed(opnd_t op);
+
+/* opnd_t predicates */
+
+/* Simple predicates */
+#define OPND_IS_NULL(op)        ((op).kind == NULL_kind)
+#define OPND_IS_IMMED_INT(op)   ((op).kind == IMMED_INTEGER_kind)
+#define OPND_IS_IMMED_FLOAT(op) ((op).kind == IMMED_FLOAT_kind)
+#define OPND_IS_NEAR_PC(op)     ((op).kind == PC_kind)
+#define OPND_IS_NEAR_INSTR(op)  ((op).kind == INSTR_kind)
+#define OPND_IS_REG(op)         ((op).kind == REG_kind)
+#define OPND_IS_BASE_DISP(op)   ((op).kind == BASE_DISP_kind)
+#define OPND_IS_FAR_PC(op)      ((op).kind == FAR_PC_kind)
+#define OPND_IS_FAR_INSTR(op)   ((op).kind == FAR_INSTR_kind)
+#define OPND_IS_MEM_INSTR(op)   ((op).kind == MEM_INSTR_kind)
+#define OPND_IS_VALID(op)       ((op).kind < LAST_kind)
+
+#define opnd_is_null            OPND_IS_NULL
+#define opnd_is_immed_int       OPND_IS_IMMED_INT
+#define opnd_is_immed_float     OPND_IS_IMMED_FLOAT
+#define opnd_is_near_pc         OPND_IS_NEAR_PC
+#define opnd_is_near_instr      OPND_IS_NEAR_INSTR
+#define opnd_is_reg             OPND_IS_REG
+#define opnd_is_base_disp       OPND_IS_BASE_DISP
+#define opnd_is_far_pc          OPND_IS_FAR_PC
+#define opnd_is_far_instr       OPND_IS_FAR_INSTR
+#define opnd_is_mem_instr       OPND_IS_MEM_INSTR
+#define opnd_is_valid           OPND_IS_VALID
+
+#ifdef X64
+# define OPSZ_PTR OPSZ_8       /**< Operand size for pointer values. */
+# define OPSZ_STACK OPSZ_8     /**< Operand size for stack push/pop operand sizes. */
+#else
+# define OPSZ_PTR OPSZ_4       /**< Operand size for pointer values. */
+# define OPSZ_STACK OPSZ_4     /**< Operand size for stack push/pop operand sizes. */
+#endif
+#define OPSZ_VARSTACK OPSZ_4x8_short2 /**< Operand size for prefix-varying stack
+                                       * push/pop operand sizes. */
+#define OPSZ_REXVARSTACK OPSZ_4_rex8_short2 /* Operand size for prefix/rex-varying
+                                             * stack push/pop like operand sizes. */
+
+#define OPSZ_ret OPSZ_4x8_short2xi8 /**< Operand size for ret instruction. */
+#define OPSZ_call OPSZ_ret         /**< Operand size for push portion of call. */
+
+/* Convenience defines for specific opcodes */
+#define OPSZ_lea OPSZ_0              /**< Operand size for lea memory reference. */
+#define OPSZ_invlpg OPSZ_0           /**< Operand size for invlpg memory reference. */
+#define OPSZ_xlat OPSZ_1             /**< Operand size for xlat memory reference. */
+#define OPSZ_clflush OPSZ_1          /**< Operand size for clflush memory reference. */
+#define OPSZ_prefetch OPSZ_1         /**< Operand size for prefetch memory references. */
+#define OPSZ_lgdt OPSZ_6x10          /**< Operand size for lgdt memory reference. */
+#define OPSZ_sgdt OPSZ_6x10          /**< Operand size for sgdt memory reference. */
+#define OPSZ_lidt OPSZ_6x10          /**< Operand size for lidt memory reference. */
+#define OPSZ_sidt OPSZ_6x10          /**< Operand size for sidt memory reference. */
+#define OPSZ_bound OPSZ_8_short4     /**< Operand size for bound memory reference. */
+#define OPSZ_maskmovq OPSZ_8         /**< Operand size for maskmovq memory reference. */
+#define OPSZ_maskmovdqu OPSZ_16      /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
+#define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
+#define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
+#define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
+#define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
+#define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+/* DR_API EXPORT END */
 
 #ifdef __cplusplus
 } /* extern */
