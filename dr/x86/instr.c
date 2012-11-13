@@ -1618,7 +1618,10 @@ reg_get_size(reg_id_t reg)
 instr_t*
 instr_create(dcontext_t *dcontext)
 {
-    instr_t *instr = (instr_t*) heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    //instr_t *instr = (instr_t*) heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    instr_t *instr = dcontext->allocated_instr;
+    dcontext->allocated_instr = 0;
+
     /* everything initializes to 0, even flags, to indicate
      * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
@@ -1633,7 +1636,7 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
     instr_free(dcontext, instr);
 
     /* CAUTION: assumes that instr is not part of any instrlist */
-    heap_free(dcontext, instr, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    //heap_free(dcontext, instr, sizeof(instr_t) HEAPACCT(ACCT_IR));
 }
 
 /* returns a clone of orig, but with next and prev fields set to NULL */

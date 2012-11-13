@@ -8,8 +8,6 @@
 #ifndef granary_INSTRUCTION_H_
 #define granary_INSTRUCTION_H_
 
-#include <cstdio>
-
 #include <cstring>
 #include <stdint.h>
 
@@ -23,6 +21,12 @@ namespace granary {
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
 
+    /// registers
+#define MAKE_REG(name, upper_name) extern dynamorio::opnd_t name;
+    namespace reg {
+#include "inc/registers.h"
+    }
+#undef MAKE_REG
 
     /// Defines a decoded x86 instruction type. This is a straight extension of
     /// DynamoRIO's instruction type.

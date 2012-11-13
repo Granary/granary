@@ -10,6 +10,6 @@
 #define Granary_PP_H_
 
 #define FORCE_INLINE __attribute__((always_inline))
-
+#define GRANARY
 
 #endif /* Granary_PP_H_ */

@@ -68,6 +68,7 @@ typedef struct _module_data_t module_data_t;
 typedef struct {
     bool x86_mode;      // true iff x64
     void *private_code;
+    instr_t *allocated_instr;
 } dcontext_t;
 
 
