@@ -8,8 +8,6 @@
 #ifndef granary_INSTRUCTION_H_
 #define granary_INSTRUCTION_H_
 
-#include <cstdio>
-
 #include <cstring>
 #include <stdint.h>
 

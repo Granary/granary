@@ -362,7 +362,7 @@ typedef struct _instr_list_t instrlist_t ;
 
 typedef struct _module_data_t module_data_t ;
 
-typedef struct { bool x86_mode ; void * private_code ; } dcontext_t ;
+typedef struct { bool x86_mode ; void * private_code ; instr_t *allocated_instr; } dcontext_t ;
 
 typedef union _dr_ymm_t { uint64 u64 [ 4 ] ; uint u32 [ 8 ] ; byte u8 [ 32 ] ; reg_t reg [ 4 ] ; } dr_ymm_t ;
 

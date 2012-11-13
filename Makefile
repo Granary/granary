@@ -57,6 +57,9 @@ GR_OBJS += bin/granary/heap.o
 GR_OBJS += bin/granary/printf.o
 GR_OBJS += bin/granary/instruction.o
 
+# Granary (C++) auto-generated dependencies
+GR_OBJS += bin/granary/gen/instruction.o
+
 # Conditional compilation for kernel code; useful for testing if Granary code
 # compiles independent of the Linux kernel.
 KERNEL ?= 1
@@ -107,8 +110,10 @@ bin/main.o: main.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
 
 install:
+	python process_instr_create.py
 	-mkdir bin
 	-mkdir bin/granary
+	-mkdir bin/granary/gen
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
 
@@ -123,9 +128,11 @@ clean:
 	touch bin/dr/_.$(GR_OUTPUT_FORMAT)
 	touch bin/dr/x86/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/_.$(GR_OUTPUT_FORMAT)
+	touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
 	
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/dr/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/dr/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
 	$(GR_CLEAN)

@@ -37,6 +37,8 @@
 #ifndef _INSTR_CREATE_H_
 #define _INSTR_CREATE_H_ 1
 
+#ifndef GRANARY
+
 /* DR_API EXPORT TOFILE dr_ir_macros.h */
 /* DR_API EXPORT BEGIN */
 /**
@@ -66,6 +68,8 @@
 #include "dr/x86/decode.h"
 
 extern bool get_x86_mode(dcontext_t *);
+
+#endif
 
 /* instruction modification convenience routines */
 /**
