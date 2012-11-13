@@ -22,8 +22,8 @@ namespace granary {
 
     void make_adder(int a) throw() {
         granary::instruction_list ls;
-        ls.append(mov_ld_(reg::rax, int32_(a)));
-        ls.append(add_(reg::rax, reg::arg1));
+        ls.append(mov_ld_(reg::ret, int32_(a)));
+        ls.append(add_(reg::ret, reg::arg1));
         ls.append(ret_());
     }
 }
