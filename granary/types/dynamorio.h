@@ -530,10 +530,6 @@ typedef float float_t ;
 
 typedef double double_t ;
 
-enum { FP_NAN , FP_INFINITE , FP_ZERO , FP_SUBNORMAL , FP_NORMAL } ;
-
-typedef enum { _IEEE_ = - 1 , _SVID_ , _XOPEN_ , _POSIX_ , _ISOC_ } _LIB_VERSION_TYPE ;
-
 struct exception { int type ; char * name ; double arg1 ; double arg2 ; double retval ; } ;
 
 bool opnd_is_null ( opnd_t op ) ;
@@ -1318,6 +1314,42 @@ opnd_is_immed(opnd_t op);
 #define opnd_is_far_instr       OPND_IS_FAR_INSTR
 #define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
+
+#ifdef X64
+# define OPSZ_PTR OPSZ_8       /**< Operand size for pointer values. */
+# define OPSZ_STACK OPSZ_8     /**< Operand size for stack push/pop operand sizes. */
+#else
+# define OPSZ_PTR OPSZ_4       /**< Operand size for pointer values. */
+# define OPSZ_STACK OPSZ_4     /**< Operand size for stack push/pop operand sizes. */
+#endif
+#define OPSZ_VARSTACK OPSZ_4x8_short2 /**< Operand size for prefix-varying stack
+                                       * push/pop operand sizes. */
+#define OPSZ_REXVARSTACK OPSZ_4_rex8_short2 /* Operand size for prefix/rex-varying
+                                             * stack push/pop like operand sizes. */
+
+#define OPSZ_ret OPSZ_4x8_short2xi8 /**< Operand size for ret instruction. */
+#define OPSZ_call OPSZ_ret         /**< Operand size for push portion of call. */
+
+/* Convenience defines for specific opcodes */
+#define OPSZ_lea OPSZ_0              /**< Operand size for lea memory reference. */
+#define OPSZ_invlpg OPSZ_0           /**< Operand size for invlpg memory reference. */
+#define OPSZ_xlat OPSZ_1             /**< Operand size for xlat memory reference. */
+#define OPSZ_clflush OPSZ_1          /**< Operand size for clflush memory reference. */
+#define OPSZ_prefetch OPSZ_1         /**< Operand size for prefetch memory references. */
+#define OPSZ_lgdt OPSZ_6x10          /**< Operand size for lgdt memory reference. */
+#define OPSZ_sgdt OPSZ_6x10          /**< Operand size for sgdt memory reference. */
+#define OPSZ_lidt OPSZ_6x10          /**< Operand size for lidt memory reference. */
+#define OPSZ_sidt OPSZ_6x10          /**< Operand size for sidt memory reference. */
+#define OPSZ_bound OPSZ_8_short4     /**< Operand size for bound memory reference. */
+#define OPSZ_maskmovq OPSZ_8         /**< Operand size for maskmovq memory reference. */
+#define OPSZ_maskmovdqu OPSZ_16      /**< Operand size for maskmovdqu memory reference. */
+#define OPSZ_fldenv OPSZ_28_short14  /**< Operand size for fldenv memory reference. */
+#define OPSZ_fnstenv OPSZ_28_short14 /**< Operand size for fnstenv memory reference. */
+#define OPSZ_fnsave OPSZ_108_short94 /**< Operand size for fnsave memory reference. */
+#define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
+#define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
+#define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+/* DR_API EXPORT END */
 
 #ifdef __cplusplus
 } /* extern */

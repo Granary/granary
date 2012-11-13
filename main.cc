@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "granary/instruction.h"
+#include "granary/gen/instruction.h"
 
 void break_on_instruction(decltype(granary::instruction_list().first()) in) {
     (void) in;
@@ -16,44 +17,20 @@ void break_on_instruction(decltype(granary::instruction_list().first()) in) {
 
 uint8_t *buff;
 
+namespace granary {
+    typedef void (*adder_type)(int);
+
+    void make_adder(int a) throw() {
+        granary::instruction_list ls;
+        ls.append(mov_ld_(reg::rax, int32_(a)));
+        ls.append(add_(reg::rax, reg::arg1));
+        ls.append(ret_());
+    }
+}
+
 int main(int argc, const char **argv) throw() {
-    granary::instruction_list ls;
 
-    for(auto pc = main; ;) {
-        granary::instruction in(granary::instruction::decode(&pc));
-        if(in.is_cti()) {
-            break;
-        }
-
-        ls.insert_before(ls.first(), in);
-    }
-
-    printf("insert before first\n");
-    auto item = ls.first();
-    for(unsigned len(0); len < ls.length(); ++len) {
-        printf("%p\n", item->pc());
-        item = item.next();
-    }
-
-    ls.clear_for_reuse();
-
-    for(auto pc = main; ;) {
-        granary::instruction in(granary::instruction::decode(&pc));
-        if(in.is_cti()) {
-            break;
-        }
-
-        ls.prepend(in);
-    }
-
-    printf("prepend\n");
-    item = ls.first();
-    for(unsigned len(0); len < ls.length(); ++len) {
-        printf("%p\n", item->pc());
-        item = item.next();
-    }
-
-    ls.clear();
+    granary::make_adder(1);
 
     (void) argc;
     (void) argv;

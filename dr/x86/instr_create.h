@@ -69,7 +69,15 @@
 
 extern bool get_x86_mode(dcontext_t *);
 
-#endif
+#else
+
+static inline instr_t *
+INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg);
+
+static inline instr_t *
+INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg);
+
+#endif /* GRANARY */
 
 /* instruction modification convenience routines */
 /**
