@@ -20,6 +20,8 @@ def format_line(line):
   line = line.replace("instr_", "dynamorio::instr_")
   line = line.replace("OP_", "dynamorio::OP_")
   line = line.replace("opnd_", "dynamorio::opnd_")
+  line = line.replace("DR_REG_X", "DR_REG_R")
+  line = line.replace("DR_", "dynamorio::DR_")
   return line
 
 def emit_function(lines, i, instr, args):
