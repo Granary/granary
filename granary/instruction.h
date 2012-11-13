@@ -33,12 +33,22 @@ namespace granary {
     struct instruction : public dynamorio::instr_t {
     private:
 
+        template <typename> friend struct list_meta;
+
         static dynamorio::dcontext_t *DCONTEXT;
 
     public:
 
-        /// constructor
+        /// Constructor
         instruction(void) throw();
+
+#if 0
+        /// Move constructor.
+        instruction(instruction &&) throw();
+
+        /// Move assignment.
+        instruction &operator=(instruction &&) throw();
+#endif
 
         /// return the number of source operands in this instruction
         inline unsigned num_sources(void) const throw() {
@@ -99,13 +109,65 @@ namespace granary {
         }
 
         static void free(void *val, unsigned size) throw() {
+            dynamorio::instr_destroy(instruction::DCONTEXT, (dynamorio::instr_t *) val);
             heap_free(nullptr, val, size);
         }
     };
 
 
-    /// Represents a list of decoded instructions.
-    typedef list<instruction> instruction_list;
+    /// Forward declaration.
+    struct instruction_list;
+
+
+    /// Represents an instruction label.
+    struct instruction_label {
+    private:
+
+        friend struct instruction_list;
+        typedef list<instruction>::item_type item_type;
+
+        item_type *instr;
+        bool is_used;
+
+        instruction_label(item_type *instr_) throw();
+
+    public:
+
+        instruction_label(instruction_label &&that) throw();
+        ~instruction_label(void) throw();
+
+        instruction_label &operator=(instruction_label &&that) throw();
+
+        /// Get a pointer to the internal dynamorio::instr_t for use by
+        /// control-flow instructions.
+        operator instruction *(void) throw();
+    };
+
+
+    /// Represents a list of Level 3 instructions.
+    struct instruction_list : public list<instruction> {
+    private:
+
+        typedef list<instruction>::item_type item_type;
+
+    public:
+
+        using list<instruction>::append;
+        using list<instruction>::prepend;
+        using list<instruction>::insert_before;
+        using list<instruction>::insert_after;
+
+        /// allocate a label for use by this instruction list; NOTE:
+        instruction_label label(void) throw();
+
+        item_type append(instruction_label &label) throw();
+
+        item_type prepend(instruction_label &label) throw();
+
+        item_type insert_before(item_type pos, instruction_label &label) throw();
+
+        item_type insert_after(item_type pos, instruction_label &label) throw();
+    };
 }
 
 #endif /* granary_INSTRUCTION_H_ */

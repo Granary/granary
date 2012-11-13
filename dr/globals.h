@@ -9,6 +9,7 @@
 #ifndef Granary_GLOBALS_H_
 #define Granary_GLOBALS_H_
 
+#define GRANARY 1
 #define LINUX 1
 #define X64 1
 #define CLIENT_INTERFACE 1

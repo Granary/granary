@@ -311,10 +311,13 @@ namespace granary {
     /// configured by specializing list_meta<T>.
     template <typename T>
     struct list {
-    private:
+    public:
 
+        typedef list<T> self_type;
         typedef list_meta<T> meta_type;
         typedef list_item<T, meta_type::EMBED> item_type;
+
+    private:
 
         item_type *first_;
         item_type *last_;
@@ -323,9 +326,11 @@ namespace granary {
 
         /// get a pointer to either one of the next/previous pointers in an
         /// item.
-        static item_type **get_link_pointer(item_type *item) throw() {
+        inline static item_type **get_link_pointer(item_type *item) throw() {
             return item->next_pointer();
         }
+
+    protected:
 
         /// allocate a new list item
         item_type *allocate(T val) throw() {
@@ -343,14 +348,40 @@ namespace granary {
             return ptr;
         }
 
+        /// cache an item for later use/allocation
+        void cache(item_type *item) throw() {
+            *get_link_pointer(item) = cache_;
+            cache_ = item;
+        }
+
     public:
 
+        /// Initialize an empty list.
         list(void) throw()
             : first_(nullptr)
             , last_(nullptr)
             , cache_(nullptr)
             , length_(0U)
         { }
+
+        /// Move constructor.
+        list(self_type &&that) throw()
+            : first_(that.first_)
+            , last_(that.last_)
+            , cache_(that.cache_)
+            , length_(that.length_)
+        {
+            that.first_ = nullptr;
+            that.last_ = nullptr;
+            that.cache_ = nullptr;
+            that.length_ = 0U;
+        }
+
+
+        /// Destroy the list by clearing all items.
+        ~list(void) throw() {
+            clear();
+        }
 
         /// Returns the number of elements in the list.
         inline unsigned length(void) const throw() {

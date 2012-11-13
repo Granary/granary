@@ -700,6 +700,8 @@ is_shared_gencode(generated_code_t *code)
 #endif
 }
 
+extern bool get_x86_mode(dcontext_t *);
+
 static inline generated_code_t *
 get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 {
@@ -708,7 +710,6 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
            IF_INTERNAL(IF_CLIENT_INTERFACE(|| dynamo_exited)));
 # if defined(INTERNAL) || defined(CLIENT_INTERFACE)
     /* PR 302344: this is here only for tracedump_origins */
-    extern bool get_x86_mode(dcontext_t *);
     if (dynamo_exited && mode == GENCODE_FROM_DCONTEXT && dcontext == GLOBAL_DCONTEXT) {
         if (get_x86_mode(dcontext))
             return X64_CACHE_MODE_DC(dcontext) ? shared_code_x86_to_x64 : shared_code_x86;

@@ -104,6 +104,7 @@ static bool initexit_x86_mode = DEFAULT_X86_MODE;
 bool
 set_x86_mode(dcontext_t *dcontext, bool x86)
 {
+#ifndef GRANARY
     bool old_mode;
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
@@ -118,6 +119,11 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
         dcontext->x86_mode = x86;
     }
     return old_mode;
+
+#else
+    dcontext->x86_mode = false;
+    return false;
+#endif
 }
 
 /*
@@ -128,8 +134,9 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
 bool
 get_x86_mode(dcontext_t *dcontext)
 {
-    return true;
-#if 0
+#ifdef GRANARY
+    return false;
+#else
     /* We would disallow but some early init routines need to use global heap */
     if (dcontext == GLOBAL_DCONTEXT)
         dcontext = get_thread_private_dcontext();

@@ -10,8 +10,9 @@
 #include "dr/types.h"
 
 dcontext_t DCONTEXT = {
-    .x86_mode = true,
-    .private_code = NULL
+    .x86_mode = false,
+    .private_code = NULL,
+    .allocated_instr = NULL
 };
 
 dcontext_t *get_thread_private_dcontext(void) {

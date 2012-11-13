@@ -1,10 +1,39 @@
+/* **********************************************************
+ * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
+ * **********************************************************/
+
 /*
- * dynamorio.h
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- *  Created on: 2012-11-09
- *      Author: pag
- *     Version: $Id$
+ * * Redistributions of source code must retain the above copyright notice,
+ *   this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * * Neither the name of VMware, Inc. nor the names of its contributors may be
+ *   used to endorse or promote products derived from this software without
+ *   specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL VMWARE, INC. OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+ * DAMAGE.
  */
+
+/* Copyright (c) 2003-2007 Determina Corp. */
+/* Copyright (c) 2002-2003 Massachusetts Institute of Technology */
+
 
 #ifndef Granary_DYNAMORIO_H_
 #define Granary_DYNAMORIO_H_
@@ -1349,7 +1378,72 @@ opnd_is_immed(opnd_t op);
 #define OPSZ_frstor OPSZ_108_short94 /**< Operand size for frstor memory reference. */
 #define OPSZ_fxsave OPSZ_512         /**< Operand size for fxsave memory reference. */
 #define OPSZ_fxrstor OPSZ_512        /**< Operand size for fxrstor memory reference. */
+
+
+#ifndef INT8_MIN
+# define INT8_MIN   SCHAR_MIN
+# define INT8_MAX   SCHAR_MAX
+# define INT16_MIN  SHRT_MIN
+# define INT16_MAX  SHRT_MAX
+# define INT32_MIN  INT_MIN
+# define INT32_MAX  INT_MAX
+#endif
 /* DR_API EXPORT END */
+
+
+/* alternative names */
+/* we do not equate the fwait+op opcodes
+ *   fstsw, fstcw, fstenv, finit, fclex
+ * for us that has to be a sequence of instructions: a separate fwait
+ */
+/* 16-bit versions that have different names */
+#define OP_cbw        OP_cwde /**< Alternative opcode name for 16-bit version. */
+#define OP_cwd        OP_cdq /**< Alternative opcode name for 16-bit version. */
+#define OP_jcxz       OP_jecxz /**< Alternative opcode name for 16-bit version. */
+/* 64-bit versions that have different names */
+#define OP_jrcxz      OP_jecxz     /**< Alternative opcode name for 64-bit version. */
+#define OP_cmpxchg16b OP_cmpxchg8b /**< Alternative opcode name for 64-bit version. */
+#define OP_pextrq     OP_pextrd    /**< Alternative opcode name for 64-bit version. */
+#define OP_pinsrq     OP_pinsrd    /**< Alternative opcode name for 64-bit version. */
+/* reg-reg version has different name */
+#define OP_movhlps    OP_movlps /**< Alternative opcode name for reg-reg version. */
+#define OP_movlhps    OP_movhps /**< Alternative opcode name for reg-reg version. */
+/* condition codes */
+#define OP_jae_short  OP_jnb_short  /**< Alternative opcode name. */
+#define OP_jnae_short OP_jb_short   /**< Alternative opcode name. */
+#define OP_ja_short   OP_jnbe_short /**< Alternative opcode name. */
+#define OP_jna_short  OP_jbe_short  /**< Alternative opcode name. */
+#define OP_je_short   OP_jz_short   /**< Alternative opcode name. */
+#define OP_jne_short  OP_jnz_short  /**< Alternative opcode name. */
+#define OP_jge_short  OP_jnl_short  /**< Alternative opcode name. */
+#define OP_jg_short   OP_jnle_short /**< Alternative opcode name. */
+#define OP_jae  OP_jnb        /**< Alternative opcode name. */
+#define OP_jnae OP_jb         /**< Alternative opcode name. */
+#define OP_ja   OP_jnbe       /**< Alternative opcode name. */
+#define OP_jna  OP_jbe        /**< Alternative opcode name. */
+#define OP_je   OP_jz         /**< Alternative opcode name. */
+#define OP_jne  OP_jnz        /**< Alternative opcode name. */
+#define OP_jge  OP_jnl        /**< Alternative opcode name. */
+#define OP_jg   OP_jnle       /**< Alternative opcode name. */
+#define OP_setae  OP_setnb    /**< Alternative opcode name. */
+#define OP_setnae OP_setb     /**< Alternative opcode name. */
+#define OP_seta   OP_setnbe   /**< Alternative opcode name. */
+#define OP_setna  OP_setbe    /**< Alternative opcode name. */
+#define OP_sete   OP_setz     /**< Alternative opcode name. */
+#define OP_setne  OP_setnz    /**< Alternative opcode name. */
+#define OP_setge  OP_setnl    /**< Alternative opcode name. */
+#define OP_setg   OP_setnle   /**< Alternative opcode name. */
+#define OP_cmovae  OP_cmovnb  /**< Alternative opcode name. */
+#define OP_cmovnae OP_cmovb   /**< Alternative opcode name. */
+#define OP_cmova   OP_cmovnbe /**< Alternative opcode name. */
+#define OP_cmovna  OP_cmovbe  /**< Alternative opcode name. */
+#define OP_cmove   OP_cmovz   /**< Alternative opcode name. */
+#define OP_cmovne  OP_cmovnz  /**< Alternative opcode name. */
+#define OP_cmovge  OP_cmovnl  /**< Alternative opcode name. */
+#define OP_cmovg   OP_cmovnle /**< Alternative opcode name. */
+/* undocumented opcodes */
+#define OP_icebp OP_int1
+#define OP_setalc OP_salc
 
 #ifdef __cplusplus
 } /* extern */

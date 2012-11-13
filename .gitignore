@@ -13,6 +13,7 @@
 *.o.cmd
 *.symvers
 *.order
+*.mod.c
 
 # Random things
 .settings

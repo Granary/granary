@@ -31,8 +31,8 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # clang
-	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
-	GR_CXX_FLAGS += -Wno-gnu
+	GR_CC_FLAGS += 
+	GR_CXX_FLAGS += 
 	GR_PP_CC = __GNUC__
 endif
 
