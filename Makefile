@@ -52,7 +52,6 @@ GR_OBJS += bin/dr/x86/instrument.o
 GR_OBJS += bin/dr/x86/x86.o
 
 # Granary (C++) dependencies
-GR_OBJS += bin/granary/printf.o
 GR_OBJS += bin/granary/instruction.o
 
 # Granary (C++) auto-generated dependencies
@@ -80,6 +79,7 @@ ifneq ($(KERNEL),1)
 else
 	GR_OBJS += bin/granary/kernel/module.o
 	GR_OBJS += bin/granary/kernel/heap.o
+	GR_OBJS += bin/granary/kernel/printf.o
 
 	# Module objects
 	obj-m += $(GR_NAME).o

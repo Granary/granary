@@ -7,11 +7,11 @@
  */
 
 #include "granary/utils.h"
-#include "granary/module.h"
-#include "granary/printf.h"
-
-#include "granary/types/kernel.h"
 #include "granary/instruction.h"
+
+#include "granary/kernel/module.h"
+#include "granary/kernel/types/kernel.h"
+#include "granary/kernel/printf.h"
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {

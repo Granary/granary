@@ -6,7 +6,7 @@
  *     Version: $Id$
  */
 
-#include "granary/printf.h"
+#include "granary/kernel/printf.h"
 
 namespace granary {
     int (*printf)(const char *, ...);
