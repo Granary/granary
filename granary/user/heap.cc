@@ -5,6 +5,8 @@
  *      Author: Peter Goodman
  */
 
+#include "granary/heap.h"
+
 extern "C" {
 
 #   include <stdlib.h>

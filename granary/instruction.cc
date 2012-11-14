@@ -32,6 +32,11 @@ namespace granary {
     }
 
 
+    /// Implicit constructor for registers.
+    operand::operand(dynamorio::reg_id_t reg_) throw() {
+        *this = dynamorio::opnd_create_reg(reg_);
+    }
+
     /// De-reference an address stored in a register
     operand operand::operator*(void) const throw() {
         return mem64_(value.reg, 0);
@@ -44,32 +49,26 @@ namespace granary {
         return mem64_(value.reg, num_bytes);
     }
 
-#if 0
-    operand_lea operand_lea::operator[](operand op) const throw() {
-        operand_lea ret(*this);
-        ret.index = op.value.reg;
+
+    /// Add an index into an lea operand
+    operand_lea operand::operator+(operand index) const throw() {
+        operand_lea ret;
+        ret.base = value.reg;
+        ret.index = index.value.reg;
+        ret.scale = 1;
+        ret.disp = 0;
         return ret;
     }
 
-
-    operand_lea operand_lea::operator[](dynamorio::reg_id_t op) const throw() {
-        operand_lea ret(*this);
-        ret.index = op;
-        return ret;
-    }
-
-
-    operand_lea operand_lea::operator+(int disp) const throw() {
-        operand_lea ret(*this);
-        ret.disp = disp;
-        return ret;
+    operand_lea operand::operator+(operand_lea lea) const throw() {
+        lea.base = value.reg;
+        return lea;
     }
 
 
     operand_lea::operator operand(void) const throw() {
         return mem_lea_(base, index, scale, disp);
     }
-#endif
 
 
     /// Private instruction label constructor. Stores the raw pointer to the

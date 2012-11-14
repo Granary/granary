@@ -5,6 +5,8 @@
  *      Author: Peter Goodman
  */
 
+#include "granary/heap.h"
+
 extern "C" {
 
     void *heap_alloc(void *, unsigned long long) {

@@ -74,7 +74,9 @@ namespace granary {
         inline T *encode(T *pc) {
 
             // address calculation for relative jumps uses the note field
-            this->note = pc;
+            if(dynamorio::instr_is_label(this) || dynamorio::instr_is_cti(this)) {
+                this->note = pc;
+            }
 
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
             byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
@@ -86,7 +88,6 @@ namespace granary {
     /// Forward declare.
     struct operand;
 
-#if 0
     /// Defines an operand generator for LEA operands
     struct operand_lea {
     public:
@@ -97,12 +98,31 @@ namespace granary {
         int scale;
         int disp;
 
-        operand_lea operator[](operand op) const throw();
-        operand_lea operator[](dynamorio::reg_id_t op) const throw();
-        operand_lea operator+(int disp) const throw();
+        /// Add the scale parameter to the LEA operand. Value values are 1, 2,
+        /// 4, and 8.
+        template <typename T>
+        operand_lea operator*(T scale) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Scale must have an integral type.");
+
+            operand_lea ret(*this);
+            ret.scale = static_cast<int>(scale);
+            return ret;
+        }
+
+        /// Add in the displacement to the LEA operand.
+        template <typename T>
+        operand_lea operator+(T disp) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Displacement must have an integral type.");
+
+            operand_lea ret(*this);
+            ret.disp = static_cast<int>(disp);
+            return ret;
+        }
+
         operator operand(void) const throw();
     };
-#endif
 
     /// Defines a generic operand
     struct operand : public dynamorio::opnd_t {
@@ -115,6 +135,8 @@ namespace granary {
             memcpy(this, &that, sizeof *this);
         }
 
+        operand(dynamorio::reg_id_t reg_) throw();
+
         /// De-referencing creates a new operand type
         operand operator*(void) const throw();
 
@@ -126,19 +148,39 @@ namespace granary {
             return value.reg;
         }
 
-#if 0
-        /// Declare an OP_lea operand by first naming the type (i.e. scale) of
-        /// this operand.
+        operand_lea operator+(operand index) const throw();
+
+        operand_lea operator+(operand_lea lea) const throw();
+
+        /// Construct an LEA operand with an index and scale. This is to
+        /// respect the order of operations. Note: valid values of scale are
+        /// 1, 2, 4, and 8.
         template <typename T>
-        operand_lea as(void) throw() {
-            operand_lea op;
-            op.base = value.reg;
-            op.index = dynamorio::DR_REG_NULL;
-            op.scale = (int) sizeof(T);
-            op.disp = 0;
-            return op;
+        operand_lea operator*(T scale) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Scale must have an integral type.");
+
+            operand_lea ret;
+            ret.base = dynamorio::DR_REG_NULL;
+            ret.index = value.reg;
+            ret.scale = static_cast<int>(scale);
+            ret.disp = 0;
+            return ret;
         }
-#endif
+
+        /// Construct an LEA operand with a base and displacement.
+        template <typename T>
+        operand_lea operator+(T disp) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Displacement must have an integral type.");
+
+            operand_lea ret;
+            ret.base = dynamorio::DR_REG_NULL;
+            ret.index = value.reg;
+            ret.scale = 1;
+            ret.disp = static_cast<int>(disp);
+            return ret;
+        }
     };
 
 

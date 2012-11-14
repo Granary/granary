@@ -52,8 +52,6 @@ GR_OBJS += bin/dr/x86/instrument.o
 GR_OBJS += bin/dr/x86/x86.o
 
 # Granary (C++) dependencies
-GR_OBJS += bin/granary/module.o
-GR_OBJS += bin/granary/heap.o
 GR_OBJS += bin/granary/printf.o
 GR_OBJS += bin/granary/instruction.o
 
@@ -66,6 +64,9 @@ KERNEL ?= 1
 
 # user space
 ifneq ($(KERNEL),1)
+	
+	GR_OBJS += bin/granary/user/heap.o
+
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
@@ -77,6 +78,9 @@ ifneq ($(KERNEL),1)
 
 # kernel space
 else
+	GR_OBJS += bin/granary/kernel/module.o
+	GR_OBJS += bin/granary/kernel/heap.o
+
 	# Module objects
 	obj-m += $(GR_NAME).o
 	$(GR_NAME)-objs = $(GR_OBJS) module.o
@@ -112,6 +116,8 @@ bin/main.o: main.cc
 install:
 	-mkdir bin
 	-mkdir bin/granary
+	-mkdir bin/granary/user
+	-mkdir bin/granary/kernel
 	-mkdir bin/granary/gen
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
