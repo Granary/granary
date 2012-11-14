@@ -83,11 +83,33 @@ namespace granary {
     };
 
 
+    /// Forward declare.
+    struct operand;
+
+#if 0
+    /// Defines an operand generator for LEA operands
+    struct operand_lea {
+    public:
+
+        dynamorio::reg_id_t base;
+        dynamorio::reg_id_t index;
+
+        int scale;
+        int disp;
+
+        operand_lea operator[](operand op) const throw();
+        operand_lea operator[](dynamorio::reg_id_t op) const throw();
+        operand_lea operator+(int disp) const throw();
+        operator operand(void) const throw();
+    };
+#endif
+
     /// Defines a generic operand
     struct operand : public dynamorio::opnd_t {
     public:
 
         typedef dynamorio::opnd_t dynamorio_operand;
+        typedef dynamorio::reg_id_t dynamorio_reg;
 
         operand(dynamorio::opnd_t &&that) throw() {
             memcpy(this, &that, sizeof *this);
@@ -99,6 +121,24 @@ namespace granary {
         /// Accessing some byte offset from the operand (assuming it points to
         /// some memory)
         operand operator[](int64_t num_bytes) const throw();
+
+        inline operator dynamorio_reg(void) const throw() {
+            return value.reg;
+        }
+
+#if 0
+        /// Declare an OP_lea operand by first naming the type (i.e. scale) of
+        /// this operand.
+        template <typename T>
+        operand_lea as(void) throw() {
+            operand_lea op;
+            op.base = value.reg;
+            op.index = dynamorio::DR_REG_NULL;
+            op.scale = (int) sizeof(T);
+            op.disp = 0;
+            return op;
+        }
+#endif
     };
 
 

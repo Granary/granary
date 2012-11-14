@@ -44,6 +44,33 @@ namespace granary {
         return mem64_(value.reg, num_bytes);
     }
 
+#if 0
+    operand_lea operand_lea::operator[](operand op) const throw() {
+        operand_lea ret(*this);
+        ret.index = op.value.reg;
+        return ret;
+    }
+
+
+    operand_lea operand_lea::operator[](dynamorio::reg_id_t op) const throw() {
+        operand_lea ret(*this);
+        ret.index = op;
+        return ret;
+    }
+
+
+    operand_lea operand_lea::operator+(int disp) const throw() {
+        operand_lea ret(*this);
+        ret.disp = disp;
+        return ret;
+    }
+
+
+    operand_lea::operator operand(void) const throw() {
+        return mem_lea_(base, index, scale, disp);
+    }
+#endif
+
 
     /// Private instruction label constructor. Stores the raw pointer to the
     /// list item. This is a leaky abstraction :-P

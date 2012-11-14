@@ -17,6 +17,10 @@ void break_on_instruction(uint8_t *in) {
 
 uint8_t *buff;
 
+struct foo {
+    char bar[32];
+};
+
 namespace granary {
     typedef void (*adder_type)(int);
 
@@ -32,6 +36,7 @@ namespace granary {
         ls.append(add_(reg::ret[UINT16_MAX], reg::arg1));
         ls.append(add_(reg::ret[UINT32_MAX], reg::arg1));
         ls.append(add_(reg::ret[UINT64_MAX], reg::arg1));
+        //ls.append(lea_(reg::ret, reg::arg1.as<foo>()[reg::arg3]));
         ls.append(ret_());
         ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));
 
