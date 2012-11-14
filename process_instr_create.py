@@ -114,8 +114,8 @@ def emit_opnd_function(lines, i, opnd, args):
       return "uint64_t " + a
 
   arg_list = build_typed_arg_list(typed_arg, args)
-  H("    dynamorio::opnd_t ", opnd.lower(), "_(", arg_list, ");")
-  C("    dynamorio::opnd_t ", opnd.lower(), "_(", arg_list, ") {")
+  H("    operand ", opnd.lower(), "_(", arg_list, ");")
+  C("    operand ", opnd.lower(), "_(", arg_list, ") {")
   C("    return ", "\n    ".join(sub_lines))
   C("    }")
 
@@ -137,10 +137,10 @@ with open("dr/x86/instr_create.h") as lines_:
   H('#include "granary/instruction.h"')
 
   H("namespace granary {")
-  H('    inline dynamorio::opnd_t pc_(app_pc pc) { return dynamorio::opnd_create_pc(pc); }')
-  H('    inline dynamorio::opnd_t far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
-  H('    inline dynamorio::opnd_t instr_(instruction *instr) { return dynamorio::opnd_create_instr(instr); }')
-  H('    inline dynamorio::opnd_t far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, instr); }')
+  H('    inline operand pc_(app_pc pc) { return dynamorio::opnd_create_pc(pc); }')
+  H('    inline operand far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
+  H('    inline operand instr_(instruction *instr) { return dynamorio::opnd_create_instr(instr); }')
+  H('    inline operand far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, instr); }')
 
   lines = list(lines_)
   i = 0

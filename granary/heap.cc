@@ -11,27 +11,10 @@
 extern "C" {
 
 #if GRANARY_IN_KERNEL
-
-    void *heap_alloc(void *, unsigned long long) {
-        return 0;
-    }
-
-    void heap_free(void *, void *, unsigned long long) {
-        return;
-    }
-
+#   include "granary/kernel/heap.cc"
 #else
-
-#   include <stdlib.h>
-
-    void *heap_alloc(void *, unsigned long long size) {
-        return malloc(size);
-    }
-
-    void heap_free(void *, void *ptr, unsigned long long) {
-        free(ptr);
-    }
-
+#   include "granary/user/heap.cc"
 #endif
+
 }
 

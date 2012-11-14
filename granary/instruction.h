@@ -21,12 +21,6 @@ namespace granary {
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
 
-    /// registers
-#define MAKE_REG(name, upper_name) extern dynamorio::opnd_t name;
-    namespace reg {
-#include "inc/registers.h"
-    }
-#undef MAKE_REG
 
     /// Defines a decoded x86 instruction type. This is a straight extension of
     /// DynamoRIO's instruction type.
@@ -41,14 +35,6 @@ namespace granary {
 
         /// Constructor
         instruction(void) throw();
-
-#if 0
-        /// Move constructor.
-        instruction(instruction &&) throw();
-
-        /// Move assignment.
-        instruction &operator=(instruction &&) throw();
-#endif
 
         /// return the number of source operands in this instruction
         inline unsigned num_sources(void) const throw() {
@@ -94,6 +80,25 @@ namespace granary {
             byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
             return unsafe_cast<T *>(byte_pc);
         }
+    };
+
+
+    /// Defines a generic operand
+    struct operand : public dynamorio::opnd_t {
+    public:
+
+        typedef dynamorio::opnd_t dynamorio_operand;
+
+        operand(dynamorio::opnd_t &&that) throw() {
+            memcpy(this, &that, sizeof *this);
+        }
+
+        /// De-referencing creates a new operand type
+        operand operator*(void) const throw();
+
+        /// Accessing some byte offset from the operand (assuming it points to
+        /// some memory)
+        operand operator[](int64_t num_bytes) const throw();
     };
 
 
@@ -189,6 +194,14 @@ namespace granary {
             return pc;
         }
     };
+
+
+    /// registers
+#define MAKE_REG(name, upper_name) extern operand name;
+    namespace reg {
+#include "inc/registers.h"
+    }
+#undef MAKE_REG
 }
 
 #endif /* granary_INSTRUCTION_H_ */

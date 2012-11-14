@@ -13,7 +13,7 @@
 namespace granary {
 
 
-#define MAKE_REG(name, upper_name) dynamorio::opnd_t name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
+#define MAKE_REG(name, upper_name) operand name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
     namespace reg {
 #include "inc/registers.h"
     }
@@ -31,21 +31,19 @@ namespace granary {
         dynamorio::instr_set_x86_mode(this, true);
     }
 
-#if 0
-    /// Move constructor.
-    instruction::instruction(instruction &&that) throw() {
-        memcpy(this, &that, sizeof *this);
+
+    /// De-reference an address stored in a register
+    operand operand::operator*(void) const throw() {
+        return mem64_(value.reg, 0);
     }
 
 
-    /// Move assignment.
-    instruction &instruction::operator=(instruction &&that) throw() {
-        if(this != &that) {
-            memcpy(this, &that, sizeof *this);
-        }
-        return *this;
+    /// Accessing some byte offset from the operand (assuming it points to
+    /// some memory).
+    operand operand::operator[](int64_t num_bytes) const throw() {
+        return mem64_(value.reg, num_bytes);
     }
-#endif
+
 
     /// Private instruction label constructor. Stores the raw pointer to the
     /// list item. This is a leaky abstraction :-P
