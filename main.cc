@@ -22,7 +22,6 @@ namespace granary {
 
     void make_adder(int a) throw() {
         uint8_t *data = (uint8_t *) heap_alloc(nullptr, 100);
-        uint8_t *pc = data;
         granary::instruction_list ls;
         auto restart = ls.label();
 
@@ -30,14 +29,9 @@ namespace granary {
         ls.append(mov_imm_(reg::ret, int32_(a)));
         ls.append(add_(reg::ret, reg::arg1));
         ls.append(ret_());
-        ls.append(jcc_short_(dynamorio::OP_jge, instr_(restart)));
+        ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));
 
-        auto in = ls.first();
-        for(unsigned i = 0; i < ls.length(); ++i) {
-            pc = in->encode(pc);
-            in = in.next();
-        }
-
+        ls.encode(data);
         break_on_instruction(data);
 
         heap_free(nullptr, data, 100);

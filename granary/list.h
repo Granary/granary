@@ -70,6 +70,9 @@ namespace granary {
     template <typename T>
     struct list_item_with_links;
 
+    template <typename T>
+    struct list_item_handle;
+
 
     /// base class for a list item with/out a previous pointer
     template <typename ItemT, typename T, bool has_prev>
@@ -81,6 +84,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
+        template <typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_next;
 
         inline ItemT **prev_pointer(void) throw() {
@@ -118,6 +122,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
+        template <typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_next;
 
         inline ItemT **prev_pointer(void) throw() {
@@ -136,6 +141,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
+        template <typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_prev;
 
         inline ItemT **next_pointer(void) throw() {
@@ -168,6 +174,7 @@ namespace granary {
     struct list_item_with_next<ItemT, T, false> {
     private:
         template <typename> friend struct list;
+        template <typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_prev;
 
         inline ItemT **next_pointer(void) throw() {
@@ -307,6 +314,43 @@ namespace granary {
     };
 
 
+    /// represents a handle to a list item
+    template <typename T>
+    struct list_item_handle {
+    protected:
+
+        template <typename> friend struct list;
+
+        T *handle;
+
+        list_item_handle(T *handle_) throw()
+            : handle(handle_)
+        { }
+
+    public:
+
+        list_item_handle(void) throw()
+            : handle(nullptr)
+        { }
+
+        T &operator *(void) throw() {
+            return *handle;
+        }
+
+        T &operator->(void) throw() {
+            return *handle;
+        }
+
+        list_item_handle next(void) throw() {
+            return list_item_handle(*(handle->next_pointer()));
+        }
+
+        list_item_handle prev(void) throw() {
+            return list_item_handle(*(handle->prev_pointer()));
+        }
+    };
+
+
     /// represents a generic list of T, where the properties of the list are
     /// configured by specializing list_meta<T>.
     template <typename T>
@@ -316,6 +360,7 @@ namespace granary {
         typedef list<T> self_type;
         typedef list_meta<T> meta_type;
         typedef list_item<T, meta_type::EMBED> item_type;
+        typedef list_item_handle<item_type> handle_type;
 
     private:
 
@@ -431,9 +476,46 @@ namespace granary {
             length_ = 0;
         }
 
+        inline handle_type append(T val) throw() {
+            return append(allocate(val));
+        }
+
+
+        inline handle_type prepend(T val) throw() {
+            return prepend(allocate(val));
+        }
+
+
+        /// Return the first element in the list.
+        inline handle_type first(void) const throw() {
+            if(!first_) {
+                return handle_type();
+            }
+
+            return handle_type(first_);
+        }
+
+        /// Return the last element in the list.
+        inline item_type last(void) const throw() {
+            if(!last_) {
+                return item_type();
+            }
+
+            return handle_type(last_);
+        }
+
+        inline handle_type insert_before(handle_type pos, T val) throw() {
+            return insert_before(pos.handle, val);
+        }
+
+        inline handle_type insert_after(handle_type pos, T val) throw() {
+            return insert_after(pos.handle, val);
+        }
+
+    protected:
+
         /// Adds an element on to the end of the list.
-        item_type append(T val) throw() {
-            item_type *item(allocate(val));
+        handle_type append(item_type *item) throw() {
             item_type *prev_last = last_;
 
             if(nullptr == first_) {
@@ -452,12 +534,11 @@ namespace granary {
 
             ++length_;
 
-            return *item;
+            return handle_type(item);
         }
 
         /// Adds an element on to the beginning of the list.
-        item_type prepend(T val) throw() {
-            item_type *item(allocate(val));
+        handle_type prepend(item_type *item) throw() {
             item_type *prev_first = first_;
 
             if(nullptr == first_) {
@@ -476,43 +557,24 @@ namespace granary {
 
             ++length_;
 
-            return *item;
+            return handle_type(item);
         }
 
-        /// Return the first element in the list.
-        inline item_type first(void) const throw() {
-            if(!first_) {
-                return item_type();
-            }
-
-            return *first_;
-        }
-
-        /// Return the last element in the list.
-        inline item_type last(void) const throw() {
-            if(!last_) {
-                return item_type();
-            }
-
-            return *last_;
+        inline handle_type insert_before(item_type *at_pos, T val) throw() {
+            return insert_before(at_pos, allocate(val));
         }
 
         /// Insert an element before another object in the list.
-        item_type insert_before(item_type pos, T val) throw() {
+        handle_type insert_before(item_type *at_pos, item_type *item) throw() {
             if(1 >= length_) {
-                return prepend(val);
+                return prepend(item);
             }
 
-            item_type *before_pos(nullptr);
-            item_type *after_pos(nullptr);
-            item_type *at_pos(nullptr);
-
-            // figure out where we are
-            pos_to_item(pos, &at_pos, &before_pos, &after_pos);
+            item_type *before_pos(*(at_pos->prev_pointer()));
+            item_type *after_pos(*(at_pos->next_pointer()));
 
             if(at_pos) {
 
-                item_type *item(allocate(val));
                 ++length_;
 
                 *(at_pos->prev_pointer()) = item;
@@ -527,30 +589,29 @@ namespace granary {
                     first_ = item;
                 }
 
-                return *item;
+                return handle_type(item);
             } else {
-                return prepend(val);
+                return prepend(item);
             }
 
             (void) after_pos;
         }
 
+        inline handle_type insert_after(item_type *at_pos, T val) throw() {
+            return insert_after(at_pos, allocate(val));
+        }
+
         /// Insert an element after another object in the list
-        item_type insert_after(item_type pos, T val) throw() {
+        handle_type insert_after(item_type *at_pos, item_type *item) throw() {
             if(1 >= length_) {
-                return append(val);
+                return append(item);
             }
 
-            item_type *before_pos(nullptr);
-            item_type *after_pos(nullptr);
-            item_type *at_pos(nullptr);
-
-            // figure out where we are
-            pos_to_item(pos, &at_pos, &before_pos, &after_pos);
+            item_type *before_pos(*(at_pos->prev_pointer()));
+            item_type *after_pos(*(at_pos->next_pointer()));
 
             if(at_pos) {
 
-                item_type *item(allocate(val));
                 ++length_;
 
                 *(at_pos->next_pointer()) = item;
@@ -565,38 +626,16 @@ namespace granary {
                     last_ = item;
                 }
 
-                return *item;
+                return handle_type(item);
             } else {
-                return append(val);
+                return append(item);
             }
 
             (void) before_pos;
         }
 
-        /// replace one element with another
-        void replace(item_type pos, T val) throw() {
-            (void) pos;
-            (void) val;
-        }
-
-    private:
-
-        void pos_to_item(item_type pos, item_type **on, item_type **prev, item_type **next) throw() {
-
-            // try to find what's after pos
-            *next = *(pos.next_pointer());
-
-            // try to find what's before pos
-            *prev = *(pos.prev_pointer());
-
-            // try to find pos
-            if(nullptr != *prev) {
-                *on = *((*prev)->next_pointer());
-            }
-
-            if(nullptr != *next && nullptr == *on) {
-                *on = *((*next)->prev_pointer());
-            }
+        inline item_type *get_item(handle_type handle) {
+            return handle.handle;
         }
     };
 }

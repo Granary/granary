@@ -86,6 +86,10 @@ namespace granary {
         /// encodes an instruction into a sequence of bytes
         template <typename T>
         inline T *encode(T *pc) {
+
+            // address calculation for relative jumps uses the note field
+            this->note = pc;
+
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
             byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
             return unsafe_cast<T *>(byte_pc);
@@ -125,6 +129,7 @@ namespace granary {
 
         friend struct instruction_list;
         typedef list<instruction>::item_type item_type;
+        typedef list<instruction>::handle_type handle_type;
 
         item_type *instr;
         bool is_used;
@@ -160,13 +165,29 @@ namespace granary {
         /// allocate a label for use by this instruction list; NOTE:
         instruction_label label(void) throw();
 
-        item_type append(instruction_label &label) throw();
+        handle_type append(instruction_label &label) throw();
 
-        item_type prepend(instruction_label &label) throw();
+        handle_type prepend(instruction_label &label) throw();
 
-        item_type insert_before(item_type pos, instruction_label &label) throw();
+        handle_type insert_before(handle_type pos, instruction_label &label) throw();
 
-        item_type insert_after(item_type pos, instruction_label &label) throw();
+        handle_type insert_after(handle_type pos, instruction_label &label) throw();
+
+        /// encodes an instruction list into a sequence of bytes
+        template <typename T>
+        T *encode(T *pc) {
+            if(!length()) {
+                return pc;
+            }
+
+            auto item = first();
+            for(unsigned i = 0, max = length(); i < max; ++i) {
+                pc = item->encode(pc);
+                item = item.next();
+            }
+
+            return pc;
+        }
     };
 }
 
