@@ -11,14 +11,14 @@ namespace granary {
 
 
     // used frequently in instruction functions
-    dynamorio::dcontext_t *instruction::DCONTEXT = \
+    typename dynamorio::dcontext_t *instruction::DCONTEXT = \
         dynamorio::get_thread_private_dcontext();
 
 
     /// constructor
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
-        dynamorio::instr_set_x86_mode(&instr, true);
+        dynamorio::instr_set_x86_mode(&(this->instr), true);
     }
 
 
@@ -30,7 +30,7 @@ namespace granary {
 
 
     /// Implicit constructor for registers.
-    operand::operand(dynamorio::reg_id_t reg_) throw() {
+    operand::operand(typename dynamorio::reg_id_t reg_) throw() {
         *this = dynamorio::opnd_create_reg(reg_);
     }
 
@@ -107,7 +107,7 @@ namespace granary {
     /// Get a pointer to the internal dynamorio::instr_t for use by
     /// control-flow instructions.
     instruction_label::operator instruction *(void) throw() {
-        return instr->operator->();
+        return &(**instr);
     }
 
 
