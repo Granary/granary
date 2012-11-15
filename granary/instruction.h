@@ -159,7 +159,6 @@ namespace granary {
             memcpy(this, &that, sizeof *this);
         }
 
-        operand(operand_lea &&that) throw();
         operand(typename dynamorio::reg_id_t reg_) throw();
 
         /// De-referencing creates a new operand type
@@ -260,12 +259,10 @@ namespace granary {
 
     /// Represents a list of Level 3 instructions.
     struct instruction_list : public list<instruction> {
-    private:
-
-        typedef list<instruction>::item_type item_type;
-
     public:
 
+        using list<instruction>::item_type;
+        using list<instruction>::handle_type;
         using list<instruction>::append;
         using list<instruction>::prepend;
         using list<instruction>::insert_before;

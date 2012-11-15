@@ -66,7 +66,7 @@ namespace granary {
     template <typename T>
     struct list_item_with_links;
 
-    template <typename T>
+    template <typename T, typename ItemT>
     struct list_item_handle;
 
 
@@ -80,7 +80,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
-        template <typename> friend struct list_item_handle;
+        template <typename, typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_next;
 
         inline ItemT **prev_pointer(void) throw() {
@@ -118,7 +118,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
-        template <typename> friend struct list_item_handle;
+        template <typename, typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_next;
 
         inline ItemT **prev_pointer(void) throw() {
@@ -137,7 +137,7 @@ namespace granary {
     private:
 
         template <typename> friend struct list;
-        template <typename> friend struct list_item_handle;
+        template <typename, typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_prev;
 
         inline ItemT **next_pointer(void) throw() {
@@ -170,7 +170,7 @@ namespace granary {
     struct list_item_with_next<ItemT, T, false> {
     private:
         template <typename> friend struct list;
-        template <typename> friend struct list_item_handle;
+        template <typename, typename> friend struct list_item_handle;
         template <typename, typename, bool> friend struct list_item_with_prev;
 
         inline ItemT **next_pointer(void) throw() {
@@ -311,15 +311,15 @@ namespace granary {
 
 
     /// represents a handle to a list item
-    template <typename T>
+    template <typename T, typename ItemT>
     struct list_item_handle {
     protected:
 
         template <typename> friend struct list;
 
-        T *handle;
+        ItemT *handle;
 
-        list_item_handle(T *handle_) throw()
+        list_item_handle(ItemT *handle_) throw()
             : handle(handle_)
         { }
 
@@ -329,11 +329,11 @@ namespace granary {
             : handle(nullptr)
         { }
 
-        auto operator*(void) throw() -> decltype(**(handle)) & {
+        T &operator*(void) throw() {
             return (**handle);
         }
 
-        auto operator->(void) throw() -> decltype(&(**handle)) {
+        T *operator->(void) throw() {
             return &(**handle);
         }
 
@@ -356,7 +356,7 @@ namespace granary {
         typedef list<T> self_type;
         typedef list_meta<T> meta_type;
         typedef list_item<T, meta_type::EMBED> item_type;
-        typedef list_item_handle<item_type> handle_type;
+        typedef list_item_handle<T, item_type> handle_type;
 
     private:
 
