@@ -48,7 +48,7 @@ namespace granary {
             return dynamorio::instr_get_app_pc(this);
         }
 
-        inline unsigned size(void) throw() {
+        inline unsigned encoded_size(void) throw() {
             return dynamorio::instr_length(DCONTEXT, this);
         }
 

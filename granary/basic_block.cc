@@ -101,7 +101,7 @@ namespace granary {
         unsigned size(0);
         auto in = ls.first();
         for(unsigned i = 0, max = ls.length(); i < max; ++i) {
-            size += in->size();
+            size += in->encoded_size();
         }
 
         size += size % BB_INFO_BYTE_ALIGNMENT; // padding bytes before meta info
