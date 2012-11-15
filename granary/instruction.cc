@@ -66,7 +66,7 @@ namespace granary {
     }
 
 
-    operand_lea::operator operand(void) const throw() {
+    operand_lea::operator struct operand(void) const throw() {
         return mem_lea_(base, index, scale, disp);
     }
 

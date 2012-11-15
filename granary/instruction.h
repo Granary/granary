@@ -15,6 +15,14 @@
 namespace granary {
 
 
+    /// Forward declarations.
+    struct operand;
+    struct operand_lea;
+    struct instruction;
+    struct instruction_label;
+    struct instruction_list;
+
+
     /// Defines a decoded x86 instruction type. This is a straight extension of
     /// DynamoRIO's instruction type.
     struct instruction : public dynamorio::instr_t {
@@ -80,8 +88,8 @@ namespace granary {
 
 
         /// encodes an instruction into a sequence of bytes
-        template <typename T>
-        inline T *encode(T *pc) {
+        template <typename M>
+        inline M *encode(M *pc) {
 
             // address calculation for relative jumps uses the note field
             if(dynamorio::instr_is_label(this) || dynamorio::instr_is_cti(this)) {
@@ -90,13 +98,10 @@ namespace granary {
 
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
             byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
-            return unsafe_cast<T *>(byte_pc);
+            return unsafe_cast<M *>(byte_pc);
         }
     };
 
-
-    /// Forward declare.
-    struct operand;
 
     /// Defines an operand generator for LEA operands
     struct operand_lea {
@@ -131,15 +136,15 @@ namespace granary {
             return ret;
         }
 
-        operator operand(void) const throw();
+        operator struct operand(void) const throw();
     };
+
 
     /// Defines a generic operand
     struct operand : public dynamorio::opnd_t {
     public:
 
         typedef dynamorio::opnd_t dynamorio_operand;
-        typedef dynamorio::reg_id_t dynamorio_reg;
 
         operand(dynamorio::opnd_t &&that) throw() {
             memcpy(this, &that, sizeof *this);
@@ -154,7 +159,7 @@ namespace granary {
         /// some memory)
         operand operator[](int64_t num_bytes) const throw();
 
-        inline operator dynamorio_reg(void) const throw() {
+        inline operator typename dynamorio::reg_id_t(void) const throw() {
             return value.reg;
         }
 
@@ -165,9 +170,9 @@ namespace granary {
         /// Construct an LEA operand with an index and scale. This is to
         /// respect the order of operations. Note: valid values of scale are
         /// 1, 2, 4, and 8.
-        template <typename T>
-        operand_lea operator*(T scale) const throw() {
-            static_assert(std::is_integral<T>::value,
+        template <typename I>
+        operand_lea operator*(I scale) const throw() {
+            static_assert(std::is_integral<I>::value,
                 "Scale must have an integral type.");
 
             operand_lea ret;
@@ -179,9 +184,9 @@ namespace granary {
         }
 
         /// Construct an LEA operand with a base and displacement.
-        template <typename T>
-        operand_lea operator+(T disp) const throw() {
-            static_assert(std::is_integral<T>::value,
+        template <typename I>
+        operand_lea operator+(I disp) const throw() {
+            static_assert(std::is_integral<I>::value,
                 "Displacement must have an integral type.");
 
             operand_lea ret;
@@ -214,10 +219,6 @@ namespace granary {
             heap_free(nullptr, val, size);
         }
     };
-
-
-    /// Forward declaration.
-    struct instruction_list;
 
 
     /// Represents an instruction label.
@@ -274,8 +275,8 @@ namespace granary {
         unsigned encoded_size(void) throw();
 
         /// encodes an instruction list into a sequence of bytes
-        template <typename T>
-        T *encode(T *pc) {
+        template <typename M>
+        M *encode(M *pc) {
             if(!length()) {
                 return pc;
             }
