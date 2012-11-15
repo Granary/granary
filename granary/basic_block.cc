@@ -13,9 +13,21 @@
 namespace granary {
 
     enum {
+        /// the magic value is a 3 int3 instructions, followed by the number of
+        /// instructions in the basic block.
+        BB_PADDING      = 0xCC,
+        BB_MAGIC        = 0xCCCCCC00,
+        BB_MAGIC_MASK   = 0xFFFFFF00,
+
+        /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
+        /// compression ratio of the instruction bytes to the state set bytes
         BB_BYTE_STATES_PER_BYTE = 4,
+
+        /// byte and 32-bit alignment of basic block info structs in memory
         BB_INFO_BYTE_ALIGNMENT = 8,
         BB_INFO_INT32_ALIGNMENT = 2,
+
+        /// misc.
         BITS_PER_BYTE = 8,
         BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
         BITS_PER_QWORD = BITS_PER_BYTE * 8
@@ -146,7 +158,7 @@ namespace granary {
                 pc_byte_states, next - cache_pc_start));
 
             // we're in front of a native byte, which is fine.
-            if(BB_BYTE_NATIVE & byte_state) {
+            if(code_cache_byte_state::BB_BYTE_NATIVE & byte_state) {
                 return next;
 
             // In the case of a mangled instruction, we will follow the discipline
@@ -156,8 +168,8 @@ namespace granary {
             // otherwise, we should be in a different kind of basic block
             // altogether, and the interrupt policy should be handled where we
             // have that context.
-            } else if(BB_BYTE_MANGLED & byte_state) {
-                if(BB_TRANSLATED_FRAGMENT == info->kind) {
+            } else if(code_cache_byte_state::BB_BYTE_MANGLED & byte_state) {
+                if(basic_block_kind::BB_TRANSLATED_FRAGMENT == info->kind) {
                     return next;
                 }
 
@@ -167,7 +179,7 @@ namespace granary {
             // if the previous byte is instrumented, then it likely means we're in
             // a sequence of instrumented instruction, which might not be re-entrant
             // and so we need to advance the pc to find a safe interrupt location.
-            } else if(BB_BYTE_INSTRUMENTED & byte_state) {
+            } else if(code_cache_byte_state::BB_BYTE_INSTRUMENTED & byte_state) {
 
                 if(next == cache_pc_start) {
                     return next;
@@ -176,7 +188,7 @@ namespace granary {
                 const code_cache_byte_state prev_byte_state(get_state(
                     pc_byte_states, next - cache_pc_start - 1));
 
-                if(BB_BYTE_NATIVE == prev_byte_state) {
+                if(code_cache_byte_state::BB_BYTE_NATIVE == prev_byte_state) {
                     return next;
                 }
 
@@ -188,6 +200,8 @@ namespace granary {
                 return nullptr;
             }
         }
+
+        return nullptr; // shouldn't be reached
     }
 
 

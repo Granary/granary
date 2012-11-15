@@ -13,6 +13,8 @@
 extern "C" {
 #endif
 
+/// DynamoRIO-compatible heap allocation functions
+
 void *heap_alloc(void *, unsigned long long);
 void heap_free(void *, void *, unsigned long long);
 

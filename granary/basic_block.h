@@ -12,15 +12,6 @@
 
 namespace granary {
 
-    enum {
-        /// the magic value is a 3 int3 instructions, followed by the number of
-        /// instructions in the basic block.
-        BB_PADDING      = 0xCC,
-        BB_MAGIC        = 0xCCCCCC00,
-        BB_MAGIC_MASK   = 0xFFFFFF00
-    };
-
-
     /// Forward declarations.
     struct basic_block;
     struct instruction_list;
