@@ -22,6 +22,91 @@ namespace granary {
     };
 
 
+    /// Get the state of a byte in the basic block.
+    static code_cache_byte_state get_state(uint8_t *pc_byte_states,
+                                           unsigned i) throw() {
+        const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
+        const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
+        return static_cast<code_cache_byte_state>(
+            1 << ((pc_byte_states[j] >> k) & 0x03));
+    }
+
+
+    /// Set one of the states into a trit.
+    static void set_state(uint8_t *pc_byte_states,
+                          unsigned i,
+                          code_cache_byte_state state) throw() {
+
+        static uint8_t state_to_mask[] = {
+            0xFF,
+            0,  /* 1 << 0 */
+            1,  /* 1 << 1 */
+            0xFF,
+            2,  /* 1 << 2 */
+            0xFF,
+            0xFF,
+            0xFF,
+            3   /* 1 << 3 */
+        };
+
+        const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
+        const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
+        pc_byte_states[j] &= ~(0x3 << k);
+        pc_byte_states[j] |= state_to_mask[state] << k;
+    }
+
+
+    /// Get the state of all bytes of an instruction.
+    static code_cache_byte_state get_instruction_state(instruction in) throw() {
+        if(nullptr != in.pc()) {
+            return BB_BYTE_NATIVE;
+
+        // here we take over the INSTR_HAS_CUSTOM_STUB to represent a mangled
+        // instruction. Mangling in Granary's case has to do with a jump to a
+        // specific basic block that can resolve what to do.
+        } if(dynamorio::INSTR_HAS_CUSTOM_STUB & in.flags) {
+            return BB_BYTE_MANGLED;
+
+        } else {
+            return BB_BYTE_INSTRUMENTED;
+        }
+    }
+
+
+    /// Set the state of a pair of bits in memory.
+    static unsigned initialize_state_bytes(basic_block_info *info,
+                                           instruction_list &ls,
+                                           app_pc pc) throw() {
+
+
+        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
+        unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
+
+        // initialize all state bytes to have their states as padding bytes
+        memset(pc, ~0, num_state_bytes);
+
+        auto in(ls.first());
+        unsigned byte_offset(0);
+
+        // for each instruction
+        for(unsigned i = 0, max = ls.length(); i < max; ++i) {
+            code_cache_byte_state state(get_instruction_state(*in));
+            unsigned num_bytes(in->encoded_size());
+
+            // for each byte of each instruction
+            for(unsigned j = i; j < (i + num_bytes); ++j) {
+                set_state(pc, j, state);
+            }
+
+            byte_offset += num_bytes;
+            in = in.next();
+        }
+
+        return num_state_bytes;
+    }
+
+
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
     basic_block::basic_block(app_pc current_pc_) throw()
@@ -57,7 +142,8 @@ namespace granary {
         app_pc next(cache_pc_current);
 
         for(;;) {
-            const code_cache_byte_state byte_state(state_of(next));
+            const code_cache_byte_state byte_state(get_state(
+                pc_byte_states, next - cache_pc_start));
 
             // we're in front of a native byte, which is fine.
             if(BB_BYTE_NATIVE & byte_state) {
@@ -87,7 +173,10 @@ namespace granary {
                     return next;
                 }
 
-                if(BB_BYTE_NATIVE == state_of(next - 1)) {
+                const code_cache_byte_state prev_byte_state(get_state(
+                    pc_byte_states, next - cache_pc_start - 1));
+
+                if(BB_BYTE_NATIVE == prev_byte_state) {
                     return next;
                 }
 
@@ -132,80 +221,6 @@ namespace granary {
         return size;
     }
 
-
-    /// Get the state of all bytes of an instruction.
-    inline static code_cache_byte_state instruction_state(instruction in) throw() {
-        if(nullptr != in.pc()) {
-            return BB_BYTE_NATIVE;
-
-        // here we take over the INSTR_HAS_CUSTOM_STUB to represent a mangled
-        // instruction. Mangling in Granary's case has to do with a jump to a
-        // specific basic block that can resolve what to do.
-        } if(dynamorio::INSTR_HAS_CUSTOM_STUB & in.flags) {
-            return BB_BYTE_MANGLED;
-
-        } else {
-            return BB_BYTE_INSTRUMENTED;
-        }
-    }
-
-
-    /// Set one of the states into a trit.
-    static void set_state(app_pc pc_byte_states,
-                          unsigned i,
-                          code_cache_byte_state state) throw() {
-
-        static uint8_t state_to_mask[] = {
-            0xFF,
-            0,  /* 1 << 0 */
-            1,  /* 1 << 1 */
-            0xFF,
-            2,  /* 1 << 2 */
-            0xFF,
-            0xFF,
-            0xFF,
-            3   /* 1 << 3 */
-        };
-
-        const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
-        const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
-        pc_byte_states[j] &= ~(0x3 << k);
-        pc_byte_states[j] |= state_to_mask[state] << k;
-    }
-
-
-    /// Set the state of a pair of bits in memory.
-    static unsigned initialize_state_bytes(basic_block_info *info,
-                                           instruction_list &ls,
-                                           app_pc pc) throw() {
-
-
-        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
-        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
-        unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
-
-        // initialize all state bytes to have their states as padding bytes
-        memset(pc, ~0, num_state_bytes);
-
-        auto in(ls.first());
-        unsigned byte_offset(0);
-
-        // for each instruction
-        for(unsigned i = 0, max = ls.length(); i < max; ++i) {
-            code_cache_byte_state state(instruction_state(*in));
-            unsigned num_bytes(in->encoded_size());
-
-            // for each byte of each instruction
-            for(unsigned j = i; j < (i + num_bytes); ++j) {
-                set_state(pc, j, state);
-            }
-
-            byte_offset += num_bytes;
-            in = in.next();
-        }
-
-        return num_state_bytes;
-    }
 
     /// Emit an instruction list as code into a byte array. This will also
     /// emit the basic block meta information.

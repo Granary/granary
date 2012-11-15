@@ -142,17 +142,6 @@ namespace granary {
         ///                     the basic block.
         static basic_block emit(basic_block_kind kind, instruction_list &ls,
                                 app_pc generating_pc, app_pc *generated_pc) throw();
-
-    private:
-
-        /// return the state of a specific byte in the code cache
-        inline code_cache_byte_state state_of(app_pc addr) const throw() {
-            const unsigned i((addr - cache_pc_start));
-            const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
-            const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
-            return static_cast<code_cache_byte_state>(
-                1 << ((pc_byte_states[j] >> k) & 0x03));
-        }
     };
 }
 
