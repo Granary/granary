@@ -8,18 +8,11 @@
 #ifndef granary_INSTRUCTION_H_
 #define granary_INSTRUCTION_H_
 
-#include <cstring>
-#include <stdint.h>
-
-#include "granary/utils.h"
+#include "granary/globals.h"
 #include "granary/list.h"
 #include "granary/heap.h"
-#include "granary/types/dynamorio.h"
 
 namespace granary {
-
-    /// Program counter type.
-    typedef dynamorio::app_pc app_pc;
 
 
     /// Defines a decoded x86 instruction type. This is a straight extension of
@@ -53,6 +46,10 @@ namespace granary {
 
         inline app_pc pc(void) throw() {
             return dynamorio::instr_get_app_pc(this);
+        }
+
+        inline unsigned size(void) throw() {
+            return dynamorio::instr_length(DCONTEXT, this);
         }
 
         /// decodes a raw byte, pointed to by *pc, and updated *pc to be the

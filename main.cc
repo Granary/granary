@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "granary/instruction.h"
+#include "granary/basic_block.h"
 #include "granary/gen/instruction.h"
 
 void break_on_instruction(uint8_t *in) {
@@ -32,16 +33,14 @@ namespace granary {
         ls.append(restart);
         ls.append(mov_imm_(reg::ret, int32_(a)));
         ls.append(add_(*reg::ret, reg::arg1));
-        ls.append(add_(reg::ret[UINT8_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT16_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT32_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT64_MAX], reg::arg1));
         ls.append(lea_(reg::ret, reg::arg1 + reg::arg2 * 2 + sizeof(foo)));
         ls.append(ret_());
         ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));
 
         ls.encode(data);
         break_on_instruction(data);
+
+        printf("bb size = %u\n", basic_block::size(ls));
 
         heap_free(nullptr, data, 100);
     }

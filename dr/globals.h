@@ -9,7 +9,9 @@
 #ifndef Granary_GLOBALS_H_
 #define Granary_GLOBALS_H_
 
-#define GRANARY 1
+#define GRANARY
+#define IF_GRANARY(x) x
+#define IF_NOT_GRANARY(x)
 #define LINUX 1
 #define X64 1
 #define CLIENT_INTERFACE 1
