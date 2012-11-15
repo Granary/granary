@@ -29,11 +29,11 @@ namespace granary {
 
         template <typename> friend struct list_meta;
 
-        static dynamorio::dcontext_t *DCONTEXT;
+        static typename dynamorio::dcontext_t *DCONTEXT;
 
     public:
 
-        dynamorio::instr_t instr;
+        typename dynamorio::instr_t instr;
 
         /// Constructor
         instruction(void) throw();
@@ -41,32 +41,32 @@ namespace granary {
 
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
-            return instr.num_srcs;
+            return this->instr.num_srcs;
         }
 
 
         /// Return the number of destination operands in this instruction.
         inline unsigned num_destinations(void) const throw() {
-            return instr.num_dsts;
+            return this->instr.num_dsts;
         }
 
 
         /// Return true iff this instruction is a cti.
         inline bool is_cti(void) throw() {
-            return dynamorio::instr_is_cti(&instr);
+            return dynamorio::instr_is_cti(&(this->instr));
         }
 
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
-            return instr.translation;
+            return this->instr.translation;
         }
 
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags);
+            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & this->instr.flags);
         }
 
 
@@ -74,7 +74,7 @@ namespace granary {
         /// it is encoded.
         inline unsigned encoded_size(void) throw() {
             return static_cast<unsigned>(
-                dynamorio::instr_length(DCONTEXT, &instr));
+                dynamorio::instr_length(DCONTEXT, &(this->instr)));
         }
 
 
@@ -98,13 +98,13 @@ namespace granary {
         inline M *encode(M *pc) {
 
             // address calculation for relative jumps uses the note field
-            if(dynamorio::instr_is_label(&instr)
-            || dynamorio::instr_is_cti(&instr)) {
+            if(dynamorio::instr_is_label(&(this->instr))
+            || dynamorio::instr_is_cti(&(this->instr))) {
                 instr.note = pc;
             }
 
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
-            byte_pc = dynamorio::instr_encode(DCONTEXT, &instr, byte_pc);
+            byte_pc = dynamorio::instr_encode(DCONTEXT, &(this->instr), byte_pc);
             return unsafe_cast<M *>(byte_pc);
         }
     };
@@ -114,8 +114,8 @@ namespace granary {
     struct operand_lea {
     public:
 
-        dynamorio::reg_id_t base;
-        dynamorio::reg_id_t index;
+        typename dynamorio::reg_id_t base;
+        typename dynamorio::reg_id_t index;
 
         int scale;
         int disp;
@@ -160,7 +160,7 @@ namespace granary {
         }
 
         operand(operand_lea &&that) throw();
-        operand(dynamorio::reg_id_t reg_) throw();
+        operand(typename dynamorio::reg_id_t reg_) throw();
 
         /// De-referencing creates a new operand type
         operand operator*(void) const throw();

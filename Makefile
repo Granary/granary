@@ -8,7 +8,8 @@ GR_NAME = granary
 # Compilation toolchain
 GR_CPP = cpp
 GR_CC = gcc
-GR_CXX = g++-4.6
+GR_CXX = g++-4.7
+GR_CXX_STD = -std=gnu++0x
 
 # Later used commands/options
 GR_MAKE =
@@ -19,7 +20,7 @@ GR_PP_CC =
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
-GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions -std=c++0x
+GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions
 GR_CXX_FLAGS += -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
@@ -28,6 +29,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
 	GR_CXX_FLAGS += -Wno-gnu
 	GR_PP_CC = __clang__
+	GR_CXX_STD = -std=c++0x
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # clang
@@ -36,6 +38,7 @@ ifneq (,$(findstring gcc,$(GR_CC))) # clang
 	GR_PP_CC = __GNUC__
 endif
 
+GR_CXX_FLAGS += $(GR_CXX_STD)
 GR_OBJS = 
 
 # DynamoRIO dependencies
