@@ -51,14 +51,14 @@ namespace granary {
 
         static uint8_t state_to_mask[] = {
             0xFF,
-            0,  /* 1 << 0 */
-            1,  /* 1 << 1 */
+            0,  /* BB_BYTE_NATIVE:          1 << 0 */
+            1,  /* BB_BYTE_MANGLED:         1 << 1 */
             0xFF,
-            2,  /* 1 << 2 */
+            2,  /* BB_BYTE_INSTRUMENTED:    1 << 2 */
             0xFF,
             0xFF,
             0xFF,
-            3   /* 1 << 3 */
+            3   /* BB_BYTE_PADDING:         1 << 3 */
         };
 
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset

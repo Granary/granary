@@ -22,8 +22,8 @@ namespace granary {
     struct instruction_list;
 
 
-    /// Defines a decoded x86 instruction type. This is a straight extension of
-    /// DynamoRIO's instruction type.
+    /// Defines a decoded x86 instruction type. This wraps around DynamoRIO's
+    /// Level-3 decoding on x86 instructions.
     struct instruction {
     private:
 
