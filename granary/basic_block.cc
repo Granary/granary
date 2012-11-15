@@ -90,7 +90,6 @@ namespace granary {
                                            instruction_list &ls,
                                            app_pc pc) throw() {
 
-
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;

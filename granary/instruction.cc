@@ -22,13 +22,6 @@ namespace granary {
     }
 
 
-    /// Implicit constructor for converting operand_lea's to operands.
-    operand::operand(operand_lea &&that) throw() {
-        operand op_lea(mem_lea_(that.base, that.index, that.scale, that.disp));
-        memcpy(this, &op_lea, sizeof *this);
-    }
-
-
     /// Implicit constructor for registers.
     operand::operand(typename dynamorio::reg_id_t reg_) throw() {
         *this = dynamorio::opnd_create_reg(reg_);
