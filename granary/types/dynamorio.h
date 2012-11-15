@@ -453,7 +453,29 @@ enum { INSTR_DIRECT_EXIT = LINK_DIRECT , INSTR_INDIRECT_EXIT = LINK_INDIRECT , I
 
 typedef struct _dr_instr_label_data_t { ptr_uint_t data [ 4 ] ; } dr_instr_label_data_t ;
 
-struct _instr_t { uint flags ; byte * bytes ; uint length ; app_pc translation ; uint opcode ; byte rip_rel_pos ; byte num_dsts ; byte num_srcs ; union { struct { opnd_t src0 ; opnd_t * srcs ; opnd_t * dsts ; } ; dr_instr_label_data_t label_data ; } ; uint prefixes ; uint eflags ; void * note ; instr_t * prev ; instr_t * next ; } ;
+struct _instr_t {
+  uint flags ;
+  byte * bytes ;
+  uint length ;
+  app_pc translation ;
+  uint opcode ;
+  byte rip_rel_pos ;
+  byte num_dsts ;
+  byte num_srcs ;
+  union {
+    struct {
+      opnd_t src0 ;
+      opnd_t * srcs ;
+      opnd_t * dsts ;
+    } ;
+      dr_instr_label_data_t label_data ;
+  } ;
+  uint prefixes ;
+  uint eflags ;
+  void * note ;
+  instr_t * prev ;
+  instr_t * next ;
+} ;
 
 enum { EFLAGS_CF = 0x00000001 , EFLAGS_PF = 0x00000004 , EFLAGS_AF = 0x00000010 , EFLAGS_ZF = 0x00000040 , EFLAGS_SF = 0x00000080 , EFLAGS_DF = 0x00000400 , EFLAGS_OF = 0x00000800 } ;
 
@@ -1352,9 +1374,9 @@ opnd_is_immed(opnd_t op);
 # define OPSZ_STACK OPSZ_4     /**< Operand size for stack push/pop operand sizes. */
 #endif
 #define OPSZ_VARSTACK OPSZ_4x8_short2 /**< Operand size for prefix-varying stack
-                                       * push/pop operand sizes. */
+ * push/pop operand sizes. */
 #define OPSZ_REXVARSTACK OPSZ_4_rex8_short2 /* Operand size for prefix/rex-varying
-                                             * stack push/pop like operand sizes. */
+ * stack push/pop like operand sizes. */
 
 #define OPSZ_ret OPSZ_4x8_short2xi8 /**< Operand size for ret instruction. */
 #define OPSZ_call OPSZ_ret         /**< Operand size for push portion of call. */

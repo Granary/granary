@@ -26,31 +26,45 @@ namespace granary {
 
     public:
 
+
         /// Constructor
         instruction(void) throw();
 
-        /// return the number of source operands in this instruction
+
+        /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
             return this->num_srcs;
         }
 
-        /// return the number of destination operands in this instruction
+
+        /// Return the number of destination operands in this instruction.
         inline unsigned num_destinations(void) const throw() {
             return this->num_dsts;
         }
 
-        /// return true iff this instruction is a cti
+
+        /// Return true iff this instruction is a cti.
         inline bool is_cti(void) throw() {
             return dynamorio::instr_is_cti(this);
         }
 
+
+        /// Return the original code program counter from the instruction (if
+        /// it exists).
         inline app_pc pc(void) throw() {
             return dynamorio::instr_get_app_pc(this);
         }
 
-        unsigned encoded_size(void) throw();
 
-        /// decodes a raw byte, pointed to by *pc, and updated *pc to be the
+        /// Returns the number of bytes needed to represent this instruction when
+        /// it is encoded.
+        inline unsigned encoded_size(void) throw() {
+            return static_cast<unsigned>(
+                dynamorio::instr_length(DCONTEXT, this));
+        }
+
+
+        /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
         template <typename T>
@@ -63,6 +77,7 @@ namespace granary {
             dynamorio::instr_set_translation(&self, byte_pc);
             return self;
         }
+
 
         /// encodes an instruction into a sequence of bytes
         template <typename T>
@@ -254,6 +269,9 @@ namespace granary {
         handle_type insert_before(handle_type pos, instruction_label &label) throw();
 
         handle_type insert_after(handle_type pos, instruction_label &label) throw();
+
+        /// The encoded size of the instruction list.
+        unsigned encoded_size(void) throw();
 
         /// encodes an instruction list into a sequence of bytes
         template <typename T>

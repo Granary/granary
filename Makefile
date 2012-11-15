@@ -17,11 +17,11 @@ GR_OUTPUT_FORMAT =
 GR_PP_CC =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3
+GR_DEBUG_LEVEL = -g3 -O0
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions -std=c++0x
-GR_CXX_FLAGS += -Wall -Werror -Wextra
-GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long
+GR_CXX_FLAGS += -Wall -Werror -Wextra -Wstrict-aliasing=2
+GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang

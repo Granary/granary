@@ -17,7 +17,6 @@
 
 namespace granary {
 
-
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
 

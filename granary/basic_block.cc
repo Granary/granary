@@ -8,7 +8,10 @@
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
 
+#include <cstdio>
+
 namespace granary {
+
 
     enum {
         BB_INFO_BYTE_ALIGNMENT = 8,
@@ -17,6 +20,7 @@ namespace granary {
         BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
         BITS_PER_QWORD = BITS_PER_BYTE * 8
     };
+
 
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
@@ -33,7 +37,6 @@ namespace granary {
         uint32_t *ints(reinterpret_cast<uint32_t *>(addr));
         for(; (BB_MAGIC_MASK & *ints) != BB_MAGIC;
             ints += BB_INFO_INT32_ALIGNMENT) {
-
             num_bytes += BB_INFO_BYTE_ALIGNMENT;
         }
 
@@ -46,7 +49,10 @@ namespace granary {
     }
 
 
-    /// Returns the next safe interrupt location.
+    /// Returns the next safe interrupt location. This is used in the event that
+    /// a basic block is interrupted and we need to determine if we have to
+    /// delay the interrupt (e.g. across potentially non-reentrant
+    /// instrumentation code) or if we can take the interrupt immediately.
     app_pc basic_block::next_safe_interrupt_location(void) const throw() {
         app_pc next(cache_pc_current);
 
@@ -62,7 +68,8 @@ namespace granary {
             // fragment, which is a safe interrupt point.
             //
             // otherwise, we should be in a different kind of basic block
-            // altogether.
+            // altogether, and the interrupt policy should be handled where we
+            // have that context.
             } else if(BB_BYTE_MANGLED & byte_state) {
                 if(BB_TRANSLATED_FRAGMENT == info->kind) {
                     return next;
@@ -94,37 +101,157 @@ namespace granary {
         }
     }
 
+
     /// Compute the size of a basic block given an instruction list. This
     /// computes the size of each instruction, the amount of padding, meta
     /// information, etc.
     unsigned basic_block::size(instruction_list &ls) throw() {
-        unsigned size(0);
-        auto in = ls.first();
-        for(unsigned i = 0, max = ls.length(); i < max; ++i) {
-            size += in->encoded_size();
-        }
+        unsigned size(ls.encoded_size());
 
-        size += size % BB_INFO_BYTE_ALIGNMENT; // padding bytes before meta info
-        size += sizeof(basic_block_info); // meta info
+        // alignment and meta info
+        size += ALIGN_TO(size, BB_INFO_BYTE_ALIGNMENT);
 
         // counting set for the bits that have state info about the instruction
         // bytes
         unsigned num_instruction_bits(size * BITS_PER_STATE);
-        num_instruction_bits += num_instruction_bits % BITS_PER_QWORD;
+        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
 
+        size += sizeof(basic_block_info); // meta info
+        size += num_instruction_bits / BITS_PER_BYTE;
+        return size;
+    }
+
+
+    /// Compute the size of an existing basic block.
+    unsigned basic_block::size(void) const throw() {
+        unsigned size(info->num_bytes + sizeof *info);
+        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         size += num_instruction_bits / BITS_PER_BYTE;
 
         return size;
     }
 
-    /// Compute the size of an existing basic block.
-    unsigned basic_block::size(void) const throw() {
-        unsigned size((pc_byte_states - cache_pc_start));
-        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
-        num_instruction_bits += num_instruction_bits % BITS_PER_QWORD;
-        size += num_instruction_bits / BITS_PER_BYTE;
 
-        return size;
+    /// Get the state of all bytes of an instruction.
+    inline static code_cache_byte_state instruction_state(instruction in) throw() {
+        if(nullptr != in.pc()) {
+            return BB_BYTE_NATIVE;
+
+        // here we take over the INSTR_HAS_CUSTOM_STUB to represent a mangled
+        // instruction. Mangling in Granary's case has to do with a jump to a
+        // specific basic block that can resolve what to do.
+        } if(dynamorio::INSTR_HAS_CUSTOM_STUB & in.flags) {
+            return BB_BYTE_MANGLED;
+
+        } else {
+            return BB_BYTE_INSTRUMENTED;
+        }
+    }
+
+
+    /// Set one of the states into a trit.
+    static void set_state(app_pc pc_byte_states,
+                          unsigned i,
+                          code_cache_byte_state state) throw() {
+
+        static uint8_t state_to_mask[] = {
+            0xFF,
+            0,  /* 1 << 0 */
+            1,  /* 1 << 1 */
+            0xFF,
+            2,  /* 1 << 2 */
+            0xFF,
+            0xFF,
+            0xFF,
+            3   /* 1 << 3 */
+        };
+
+        const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
+        const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
+        pc_byte_states[j] &= ~(0x3 << k);
+        pc_byte_states[j] |= state_to_mask[state] << k;
+    }
+
+
+    /// Set the state of a pair of bits in memory.
+    static unsigned initialize_state_bytes(basic_block_info *info,
+                                           instruction_list &ls,
+                                           app_pc pc) throw() {
+
+
+        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
+        unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
+
+        // initialize all state bytes to have their states as padding bytes
+        memset(pc, ~0, num_state_bytes);
+
+        auto in(ls.first());
+        unsigned byte_offset(0);
+
+        // for each instruction
+        for(unsigned i = 0, max = ls.length(); i < max; ++i) {
+            code_cache_byte_state state(instruction_state(*in));
+            unsigned num_bytes(in->encoded_size());
+
+            // for each byte of each instruction
+            for(unsigned j = i; j < (i + num_bytes); ++j) {
+                set_state(pc, j, state);
+            }
+
+            byte_offset += num_bytes;
+            in = in.next();
+        }
+
+        return num_state_bytes;
+    }
+
+    /// Emit an instruction list as code into a byte array. This will also
+    /// emit the basic block meta information.
+    ///
+    /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
+    ///       boundary.
+    basic_block basic_block::emit(basic_block_kind kind,
+                                  instruction_list &ls,
+                                  app_pc generating_pc,
+                                  app_pc *generated_pc) throw() {
+
+        app_pc pc = *generated_pc;
+        const app_pc start_pc(pc);
+
+        // add in the instructions
+        pc = ls.encode(pc);
+
+        uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));
+        uint64_t pc_uint_aligned(pc_uint + ALIGN_TO(
+            pc_uint, BB_INFO_BYTE_ALIGNMENT));
+
+        // add in the padding
+        for(unsigned i = 0, max = (pc_uint_aligned - pc_uint); i < max; ++i) {
+            *pc++ = BB_PADDING;
+        }
+
+        // add in the meta information header
+        *(unsafe_cast<uint32_t *>(pc)) = uint32_t(
+            (BB_PADDING << 24) |
+            (BB_PADDING << 16) |
+            (BB_PADDING <<  8) |
+            kind);
+
+        basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
+
+        // fill in the info
+        info->num_bytes = static_cast<unsigned>(pc - start_pc);
+        info->hotness = 0;
+        info->generating_pc = generating_pc;
+
+        // fill in the byte state set
+        pc += sizeof(basic_block_info);
+        pc += initialize_state_bytes(info, ls, pc);
+
+        *generated_pc = pc;
+        return basic_block(start_pc);
     }
 }
 
