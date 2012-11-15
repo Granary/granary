@@ -32,8 +32,6 @@ def format_line_ns(line):
   line = line.replace("OPSZ", "dynamorio::OPSZ")
   line = line.replace("ptr_int_t", "dynamorio::ptr_int_t")
   line = line.replace("instr_create_", "dynamorio::instr_create_")
-  #if not MACRO_DEF.match(line):
-  #  line = MACRO_USE.sub(r"granary::\1_", line)
   return line
 
 def collect_macro_lines(lines, i):
@@ -84,7 +82,7 @@ def emit_instr_function(lines, i, instr, args):
     C("    dynamorio::dcontext_t dc__ = {")
     C("        false, /* x86_mode */")
     C("        0, /* private code */")
-    C("        &in__ /* allocated_instr */")
+    C("        &(in__.instr) /* allocated_instr */")
     C("    };")
     C("    dynamorio::dcontext_t *", args[0], " = &dc__;")
   C("   ", "\n    ".join(sub_lines))
@@ -127,20 +125,18 @@ with open("dr/x86/instr_create.h") as lines_:
   C('#include <limits.h>')
   C('#include <stdint.h>')
   C('#include "granary/types/dynamorio.h"')
-  C('#include "granary/gen/instruction.h"')
+  C('#include "granary/instruction.h"')
   C('#ifndef X64')
   C("#   define X64")
   C('#endif')  
   C('#define IF_X64_ELSE(t,f) (t)')
   C('extern "C" {')
-
-  H('#include "granary/instruction.h"')
-
+  
   H("namespace granary {")
   H('    inline operand pc_(app_pc pc) { return dynamorio::opnd_create_pc(pc); }')
   H('    inline operand far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
-  H('    inline operand instr_(instruction *instr) { return dynamorio::opnd_create_instr(instr); }')
-  H('    inline operand far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, instr); }')
+  H('    inline operand instr_(instruction *instr) { return dynamorio::opnd_create_instr(&(instr->instr)); }')
+  H('    inline operand far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, &(instr->instr)); }')
 
   lines = list(lines_)
   i = 0

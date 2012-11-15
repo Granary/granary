@@ -56,11 +56,6 @@ namespace granary {
     } basic_block_kind;
 
 
-    enum {
-        BB_BYTE_STATES_PER_BYTE = 4
-    };
-
-
     /// Defines the meta-information block that ends each basic block in the
     /// code cache.
     struct basic_block_info {

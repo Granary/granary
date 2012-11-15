@@ -25,7 +25,7 @@ namespace granary {
 
     /// Defines a decoded x86 instruction type. This is a straight extension of
     /// DynamoRIO's instruction type.
-    struct instruction : public dynamorio::instr_t {
+    struct instruction {
     private:
 
         template <typename> friend struct list_meta;
@@ -34,6 +34,7 @@ namespace granary {
 
     public:
 
+        dynamorio::instr_t instr;
 
         /// Constructor
         instruction(void) throw();
@@ -41,26 +42,32 @@ namespace granary {
 
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
-            return this->num_srcs;
+            return instr.num_srcs;
         }
 
 
         /// Return the number of destination operands in this instruction.
         inline unsigned num_destinations(void) const throw() {
-            return this->num_dsts;
+            return instr.num_dsts;
         }
 
 
         /// Return true iff this instruction is a cti.
         inline bool is_cti(void) throw() {
-            return dynamorio::instr_is_cti(this);
+            return dynamorio::instr_is_cti(&instr);
         }
 
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
-        inline app_pc pc(void) throw() {
-            return dynamorio::instr_get_app_pc(this);
+        inline app_pc pc(void) const throw() {
+            return instr.translation;
+        }
+
+
+        /// Return true iff this instruction is mangled.
+        inline bool is_mangled(void) const throw() {
+            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags);
         }
 
 
@@ -68,7 +75,7 @@ namespace granary {
         /// it is encoded.
         inline unsigned encoded_size(void) throw() {
             return static_cast<unsigned>(
-                dynamorio::instr_length(DCONTEXT, this));
+                dynamorio::instr_length(DCONTEXT, &instr));
         }
 
 
@@ -80,9 +87,9 @@ namespace granary {
             instruction self;
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
             *pc = unsafe_cast<T *>(
-                dynamorio::decode_raw(DCONTEXT, byte_pc, &self));
-            dynamorio::decode(DCONTEXT, byte_pc, &self);
-            dynamorio::instr_set_translation(&self, byte_pc);
+                dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr)));
+            dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
+            dynamorio::instr_set_translation(&(self.instr), byte_pc);
             return self;
         }
 
@@ -92,12 +99,13 @@ namespace granary {
         inline M *encode(M *pc) {
 
             // address calculation for relative jumps uses the note field
-            if(dynamorio::instr_is_label(this) || dynamorio::instr_is_cti(this)) {
-                this->note = pc;
+            if(dynamorio::instr_is_label(&instr)
+            || dynamorio::instr_is_cti(&instr)) {
+                instr.note = pc;
             }
 
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
-            byte_pc = dynamorio::instr_encode(DCONTEXT, this, byte_pc);
+            byte_pc = dynamorio::instr_encode(DCONTEXT, &instr, byte_pc);
             return unsafe_cast<M *>(byte_pc);
         }
     };
@@ -136,7 +144,11 @@ namespace granary {
             return ret;
         }
 
-        operator struct operand(void) const throw();
+        /// Implicit conversion from unpacked to packed LEA operand type.
+        inline operator typename dynamorio::opnd_t(void) const throw() {
+            return dynamorio::opnd_create_base_disp(
+                base, index, scale, disp, dynamorio::OPSZ_lea);
+        }
     };
 
 
@@ -144,12 +156,11 @@ namespace granary {
     struct operand : public dynamorio::opnd_t {
     public:
 
-        typedef dynamorio::opnd_t dynamorio_operand;
-
-        operand(dynamorio::opnd_t &&that) throw() {
+        inline operand(dynamorio::opnd_t &&that) throw() {
             memcpy(this, &that, sizeof *this);
         }
 
+        operand(operand_lea &&that) throw();
         operand(dynamorio::reg_id_t reg_) throw();
 
         /// De-referencing creates a new operand type
@@ -206,8 +217,8 @@ namespace granary {
         enum {
             EMBED = false,
             UNROLL = 5,
-            NEXT_POINTER_OFFSET = offsetof(instruction, next),
-            PREV_POINTER_OFFSET = offsetof(instruction, prev)
+            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
+            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
         };
 
         static void *allocate(unsigned size) throw() {
@@ -215,7 +226,8 @@ namespace granary {
         }
 
         static void free(void *val, unsigned size) throw() {
-            dynamorio::instr_destroy(instruction::DCONTEXT, (dynamorio::instr_t *) val);
+            dynamorio::instr_destroy(
+                instruction::DCONTEXT, (dynamorio::instr_t *) val);
             heap_free(nullptr, val, size);
         }
     };
@@ -295,9 +307,11 @@ namespace granary {
     /// registers
 #define MAKE_REG(name, upper_name) extern operand name;
     namespace reg {
-#include "inc/registers.h"
+#   include "inc/registers.h"
     }
 #undef MAKE_REG
 }
+
+#include "granary/gen/instruction.h"
 
 #endif /* granary_INSTRUCTION_H_ */
