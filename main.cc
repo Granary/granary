@@ -12,8 +12,9 @@
 #include "granary/basic_block.h"
 #include "granary/gen/instruction.h"
 
-void break_on_instruction(uint8_t *in) {
+void break_on_instruction(uint8_t *in, granary::basic_block *bb) {
     (void) in;
+    (void) bb;
 }
 
 uint8_t *buff;
@@ -27,6 +28,8 @@ namespace granary {
 
     void make_adder(int a) throw() {
         uint8_t *data = (uint8_t *) heap_alloc(nullptr, 100);
+        uint8_t *next_data = data;
+
         granary::instruction_list ls;
         auto restart = ls.label();
 
@@ -37,10 +40,11 @@ namespace granary {
         ls.append(ret_());
         ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));
 
-        ls.encode(data);
-        break_on_instruction(data);
+        basic_block bb(basic_block::emit(BB_TRANSLATED_FRAGMENT, ls, nullptr, &next_data));
+        break_on_instruction(data, &bb);
 
         printf("bb size = %u\n", basic_block::size(ls));
+        printf("emitted bb size = %u\n", bb.size());
 
         heap_free(nullptr, data, 100);
     }

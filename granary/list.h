@@ -265,7 +265,7 @@ namespace granary {
             : val()
         { }
 
-        inline T operator*(void) const throw() {
+        inline T &operator*(void) throw() {
             return val;
         }
 
@@ -304,7 +304,7 @@ namespace granary {
             : val()
         { }
 
-        inline T operator*(void) const throw() {
+        inline T &operator*(void) throw() {
             return val.val;
         }
 
@@ -333,12 +333,12 @@ namespace granary {
             : handle(nullptr)
         { }
 
-        T &operator *(void) throw() {
-            return *handle;
+        auto operator*(void) throw() -> decltype(**(handle)) & {
+            return (**handle);
         }
 
-        T &operator->(void) throw() {
-            return *handle;
+        auto operator->(void) throw() -> decltype(&(**handle)) {
+            return &(**handle);
         }
 
         list_item_handle next(void) throw() {

@@ -5,8 +5,6 @@
  *      Author: Peter Goodman
  */
 
-#include <cstring>
-
 #include "granary/instruction.h"
 #include "granary/gen/instruction.h"
 
@@ -31,13 +29,6 @@ namespace granary {
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(this, true);
-    }
-
-
-    /// Returns the number of bytes needed to represent this instruction when
-    /// it is encoded.
-    unsigned instruction::encoded_size(void) throw() {
-        return dynamorio::instr_length(DCONTEXT, this);
     }
 
 
@@ -163,6 +154,18 @@ namespace granary {
     instruction_list::insert_after(handle_type pos, instruction_label &label) throw() {
         label.is_used = true;
         return list<instruction>::insert_after(get_item(pos), label.instr);
+    }
+
+
+    /// The encoded size of the instruction list.
+    unsigned instruction_list::encoded_size(void) throw() {
+        auto in = first();
+        unsigned size(0U);
+        for(unsigned i = 0, max = length(); i < max; ++i) {
+            size += in->encoded_size();
+            in = in.next();
+        }
+        return size;
     }
 }
 

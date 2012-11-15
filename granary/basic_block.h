@@ -15,6 +15,7 @@ namespace granary {
     enum {
         /// the magic value is a 3 int3 instructions, followed by the number of
         /// instructions in the basic block.
+        BB_PADDING      = 0xCC,
         BB_MAGIC        = 0xCCCCCC00,
         BB_MAGIC_MASK   = 0xFFFFFF00
     };
@@ -26,16 +27,16 @@ namespace granary {
 
 
     /// different states of bytes in the code cache.
-    enum code_cache_byte_state {
+    typedef enum {
         BB_BYTE_NATIVE         = (1 << 0),
         BB_BYTE_MANGLED        = (1 << 1),
         BB_BYTE_INSTRUMENTED   = (1 << 2),
         BB_BYTE_PADDING        = (1 << 3)
-    };
+    } code_cache_byte_state;
 
 
     /// different kinds of basic blocks in the code cache.
-    enum {
+    typedef enum {
         BB_TRANSLATED_FRAGMENT,
         BB_INTERRUPTED_FRAGMENT,
 
@@ -52,11 +53,13 @@ namespace granary {
 
         BB_ENTER_GRANARY,
         BB_EXIT_GRANARY
-    };
+    } basic_block_kind;
+
 
     enum {
         BB_BYTE_STATES_PER_BYTE = 4
     };
+
 
     /// Defines the meta-information block that ends each basic block in the
     /// code cache.
@@ -69,18 +72,19 @@ namespace granary {
         const uint32_t magic:24;
 
         /// the kind of this basic block.
-        const uint32_t kind:8;
+        const basic_block_kind kind:8;
 
         /// used to measure some threshold of the "hotness" of this basic block
-        uint16_t hotness;
+        volatile uint16_t hotness;
 
         /// the number of bytes in this basic block, *including* the number of
         /// bytes of padding
         uint16_t num_bytes;
 
-        /// The next *native* pc. For example, if there were a jump instruction,
-        /// then this pointer points to the byte immediately following the jump.
-        app_pc next_native_pc;
+        /// The native pc that "generated" the instructions of this basic block.
+        /// That is, if we decoded and instrumented some basic block starting at
+        /// pc X, then the generating pc is X.
+        app_pc generating_pc;
 
     } __attribute__((packed));
 
@@ -89,7 +93,7 @@ namespace granary {
     /// sense that they are used to build basic blocks; they are an abstraction
     /// imposed on some bytes in the code cache as a convenience.
     struct basic_block {
-    private:
+    public:
 
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
@@ -119,6 +123,25 @@ namespace granary {
 
         /// Compute the size of an existing basic block.
         unsigned size(void) const throw();
+
+        /// Emit an instruction list as code into a byte array. This will also
+        /// emit the basic block meta information.
+        ///
+        /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
+        ///       boundary.
+        ///
+        /// Args:
+        ///     kind:           The kind of this basic block.
+        ///     ls:             The instructions to encode.
+        ///     generating_pc:  The program PC whose decoding/translation
+        ///                     generated the instruction list ls.
+        ///     generated_pc:   A pointer to the memory location where we will
+        ///                     store this basic block. When the block is
+        ///                     emitted, this pointer is updated to the address
+        ///                     of the memory location immediately following
+        ///                     the basic block.
+        static basic_block emit(basic_block_kind kind, instruction_list &ls,
+                                app_pc generating_pc, app_pc *generated_pc) throw();
 
     private:
 
