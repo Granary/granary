@@ -48,9 +48,7 @@ namespace granary {
             return dynamorio::instr_get_app_pc(this);
         }
 
-        inline unsigned encoded_size(void) throw() {
-            return dynamorio::instr_length(DCONTEXT, this);
-        }
+        unsigned encoded_size(void) throw();
 
         /// decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If

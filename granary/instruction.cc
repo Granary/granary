@@ -13,7 +13,9 @@
 namespace granary {
 
 
-#define MAKE_REG(name, upper_name) operand name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
+#define MAKE_REG(name, upper_name) operand name = \
+    dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
+
     namespace reg {
 #include "inc/registers.h"
     }
@@ -29,6 +31,13 @@ namespace granary {
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(this, true);
+    }
+
+
+    /// Returns the number of bytes needed to represent this instruction when
+    /// it is encoded.
+    unsigned instruction::encoded_size(void) throw() {
+        return dynamorio::instr_length(DCONTEXT, this);
     }
 
 
