@@ -32,7 +32,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CXX_STD = -std=c++0x
 endif
 
-ifneq (,$(findstring gcc,$(GR_CC))) # clang
+ifneq (,$(findstring gcc,$(GR_CC))) # gcc
 	GR_CC_FLAGS += 
 	GR_CXX_FLAGS += 
 	GR_PP_CC = __GNUC__
