@@ -9,6 +9,7 @@
 #include <cstdlib>
 
 #include "granary/instruction.h"
+#include "granary/basic_block.h"
 #include "granary/gen/instruction.h"
 
 void break_on_instruction(uint8_t *in) {
@@ -38,6 +39,8 @@ namespace granary {
 
         ls.encode(data);
         break_on_instruction(data);
+
+        printf("bb size = %u\n", basic_block::size(ls));
 
         heap_free(nullptr, data, 100);
     }

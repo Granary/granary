@@ -1857,8 +1857,12 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     /* we cannot use a stack buffer for encoding since our stack on x64 linux
      * can be too far to reach from our heap
      */
-    byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
-                           HEAPACCT(ACCT_IR));
+
+    IF_NOT_GRANARY( byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
+                           HEAPACCT(ACCT_IR)); )
+
+    IF_GRANARY( byte buf[32] = {0}; )
+
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -1872,7 +1876,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         nxt = instr_encode_ignore_reachability(dcontext, instr, buf);
         if (nxt == NULL) {
             SYSLOG_INTERNAL_WARNING("cannot encode %s\n", op_instr[instr->opcode]->name);
-            heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+            IF_NOT_GRANARY( heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR)); )
             return 0;
         }
         /* if unreachable, we can't cache, since re-relativization won't work */
@@ -1920,7 +1924,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         instr->bytes = tmp;
         instr_set_operands_valid(instr, valid);
     }
-    heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR));
+    IF_NOT_GRANARY( heap_free(dcontext, buf, 32 HEAPACCT(ACCT_IR)); )
     return len;
 }
 

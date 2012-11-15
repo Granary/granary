@@ -53,6 +53,7 @@ GR_OBJS += bin/dr/x86/x86.o
 
 # Granary (C++) dependencies
 GR_OBJS += bin/granary/instruction.o
+GR_OBJS += bin/granary/basic_block.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += bin/granary/gen/instruction.o
