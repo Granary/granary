@@ -72,8 +72,10 @@ namespace granary {
 
         /// The next *native* pc. For example, if there were a jump instruction,
         /// then this pointer points to the byte immediately following the jump.
-        app_pc next_native_pc;
-
+        union {
+            app_pc next_native_pc;
+            basic_block_info *interrupted_block_info;
+        };
     } __attribute__((packed));
 
 

@@ -32,10 +32,6 @@ namespace granary {
         ls.append(restart);
         ls.append(mov_imm_(reg::ret, int32_(a)));
         ls.append(add_(*reg::ret, reg::arg1));
-        ls.append(add_(reg::ret[UINT8_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT16_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT32_MAX], reg::arg1));
-        ls.append(add_(reg::ret[UINT64_MAX], reg::arg1));
         ls.append(lea_(reg::ret, reg::arg1 + reg::arg2 * 2 + sizeof(foo)));
         ls.append(ret_());
         ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));

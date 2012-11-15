@@ -12,7 +12,7 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 
-#include "granary/module.h"
+#include "granary/kernel/module.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
