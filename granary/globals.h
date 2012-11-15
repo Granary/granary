@@ -9,16 +9,19 @@
 #define granary_GLOBALS_H_
 
 #include <cstring>
+#include <cstddef>
 #include <stdint.h>
 
 #include "granary/pp.h"
 #include "granary/utils.h"
+#include "granary/heap.h"
+#include "granary/type_traits.h"
 #include "granary/types/dynamorio.h"
 
 namespace granary {
 
     /// Program counter type.
-    typedef dynamorio::app_pc app_pc;
+    typedef typename dynamorio::app_pc app_pc;
 
 }
 

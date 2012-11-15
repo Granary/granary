@@ -29,11 +29,7 @@
 #ifndef granary_LIST_H_
 #define granary_LIST_H_
 
-#include <cstddef>
-
-#include "granary/heap.h"
-#include "granary/type_traits.h"
-#include "granary/utils.h"
+#include "granary/globals.h"
 
 namespace granary {
 

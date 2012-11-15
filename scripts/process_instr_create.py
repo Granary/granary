@@ -132,6 +132,8 @@ with open("dr/x86/instr_create.h") as lines_:
   C('#define IF_X64_ELSE(t,f) (t)')
   C('extern "C" {')
   
+  H('#ifndef GRANARY_GEN_INSTRUCTION_H_')
+  H('#define GRANARY_GEN_INSTRUCTION_H_')
   H("namespace granary {")
   H('    inline operand pc_(app_pc pc) { return dynamorio::opnd_create_pc(pc); }')
   H('    inline operand far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
@@ -170,4 +172,5 @@ with open("dr/x86/instr_create.h") as lines_:
   C('}')
   C()
   H('}')
+  H('#endif /* GRANARY_GEN_INSTRUCTION_H_ */')
   H()

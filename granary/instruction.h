@@ -10,7 +10,6 @@
 
 #include "granary/globals.h"
 #include "granary/list.h"
-#include "granary/heap.h"
 
 namespace granary {
 
@@ -307,7 +306,7 @@ namespace granary {
     /// registers
 #define MAKE_REG(name, upper_name) extern operand name;
     namespace reg {
-#   include "inc/registers.h"
+#   include "granary/inc/registers.h"
     }
 #undef MAKE_REG
 }

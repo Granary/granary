@@ -10,15 +10,6 @@
 namespace granary {
 
 
-#define MAKE_REG(name, upper_name) operand name = \
-    dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
-
-    namespace reg {
-#include "inc/registers.h"
-    }
-#undef MAKE_REG
-
-
     // used frequently in instruction functions
     dynamorio::dcontext_t *instruction::DCONTEXT = \
         dynamorio::get_thread_private_dcontext();
@@ -132,7 +123,7 @@ namespace granary {
     instruction_list::handle_type
     instruction_list::append(instruction_label &label) throw() {
         label.is_used = true;
-        return list<instruction>::append(label.instr);
+        return this->list<instruction>::append(label.instr);
     }
 
 
@@ -140,7 +131,7 @@ namespace granary {
     instruction_list::handle_type
     instruction_list::prepend(instruction_label &label) throw() {
         label.is_used = true;
-        return list<instruction>::prepend(label.instr);
+        return this->list<instruction>::prepend(label.instr);
     }
 
 
@@ -148,7 +139,7 @@ namespace granary {
     instruction_list::handle_type
     instruction_list::insert_before(handle_type pos, instruction_label &label) throw() {
         label.is_used = true;
-        return list<instruction>::insert_before(get_item(pos), label.instr);
+        return this->list<instruction>::insert_before(get_item(pos), label.instr);
     }
 
 
@@ -156,7 +147,7 @@ namespace granary {
     instruction_list::handle_type
     instruction_list::insert_after(handle_type pos, instruction_label &label) throw() {
         label.is_used = true;
-        return list<instruction>::insert_after(get_item(pos), label.instr);
+        return this->list<instruction>::insert_after(get_item(pos), label.instr);
     }
 
 
@@ -170,5 +161,14 @@ namespace granary {
         }
         return size;
     }
+
+#define MAKE_REG(name, upper_name) operand name = \
+    dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
+
+    namespace reg {
+#   include "granary/inc/registers.h"
+    }
+#undef MAKE_REG
+
 }
 
