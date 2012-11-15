@@ -6,7 +6,6 @@
  */
 
 #include "granary/instruction.h"
-#include "granary/gen/instruction.h"
 
 namespace granary {
 
@@ -28,7 +27,14 @@ namespace granary {
     /// constructor
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
-        dynamorio::instr_set_x86_mode(this, true);
+        dynamorio::instr_set_x86_mode(&instr, true);
+    }
+
+
+    /// Implicit constructor for converting operand_lea's to operands.
+    operand::operand(operand_lea &&that) throw() {
+        operand op_lea(mem_lea_(that.base, that.index, that.scale, that.disp));
+        memcpy(this, &op_lea, sizeof *this);
     }
 
 
@@ -60,14 +66,11 @@ namespace granary {
         return ret;
     }
 
+
+    /// Add in the base register to this LEA operand.
     operand_lea operand::operator+(operand_lea lea) const throw() {
         lea.base = value.reg;
         return lea;
-    }
-
-
-    operand_lea::operator struct operand(void) const throw() {
-        return mem_lea_(base, index, scale, disp);
     }
 
 

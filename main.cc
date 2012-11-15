@@ -10,7 +10,6 @@
 
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
-#include "granary/gen/instruction.h"
 
 void break_on_instruction(uint8_t *in, granary::basic_block *bb) {
     (void) in;

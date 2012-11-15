@@ -12,8 +12,8 @@
 
 namespace granary {
 
-
     enum {
+        BB_BYTE_STATES_PER_BYTE = 4,
         BB_INFO_BYTE_ALIGNMENT = 8,
         BB_INFO_INT32_ALIGNMENT = 2,
         BITS_PER_BYTE = 8,
@@ -57,18 +57,18 @@ namespace granary {
 
 
     /// Get the state of all bytes of an instruction.
-    static code_cache_byte_state get_instruction_state(instruction in) throw() {
+    static code_cache_byte_state get_instruction_state(const instruction in) throw() {
         if(nullptr != in.pc()) {
-            return BB_BYTE_NATIVE;
+            return code_cache_byte_state::BB_BYTE_NATIVE;
 
         // here we take over the INSTR_HAS_CUSTOM_STUB to represent a mangled
         // instruction. Mangling in Granary's case has to do with a jump to a
         // specific basic block that can resolve what to do.
-        } if(dynamorio::INSTR_HAS_CUSTOM_STUB & in.flags) {
-            return BB_BYTE_MANGLED;
+        } else if(in.is_mangled()) {
+            return code_cache_byte_state::BB_BYTE_MANGLED;
 
         } else {
-            return BB_BYTE_INSTRUMENTED;
+            return code_cache_byte_state::BB_BYTE_INSTRUMENTED;
         }
     }
 

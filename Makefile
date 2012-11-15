@@ -101,7 +101,7 @@ bin/dr/%.o: dr/%.c
 # DynamoRIO rules for assembly files
 bin/dr/%.o: dr/%.asm
 	$(GR_CPP) -D$(GR_PP_CC) -I$(PWD) -E $< > bin/dr/$*.1.S
-	python post_process_asm.py bin/dr/$*.1.S > bin/dr/$*.S
+	python scripts/post_process_asm.py bin/dr/$*.1.S > bin/dr/$*.S
 	rm bin/dr/$*.1.S
 
 # Granary rules for C++ files
@@ -123,7 +123,7 @@ install:
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
 	-mkdir granary/gen
-	python process_instr_create.py
+	python scripts/process_instr_create.py
 
 all: $(GR_OBJS)
 	$(GR_MAKE)
