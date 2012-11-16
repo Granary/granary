@@ -25,5 +25,4 @@ namespace granary {
 
 }
 
-
 #endif /* granary_GLOBALS_H_ */

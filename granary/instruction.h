@@ -35,6 +35,7 @@ namespace granary {
 
         typename dynamorio::instr_t instr;
 
+
         /// Constructor
         instruction(void) throw();
 

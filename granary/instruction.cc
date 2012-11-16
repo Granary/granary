@@ -6,6 +6,7 @@
  */
 
 #include "granary/instruction.h"
+#include "granary/gen/instruction.h"
 
 namespace granary {
 
