@@ -16,42 +16,34 @@ void break_on_instruction(uint8_t *in, granary::basic_block *bb) {
     (void) bb;
 }
 
-uint8_t *buff;
-
-struct foo {
-    char bar[13];
-};
+typedef int (*adder_type)(int);
 
 namespace granary {
-    typedef void (*adder_type)(int);
 
-    void make_adder(int a) throw() {
-        uint8_t *data = (uint8_t *) heap_alloc(nullptr, 100);
+    adder_type make_adder(int a) throw() {
+        uint8_t *data = (uint8_t *) allocate_executable((cpu_info *) nullptr, 100);
         uint8_t *next_data = data;
 
         granary::instruction_list ls;
-        auto restart = ls.label();
-
-        ls.append(restart);
         ls.append(mov_imm_(reg::ret, int32_(a)));
-        ls.append(add_(*reg::ret, reg::arg1));
-        ls.append(lea_(reg::ret, reg::arg1 + reg::arg2 * 2 + sizeof(foo)));
+        ls.append(add_(reg::ret, reg::arg1));
         ls.append(ret_());
-        ls.append(jcc_(dynamorio::OP_jge, instr_(restart)));
 
-        basic_block bb(basic_block::emit(BB_TRANSLATED_FRAGMENT, ls, nullptr, &next_data));
+        basic_block bb(basic_block::emit(
+            basic_block_kind::BB_TRANSLATED_FRAGMENT, ls, nullptr, &next_data));
+
         break_on_instruction(data, &bb);
 
-        printf("bb size = %u\n", basic_block::size(ls));
-        printf("emitted bb size = %u\n", bb.size());
-
-        heap_free(nullptr, data, 100);
+        return (adder_type) data;
     }
 }
 
 int main(int argc, const char **argv) throw() {
 
-    granary::make_adder(0xBEEF);
+    adder_type add1 = granary::make_adder(1);
+
+    printf("1 + 2 = %d\n", add1(2));
+    printf("1 + 5 = %d\n", add1(5));
 
     (void) argc;
     (void) argv;

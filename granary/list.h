@@ -66,6 +66,7 @@ namespace granary {
     template <typename T>
     struct list_item_with_links;
 
+
     template <typename T, typename ItemT>
     struct list_item_handle;
 
