@@ -24,6 +24,9 @@
 
 # Generated files
 granary/gen/*
+scripts/static/*.S
+scripts/static/*.o
+dr/x86/asm_defines.asm
 
 # Compiled Dynamic libraries
 *.so

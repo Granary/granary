@@ -46,6 +46,8 @@ extern "C" {
 
 typedef unsigned short ushort;
 
+typedef long long ssize_t;
+
 typedef unsigned int uint;
 
 typedef unsigned long long uint64;

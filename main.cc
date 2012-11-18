@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "granary/globals.h"
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
 

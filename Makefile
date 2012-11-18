@@ -15,7 +15,6 @@ GR_CXX_STD = -std=gnu++0x
 GR_MAKE =
 GR_CLEAN =
 GR_OUTPUT_FORMAT =
-GR_PP_CC =
 
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
@@ -28,14 +27,12 @@ GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
 	GR_CXX_FLAGS += -Wno-gnu
-	GR_PP_CC = __clang__
 	GR_CXX_STD = -std=c++0x
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
 	GR_CC_FLAGS += 
 	GR_CXX_FLAGS += 
-	GR_PP_CC = __GNUC__
 endif
 
 GR_CXX_FLAGS += $(GR_CXX_STD)
@@ -103,7 +100,7 @@ bin/dr/%.o: dr/%.c
 
 # DynamoRIO rules for assembly files
 bin/dr/%.o: dr/%.asm
-	$(GR_CPP) -D$(GR_PP_CC) -I$(PWD) -E $< > bin/dr/$*.1.S
+	$(GR_CPP) -I$(PWD) -E $< > bin/dr/$*.1.S
 	python scripts/post_process_asm.py bin/dr/$*.1.S > bin/dr/$*.S
 	rm bin/dr/$*.1.S
 
@@ -118,6 +115,7 @@ bin/main.o: main.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
 
 install:
+	# make the folders where binaries / generated assemblies are stored
 	-mkdir bin
 	-mkdir bin/granary
 	-mkdir bin/granary/user
@@ -125,8 +123,16 @@ install:
 	-mkdir bin/granary/gen
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
+	
+	# convert DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
+	# instruction-building functions
 	-mkdir granary/gen
 	python scripts/process_instr_create.py
+
+	# compile a dummy file to assembly to figure out which assembly syntax
+	# to use for this compiler
+	$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
+	python scripts/make_asm_defines.py
 
 all: $(GR_OBJS)
 	$(GR_MAKE)
@@ -146,4 +152,5 @@ clean:
 	-rm bin/dr/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
+
 	$(GR_CLEAN)
