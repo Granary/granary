@@ -21,9 +21,32 @@ moment, we can know very quickly "what" we are doing and how we want to react
 
 Direct Control Flow
 -------------------
+TODO
+- key idea: fixed number of thread-local slots, same number of direct branch
+            encoders. Each direct branch in a basic block is directed to a
+            pointer with a one-to-one correspondence with one of the free slots.
+
+            when called, that pointer lazily performs the direct branch lookup
+            and block translation and then patches the original code to point
+            to the new basic block.
+
 
 Indirect Control Flow
 ---------------------
 Indirect control flow lookup is based on operand-specific branch lookup/replace
-routines.
+routines. For example, the translation of a `jmp *%rax` instruction is a
+`jmp indirect_jmp_rax`, where `indirect_unsafe_rax` is the address of an `%rax`-specific
+indirect branch lookup routine. If there is a `call *%rax` then this translates
+to a similar `call indirect_call_rax`.
 
+The distinction between the `call` and `jmp` versions of the indirect branch
+lookup routines follows from the assumptions made about register state. That is,
+across a call boundary, we assume that the caller is following the ABI and is
+saving certain registers to avoid their being clobbered (this assumption might
+need to be revised). In the case of a `jmp`, no assumptions about already saved
+registers can be made, nor are any registers "free" to clobber (e.g. `%r10`),
+and so `jmp` branch lookup routines must be careful.
+
+Indirect branch lookup routines disable interrupts before performing branch
+lookup. If the routine is interrupted before interrupts are disabled then
+interrupts will--and can safely be--taken.

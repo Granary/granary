@@ -9,6 +9,7 @@
 #define granary_STATE_H_
 
 #include <atomic>
+#include <bitset>
 
 #if GRANARY_IN_KERNEL
 #	include "granary/kernel/linux/per_cpu.h"
@@ -28,6 +29,23 @@ namespace granary {
     struct thread_state : public client::thread_state {
     public:
 
+    	/// Direct branch lookup slots
+    	enum {
+    		NUM_DIRECT_BRANCH_SLOTS = 16ULL
+    	};
+
+    	std::bitset<NUM_DIRECT_BRANCH_SLOTS> used_slots;
+    	struct {
+
+    		/// The native address of where a direct branch targets
+    		app_pc target_pc;
+
+    		/// The address of the instruction in the code cache.
+    		/// This instruction is patched once the target_pc is
+    		/// translated.
+    		app_pc patch_pc;
+
+    	} direct_branch_slots[NUM_DIRECT_BRANCH_SLOTS];
     };
 
 

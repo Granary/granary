@@ -3,7 +3,7 @@ Basic Blocks
 A basic is an abstraction over a maximal sequence of instructions that end in
 a control-flow transfer instruction. In Granary, all control-flow transfer
 instructions except for `call` terminate basic blocks. See 
-[branch lookup](branch-lookup.md) for more information about how control-flow
+[control flow](control-flow.md) for more information about how control-flow
 transfers are handled by Granary.
 
 In Granary, a basic block data structure contain three components, and is only
@@ -77,4 +77,4 @@ instruction byte in the basic block. The bitset maps each byte of instructions
 to two bits of state. The states record the kind of instruction of each byte of
 instructions.
 
-This meta information is used when a basic block is [interrupted](interrupts.md).
+This meta information is used when a basic block is [interrupted](interrupts-exceptions.md).
