@@ -7,8 +7,11 @@
 
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
+#include "granary/state.h"
+#include "granary/detach.h"
 
-#include <cstdio>
+#include <cstring>
+#include <map>
 
 namespace granary {
 
@@ -30,7 +33,11 @@ namespace granary {
         /// misc.
         BITS_PER_BYTE = 8,
         BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
-        BITS_PER_QWORD = BITS_PER_BYTE * 8
+        BITS_PER_QWORD = BITS_PER_BYTE * 8,
+
+        /// aligned state size
+        STATE_SIZE_ = sizeof(basic_block_state),
+        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, 16)
     };
 
 
@@ -95,7 +102,7 @@ namespace granary {
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
         // initialize all state bytes to have their states as padding bytes
-        memset(pc, ~0, num_state_bytes);
+        memset((void *) pc, static_cast<int>(~0U), num_state_bytes);
 
         auto in(ls.first());
         unsigned byte_offset(0);
@@ -235,20 +242,80 @@ namespace granary {
     }
 
 
+    /// Decode and translate a single basic block of application/module code.
+	static basic_block translate(app_pc *pc) throw() {
+		const app_pc start_pc(*pc);
+
+		instruction_list ls;
+
+		for(;;) {
+			instruction in(instruction::decode(pc));
+
+			if(in.is_cti()) {
+				bool add_cti(in.is_call());
+				bool decode_next_cti(add_cti);
+				operand target(in.get_cti_target());
+
+				// direct jmp/call
+				if(dynamorio::opnd_is_pc(target)) {
+					app_pc target_pc(dynamorio::opnd_get_pc(target));
+
+					// is it backward branch within the same basic block?
+					// if so then we will try to keep control-flow within
+					// the block as an optimisation for tight loops.
+					if(start_pc <= target_pc && target_pc <= pc) {
+						// TODO
+					}
+
+					// call/jmp directly to detach point
+					app_pc detach_target_pc(find_detach_target(target_pc));
+					if(detach_target_pc) {
+						add_cti = true;
+						dynamorio::instr_set_target(in, pc_(detach_target_pc));
+
+					// patch point
+					} else {
+
+					}
+				}
+
+				if(add_cti) {
+					ls.append(in);
+				}
+
+				if(!decode_next_cti) {
+					break;
+				}
+
+			} else {
+				ls.append(in);
+			}
+		}
+	}
+
+
     /// Emit an instruction list as code into a byte array. This will also
     /// emit the basic block meta information.
     ///
-    /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
-    ///       boundary.
+    /// Note: it is assumed that no field in *state points back to itself
+    ///       or any other temporary storage location.
     basic_block basic_block::emit(basic_block_kind kind,
                                   instruction_list &ls,
                                   app_pc generating_pc,
                                   app_pc *generated_pc) throw() {
 
         app_pc pc = *generated_pc;
-        const app_pc start_pc(pc);
+        pc += ALIGN_TO(pc, 16);
+
+        /*
+        // add in the state
+        memset(pc, BB_PADDING, STATE_SIZE);
+        memcpy(pc, state, sizeof *state);
+        pc += STATE_SIZE;
+		*/
 
         // add in the instructions
+        const app_pc start_pc(pc);
         pc = ls.encode(pc);
 
         uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));

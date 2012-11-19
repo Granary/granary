@@ -23,6 +23,6 @@
 
 #define GRANARY
 
-#define ALIGN_TO(lval, const_align) ((const_align) - ((lval) % (const_align)))
+#define ALIGN_TO(lval, const_align) (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
 #endif /* Granary_PP_H_ */

@@ -6,6 +6,8 @@ USE_AT_FUNCTION = False
 START_FILE = ".text"
 FUNC_ALIGNMENT = ".align 16"
 
+# parse the assembly file looking for little bits of info that should guide how
+# we should define some assembly helper macros
 with open("scripts/static/asm.S") as lines:
   for line in lines:
     if "foo" in line:
@@ -21,7 +23,10 @@ with open("scripts/static/asm.S") as lines:
       START_FILE = line.strip("\r\n \t")
     if ".align" in line:
       FUNC_ALIGNMENT = line.strip("\r\n \t")
+    if "ret" in line:
+      break
 
+# generate the assembly helper macros
 with open("dr/x86/asm_defines.asm", "w") as f:
   def W(*args):
     f.write("".join(map(str, args)) + "\n")
@@ -54,6 +59,8 @@ with open("dr/x86/asm_defines.asm", "w") as f:
   W('#define GLOBAL_LABEL(x) SYMBOL(x)')
   W('#define END_FUNC(x)')
   W('#define HEX(v) 0x ## v')
+  W('#define PUSHF pushf')
+  W('#define POPF popf')
   W('#define REG_XAX rax')
   W('#define REG_XBX rbx')
   W('#define REG_XCX rcx')

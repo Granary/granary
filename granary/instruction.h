@@ -52,10 +52,36 @@ namespace granary {
         }
 
 
-        /// Return true iff this instruction is a cti.
+        /// Return true iff this instruction is a control-transfer
+        /// instruction.
         inline bool is_cti(void) throw() {
-            return dynamorio::instr_is_cti(&(this->instr));
+            return dynamorio::instr_is_cti(&instr);
         }
+
+
+        /// Return true iff this instruction is a CALL instruction.
+        inline bool is_call(void) throw() {
+        	return dynamorio::instr_is_call(&instr);
+        }
+
+
+        /// Return true iff this instruction is a CALL instruction.
+		inline bool is_direct_call(void) throw() {
+			return dynamorio::instr_is_call_direct(&instr);
+		}
+
+
+		/// Return true iff this instruction is a CALL instruction.
+		inline bool is_indirect_call(void) throw() {
+			return dynamorio::instr_is_call_indirect(&instr);
+		}
+
+
+		/// If this instruction is a CTI, then return the operand
+		/// representing the destination of the CTI.
+		inline operand get_cti_target(void) throw() {
+			return dynamorio::instr_get_target(&instr);
+		}
 
 
         /// Return the original code program counter from the instruction (if
@@ -75,7 +101,7 @@ namespace granary {
         /// it is encoded.
         inline unsigned encoded_size(void) throw() {
             return static_cast<unsigned>(
-                dynamorio::instr_length(DCONTEXT, &(this->instr)));
+                dynamorio::instr_length(DCONTEXT, &instr));
         }
 
 
@@ -99,14 +125,21 @@ namespace granary {
         inline M *encode(M *pc) {
 
             // address calculation for relative jumps uses the note field
-            if(dynamorio::instr_is_label(&(this->instr))
-            || dynamorio::instr_is_cti(&(this->instr))) {
+            if(dynamorio::instr_is_label(&instr)
+            || dynamorio::instr_is_cti(&instr)) {
                 instr.note = pc;
             }
 
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
-            byte_pc = dynamorio::instr_encode(DCONTEXT, &(this->instr), byte_pc);
+            byte_pc = dynamorio::instr_encode(DCONTEXT, &instr, byte_pc);
             return unsafe_cast<M *>(byte_pc);
+        }
+
+
+        /// Slightly evil convenience method for implicitly converting instructions
+        /// to pointers to their underlying DR type.
+        inline operator typename dynamorio::instr_t *(void) throw() {
+        	return &instr;
         }
     };
 

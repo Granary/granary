@@ -9,11 +9,6 @@
 #ifndef DRK_KERNEL_TYPES_HPP_
 #define DRK_KERNEL_TYPES_HPP_
 
-#ifdef __cplusplus
-namespace kernel {
-extern "C" {
-#endif
-
 #define private private_
 #define public public_
 #define protected protected_
@@ -996,10 +991,5 @@ struct kernel_module { int is_granary ; int ( * * init ) ( void ) ; void ( * * e
 #undef public
 #undef protected
 #undef bool
-
-#ifdef __cplusplus
-} /* extern */
-} /* kernel namespace */
-#endif
 
 #endif /* DRK_KERNEL_TYPES_HPP_ */

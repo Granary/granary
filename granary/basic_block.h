@@ -14,6 +14,7 @@ namespace granary {
 
     /// Forward declarations.
     struct basic_block;
+    struct basic_block_state;
     struct instruction_list;
 
 
@@ -110,8 +111,13 @@ namespace granary {
         /// Compute the size of an existing basic block.
         unsigned size(void) const throw();
 
+        /// Decode and translate a single basic block of application/module code.
+        static basic_block translate(app_pc *pc) throw();
+
+    protected:
+
         /// Emit an instruction list as code into a byte array. This will also
-        /// emit the basic block meta information.
+        /// emit the basic block meta information and local storage.
         ///
         /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
         ///       boundary.
@@ -126,8 +132,10 @@ namespace granary {
         ///                     emitted, this pointer is updated to the address
         ///                     of the memory location immediately following
         ///                     the basic block.
-        static basic_block emit(basic_block_kind kind, instruction_list &ls,
-                                app_pc generating_pc, app_pc *generated_pc) throw();
+        static basic_block emit(basic_block_kind kind,
+        						instruction_list &ls,
+        						app_pc generating_pc,
+                                app_pc *generated_pc) throw();
     };
 }
 
