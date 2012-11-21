@@ -72,6 +72,11 @@ namespace granary {
             /// translated.
             app_pc patch_pc;
 
+            /// True if decoding the next block should change the
+            /// interrupt state.
+            bool change_interrupt_state;
+            bool new_interrupt_state;
+
         } direct_branch_slots[NUM_DIRECT_BRANCH_SLOTS];
     };
 
@@ -125,6 +130,9 @@ namespace granary {
     public:
 
         bump_pointer_allocator<fragment_allocator_config> fragment_allocator;
+
+        bool interrupts_enabled;
+
     };
 
 

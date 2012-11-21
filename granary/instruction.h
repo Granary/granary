@@ -145,13 +145,13 @@ namespace granary {
 
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
-            return this->instr.num_srcs;
+            return instr.num_srcs;
         }
 
 
         /// Return the number of destination operands in this instruction.
         inline unsigned num_destinations(void) const throw() {
-            return this->instr.num_dsts;
+            return instr.num_dsts;
         }
 
 
@@ -190,13 +190,19 @@ namespace granary {
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
-            return this->instr.translation;
+            return instr.translation;
         }
 
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & this->instr.flags);
+            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags);
+        }
+
+
+        /// Set the state of the instruction to be mangled.
+        inline void mangle(void) throw() {
+            instr.flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
         }
 
 
@@ -254,6 +260,12 @@ namespace granary {
         /// to pointers to their underlying DR type.
         inline operator typename dynamorio::instr_t *(void) throw() {
         	return &instr;
+        }
+
+
+        /// Get easy access to the internal dynamorio instruction structure
+        inline dynamorio::instr_t *operator->(void) throw() {
+            return &instr;
         }
     };
 

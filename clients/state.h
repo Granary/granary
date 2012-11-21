@@ -31,7 +31,11 @@ namespace client {
 
     /// Extensions to Granary's internal basic block-local storage.
     struct basic_block_state {
+        int foo;
 
+        basic_block_state(void)
+            : foo(0xdeadbeef)
+        { }
     };
 
 }

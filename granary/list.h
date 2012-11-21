@@ -330,19 +330,23 @@ namespace granary {
             : handle(nullptr)
         { }
 
-        T &operator*(void) throw() {
+        inline T &operator*(void) throw() {
             return (**handle);
         }
 
-        T *operator->(void) throw() {
+        inline T *operator->(void) throw() {
             return &(**handle);
         }
 
-        list_item_handle next(void) throw() {
+        inline bool is_valid(void) const throw() {
+            return nullptr != handle;
+        }
+
+        inline list_item_handle next(void) throw() {
             return list_item_handle(*(handle->next_pointer()));
         }
 
-        list_item_handle prev(void) throw() {
+        inline list_item_handle prev(void) throw() {
             return list_item_handle(*(handle->prev_pointer()));
         }
     };

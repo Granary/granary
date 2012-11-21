@@ -10,8 +10,10 @@
 #include "granary/state.h"
 #include "granary/detach.h"
 
+#include "clients/instrument.h"
+
 #include <cstring>
-#include <map>
+#include <new>
 
 namespace granary {
 
@@ -40,31 +42,34 @@ namespace granary {
     };
 
 
+    typedef decltype(instruction_list().first()) instruction_list_handle;
+
+
     /// Get the state of a byte in the basic block.
     static code_cache_byte_state get_state(uint8_t *pc_byte_states,
-                                           unsigned i) throw() {
+            unsigned i) throw() {
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
         const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
         return static_cast<code_cache_byte_state>(
-            1 << ((pc_byte_states[j] >> k) & 0x03));
+                1 << ((pc_byte_states[j] >> k) & 0x03));
     }
 
 
     /// Set one of the states into a trit.
     static void set_state(uint8_t *pc_byte_states,
-                          unsigned i,
-                          code_cache_byte_state state) throw() {
+            unsigned i,
+            code_cache_byte_state state) throw() {
 
         static uint8_t state_to_mask[] = {
-            0xFF,
-            0,  /* BB_BYTE_NATIVE:          1 << 0 */
-            1,  /* BB_BYTE_MANGLED:         1 << 1 */
-            0xFF,
-            2,  /* BB_BYTE_INSTRUMENTED:    1 << 2 */
-            0xFF,
-            0xFF,
-            0xFF,
-            3   /* BB_BYTE_PADDING:         1 << 3 */
+                0xFF,
+                0,  /* BB_BYTE_NATIVE:          1 << 0 */
+                1,  /* BB_BYTE_MANGLED:         1 << 1 */
+                0xFF,
+                2,  /* BB_BYTE_INSTRUMENTED:    1 << 2 */
+                0xFF,
+                0xFF,
+                0xFF,
+                3   /* BB_BYTE_PADDING:         1 << 3 */
         };
 
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
@@ -103,7 +108,7 @@ namespace granary {
         // initialize all state bytes to have their states as padding bytes
         memset((void *) pc, static_cast<int>(~0U), num_state_bytes);
 
-        auto in(ls.first());
+        instruction_list_handle in(ls.first());
         unsigned byte_offset(0);
 
         // for each instruction
@@ -123,12 +128,6 @@ namespace granary {
         return num_state_bytes;
     }
 
-}
-    void break_on_bb(uint64_t addr) {
-        (void) addr;
-    }
-
-namespace granary {
 
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
@@ -145,7 +144,7 @@ namespace granary {
         // addresses of the meta info, then checking their magic values.
         for(uint64_t *ints(reinterpret_cast<uint64_t *>(addr)); ; ++ints) {
             const basic_block_info * const potential_bb(
-                unsafe_cast<basic_block_info *>(ints));
+                    unsafe_cast<basic_block_info *>(ints));
 
             if(BB_MAGIC == potential_bb->magic) {
                 break;
@@ -159,9 +158,9 @@ namespace granary {
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes;
         state = unsafe_cast<basic_block_state *>(
-            cache_pc_start - basic_block_state::size());
+                cache_pc_start - basic_block_state::size());
         pc_byte_states = reinterpret_cast<uint8_t *>(
-            cache_pc_end + sizeof(basic_block_info));
+                cache_pc_end + sizeof(basic_block_info));
     }
 
 
@@ -174,7 +173,7 @@ namespace granary {
 
         for(;;) {
             const code_cache_byte_state byte_state(get_state(
-                pc_byte_states, next - cache_pc_start));
+                    pc_byte_states, next - cache_pc_start));
 
             // we're in front of a native byte, which is fine.
             if(code_cache_byte_state::BB_BYTE_NATIVE & byte_state) {
@@ -205,7 +204,7 @@ namespace granary {
                 }
 
                 const code_cache_byte_state prev_byte_state(get_state(
-                    pc_byte_states, next - cache_pc_start - 1));
+                        pc_byte_states, next - cache_pc_start - 1));
 
                 if(code_cache_byte_state::BB_BYTE_NATIVE == prev_byte_state) {
                     return next;
@@ -258,67 +257,128 @@ namespace granary {
     }
 
 
+    /// Get a handle for an instruction in the instruction list.
+    static instruction_list_handle
+    find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
+        instruction_list_handle in(ls.first());
+        for(unsigned i(0), max(ls.length()); i < max; ++i) {
+            if(in->pc() == pc) {
+                return in;
+            }
+            in = in.next();
+        }
+        return instruction_list_handle();
+    }
+
+
     /// Decode and translate a single basic block of application/module code.
-	basic_block basic_block::translate(cpu_state_handle &cpu, app_pc *pc) throw() {
-		const app_pc start_pc(*pc);
+    basic_block basic_block::translate(cpu_state_handle &cpu, app_pc *pc) throw() {
+        const app_pc start_pc(*pc);
+        unsigned staged_size(0);
+        uint8_t *generated_pc(nullptr);
+        uint8_t *prev_generated_pc(nullptr);
+        instruction_list ls;
 
-		instruction_list ls;
+        for(;;) {
+            instruction in(instruction::decode(pc));
+            if(in.is_cti()) {
 
-		for(;;) {
-			instruction in(instruction::decode(pc));
+                // indirect branch (jmp, call, i/ret)
+                if(dynamorio::instr_is_mbr(in)) {
+                    ls.append(in);
+                    goto try_instrument;
 
-			if(in.is_cti()) {
-				bool add_cti(in.is_call());
-				bool decode_next_cti(add_cti);
-				operand target(in.get_cti_target());
+                // direct branch (e.g. un/conditional branch, jmp, call)
+                } else {
+                    operand target(in.get_cti_target());
+                    app_pc target_pc(dynamorio::opnd_get_pc(target));
 
-				// direct jmp/call
-				if(dynamorio::opnd_is_pc(target)) {
-					app_pc target_pc(dynamorio::opnd_get_pc(target));
+                    // if it is local back edge then keep control within the
+                    // same basic block.
+                    if(start_pc <= target_pc && target_pc <= *pc) {
+                        instruction_list_handle prev_in(
+                            find_local_back_edge_target(ls, target_pc));
 
-					// is it backward branch within the same basic block?
-					// if so then we will try to keep control-flow within
-					// the block as an optimisation for tight loops.
-					if(start_pc <= target_pc && target_pc <= *pc) {
-						// TODO
-					}
+                        if(prev_in.is_valid()) {
+                            dynamorio::instr_set_target(in, instr_(&(*prev_in)));
+                        }
+                    }
 
-					// call/jmp directly to detach point
-					app_pc detach_target_pc(find_detach_target(target_pc));
-					if(detach_target_pc) {
-						add_cti = true;
-						dynamorio::instr_set_target(in, pc_(detach_target_pc));
+                    ls.append(in);
+                }
 
-					// patch point
-					} else {
+            // between this block and next block we should disable interrupts.
+            } else if(dynamorio::OP_cli == in->opcode) {
+                ls.append(in);
+                goto try_instrument;
 
-					}
-				}
+            // between this block and next block, we should enable interrupts.
+            } else if(dynamorio::OP_sti == in->opcode) {
+                ls.append(in);
+                goto try_instrument;
 
-				if(add_cti) {
-					ls.append(in);
-				}
+            // some other instruction
+            } else {
+                ls.append(in);
+            }
+            continue;
 
-				if(!decode_next_cti) {
-					break;
-				}
+        try_instrument:
 
-			} else {
-				ls.append(in);
-			}
-		}
+            if(!staged_size) {
+                staged_size = basic_block::size(ls);
+            }
 
-		unsigned staged_size(basic_block::size(ls));
+            prev_generated_pc = cpu->fragment_allocator.\
+                allocate_array<uint8_t>(staged_size);
 
-		// allocated pc, this points to block-local storage
-		uint8_t *generated_pc(
-            cpu->fragment_allocator.allocate_array<uint8_t>(staged_size));
+            // instrument
+            basic_block_state *block_storage(
+                new (prev_generated_pc) basic_block_state);
+            client::instrument(
+                ls,
+                block_storage,
+                cpu->interrupts_enabled);
 
-		// allocated pc immediately following block-local storage
-		uint8_t *bb_pc(generated_pc + basic_block_state::size());
+            // re-calculate the size and re-allocate; if our earlier
+            // guess was too small then we need to re-instrument the
+            // instruction list
+            staged_size = basic_block::size(ls);
+            cpu->fragment_allocator.free_last();
+            generated_pc = cpu->fragment_allocator.\
+                allocate_array<uint8_t>(staged_size);
 
-		return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
-	}
+            // go back around and try again
+            if(prev_generated_pc != generated_pc) {
+                *pc = start_pc;
+                ls.clear_for_reuse();
+                continue;
+            }
+
+            // TODO: patch instruction list for mangling, etc.
+
+            break;
+        }
+
+        // allocated pc immediately following block-local storage
+        uint8_t *bb_pc(generated_pc + basic_block_state::size());
+
+        return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
+    }
+
+
+    /*
+        // call/jmp directly to detach point
+        app_pc detach_target_pc(find_detach_target(target_pc));
+        if(detach_target_pc) {
+            add_cti = true;
+            dynamorio::instr_set_target(in, pc_(detach_target_pc));
+            in.mangle();
+
+        // patch point
+        } else {
+
+        } */
 
 
     /// Emit an instruction list as code into a byte array. This will also
@@ -327,9 +387,9 @@ namespace granary {
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
     basic_block basic_block::emit(basic_block_kind kind,
-                                  instruction_list &ls,
-                                  app_pc generating_pc,
-                                  app_pc *generated_pc) throw() {
+            instruction_list &ls,
+            app_pc generating_pc,
+            app_pc *generated_pc) throw() {
 
         app_pc pc = *generated_pc;
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), 16);
