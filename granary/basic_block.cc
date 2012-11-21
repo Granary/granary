@@ -16,10 +16,9 @@
 namespace granary {
 
     enum {
-        /// the magic value is a 3 int3 instructions, followed by the number of
-        /// instructions in the basic block.
+
         BB_PADDING      = 0xCC,
-        BB_MAGIC        = 0xCCCCCC00,
+        BB_MAGIC        = 0xCCAACC,
         BB_MAGIC_MASK   = 0xFFFFFF00,
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
@@ -124,6 +123,12 @@ namespace granary {
         return num_state_bytes;
     }
 
+}
+    void break_on_bb(uint64_t addr) {
+        (void) addr;
+    }
+
+namespace granary {
 
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
@@ -131,22 +136,30 @@ namespace granary {
         : cache_pc_current(current_pc_)
     {
 
-        // round up to the next 64-bit aligned
+        // round up to the next 8-byte aligned quantity
         uint64_t addr(reinterpret_cast<uint64_t>(current_pc_));
-        unsigned num_bytes = addr % sizeof(uint64_t);
+        unsigned num_bytes = ALIGN_TO(addr, BB_INFO_BYTE_ALIGNMENT);
         addr += num_bytes;
 
-        // go for 8-byte aligned addresses, look for a 32 bit sequence
-        uint32_t *ints(reinterpret_cast<uint32_t *>(addr));
-        for(; (BB_MAGIC_MASK & *ints) != BB_MAGIC;
-            ints += BB_INFO_INT32_ALIGNMENT) {
+        // go search for the basic block info by finding potential
+        // addresses of the meta info, then checking their magic values.
+        for(uint64_t *ints(reinterpret_cast<uint64_t *>(addr)); ; ++ints) {
+            const basic_block_info * const potential_bb(
+                unsafe_cast<basic_block_info *>(ints));
+
+            if(BB_MAGIC == potential_bb->magic) {
+                break;
+            }
+
             num_bytes += BB_INFO_BYTE_ALIGNMENT;
         }
 
         // we've found the basic block info
-        info = unsafe_cast<basic_block_info *>(ints);
+        info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
-        cache_pc_start = cache_pc_current - (info->num_bytes - num_bytes);
+        cache_pc_start = cache_pc_end - info->num_bytes;
+        state = unsafe_cast<basic_block_state *>(
+            cache_pc_start - basic_block_state::size());
         pc_byte_states = reinterpret_cast<uint8_t *>(
             cache_pc_end + sizeof(basic_block_info));
     }
@@ -227,6 +240,9 @@ namespace granary {
 
         size += sizeof(basic_block_info); // meta info
         size += num_instruction_bits / BITS_PER_BYTE;
+
+        size += basic_block_state::size(); // block-local storage
+
         return size;
     }
 
@@ -237,13 +253,13 @@ namespace granary {
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         size += num_instruction_bits / BITS_PER_BYTE;
-
+        size += basic_block_state::size(); // block-local storage
         return size;
     }
 
 
     /// Decode and translate a single basic block of application/module code.
-	static basic_block translate(app_pc *pc) throw() {
+	basic_block basic_block::translate(cpu_state_handle &cpu, app_pc *pc) throw() {
 		const app_pc start_pc(*pc);
 
 		instruction_list ls;
@@ -263,7 +279,7 @@ namespace granary {
 					// is it backward branch within the same basic block?
 					// if so then we will try to keep control-flow within
 					// the block as an optimisation for tight loops.
-					if(start_pc <= target_pc && target_pc <= pc) {
+					if(start_pc <= target_pc && target_pc <= *pc) {
 						// TODO
 					}
 
@@ -291,6 +307,17 @@ namespace granary {
 				ls.append(in);
 			}
 		}
+
+		unsigned staged_size(basic_block::size(ls));
+
+		// allocated pc, this points to block-local storage
+		uint8_t *generated_pc(
+            cpu->fragment_allocator.allocate_array<uint8_t>(staged_size));
+
+		// allocated pc immediately following block-local storage
+		uint8_t *bb_pc(generated_pc + basic_block_state::size());
+
+		return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
 	}
 
 
@@ -305,41 +332,32 @@ namespace granary {
                                   app_pc *generated_pc) throw() {
 
         app_pc pc = *generated_pc;
-        pc += ALIGN_TO(pc, 16);
-
-        /*
-        // add in the state
-        memset(pc, BB_PADDING, STATE_SIZE);
-        memcpy(pc, state, sizeof *state);
-        pc += STATE_SIZE;
-		*/
+        pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), 16);
 
         // add in the instructions
         const app_pc start_pc(pc);
         pc = ls.encode(pc);
 
         uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));
-        uint64_t pc_uint_aligned(pc_uint + ALIGN_TO(
-            pc_uint, BB_INFO_BYTE_ALIGNMENT));
+        app_pc pc_aligned(pc + ALIGN_TO(pc_uint, BB_INFO_BYTE_ALIGNMENT));
 
         // add in the padding
-        for(unsigned i = 0, max = (pc_uint_aligned - pc_uint); i < max; ++i) {
+        for(; pc < pc_aligned; ) {
             *pc++ = BB_PADDING;
         }
 
-        // add in the meta information header
-        *(unsafe_cast<uint32_t *>(pc)) = uint32_t(
-            (BB_PADDING << 24) |
-            (BB_PADDING << 16) |
-            (BB_PADDING <<  8) |
-            kind);
+        BARRIER;
 
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
         // fill in the info
+        info->magic = static_cast<uint32_t>(BB_MAGIC);
+        info->kind = kind;
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
         info->hotness = 0;
         info->generating_pc = generating_pc;
+
+        printf("emitting a basic block with %u bytes\n", info->num_bytes);
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);

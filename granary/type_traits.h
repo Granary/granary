@@ -8,7 +8,7 @@
 #ifndef GRANARY_TYPE_TRAITS_HPP_
 #define GRANARY_TYPE_TRAITS_HPP_
 
-#ifdef __clang__
+#if defined(GR_MISSING_TYPE_TRAITS) && defined(__clang__)
 namespace std {
 
   template <bool B, class T = void>
@@ -117,7 +117,7 @@ namespace std {
   struct conditional<false, T, F> { typedef F type; };
 }
 #else
-# include <type_traits>
+#	include <type_traits>
 #endif
 
 

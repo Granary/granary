@@ -16,6 +16,7 @@ namespace granary {
     struct basic_block;
     struct basic_block_state;
     struct instruction_list;
+    struct cpu_state_handle;
 
 
     /// different states of bytes in the code cache.
@@ -56,17 +57,20 @@ namespace granary {
 
         /// magic number (sequence of 4 int3 instructions) which signals the
         /// beginning of a bb_meta block.
-        const uint32_t magic:24;
+        uint32_t magic:24;
 
         /// the kind of this basic block.
-        const basic_block_kind kind:8;
-
-        /// used to measure some threshold of the "hotness" of this basic block
-        volatile uint16_t hotness;
+        basic_block_kind kind:8;
 
         /// the number of bytes in this basic block, *including* the number of
         /// bytes of padding
         uint16_t num_bytes;
+
+        /// The application/module to which this basic block belongs
+        uint8_t app_id;
+
+        /// used to measure some threshold of the "hotness" of this basic block
+        volatile uint8_t hotness;
 
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
@@ -92,6 +96,9 @@ namespace granary {
 
     public:
 
+        /// The block-local storage for this block
+        basic_block_state *state;
+
         /// location information about this basic block
         app_pc cache_pc_start;
         app_pc cache_pc_current;
@@ -112,9 +119,9 @@ namespace granary {
         unsigned size(void) const throw();
 
         /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(app_pc *pc) throw();
+        static basic_block translate(cpu_state_handle &cpu, app_pc *pc) throw();
 
-    protected:
+    //protected:
 
         /// Emit an instruction list as code into a byte array. This will also
         /// emit the basic block meta information and local storage.

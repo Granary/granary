@@ -8,6 +8,8 @@
 #ifndef GRANARY_DETACH_H_
 #define GRANARY_DETACH_H_
 
+#include "granary/globals.h"
+
 namespace granary {
 
 

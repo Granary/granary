@@ -22,6 +22,109 @@ namespace granary {
     struct instruction_list;
 
 
+    /// Defines an operand generator for LEA operands
+    struct operand_lea {
+    public:
+
+        typename dynamorio::reg_id_t base;
+        typename dynamorio::reg_id_t index;
+
+        int scale;
+        int disp;
+
+        /// Add the scale parameter to the LEA operand. Value values are 1, 2,
+        /// 4, and 8.
+        template <typename T>
+        operand_lea operator*(T scale) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Scale must have an integral type.");
+
+            operand_lea ret(*this);
+            ret.scale = static_cast<int>(scale);
+            return ret;
+        }
+
+        /// Add in the displacement to the LEA operand.
+        template <typename T>
+        operand_lea operator+(T disp) const throw() {
+            static_assert(std::is_integral<T>::value,
+                "Displacement must have an integral type.");
+
+            operand_lea ret(*this);
+            ret.disp = static_cast<int>(disp);
+            return ret;
+        }
+
+        /// Implicit conversion from unpacked to packed LEA operand type.
+        inline operator typename dynamorio::opnd_t(void) const throw() {
+            return dynamorio::opnd_create_base_disp(
+                base, index, scale, disp, dynamorio::OPSZ_lea);
+        }
+    };
+
+
+    /// Defines a generic operand
+    struct operand : public dynamorio::opnd_t {
+    public:
+
+        inline operand(dynamorio::opnd_t &&that) throw() {
+            memcpy(this, &that, sizeof *this);
+        }
+
+        operand(typename dynamorio::reg_id_t reg_) throw();
+
+        inline operand &operator=(dynamorio::opnd_t &&that) throw() {
+        	memcpy(this, &that, sizeof *this);
+        	return *this;
+        }
+
+        /// De-referencing creates a new operand type
+        operand operator*(void) const throw();
+
+        /// Accessing some byte offset from the operand (assuming it points to
+        /// some memory)
+        operand operator[](int64_t num_bytes) const throw();
+
+        inline operator typename dynamorio::reg_id_t(void) const throw() {
+            return value.reg;
+        }
+
+        operand_lea operator+(operand index) const throw();
+
+        operand_lea operator+(operand_lea lea) const throw();
+
+        /// Construct an LEA operand with an index and scale. This is to
+        /// respect the order of operations. Note: valid values of scale are
+        /// 1, 2, 4, and 8.
+        template <typename I>
+        operand_lea operator*(I scale) const throw() {
+            static_assert(std::is_integral<I>::value,
+                "Scale must have an integral type.");
+
+            operand_lea ret;
+            ret.base = dynamorio::DR_REG_NULL;
+            ret.index = value.reg;
+            ret.scale = static_cast<int>(scale);
+            ret.disp = 0;
+            return ret;
+        }
+
+        /// Construct an LEA operand with a base and displacement.
+        template <typename I>
+        operand_lea operator+(I disp) const throw() {
+            static_assert(std::is_integral<I>::value,
+                "Displacement must have an integral type.");
+
+            operand_lea ret;
+            ret.base = dynamorio::DR_REG_NULL;
+            ret.index = value.reg;
+            ret.scale = 1;
+            ret.disp = static_cast<int>(disp);
+            return ret;
+        }
+    };
+
+
     /// Defines a decoded x86 instruction type. This wraps around DynamoRIO's
     /// Level-3 decoding on x86 instructions.
     struct instruction {
@@ -115,7 +218,17 @@ namespace granary {
             *pc = unsafe_cast<T *>(
                 dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr)));
             dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
-            dynamorio::instr_set_translation(&(self.instr), byte_pc);
+
+            // keep these associations around
+            self.instr.translation = byte_pc;
+            self.instr.bytes = byte_pc;
+
+            // hack for getting dynamorio to maintain proper rip-relative
+            // associations in the encoding process.
+            if(dynamorio::instr_is_cti(&(self.instr))) {
+                dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
+            }
+
             return self;
         }
 
@@ -130,6 +243,7 @@ namespace granary {
                 instr.note = pc;
             }
 
+
             uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
             byte_pc = dynamorio::instr_encode(DCONTEXT, &instr, byte_pc);
             return unsafe_cast<M *>(byte_pc);
@@ -140,104 +254,6 @@ namespace granary {
         /// to pointers to their underlying DR type.
         inline operator typename dynamorio::instr_t *(void) throw() {
         	return &instr;
-        }
-    };
-
-
-    /// Defines an operand generator for LEA operands
-    struct operand_lea {
-    public:
-
-        typename dynamorio::reg_id_t base;
-        typename dynamorio::reg_id_t index;
-
-        int scale;
-        int disp;
-
-        /// Add the scale parameter to the LEA operand. Value values are 1, 2,
-        /// 4, and 8.
-        template <typename T>
-        operand_lea operator*(T scale) const throw() {
-            static_assert(std::is_integral<T>::value,
-                "Scale must have an integral type.");
-
-            operand_lea ret(*this);
-            ret.scale = static_cast<int>(scale);
-            return ret;
-        }
-
-        /// Add in the displacement to the LEA operand.
-        template <typename T>
-        operand_lea operator+(T disp) const throw() {
-            static_assert(std::is_integral<T>::value,
-                "Displacement must have an integral type.");
-
-            operand_lea ret(*this);
-            ret.disp = static_cast<int>(disp);
-            return ret;
-        }
-
-        /// Implicit conversion from unpacked to packed LEA operand type.
-        inline operator typename dynamorio::opnd_t(void) const throw() {
-            return dynamorio::opnd_create_base_disp(
-                base, index, scale, disp, dynamorio::OPSZ_lea);
-        }
-    };
-
-
-    /// Defines a generic operand
-    struct operand : public dynamorio::opnd_t {
-    public:
-
-        inline operand(dynamorio::opnd_t &&that) throw() {
-            memcpy(this, &that, sizeof *this);
-        }
-
-        operand(typename dynamorio::reg_id_t reg_) throw();
-
-        /// De-referencing creates a new operand type
-        operand operator*(void) const throw();
-
-        /// Accessing some byte offset from the operand (assuming it points to
-        /// some memory)
-        operand operator[](int64_t num_bytes) const throw();
-
-        inline operator typename dynamorio::reg_id_t(void) const throw() {
-            return value.reg;
-        }
-
-        operand_lea operator+(operand index) const throw();
-
-        operand_lea operator+(operand_lea lea) const throw();
-
-        /// Construct an LEA operand with an index and scale. This is to
-        /// respect the order of operations. Note: valid values of scale are
-        /// 1, 2, 4, and 8.
-        template <typename I>
-        operand_lea operator*(I scale) const throw() {
-            static_assert(std::is_integral<I>::value,
-                "Scale must have an integral type.");
-
-            operand_lea ret;
-            ret.base = dynamorio::DR_REG_NULL;
-            ret.index = value.reg;
-            ret.scale = static_cast<int>(scale);
-            ret.disp = 0;
-            return ret;
-        }
-
-        /// Construct an LEA operand with a base and displacement.
-        template <typename I>
-        operand_lea operator+(I disp) const throw() {
-            static_assert(std::is_integral<I>::value,
-                "Displacement must have an integral type.");
-
-            operand_lea ret;
-            ret.base = dynamorio::DR_REG_NULL;
-            ret.index = value.reg;
-            ret.scale = 1;
-            ret.disp = static_cast<int>(disp);
-            return ret;
         }
     };
 

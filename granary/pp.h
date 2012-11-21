@@ -25,4 +25,23 @@
 
 #define ALIGN_TO(lval, const_align) (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
+#if GRANARY_IN_KERNEL
+#   define IF_KERNEL(x) x
+#   define IF_KERNEL_(x) , x
+#   define IF_KERNEL_ELSE(if_true, if_false) if_true
+#   define IF_KERNEL_ELSE_(if_true, if_false) , if_true
+#   define IF_USER(x)
+#   define IF_USER_(x)
+#else
+#   define IF_KERNEL(x)
+#   define IF_KERNEL_(x)
+#   define IF_KERNEL_ELSE(if_true, if_false) if_false
+#   define IF_KERNEL_ELSE_(if_true, if_false) , if_false
+#   define IF_USER(x) x
+#   define IF_USER_(x) , x
+#endif
+
+#define FAULT (*((int *) nullptr) = 0)
+#define BARRIER __asm__ __volatile__ ("")
+
 #endif /* Granary_PP_H_ */

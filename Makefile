@@ -66,7 +66,8 @@ KERNEL ?= 1
 # user space
 ifneq ($(KERNEL),1)
 	
-	GR_OBJS += bin/granary/user/heap.o
+	GR_OBJS += bin/granary/user/allocator.o
+	GR_OBJS += bin/granary/user/state.o
 
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
@@ -80,8 +81,9 @@ ifneq ($(KERNEL),1)
 # kernel space
 else
 	GR_OBJS += bin/granary/kernel/module.o
-	GR_OBJS += bin/granary/kernel/heap.o
+	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o
+	GR_OBJS += bin/granary/kernel/state.o
 
 	# Module objects
 	obj-m += $(GR_NAME).o

@@ -10,8 +10,8 @@
 #include "granary/instruction.h"
 
 #include "granary/kernel/module.h"
-#include "granary/kernel/types/kernel.h"
 #include "granary/kernel/printf.h"
+#include "granary/kernel/linux/types.h"
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
@@ -19,10 +19,10 @@ extern "C" {
             return;
         }
 
-        kernel::module *kernel_module(granary::unsafe_cast<kernel::module *>(module->address));
+        kernel::module *mod(granary::unsafe_cast<kernel::module *>(module->address));
 
-        granary::printf("Notified about module (%s) state change!!\n", kernel_module->name);
+        granary::printf("Notified about module (%s) state change!!\n", mod->name);
 
-        (void) kernel_module;
+        (void) mod;
     }
 }

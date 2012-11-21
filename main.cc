@@ -11,18 +11,23 @@
 #include "granary/globals.h"
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
+#include "granary/state.h"
 
-void break_on_instruction(uint8_t *in, granary::basic_block *bb) {
-    (void) in;
+void break_on_instruction(granary::basic_block *bb) {
+    //(void) in;
     (void) bb;
 }
 
 typedef int (*adder_type)(int);
 
-namespace granary {
+int main(int argc, const char **argv) throw();
 
+namespace granary {
+#if 0
     adder_type make_adder(int a) throw() {
-        uint8_t *data = (uint8_t *) allocate_executable((cpu_info *) nullptr, 100);
+
+        cpu_state_handle cpu;
+        uint8_t *data(cpu->fragment_allocator.allocate_array<uint8_t>(100));
         uint8_t *next_data = data;
 
         granary::instruction_list ls;
@@ -37,14 +42,28 @@ namespace granary {
 
         return (adder_type) data;
     }
+#endif
+
+
+    void decode(app_pc func) {
+        cpu_state_handle cpu;
+        basic_block bb(basic_block::translate(cpu, &func));
+
+        break_on_instruction(&bb);
+    }
 }
 
 int main(int argc, const char **argv) throw() {
-
+    /*
     adder_type add1 = granary::make_adder(1);
 
     printf("1 + 2 = %d\n", add1(2));
     printf("1 + 5 = %d\n", add1(5));
+    */
+
+    granary::decode((granary::app_pc) main);
+
+    printf("hello world!\n");
 
     (void) argc;
     (void) argv;

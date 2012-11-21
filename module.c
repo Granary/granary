@@ -11,6 +11,8 @@
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
+#include <asm/pgtype_types.h>
 
 #include "granary/kernel/module.h"
 
@@ -18,6 +20,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 struct kernel_module *modules = NULL;
 extern int (**kernel_printf)(const char *, ...);
+extern void *(**kernel_vmalloc_exec)(unsigned long);
+extern void *(**kernel_vmalloc)(unsigned long);
 extern void notify_module_state_change(struct kernel_module *);
 
 /// Find the Granary-representation for an internal module.
@@ -72,11 +76,34 @@ static struct notifier_block notifier_block = {
 };
 
 
+/// Allocate some executable memory
+static void *allocate_executable(unsigned long size) {
+    void *ret = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL_EXEC);
+    if(!ret) {
+        ret = __vmalloc(size, GFP_KERNEL, PAGE_KERNEL_EXEC);
+    }
+    return ret;
+}
+
+
+/// Allocate some executable memory
+static void *allocate(unsigned long size) {
+    void *ret = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+    if(!ret) {
+        ret = __vmalloc(size, GFP_KERNEL, PAGE_KERNEL);
+    }
+    return ret;
+}
+
+
+
 /// Initialize Granary.
 static int init_granary(void) {
     printk("Loading Granary...\n");
 
     *kernel_printf = printk;
+    *kernel_vmalloc_exec = allocate_executable;
+    *kernel_vmalloc = allocate;
 
     register_module_notifier(&notifier_block);
     return 0;

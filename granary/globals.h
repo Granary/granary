@@ -14,7 +14,6 @@
 
 #include "granary/pp.h"
 #include "granary/utils.h"
-#include "granary/heap.h"
 #include "granary/type_traits.h"
 #include "granary/types/dynamorio.h"
 
@@ -23,6 +22,12 @@ namespace granary {
     /// Program counter type.
     typedef typename dynamorio::app_pc app_pc;
 
+
+    enum {
+        PAGE_SIZE = 4096U
+    };
 }
+
+#include "granary/allocator.h"
 
 #endif /* granary_GLOBALS_H_ */
