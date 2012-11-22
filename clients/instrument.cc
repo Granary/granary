@@ -9,12 +9,14 @@
 
 namespace client {
 
-    void instrument(granary::instruction_list &ls,
-                    granary::basic_block_state *state,
-                    bool interrupt_state) throw() {
+    void instrument(granary::cpu_state_handle &cpu,
+                    granary::thread_state_handle &thread,
+                    granary::basic_block_state *bb,
+                    granary::instruction_list &ls) throw() {
+        (void) cpu;
+        (void) thread;
+        (void) bb;
         (void) ls;
-        (void) state;
-        (void) interrupt_state;
     }
 
 }

@@ -6,6 +6,7 @@
  */
 
 #include "granary/globals.h"
+#include "granary/state.h"
 
 #include <cstdlib>
 #include <stdint.h>
@@ -20,11 +21,13 @@ extern "C" {
     /// DynamoRIO-compatible heap allocation
 
     void *heap_alloc(void *, unsigned long long size) {
-        return malloc(size);
+        granary::cpu_state_handle cpu;
+        return cpu->dr_heap_allocator.allocate_untyped(16, size);
+        //return malloc(size);
     }
 
-    void heap_free(void *, void *ptr, unsigned long long) {
-        free(ptr);
+    void heap_free(void *, void *, unsigned long long) {
+        //free(ptr);
     }
 
     /// (un)protect up to two pages

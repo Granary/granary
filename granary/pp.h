@@ -41,7 +41,7 @@
 #   define IF_USER_(x) , x
 #endif
 
-#define FAULT (*((int *) nullptr) = 0)
+#define FAULT (break_before_fault(), (*((int *) nullptr) = 0))
 #define BARRIER __asm__ __volatile__ ("")
 
 #endif /* Granary_PP_H_ */

@@ -18,6 +18,9 @@
 
 MODULE_LICENSE("Dual BSD/GPL");
 
+
+void break_before_fault(void) { }
+
 struct kernel_module *modules = NULL;
 extern int (**kernel_printf)(const char *, ...);
 extern void *(**kernel_vmalloc_exec)(unsigned long);

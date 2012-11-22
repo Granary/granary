@@ -5,6 +5,7 @@
  *      Author: Peter Goodman
  */
 
+#include "granary/state.h"
 #include "granary/allocator.h"
 
 namespace granary { namespace detail {
@@ -31,8 +32,9 @@ extern "C" {
     void *(**kernel_vmalloc)(unsigned long) = &(granary::detail::__vmalloc);
 
 
-    void *heap_alloc(void *, unsigned long long) {
-        return 0;
+    void *heap_alloc(void *, unsigned long long size) {
+        granary::cpu_state_handle cpu;
+        return cpu->dr_heap_allocator.allocate_untyped(16, size);
     }
 
 

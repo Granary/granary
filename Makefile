@@ -55,6 +55,11 @@ GR_OBJS += bin/dr/x86/x86.o
 GR_OBJS += bin/granary/instruction.o
 GR_OBJS += bin/granary/basic_block.o
 GR_OBJS += bin/granary/detach.o
+GR_OBJS += bin/granary/state.o
+GR_OBJS += bin/granary/mangle.o
+
+# Granary (x86) dependencies
+GR_OBJS += bin/x86/direct_branch.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += bin/granary/gen/instruction.o
@@ -68,18 +73,23 @@ KERNEL ?= 1
 
 # user space
 ifneq ($(KERNEL),1)
-	
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
+	GR_OBJS += bin/granary/user/init.o
+	GR_OBJS += bin/granary/user/utils.o
+	GR_OBJS += bin/main.o
 
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
-	GR_MAKE += gcc -c bin/dr/x86/x86.S -o bin/dr/x86/x86.o ; 
+	GR_MAKE += $(GR_CC) -c bin/dr/x86/x86.S -o bin/dr/x86/x86.o ; 
 	GR_MAKE += $(GR_CC) $(GR_CC_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
 	GR_CLEAN =
-	GR_OBJS += bin/main.o
 	GR_OUTPUT_FORMAT = o
+
+	define GR_COMPILE_ASM
+		$$($(GR_CC) -c bin/x86/$1.S -o bin/x86/$1.o)
+endef
 
 # kernel space
 else
@@ -87,6 +97,9 @@ else
 	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o
 	GR_OBJS += bin/granary/kernel/state.o
+	GR_OBJS += bin/granary/kernel/init.o
+	GR_OBJS += bin/granary/kernel/utils.o
+	GR_OBJS += bin/x86/cpu.o
 
 	# Module objects
 	obj-m += $(GR_NAME).o
@@ -98,6 +111,9 @@ else
 	
 	GR_CC_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
+
+	define GR_COMPILE_ASM
+endef
 endif
 
 # DynamoRIO rules for C files
@@ -113,6 +129,13 @@ bin/dr/%.o: dr/%.asm
 # Granary rules for C++ files
 bin/granary/%.o: granary/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
+
+# Granary rules for assembly files
+bin/x86/%.o: x86/%.asm
+	$(GR_CPP) -I$(PWD) -E $< > bin/x86/$*.1.S
+	python scripts/post_process_asm.py bin/x86/$*.1.S > bin/x86/$*.S
+	rm bin/x86/$*.1.S
+	$(call GR_COMPILE_ASM,$*)
 
 # Granary rules for client C++ files
 bin/clients/%.o: clients/%.cc
@@ -132,6 +155,7 @@ install:
 	-mkdir bin/granary/kernel
 	-mkdir bin/granary/gen
 	-mkdir bin/clients
+	-mkdir bin/x86
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
 	
@@ -156,14 +180,20 @@ clean:
 	touch bin/dr/_.$(GR_OUTPUT_FORMAT)
 	touch bin/dr/x86/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/_.$(GR_OUTPUT_FORMAT)
+	touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
+	touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
 	touch bin/clients/_.$(GR_OUTPUT_FORMAT)
+	touch bin/x86/_.$(GR_OUTPUT_FORMAT)
 	
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/dr/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/dr/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/x86/*.$(GR_OUTPUT_FORMAT)
 
 	$(GR_CLEAN)

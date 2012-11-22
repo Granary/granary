@@ -10,6 +10,7 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
+#define FAULT (break_before_fault(), ((*((int *) 0)) = 0))
 #define IF_GRANARY(x) x
 #define IF_NOT_GRANARY(x)
 #define LINUX 1
@@ -24,7 +25,7 @@
 #define STANDALONE_DECODER 1
 #define LOG(...)
 #define DODEBUG(...)
-#define CLIENT_ASSERT(cond, ...) { if(!(cond)) { *((char *) 0) = 0; } }
+#define CLIENT_ASSERT(cond, ...) { if(!(cond)) { FAULT; } }
 #define SELF_UNPROTECT_DATASEC(...)
 #define SELF_PROTECT_DATASEC(...)
 #define IF_X64(x) x
@@ -51,8 +52,8 @@
 #define STATS_INC(x)
 #define DOLOG(...)
 #define HEAPACCT(...)
-#define DEBUG_EXT_DECLARE(...)
-#define DOCHECK(...)
+#define DEBUG_EXT_DECLARE(...) __VA_ARGS__
+#define DOCHECK(cond, ...) if(cond) __VA_ARGS__
 
 #define NUM_XMM_SAVED 0
 
@@ -104,7 +105,7 @@ extern "C" {
 #define CHECK_TRUNCATE_TYPE_ushort(val) ((val) >= 0 && (val) <= USHRT_MAX)
 #define CHECK_TRUNCATE_TYPE_short(val) ((val) <= SHRT_MAX && ((int64)(val)) >= SHRT_MIN)
 #define CHECK_TRUNCATE_TYPE_uint(val) ((val) >= 0 && (val) <= UINT_MAX)
-#ifdef LINUX
+#if !defined(GRANARY) && defined(LINUX)
 /* We can't do the proper int check on Linux because it generates a warning if val has
 * type uint that I can't seem to cast around and is impossible to ignore -
 * "comparison is always true due to limited range of data type".
@@ -343,6 +344,8 @@ extern "C" {
 extern void *heap_alloc(void *, unsigned long long);
 extern void heap_free(void *, void *, unsigned long long);
 extern dcontext_t *get_thread_private_dcontext(void);
+
+extern void break_before_fault(void);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,13 @@
 
 namespace granary {
 
+
+    /// Forward declarations
+    void mangle(cpu_state_handle &cpu,
+                thread_state_handle &thread,
+                instruction_list &ls) throw();
+
+
     enum {
 
         BB_PADDING      = 0xCC,
@@ -38,7 +45,10 @@ namespace granary {
 
         /// aligned state size
         STATE_SIZE_ = sizeof(basic_block_state),
-        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, 16)
+        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, 16),
+
+        // an estimation of the number of bytes in a direct branch slot
+        BRANCH_SLOT_SIZE_ESTIMATE = 32
     };
 
 
@@ -272,40 +282,57 @@ namespace granary {
 
 
     /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(cpu_state_handle &cpu, app_pc *pc) throw() {
+    basic_block basic_block::translate(cpu_state_handle &cpu,
+                                       thread_state_handle &thread,
+                                       app_pc *pc) throw() {
         const app_pc start_pc(*pc);
         unsigned staged_size(0);
         uint8_t *generated_pc(nullptr);
         uint8_t *prev_generated_pc(nullptr);
         instruction_list ls;
+        unsigned num_direct_branches(0);
+
+        cpu->dr_heap_allocator.free_all();
 
         for(;;) {
             instruction in(instruction::decode(pc));
             if(in.is_cti()) {
 
-                // indirect branch (jmp, call, i/ret)
-                if(dynamorio::instr_is_mbr(in)) {
-                    ls.append(in);
+                instruction_list_handle added_in(ls.append(in));
+
+                // used to estimate how many direct branch slots we'll
+                // need to add to the final basic block
+                if(dynamorio::opnd_is_pc(in.get_cti_target())) {
+                    ++num_direct_branches;
+                    added_in->set_patchable();
+                }
+
+                // it's a jmp; terminate the basic block
+                if(!dynamorio::instr_is_call(in)) {
                     goto try_instrument;
+                }
+
+#if 0
+                // !!! This optimization is likely to make interrupt handling
+                //     more complex. Only enable it when these things have
+                //     been thought through.
 
                 // direct branch (e.g. un/conditional branch, jmp, call)
-                } else {
-                    operand target(in.get_cti_target());
-                    app_pc target_pc(dynamorio::opnd_get_pc(target));
 
-                    // if it is local back edge then keep control within the
-                    // same basic block.
-                    if(start_pc <= target_pc && target_pc <= *pc) {
-                        instruction_list_handle prev_in(
-                            find_local_back_edge_target(ls, target_pc));
+                operand target(in.get_cti_target());
+                app_pc target_pc(dynamorio::opnd_get_pc(target));
 
-                        if(prev_in.is_valid()) {
-                            dynamorio::instr_set_target(in, instr_(&(*prev_in)));
-                        }
+                // if it is local back edge then keep control within the
+                // same basic block.
+                if(start_pc <= target_pc && target_pc < *pc) {
+                    instruction_list_handle prev_in(
+                        find_local_back_edge_target(ls, target_pc));
+
+                    if(prev_in.is_valid()) {
+                        dynamorio::instr_set_target(in, instr_(&(*prev_in)));
                     }
-
-                    ls.append(in);
                 }
+#endif
 
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in->opcode) {
@@ -325,20 +352,30 @@ namespace granary {
 
         try_instrument:
 
+            // estimate the size of the basic block; this is likely to
+            // underestimate the size, which shouldn't be a problem
+            // except if we're near the end of the fragment allocator's
+            // current arena.
             if(!staged_size) {
-                staged_size = basic_block::size(ls);
+                staged_size = basic_block::size(ls) \
+                            + num_direct_branches * BRANCH_SLOT_SIZE_ESTIMATE;
             }
 
             prev_generated_pc = cpu->fragment_allocator.\
                 allocate_array<uint8_t>(staged_size);
 
-            // instrument
+            // call client code to instrument the instructions
             basic_block_state *block_storage(
                 new (prev_generated_pc) basic_block_state);
+
             client::instrument(
-                ls,
+                cpu,
+                thread,
                 block_storage,
-                cpu->interrupts_enabled);
+                ls);
+
+            // mangle the instructions and re-generate the
+            mangle(cpu, thread, ls);
 
             // re-calculate the size and re-allocate; if our earlier
             // guess was too small then we need to re-instrument the
@@ -352,10 +389,9 @@ namespace granary {
             if(prev_generated_pc != generated_pc) {
                 *pc = start_pc;
                 ls.clear_for_reuse();
+                cpu->dr_heap_allocator.free_all();
                 continue;
             }
-
-            // TODO: patch instruction list for mangling, etc.
 
             break;
         }
@@ -416,8 +452,6 @@ namespace granary {
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
         info->hotness = 0;
         info->generating_pc = generating_pc;
-
-        printf("emitting a basic block with %u bytes\n", info->num_bytes);
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);

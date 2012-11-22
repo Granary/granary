@@ -12,6 +12,7 @@
 #include <new>
 
 #include "granary/atomic.h"
+#include "granary/type_traits.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -205,10 +206,32 @@ namespace granary {
             return ptr;
         }
 
+        void *allocate_untyped(unsigned align, unsigned num_bytes) throw() {
+            acquire();
+            uint8_t *arena(allocate(align, num_bytes));
+            memset(arena, 0, num_bytes);
+            release();
+            return arena;
+        }
+
         template <typename T>
         T *allocate_array(unsigned length) throw() {
             acquire();
             uint8_t *arena(allocate(alignof(T), sizeof(T) * length));
+
+            // if the type has a trivial constructor then just clear memory
+            // and hope for the best :-D
+            if(std::is_trivial<T>::value) {
+                memset(arena, 0, sizeof(T) * length);
+
+            // initialize each element using placement new syntax; C++ standard
+            // allows for placement new[] to introduce array length overhead.
+            } else {
+                T *ptr(unsafe_cast<T *>(arena));
+                for(const T *last_ptr(ptr + length); ptr < last_ptr; ++ptr) {
+                    new (ptr) T;
+                }
+            }
             release();
             return unsafe_cast<T *>(arena);
         }

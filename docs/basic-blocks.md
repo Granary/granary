@@ -59,7 +59,7 @@ After the instructions, there is a variable-sized data structure representing
 meta-information about each basic block. Meta information is aligned on a 16
 byte boundary and includes:
 
-1.  Three consecutive int3 instructions, representing a "magic" number.
+1.  A 3-byte "magic" number.
 2.  A one byte tag representing the kind of the basic block. Each kind of basic
     block has different semantics under interrupts.
 3.  A "hotness" counter. The hotness counter is intended to be an interrupt

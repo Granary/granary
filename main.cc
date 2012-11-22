@@ -12,10 +12,17 @@
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
 #include "granary/state.h"
+#include "granary/init.h"
 
 void break_on_instruction(granary::basic_block *bb) {
     //(void) in;
     (void) bb;
+}
+
+extern "C" {
+    void break_before_fault(void) {
+
+    }
 }
 
 typedef int (*adder_type)(int);
@@ -47,7 +54,8 @@ namespace granary {
 
     void decode(app_pc func) {
         cpu_state_handle cpu;
-        basic_block bb(basic_block::translate(cpu, &func));
+        thread_state_handle thread;
+        basic_block bb(basic_block::translate(cpu, thread, &func));
 
         break_on_instruction(&bb);
     }
@@ -61,6 +69,7 @@ int main(int argc, const char **argv) throw() {
     printf("1 + 5 = %d\n", add1(5));
     */
 
+    granary::init();
     granary::decode((granary::app_pc) main);
 
     printf("hello world!\n");

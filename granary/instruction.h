@@ -8,6 +8,8 @@
 #ifndef granary_INSTRUCTION_H_
 #define granary_INSTRUCTION_H_
 
+#include <utility>
+
 #include "granary/globals.h"
 #include "granary/list.h"
 
@@ -85,10 +87,6 @@ namespace granary {
         /// some memory)
         operand operator[](int64_t num_bytes) const throw();
 
-        inline operator typename dynamorio::reg_id_t(void) const throw() {
-            return value.reg;
-        }
-
         operand_lea operator+(operand index) const throw();
 
         operand_lea operator+(operand_lea lea) const throw();
@@ -122,6 +120,18 @@ namespace granary {
             ret.disp = static_cast<int>(disp);
             return ret;
         }
+
+        inline operator uint64_t(void) const throw() {
+            return value.immed_int;
+        }
+
+        inline operator app_pc(void) const throw() {
+            return value.pc;
+        }
+
+        inline operator typename dynamorio::reg_id_t(void) const throw() {
+            return value.reg;
+        }
     };
 
 
@@ -141,6 +151,18 @@ namespace granary {
 
         /// Constructor
         instruction(void) throw();
+
+
+        /// Copy
+        instruction(const instruction &) throw() = default;
+        instruction &operator=(const instruction &) throw() = default;
+
+
+        /// Move assignment operator.
+        inline instruction(const instruction &&that) throw() {
+            memcpy(this, &that, sizeof *this);
+        }
+        instruction &operator=(const instruction &&that) throw();
 
 
         /// Return the number of source operands in this instruction.
@@ -201,8 +223,21 @@ namespace granary {
 
 
         /// Set the state of the instruction to be mangled.
-        inline void mangle(void) throw() {
+        inline void set_mangled(void) throw() {
             instr.flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
+        }
+
+
+        /// Check to see if this instruction can be patched at runtime. If so,
+        /// then this instruction needs to be aligned nicely.
+        inline bool is_patchable(void) const throw() {
+            return 0 != (dynamorio::INSTR_HOT_PATCHABLE & instr.flags);
+        }
+
+
+        /// Set the state of the instruction to be mangled.
+        inline void set_patchable(void) throw() {
+            instr.flags |= dynamorio::INSTR_HOT_PATCHABLE;
         }
 
 
@@ -240,20 +275,7 @@ namespace granary {
 
 
         /// encodes an instruction into a sequence of bytes
-        template <typename M>
-        inline M *encode(M *pc) {
-
-            // address calculation for relative jumps uses the note field
-            if(dynamorio::instr_is_label(&instr)
-            || dynamorio::instr_is_cti(&instr)) {
-                instr.note = pc;
-            }
-
-
-            uint8_t *byte_pc(unsafe_cast<uint8_t *>(pc));
-            byte_pc = dynamorio::instr_encode(DCONTEXT, &instr, byte_pc);
-            return unsafe_cast<M *>(byte_pc);
-        }
+        app_pc encode(app_pc pc) throw();
 
 
         /// Slightly evil convenience method for implicitly converting instructions
@@ -345,20 +367,7 @@ namespace granary {
         unsigned encoded_size(void) throw();
 
         /// encodes an instruction list into a sequence of bytes
-        template <typename M>
-        M *encode(M *pc) {
-            if(!length()) {
-                return pc;
-            }
-
-            auto item = first();
-            for(unsigned i = 0, max = length(); i < max; ++i) {
-                pc = item->encode(pc);
-                item = item.next();
-            }
-
-            return pc;
-        }
+        app_pc encode(app_pc pc) throw();
     };
 
 

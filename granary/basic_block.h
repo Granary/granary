@@ -17,6 +17,7 @@ namespace granary {
     struct basic_block_state;
     struct instruction_list;
     struct cpu_state_handle;
+    struct thread_state_handle;
 
 
     /// different states of bytes in the code cache.
@@ -119,7 +120,9 @@ namespace granary {
         unsigned size(void) const throw();
 
         /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(cpu_state_handle &cpu, app_pc *pc) throw();
+        static basic_block translate(cpu_state_handle &cpu,
+                                     thread_state_handle &thread,
+                                     app_pc *pc) throw();
 
     //protected:
 
