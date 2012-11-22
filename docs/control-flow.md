@@ -44,49 +44,52 @@ The approach taken is to generate short sequences of generated code that are
 then used to for lookup and hotpatching of the basic block.
 
 The process for direct branch translation and lookup follows:
-1.  A direct branch is (in principle) translated into the following three
-    instructions:
 
-    ```asm
-        push    <64-bit address of direct branch instruction>
-        push    <64-bit target address of direct banch instruction>
-        jmp     <direct branch handler>
-    ```
+### 1. Translation
+A direct branch is (in principle) translated into the following three instructions:
 
-    The above instructions contain all of the information needed to resolve and
-    patch the direct branch instruction. However, the above instructions take up
-    a lot of space (and cannot even be encoded as such). As such, direct
-    branches are translated into an equivalent form:
+```asm
+    push    <64-bit address of direct branch instruction>
+    push    <64-bit target address of direct banch instruction>
+    jmp     <direct branch handler>
+```
 
-    ```asm
-        call <stub>
-        ...
-    stub:
-        push <32-bit address of target relative to application start>
-        jmp <direct branch handler>
-    ```
+The above instructions contain all of the information needed to resolve and
+patch the direct branch instruction. However, the above instructions take up
+a lot of space (and cannot even be encoded as such). As such, direct
+branches are translated into an equivalent form:
 
-    The implication is that all direct branches (including jumps) are translated
-    into 5-byte calls. The purpose of the call is to put the address immediately
-    following the call onto the stack. From this, we can calculate the address
-    of the instruction that we will patch. Further, we can translate the 32-bit
-    target back into it's 64-bit value by adding that offset to the address of
-    the start of application code. Obviously, this implies that we assume that
-    application code occupies no more than 4GB of space. For Linux kernel modules
-    this is true.
+```asm
+    call <stub>
+    ...
+stub:
+    push <32-bit address of target relative to application start>
+    jmp <direct branch handler>
+```
 
-    This is implemented by emitting the direct branch lookup stubs immediately
-    following the last instruction of the basic block.
+The implication is that all direct branches (including jumps) are translated
+into 5-byte calls. The purpose of the call is to put the address immediately
+following the call onto the stack. From this, we can calculate the address
+of the instruction that we will patch. Further, we can translate the 32-bit
+target back into it's 64-bit value by adding that offset to the address of
+the start of application code. Obviously, this implies that we assume that
+application code occupies no more than 4GB of space. For Linux kernel modules
+this is true.
 
-2.  When executed, the direct branch will jump the the associated instruction 
-    stub, which contains enough information for the direct branch handler
-    to perform a lookup and patch.
+This is implemented by emitting the direct branch lookup stubs immediately
+following the last instruction of the basic block.
 
-3.  The direct branch handler performs a lookup on the targeted address. If the
-    targeted address is not associated with a basic block then that basic block
-    is translated. If the target is associated with a basic block, or if we just
-    constructed the basic block, then the translated branch instruction is hot
-    patched to point to the basic block.
+### 2. Execution 
+When executed, the direct branch will jump the the associated instruction 
+stub, which contains enough information for the direct branch handler
+to perform a lookup and patch.
+
+### 3. Lookup
+The direct branch handler performs a lookup on the targeted address. If the
+targeted address is not associated with a basic block then that basic block
+is translated. If the target is associated with a basic block, or if we just
+constructed the basic block, then the translated branch instruction is hot
+patched to point to the basic block.
 
 Note: the instructions of the direct branch lookup stub listed above are all
 considered safe locations for interrupts to arrive.
