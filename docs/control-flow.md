@@ -46,22 +46,26 @@ then used to for lookup and hotpatching of the basic block.
 The process for direct branch translation and lookup follows:
 1.  A direct branch is (in principle) translated into the following three
     instructions:
-```asm
-    push    <64-bit address of direct branch instruction>
-    push    <64-bit target address of direct banch instruction>
-    jmp     <direct branch handler>
-```
+
+    ```asm
+        push    <64-bit address of direct branch instruction>
+        push    <64-bit target address of direct banch instruction>
+        jmp     <direct branch handler>
+    ```
+
     The above instructions contain all of the information needed to resolve and
     patch the direct branch instruction. However, the above instructions take up
     a lot of space (and cannot even be encoded as such). As such, direct
     branches are translated into an equivalent form:
-```asm
-    call <stub>
-    ...
-stub:
-    push <32-bit address of target relative to application start>
-    jmp <direct branch handler>
-```
+
+    ```asm
+        call <stub>
+        ...
+    stub:
+        push <32-bit address of target relative to application start>
+        jmp <direct branch handler>
+    ```
+
     The implication is that all direct branches (including jumps) are translated
     into 5-byte calls. The purpose of the call is to put the address immediately
     following the call onto the stack. From this, we can calculate the address
