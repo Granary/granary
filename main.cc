@@ -62,12 +62,10 @@ namespace granary {
 }
 
 int main(int argc, const char **argv) throw() {
-    /*
-    adder_type add1 = granary::make_adder(1);
 
-    printf("1 + 2 = %d\n", add1(2));
-    printf("1 + 5 = %d\n", add1(5));
-    */
+    for(int i(0); i < argc; ++i) {
+        printf("%s\n", argv[i]);
+    }
 
     granary::init();
     granary::decode((granary::app_pc) main);

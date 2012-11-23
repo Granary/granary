@@ -3462,5 +3462,29 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)
 /* DR_API EXPORT END */
 #endif
 
+
+#ifdef GRANARY
+
+
+
+#define INSTR_CREATE_jo(dc, t) INSTR_CREATE_jcc((dc), OP_jo, (t))
+#define INSTR_CREATE_jno(dc, t) INSTR_CREATE_jcc((dc), OP_jno, (t))
+#define INSTR_CREATE_jb(dc, t) INSTR_CREATE_jcc((dc), OP_jb, (t))
+#define INSTR_CREATE_jnb(dc, t) INSTR_CREATE_jcc((dc), OP_jnb, (t))
+#define INSTR_CREATE_jz(dc, t) INSTR_CREATE_jcc((dc), OP_jz, (t))
+#define INSTR_CREATE_jnz(dc, t) INSTR_CREATE_jcc((dc), OP_jnz, (t))
+#define INSTR_CREATE_jbe(dc, t) INSTR_CREATE_jcc((dc), OP_jbe, (t))
+#define INSTR_CREATE_jnbe(dc, t) INSTR_CREATE_jcc((dc), OP_jnbe, (t))
+#define INSTR_CREATE_js(dc, t) INSTR_CREATE_jcc((dc), OP_js, (t))
+#define INSTR_CREATE_jns(dc, t) INSTR_CREATE_jcc((dc), OP_jns, (t))
+#define INSTR_CREATE_jp(dc, t) INSTR_CREATE_jcc((dc), OP_jp, (t))
+#define INSTR_CREATE_jnp(dc, t) INSTR_CREATE_jcc((dc), OP_jnp, (t))
+#define INSTR_CREATE_jl(dc, t) INSTR_CREATE_jcc((dc), OP_jl, (t))
+#define INSTR_CREATE_jnl(dc, t) INSTR_CREATE_jcc((dc), OP_jnl, (t))
+#define INSTR_CREATE_jle(dc, t) INSTR_CREATE_jcc((dc), OP_jle, (t))
+#define INSTR_CREATE_jnle(dc, t) INSTR_CREATE_jcc((dc), OP_jnle, (t))
+
+#endif
+
 #endif /* _INSTR_CREATE_H_ */
 

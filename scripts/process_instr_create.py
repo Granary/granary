@@ -2,11 +2,16 @@
 import re
 
 code = open('granary/gen/instruction.cc', 'w')
+funcs = open('granary/gen/op_to_instr.cc', 'w')
 header = open('granary/gen/instruction.h', 'w')
 
 def C(*args):
   global code
   code.write("%s\n" % "".join(map(str, args)))
+
+def F(*args):
+  global funcs
+  funcs.write("%s\n" % "".join(map(str, args)))
 
 def H(*args):
   global header
@@ -16,6 +21,8 @@ CREATE_MACRO = re.compile(r"#\s*define\s+(INSTR|OPND)_CREATE_([a-zA-Z0-9_]+)\((.
 AFTER_CREATE_MACRO = re.compile(r"(.*?)\)(.*)")
 MACRO_USE = re.compile(r"INSTR_CREATE_([a-zA-Z0-9_]+)")
 MACRO_DEF = re.compile(r"^#\s*define")
+OPCODE_USE = re.compile(r"::OP_([a-zA-Z0-9_]+)", re.MULTILINE)
+SEEN_OPCODES = set(["jmpe", "jmpe_abs"])
 
 def format_line(line):
   return format_line_ns(line.strip("\r\n\t \\"))
@@ -73,6 +80,7 @@ def emit_instr_function(lines, i, instr, args):
       return "dynamorio::opnd_t " + a
 
   arg_list = build_typed_arg_list(typed_arg, args[1:])
+  copied_code = "\n    ".join(sub_lines)
   
   # emit the new function
   H("    instruction ", instr, "_(", arg_list, ");")
@@ -85,11 +93,19 @@ def emit_instr_function(lines, i, instr, args):
     C("        &(in__.instr) /* allocated_instr */")
     C("    };")
     C("    dynamorio::dcontext_t *", args[0], " = &dc__;")
-  C("   ", "\n    ".join(sub_lines))
+  C("   ", copied_code)
   C("    return in__;")
   for arg in args[1:]:
     C("    (void) ", arg, ";")
   C("}")
+
+  if "dynamorio::OP_" in copied_code:
+    m = OPCODE_USE.search(copied_code)
+    if m:
+      opcode = m.group(1)
+      if opcode not in SEEN_OPCODES:
+        SEEN_OPCODES.add(opcode)
+        F("        OPCODE_TO_INSTR[dynamorio::OP_", opcode, "] = (app_pc) &", instr, "_;")
 
   return i
 
@@ -121,6 +137,12 @@ def emit_opnd_function(lines, i, opnd, args):
 
 with open("dr/x86/instr_create.h") as lines_:
 
+  F('#include "granary/globals.h"')
+  F('#include "granary/instruction.h"')
+  F("namespace granary {")
+  F("    static app_pc OPCODE_TO_INSTR[dynamorio::OP_LAST];")
+  F("    STATIC_INITIALIZE({")
+
   C('#include <math.h>')
   C('#include <limits.h>')
   C('#include <stdint.h>')
@@ -143,7 +165,7 @@ with open("dr/x86/instr_create.h") as lines_:
   H("namespace granary {")
   H('    inline operand pc_(app_pc pc) { return dynamorio::opnd_create_pc(pc); }')
   H('    inline operand far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
-  H('    inline operand instr_(instruction *instr) { return dynamorio::opnd_create_instr(&(instr->instr)); }')
+  H('    inline operand instr_(dynamorio::instr_t *instr) { return dynamorio::opnd_create_instr(instr); }')
   H('    inline operand far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, &(instr->instr)); }')
 
   lines = list(lines_)
@@ -180,3 +202,7 @@ with open("dr/x86/instr_create.h") as lines_:
   H('}')
   H('#endif /* GRANARY_GEN_INSTRUCTION_H_ */')
   H()
+
+  F("    }) /* end of static init */")
+  F("} /* end of granary */")
+  F()

@@ -138,7 +138,7 @@ namespace granary {
             };
         };
 
-        struct dynamorio_heap_allocator_config {
+        struct transient_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
@@ -150,7 +150,7 @@ namespace granary {
     public:
 
         bump_pointer_allocator<fragment_allocator_config> fragment_allocator;
-        bump_pointer_allocator<dynamorio_heap_allocator_config> dr_heap_allocator;
+        bump_pointer_allocator<transient_allocator_config> transient_allocator;
 
         bool interrupts_enabled;
     };

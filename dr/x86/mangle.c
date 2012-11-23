@@ -299,7 +299,7 @@ clean_call_info_init(clean_call_info_t *cci, void *callee,
  * absolute PC, so we can just pretend instructions are longer
  * than they really are.
  */
-static instr_t *
+ instr_t *
 convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
 {
     int opcode = instr_get_opcode(instr);

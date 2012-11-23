@@ -8,10 +8,10 @@
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
-#include "granary/detach.h"
 
 #include "clients/instrument.h"
 
+#include <algorithm>
 #include <cstring>
 #include <new>
 
@@ -266,7 +266,9 @@ namespace granary {
         return size;
     }
 
+#define LOOK_FOR_BACK_EDGE 0
 
+#if LOOK_FOR_BACK_EDGE
     /// Get a handle for an instruction in the instruction list.
     static instruction_list_handle
     find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
@@ -278,6 +280,72 @@ namespace granary {
             in = in.next();
         }
         return instruction_list_handle();
+    }
+#endif
+
+
+    /// Represents a potential local branch target, and the instruction
+    /// that would need to be resolved if we can find the target within
+    /// the current basic block.
+    struct local_branch_target {
+        app_pc target;
+        instruction_list_handle source;
+
+        bool operator<(const local_branch_target &that) const throw() {
+            return target < that.target;
+        }
+    };
+
+
+    /// Build an array of in-block branches and attempt to resolve their
+    /// targets to local instructions
+    void resolve_local_branches(cpu_state_handle &cpu,
+                                instruction_list &ls) throw() {
+        instruction_list_handle in(ls.first());
+        const unsigned max(ls.length());
+
+        // find the number of targets
+        unsigned num_direct_branches(0);
+        for(unsigned i(0); i < max; ++i) {
+            if(in->is_cti() && dynamorio::opnd_is_pc(in->get_cti_target())) {
+                ++num_direct_branches;
+            }
+            in = in.next();
+        }
+
+        if(!num_direct_branches) {
+            return;
+        }
+
+        /// build an array of targets
+        local_branch_target *branch_targets(cpu->transient_allocator.\
+            allocate_array<local_branch_target>(num_direct_branches));
+
+        in = ls.first();
+        for(unsigned i(0), j(0); i < max; ++i) {
+            if(in->is_cti()) {
+                operand target(in->get_cti_target());
+                if(dynamorio::opnd_is_pc(target)) {
+                    branch_targets[j].target = target;
+                    branch_targets[j].source = in;
+                    ++j;
+                }
+            }
+            in = in.next();
+        }
+
+        // sort targets
+        std::sort(branch_targets, branch_targets + num_direct_branches);
+
+        // re-target the instructions
+        in = ls.first();
+        for(unsigned i(0), j(0); i < max; ++i) {
+            while(in->pc() == branch_targets[j].target) {
+                dynamorio::instr_set_target(
+                    *(branch_targets[j++].source), instr_(*in));
+            }
+            in = in.next();
+        }
     }
 
 
@@ -292,7 +360,7 @@ namespace granary {
         instruction_list ls;
         unsigned num_direct_branches(0);
 
-        cpu->dr_heap_allocator.free_all();
+        cpu->transient_allocator.free_all();
 
         for(;;) {
             instruction in(instruction::decode(pc));
@@ -307,16 +375,13 @@ namespace granary {
                     added_in->set_patchable();
                 }
 
-                // it's a jmp; terminate the basic block
-                if(!dynamorio::instr_is_call(in)) {
+                // it's an unconditional jmp; terminate the basic block
+                if(!dynamorio::instr_is_call(in)
+                && !dynamorio::instr_is_cbr(in)) {
                     goto try_instrument;
                 }
 
-#if 0
-                // !!! This optimization is likely to make interrupt handling
-                //     more complex. Only enable it when these things have
-                //     been thought through.
-
+#if LOOK_FOR_BACK_EDGE
                 // direct branch (e.g. un/conditional branch, jmp, call)
 
                 operand target(in.get_cti_target());
@@ -333,7 +398,6 @@ namespace granary {
                     }
                 }
 #endif
-
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in->opcode) {
                 ls.append(in);
@@ -374,7 +438,9 @@ namespace granary {
                 block_storage,
                 ls);
 
-            // mangle the instructions and re-generate the
+            if(num_direct_branches) {
+                resolve_local_branches(cpu, ls);
+            }
             mangle(cpu, thread, ls);
 
             // re-calculate the size and re-allocate; if our earlier
@@ -389,7 +455,7 @@ namespace granary {
             if(prev_generated_pc != generated_pc) {
                 *pc = start_pc;
                 ls.clear_for_reuse();
-                cpu->dr_heap_allocator.free_all();
+                cpu->transient_allocator.free_all();
                 continue;
             }
 
@@ -401,20 +467,6 @@ namespace granary {
 
         return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
     }
-
-
-    /*
-        // call/jmp directly to detach point
-        app_pc detach_target_pc(find_detach_target(target_pc));
-        if(detach_target_pc) {
-            add_cti = true;
-            dynamorio::instr_set_target(in, pc_(detach_target_pc));
-            in.mangle();
-
-        // patch point
-        } else {
-
-        } */
 
 
     /// Emit an instruction list as code into a byte array. This will also

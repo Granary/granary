@@ -44,4 +44,29 @@
 #define FAULT (break_before_fault(), (*((int *) nullptr) = 0))
 #define BARRIER __asm__ __volatile__ ("")
 
+#define IF_DEBUG(cond, expr) {if(cond) { expr; }}
+
+
+/// Use to statically initialize some code.
+#define STATIC_INITIALIZE___(code, id) \
+    static void foo_func_ ## id(void) throw(); \
+    struct static_init_ ## id : public static_init_list { \
+    public: \
+        static_init_ ## id(void) throw() { \
+            code \
+            (void) foo_func_ ## id; \
+            this->next = STATIC_LIST_HEAD.next; \
+            STATIC_LIST_HEAD.next = this; \
+        } \
+    }; \
+    static static_init_ ## id foo_ ## id; \
+    static __attribute__((noinline)) void foo_func_ ## id(void) { (void) foo_ ## id; }
+
+#define STATIC_INITIALIZE__(code, line, counter) STATIC_INITIALIZE___(code, line ## _ ## counter)
+#define STATIC_INITIALIZE_(code, line, counter) STATIC_INITIALIZE__(code, line, counter)
+#define STATIC_INITIALIZE(code) STATIC_INITIALIZE_(code, __LINE__, __COUNTER__)
+
+
+#define ASM(code) __asm__ __volatile__ ( #code )
+
 #endif /* Granary_PP_H_ */

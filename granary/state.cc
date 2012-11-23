@@ -7,6 +7,11 @@
 
 #include "granary/state.h"
 
+
+/// Hack to ensure static initializers are compiled.
+static_init_list STATIC_LIST_HEAD;
+
+
 namespace granary {
 
 

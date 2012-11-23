@@ -53,6 +53,15 @@ extern "C" {
 }
 
 
+/// This is a sort of hack to ensure that static initializers are
+/// compiled to execute.
+struct static_init_list {
+    static_init_list *next;
+};
+
+extern static_init_list STATIC_LIST_HEAD;
+
+
 #include "granary/pp.h"
 #include "granary/utils.h"
 #include "granary/type_traits.h"

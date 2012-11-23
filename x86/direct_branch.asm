@@ -9,9 +9,10 @@
 
 START_FILE
 
+/// Handle direct branch lookup and patching
 DECLARE_FUNC(granary_asm_direct_branch)
 GLOBAL_LABEL(granary_asm_direct_branch:)
-    // TODO
+
 END_FUNC(granary_asm_direct_branch)
 
 END_FILE

@@ -1630,6 +1630,10 @@ enum {
     OP_LAST = OP_AFTER_LAST - 1
 };
 
+instr_t *convert_to_near_rel_common(dcontext_t *dcontext,
+                                    instrlist_t *ilist,
+                                    instr_t *instr);
+
 instrlist_t * instrlist_create(dcontext_t * dcontext);
 
 void instrlist_init(instrlist_t * ilist);

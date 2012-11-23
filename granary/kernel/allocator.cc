@@ -34,7 +34,7 @@ extern "C" {
 
     void *heap_alloc(void *, unsigned long long size) {
         granary::cpu_state_handle cpu;
-        return cpu->dr_heap_allocator.allocate_untyped(16, size);
+        return cpu->transient_allocator.allocate_untyped(16, size);
     }
 
 

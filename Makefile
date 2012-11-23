@@ -63,6 +63,7 @@ GR_OBJS += bin/x86/direct_branch.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += bin/granary/gen/instruction.o
+GR_OBJS += bin/granary/gen/op_to_instr.o
 
 # Client code dependencies
 GR_OBJS += bin/clients/instrument.o
@@ -78,6 +79,9 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/granary/user/init.o
 	GR_OBJS += bin/granary/user/utils.o
 	GR_OBJS += bin/main.o
+
+	# Granary tests
+	GR_OBJS += bin/tests/test_direct_cti.o
 
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
@@ -141,6 +145,11 @@ bin/x86/%.o: x86/%.asm
 bin/clients/%.o: clients/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
 
+# Granary rules for test files
+bin/tests/%.o: tests/%.cc
+	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/tests/$*.$(GR_OUTPUT_FORMAT)
+
+
 # Granary user space "harness" for testing compilation, etc. This is convenient
 # for coding Granary on non-Linux platforms because it allows for debugging the
 # build process, and partial testing of the code generation process.
@@ -155,6 +164,7 @@ install:
 	-mkdir bin/granary/kernel
 	-mkdir bin/granary/gen
 	-mkdir bin/clients
+	-mkdir bin/tests
 	-mkdir bin/x86
 	-mkdir bin/dr
 	-mkdir bin/dr/x86
@@ -184,6 +194,7 @@ clean:
 	touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
 	touch bin/clients/_.$(GR_OUTPUT_FORMAT)
+	touch bin/tests/_.$(GR_OUTPUT_FORMAT)
 	touch bin/x86/_.$(GR_OUTPUT_FORMAT)
 	
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
@@ -194,6 +205,7 @@ clean:
 	-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/x86/*.$(GR_OUTPUT_FORMAT)
 
 	$(GR_CLEAN)

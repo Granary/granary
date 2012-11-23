@@ -195,7 +195,7 @@ namespace granary {
 
 
     /// Encodes N bytes of NOPs into an instuction stream.
-    app_pc inject_mangled_nops(app_pc pc, unsigned num_nops) throw() {
+    static app_pc encode_mangled_nops(app_pc pc, unsigned num_nops) throw() {
 
         if(!mangled_nops) {
             mangled_nops = true;
@@ -237,7 +237,7 @@ namespace granary {
             // longer than 8 bytes
             if(item->is_patchable()) {
                 uint64_t forward_align(ALIGN_TO(reinterpret_cast<uint64_t>(pc), 8));
-                pc = inject_mangled_nops(pc, forward_align);
+                pc = encode_mangled_nops(pc, forward_align);
             }
 
             if(item->is_cti()) {
@@ -269,6 +269,32 @@ namespace granary {
         }
 
         return pc;
+    }
+
+
+    /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
+    /// following byte. The decoded instruction is returned by value. If
+    /// the instruction cannot be decoded, then *pc is set to NULL.
+    instruction instruction::decode(app_pc *pc) throw() {
+        instruction self;
+        uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
+        *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr));
+        dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
+
+        // keep these associations around
+        self.instr.translation = byte_pc;
+        self.instr.bytes = byte_pc;
+
+        // hack for getting dynamorio to maintain proper rip-relative
+        // associations in the encoding process.
+        if(dynamorio::instr_is_cti(&(self.instr))) {
+            dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
+
+            if(dynamorio::instr_is_cti_short(&(self.instr)))
+            dynamorio::convert_to_near_rel_common(DCONTEXT, nullptr, &(self.instr));
+        }
+
+        return self;
     }
 
 

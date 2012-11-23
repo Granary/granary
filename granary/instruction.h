@@ -69,7 +69,11 @@ namespace granary {
     struct operand : public dynamorio::opnd_t {
     public:
 
-        inline operand(dynamorio::opnd_t &&that) throw() {
+        inline operand(const dynamorio::opnd_t &&that) throw() {
+            memcpy(this, &that, sizeof *this);
+        }
+
+        inline operand(const dynamorio::opnd_t &that) throw() {
             memcpy(this, &that, sizeof *this);
         }
 
@@ -205,7 +209,7 @@ namespace granary {
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
 		inline operand get_cti_target(void) throw() {
-			return dynamorio::instr_get_target(&instr);
+		    return dynamorio::instr_get_target(&instr);
 		}
 
 
@@ -252,26 +256,7 @@ namespace granary {
         /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
-        template <typename T>
-        static inline instruction decode(T **pc) throw() {
-            instruction self;
-            uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
-            *pc = unsafe_cast<T *>(
-                dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr)));
-            dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
-
-            // keep these associations around
-            self.instr.translation = byte_pc;
-            self.instr.bytes = byte_pc;
-
-            // hack for getting dynamorio to maintain proper rip-relative
-            // associations in the encoding process.
-            if(dynamorio::instr_is_cti(&(self.instr))) {
-                dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
-            }
-
-            return self;
-        }
+        static instruction decode(app_pc *pc) throw();
 
 
         /// encodes an instruction into a sequence of bytes
