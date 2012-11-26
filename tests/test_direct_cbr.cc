@@ -23,18 +23,24 @@
     macro(jnle, ##__VA_ARGS__)
 
 
+/// Make a short and "far" test for a conditional branch opcode. The
+/// the target of the short jumps needs to be outside of the basic
+/// block, which will stop at ret (otherwise it would be optimized into
+/// and in-block jump).
 #define MAKE_CBR_TEST_FUNC(opcode) \
     static void direct_cti_ ## opcode ## _short(void) throw() { \
         ASM( \
-            opcode 1f; \
-            ret; \
-        1:  nop; \
+            #opcode " 1f;" \
+            "mov $0, %rax;" \
+            "ret;" \
+        "1:  mov $1, %rax;" \
+            "ret;" \
         ); \
     } \
     static void direct_cti_ ## opcode ## _long(void) throw() { \
         ASM( \
-            opcode _start; \
-            ret; \
+            #opcode " _start;" \
+            "ret;" \
         ); \
     }
 
@@ -57,14 +63,14 @@ static void break_on_cbr(granary::basic_block *bb) {
 
 namespace test {
     
-    FOR_EACH_CBR(MAKE_CBR_TEST_FUNC)
+    TEST(FOR_EACH_CBR(MAKE_CBR_TEST_FUNC))
 
-    STATIC_INITIALIZE({
+    TEST(STATIC_INITIALIZE({
         granary::cpu_state_handle cpu;
         granary::thread_state_handle thread;
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
             break_on_cbr(&bb_short);
             break_on_cbr(&bb_long);
         })
-    })
+    }))
 }

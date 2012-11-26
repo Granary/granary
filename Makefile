@@ -81,7 +81,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/main.o
 
 	# Granary tests
-	GR_OBJS += bin/tests/test_direct_cti.o
+	GR_OBJS += bin/tests/test_direct_cbr.o
 
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0

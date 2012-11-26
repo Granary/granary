@@ -61,6 +61,11 @@ namespace granary {
     }
 }
 
+void break_on_compare(granary::instruction *manual, granary::instruction *decoded) {
+    (void) manual;
+    (void) decoded;
+}
+
 int main(int argc, const char **argv) throw() {
 
     for(int i(0); i < argc; ++i) {
@@ -71,6 +76,17 @@ int main(int argc, const char **argv) throw() {
     granary::decode((granary::app_pc) main);
 
     printf("hello world!\n");
+
+    unsigned char buff[100];
+foo:
+    ASM("mov 0x3e(%rcx), %ax;");
+    granary::app_pc pc((granary::app_pc) &&foo);
+    granary::instruction manual(granary::mov_ld_(granary::reg::ax, granary::reg::rcx[0x3e]));
+    granary::instruction decoded(granary::instruction::decode(&pc));
+
+    break_on_compare(&manual, &decoded);
+
+    manual.encode(buff);
 
     (void) argc;
     (void) argv;

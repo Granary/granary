@@ -67,6 +67,9 @@
 #define STATIC_INITIALIZE(code) STATIC_INITIALIZE_(code, __LINE__, __COUNTER__)
 
 
-#define ASM(code) __asm__ __volatile__ ( #code )
+#define TEST(code) code
+
+
+#define ASM(code) __asm__ __volatile__ ( code )
 
 #endif /* Granary_PP_H_ */
