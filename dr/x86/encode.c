@@ -2120,7 +2120,7 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
 {
     byte *pc = copy_pc;
     const instr_info_t * info = instr_get_instr_info(instr);
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     ptr_uint_t target;
 
     if (instr->prefixes != 0) {

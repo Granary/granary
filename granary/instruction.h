@@ -69,6 +69,10 @@ namespace granary {
     struct operand : public dynamorio::opnd_t {
     public:
 
+        inline operand(void) throw() {
+            memset(this, 0, sizeof *this);
+        }
+
         inline operand(const dynamorio::opnd_t &&that) throw() {
             memcpy(this, &that, sizeof *this);
         }

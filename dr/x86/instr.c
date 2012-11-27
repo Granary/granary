@@ -143,6 +143,19 @@ bool opnd_is_far_abs_addr(opnd_t opnd) {
     return opnd_is_abs_addr(opnd) && opnd.seg.segment != REG_NULL; 
 }
 
+#ifdef GRANARY
+bool
+reg_is_8bit(reg_id_t reg)
+{
+    return (reg >= REG_START_8 && reg <= REG_STOP_8);
+}
+bool
+reg_is_16bit(reg_id_t reg)
+{
+    return (reg >= REG_START_16 && reg <= REG_STOP_16);
+}
+#endif
+
 bool
 opnd_is_reg_32bit(opnd_t opnd)
 {
@@ -249,7 +262,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
 opnd_t
 opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = IMMED_INTEGER_kind;
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_immed_int: invalid size");
     opnd.size = size;
@@ -274,7 +287,7 @@ opnd_create_immed_int(ptr_int_t i, opnd_size_t size)
 opnd_t
 opnd_create_immed_float(float i)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = IMMED_FLOAT_kind;
     /* note that manipulating floats is dangerous - see case 4360 
      * even this copy can end up using fp load/store instrs and could
@@ -289,7 +302,7 @@ opnd_create_immed_float(float i)
 opnd_t
 opnd_create_immed_float_zero(void)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = IMMED_FLOAT_kind;
     /* avoid any fp instrs (xref i#386) */
     memset(&opnd.value.immed_float, 0, sizeof(opnd.value.immed_float));
@@ -324,7 +337,7 @@ opnd_get_immed_float(opnd_t opnd)
 opnd_t
 opnd_create_far_pc(ushort seg_selector, app_pc pc)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = FAR_PC_kind;
     opnd.seg.far_pc_seg_selector = seg_selector;
     opnd.value.pc = pc;
@@ -334,7 +347,7 @@ opnd_create_far_pc(ushort seg_selector, app_pc pc)
 opnd_t
 opnd_create_instr(instr_t *instr)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = INSTR_kind;
     opnd.value.instr = instr;
     return opnd;
@@ -343,7 +356,7 @@ opnd_create_instr(instr_t *instr)
 opnd_t
 opnd_create_far_instr(ushort seg_selector, instr_t *instr)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = FAR_INSTR_kind;
     opnd.seg.far_pc_seg_selector = seg_selector;
     opnd.value.instr = instr;
@@ -354,7 +367,7 @@ DR_API
 opnd_t
 opnd_create_mem_instr(instr_t *instr, short disp, opnd_size_t data_size)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = MEM_INSTR_kind;
     opnd.size = data_size;
     opnd.seg.disp = disp;
@@ -427,7 +440,7 @@ opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg
                              bool encode_zero_disp, bool force_full_disp,
                              bool disp_short_addr)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = BASE_DISP_kind;
     CLIENT_ASSERT(size < OPSZ_LAST_ENUM, "opnd_create_*base_disp*: invalid size");
     opnd.size = size;
@@ -547,7 +560,7 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
     } 
 #ifdef X64
     else {
-        opnd_t opnd;
+        opnd_t opnd IF_GRANARY(= {0});
         opnd.kind = ABS_ADDR_kind;
         CLIENT_ASSERT(data_size < OPSZ_LAST_ENUM, "opnd_create_base_disp: invalid size");
         opnd.size = data_size;
@@ -577,7 +590,7 @@ opnd_create_rel_addr(void *addr, opnd_size_t data_size)
 opnd_t 
 opnd_create_far_rel_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
 {
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     opnd.kind = REL_ADDR_kind;
     CLIENT_ASSERT(data_size < OPSZ_LAST_ENUM, "opnd_create_base_disp: invalid size");
     opnd.size = data_size;
@@ -3150,7 +3163,7 @@ void
 instr_shrink_to_16_bits(instr_t *instr)
 {
     int i;
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     const instr_info_t * info;
     byte optype;
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_16_bits: invalid opnds");
@@ -3184,7 +3197,7 @@ void
 instr_shrink_to_32_bits(instr_t *instr)
 {
     int i;
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_shrink_to_32_bits: invalid opnds");
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd = instr_get_dst(instr, i);
@@ -3233,7 +3246,7 @@ bool
 instr_reads_from_reg(instr_t *instr, reg_id_t reg)
 {
     int i;
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
 
     if (instr_reg_in_src(instr, reg))
         return true;
@@ -3250,7 +3263,7 @@ instr_reads_from_reg(instr_t *instr, reg_id_t reg)
 bool instr_writes_to_reg(instr_t *instr, reg_id_t reg)
 {
     int i;
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);
@@ -3264,7 +3277,7 @@ bool instr_writes_to_reg(instr_t *instr, reg_id_t reg)
 bool instr_writes_to_exact_reg(instr_t *instr, reg_id_t reg)
 {
     int i;
-    opnd_t opnd;
+    opnd_t opnd IF_GRANARY(= {0});
 
     for (i=0; i<instr_num_dsts(instr); i++) {
         opnd=instr_get_dst(instr, i);
@@ -4547,6 +4560,26 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
                        opnd_t dst, opnd_t src)
 {
     instr_t *in = instr_build(dcontext, opcode, 1, 1);
+#ifdef GRANARY
+    if(src.kind == REG_kind && dst.kind == BASE_DISP_kind) {
+        if(reg_is_32bit(src.value.reg)) {
+            dst.size = OPSZ_4;
+        } else if(reg_is_16bit(src.value.reg)) {
+            dst.size = OPSZ_2;
+        } else if(reg_is_8bit(src.value.reg)) {
+            dst.size = OPSZ_1;
+        }
+    } else if(dst.kind == REG_kind && src.kind == BASE_DISP_kind) {
+        if(reg_is_32bit(dst.value.reg)) {
+            src.size = OPSZ_4;
+        } else if(reg_is_16bit(dst.value.reg)) {
+            src.size = OPSZ_2;
+        } else if(reg_is_8bit(dst.value.reg)) {
+            src.size = OPSZ_1;
+        }
+    }
+
+#endif
     instr_set_dst(in, 0, dst);
     instr_set_src(in, 0, src);
     return in;

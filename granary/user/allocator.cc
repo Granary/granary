@@ -23,7 +23,6 @@ extern "C" {
     void *heap_alloc(void *, unsigned long long size) {
         granary::cpu_state_handle cpu;
         return cpu->transient_allocator.allocate_untyped(16, size);
-        //return malloc(size);
     }
 
     void heap_free(void *, void *, unsigned long long) {

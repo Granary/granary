@@ -20,7 +20,7 @@ namespace granary {
     /// constructor
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
-        dynamorio::instr_set_x86_mode(&(this->instr), true);
+        dynamorio::instr_set_x86_mode(&(this->instr), false);
     }
 
 
@@ -290,8 +290,10 @@ namespace granary {
         if(dynamorio::instr_is_cti(&(self.instr))) {
             dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
 
-            if(dynamorio::instr_is_cti_short(&(self.instr)))
-            dynamorio::convert_to_near_rel_common(DCONTEXT, nullptr, &(self.instr));
+            if(dynamorio::instr_is_cti_short(&(self.instr))) {
+                dynamorio::convert_to_near_rel_common(
+                    DCONTEXT, nullptr, &(self.instr));
+            }
         }
 
         return self;

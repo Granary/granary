@@ -186,6 +186,7 @@ opnd_create_reg(reg_id_t r)
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
     opnd.value.reg = r;
+    IF_GRANARY( opnd.size = reg_get_size(r); )
     return opnd;
 }
 

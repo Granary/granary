@@ -209,8 +209,8 @@ namespace granary {
         void *allocate_untyped(unsigned align, unsigned num_bytes) throw() {
             acquire();
             uint8_t *arena(allocate(align, num_bytes));
-            memset(arena, 0, num_bytes);
             release();
+            memset(arena, 0, num_bytes);
             return arena;
         }
 
