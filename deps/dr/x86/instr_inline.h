@@ -62,7 +62,7 @@
 #ifdef CLIENT_ASSERT
 #   undef CLIENT_ASSERT
 #endif
-#define CLIENT_ASSERT(cond, msg) { if(!(cond)) { break_before_fault(); FAULT; } }
+#define CLIENT_ASSERT(cond, msg) { if(!(cond)) { granary_break_on_fault(); FAULT; } }
 #ifdef IF_DEBUG
 #   undef IF_DEBUG
 #endif
@@ -105,7 +105,7 @@
 #define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
-extern void break_before_fault(void);
+extern void granary_break_on_fault(void);
 
 /* Compound predicates */
 INSTR_INLINE

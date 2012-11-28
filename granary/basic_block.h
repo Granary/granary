@@ -124,7 +124,13 @@ namespace granary {
                                      thread_state_handle &thread,
                                      app_pc *pc) throw();
 
-    //protected:
+        template <typename R, typename... Args>
+        R call(Args... args) throw() {
+            typedef R (func_type)(Args...);
+            return unsafe_cast<func_type *>(cache_pc_start)(args...);
+        }
+
+    protected:
 
         /// Emit an instruction list as code into a byte array. This will also
         /// emit the basic block meta information and local storage.

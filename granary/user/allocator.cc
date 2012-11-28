@@ -59,7 +59,7 @@ namespace granary { namespace detail {
 
 
     void *global_allocate(unsigned long size) throw() {
-        return malloc(size);
+        return calloc(1, size);
     }
 
 

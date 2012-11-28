@@ -285,6 +285,27 @@ namespace granary {
         return pc;
     }
 
+    /// Performs a staged encoding of an instruction list into a sequence
+    /// of bytes.
+    ///
+    /// Note: This will not do any fancy jump resolution, alignment, etc.
+    app_pc instruction_list::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+        if(!length()) {
+            return staged_pc;
+        }
+
+        handle_type item(first());
+        for(unsigned i = 0, max = length(); i < max; ++i) {
+            app_pc prev_staged_pc(staged_pc);
+
+            staged_pc = item->stage_encode(staged_pc, final_pc);
+            final_pc += staged_pc - prev_staged_pc;
+            item = item.next();
+        }
+
+        return staged_pc;
+    }
+
 
     /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
     /// following byte. The decoded instruction is returned by value. If

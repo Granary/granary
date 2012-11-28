@@ -57,6 +57,8 @@ GR_OBJS += bin/granary/basic_block.o
 GR_OBJS += bin/granary/detach.o
 GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
+GR_OBJS += bin/granary/code_cache.o
+GR_OBJS += bin/granary/test.o
 
 # Granary (x86) dependencies
 GR_OBJS += bin/granary/x86/utils.o

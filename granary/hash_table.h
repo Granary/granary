@@ -12,232 +12,250 @@
 #include <new>
 #include <atomic>
 
+#include "granary/pp.h"
 #include "granary/allocator.h"
 
-extern "C" {
-#   include "deps/murmurhash/murmurhash.h"
-}
+#include "deps/murmurhash/murmurhash.h"
 
 
 namespace granary {
 
-    template <typename K>
-    struct hash_function {
-    public:
 
+    /// Default meta information about the hash table, as well as its hash
+    /// function.
+    template <typename K, typename V>
+    struct hash_table_meta {
         enum {
+            NUM_DEFAULT_ENTRIES = 512,
             SEED = 0xDEADBEEFU
         };
 
-        static uint32_t hash(K &&key_) throw() {
+        inline static uint32_t hash(K key_) throw() {
             K key(key_);
             uint32_t curr_hash(0);
             MurmurHash3_x86_32(&key, sizeof key, SEED, &(curr_hash));
             return curr_hash;
         }
+
+        inline static uint32_t mix(uint32_t hash) throw() {
+            return fmix(hash);
+        }
     };
 
-    /// Implementation of open-addressing hash table.
+
+    /// Implementation of an eventually consistent hash table.
     template <typename K, typename V>
     struct hash_table {
     public:
 
-        enum {
-            MAX_OPEN_ADDRESSING = 32,
-            BASE_SIZE = 512
-        };
+        typedef hash_table_meta<K, V> meta;
 
-        /// Represents a hash table entry.
+
+        /// Default-initialize key; used to detect unused entries.
+        static const K DEFAULT_KEY;
+
+
+        /// A single hash table entry.
         struct entry {
             K key;
             V value;
-
-            /// the index of the next entry with the same hash value.
-            uint32_t next_index;
-
-            /// the index of the previous entry with the same hash value.
-            uint32_t prev_index;
-
-        } __attribute__((packed));
+        };
 
 
-        /// Represents a group of entries. This is implemented an an extended
-        /// sequence in that as much space for an entry_list + size-1 * entry
-        /// is allocated. The address of `first__` is seen as the address of
-        /// the first entry, and the remaining entries run off the end of the
-        /// structure.
+        /// Contains the entries of the hash table.
         struct entry_list {
+            entry *entries;
+            uint32_t num_slots;
+            uint32_t mask;
 
-            /// The number of entry slots in this list.
-            unsigned size;
+            /// Ref count for readers.
+            std::atomic<uint32_t> num_readers;
 
-            /// The number of references being held on this list.
-            std::atomic<int> ref_count;
-
-            /// Dummy element representing the first element in the list.
-            entry first__;
-
-            entry_list(unsigned size_) throw()
-                : size(size_)
-            { }
-
-            void acquire(void) volatile throw() {
-                ref_count.fetch_add(1, std::memory_order_relaxed);
+            void acquire(void) throw() {
+                num_readers.fetch_add(1, std::memory_order_relaxed);
             }
 
-            void release(void) volatile throw() {
-                if(1 == ref_count.fetch_sub(1, std::memory_order_release)) {
+            void release(void) throw() {
+                if(1 == num_readers.fetch_sub(1, std::memory_order_release)) {
                     std::atomic_thread_fence(std::memory_order_acquire);
-                    delete this; // evil :-P
+                    delete this; // evil
                 }
-            }
-
-            /// Allocate the entry list along with all the needed space for
-            /// entries.
-            static entry_list *allocated(unsigned num_entries) throw() {
-                void *mem(detail::global_allocate(
-                    sizeof(entry_list) + sizeof(entry) * num_entries));
-                return new (mem) entry_list(num_entries);
-            }
-
-        } __attribute__((packed));
-
-
-        /// Represents a handle on an entry. Note: entry handles have strict
-        /// ownership semantics.
-        struct entry_handle {
-        private:
-
-            entry *entry_;
-            entry_list *list_;
-
-            entry_handle(entry *e, entry_list *ll) throw()
-                : entry_(e)
-                , list_(ll)
-            {
-                // TODO: there is a race condition here where the list is
-                ///      deleted out from under us before we acquire a ref
-                ///      count.
-                list_->acquire();
-            }
-
-        public:
-
-            entry_handle(void) = delete;
-
-            /// Move constructor; takes ownership.
-            entry_handle(entry_handle &&that) throw()
-                : list_(that.list_)
-                , entry_(that.entry_)
-            {
-                that.list_ = nullptr;
-            }
-
-
-            /// Destructor; potentially released a set of entries.
-            ~entry_handle(void) throw() {
-                if(list_) {
-                    list_->release();
-                }
-                list_ = nullptr;
-                entry_ = nullptr;
-            }
-
-
-            /// Move assignment operator.
-            entry_handle &operator=(entry_handle &&that) throw() {
-                if(this != &that) {
-                    list_ = that.list_;
-                    entry_ = that.entry_;
-                    that.list_ = nullptr;
-                }
-                return *this;
-            }
-
-            inline const V *operator->(void) const throw() {
-                return &(entry_->value);
-            }
-
-            inline V &operator*(void) throw() {
-                return entry_->value;
             }
         };
 
 
-        /// All table entries.
-        volatile entry_list *entries;
+        /// the entries of the hash table.
+        std::atomic<entry_list *> read_entries;
+        std::atomic<entry_list *> write_entries;
 
 
-        /// Spin lock for growing.
-        std::atomic<bool> grow_lock;
+        /// Spin lock for writers.
+        std::atomic_bool grow_lock;
 
 
-        /// Initialize the entries;
-        ///
-        /// Note: construction must be done in such a way that the hash table
-        ///       is not shared/used until *after* it is constructed.
+        /// Reference counter used to protect the acquisition of entry lists.
+        std::atomic<uint32_t> read_critical_counter;
+
+
         hash_table(void) throw()
-            : entries(new entry_list(BASE_SIZE))
-        {
-            entries->acquire();
-        }
+            : read_entries(allocate_entries(meta::NUM_DEFAULT_ENTRIES))
+            , write_entries(read_entries.load())
+            , grow_lock(false)
+        {}
 
+        /// Perform a lookup on a key.
+        bool load(K key, V *value) throw() {
+            entry_list *elist(nullptr);
+            const entry *entries(nullptr);
+            const uint32_t hash1(meta::hash(key));
 
-        /// Gets an element in the hash table if it exists. If it doesn't
-        /// exist then the element is created.
-        entry_handle upsert(K &&key) throw() {
-            const uint32_t hash(hash_function<K>::hash(key));
-            while(grow_lock) { /* spin */ }
+            begin_read_critical(); {
+                elist = read_entries.load();
+                elist->acquire();
+                entries = elist->entries;
+            } end_read_critical();
 
-            entry_list *elist(entries);
-            elist->acquire();
+            const uint32_t mask(elist->mask);
 
-            uint32_t last_index(0);
-            entry *e(find_entry(hash, key, elist, &last_index));
-
-            // need to add the item; we will start at index `last_index`.
-            if(nullptr == e) {
-
+            const entry &e1(entries[hash1 & mask]);
+            if(e1.key == key) {
+                *value = e1.value;
+                elist->release();
+                return true;
             }
 
-            entry_handle handle(e);
-            elist->release();
+            const uint32_t hash2(meta::mix(hash1));
+            const entry &e2(entries[hash2 & mask]);
+            if(e2.key == key) {
+                *value = e2.value;
+                elist->release();
+                return true;
+            }
 
-            return handle;
+            const uint32_t hash3(meta::mix(hash2));
+            const entry &e3(entries[hash3 & mask]);
+            if(e3.key == key) {
+                *value = e3.value;
+                elist->release();
+                return true;
+            }
+
+            // all entries are taken; need to grow the table
+            if(e1.key != DEFAULT_KEY
+            && e2.key != DEFAULT_KEY
+            && e3.key != DEFAULT_KEY) {
+                uint32_t next_num_slots(elist->num_slots);
+                elist->release();
+                try_grow_table(next_num_slots);
+            }
+
+            // value isn't in the hash table
+            return false;
+        }
+
+        /// Store a value in the hash table.
+        void store(K key, V value) throw() {
+            entry_list *elist(nullptr);
+            entry *entries(nullptr);
+            begin_read_critical(); {
+                elist = write_entries.load();
+                elist->acquire();
+                entries = elist->entries;
+            } end_read_critical();
+            store_fast(key, value, entries, elist->mask);
+            elist->release();
         }
 
     private:
 
+        static entry_list *allocate_entries(uint32_t num_entries) {
+            entry_list *list(new entry_list);
+            list->entries = new entry[num_entries];
+            list->num_slots = num_entries;
+            list->mask = (num_entries << 1) - 1;
+            list->acquire();
+            return list;
+        }
 
+        void store_fast(K key, V value, entry *entries, uint32_t mask) throw() {
+            const uint32_t hash1(meta::hash(key));
+            const uint32_t hash2(meta::mix(hash1));
+            const uint32_t hash3(meta::mix(hash2));
 
-        /// Find where an entry is stored in the table.
-        entry *find_entry(const uint32_t hash,
-                           K &&key,
-                           entry_list *elist,
-                           uint32_t *last_index) throw() {
+            entry &e1(entries[hash1 & mask]);
+            e1.key = key;
+            e1.value = value;
 
-            entry *entries(&(elist->first__));
-            uint32_t prev_index(0);
-            for(uint32_t index(1 + (hash & elist->size)); ; ) {
+            entry &e2(entries[hash2 & mask]);
+            e2.key = key;
+            e2.value = value;
 
-                if(entries[index].key == key) {
-                    return &(entries[index]);
-                }
+            entry &e3(entries[hash3 & mask]);
+            e3.key = key;
+            e3.value = value;
+        }
 
-                prev_index = index;
-                index = entries->next_index;
-
-                if(prev_index == index) {
-                    return nullptr;
-                } else {
-                    *last_index = prev_index;
+        void copy(entry *source_min, entry *source_max, entry *dest, uint32_t dest_mask) {
+            for(; source_min < source_max; ++source_min) {
+                if(DEFAULT_KEY != source_min->key) {
+                    store_fast(
+                        source_min->key, source_min->value, dest, dest_mask);
                 }
             }
+        }
 
-            return nullptr;
+        /// Try to resize the hash table.
+        void try_grow_table(uint32_t num_entries) {
+            entry_list *write_list(nullptr);
+
+            if(grow_lock) {
+                return;
+            }
+
+            while(grow_lock.exchange(true)) { /* spin */ }
+
+            // don't need to grow, we just grew the table.
+            write_list = write_entries.load();
+            if(write_list->num_slots >= num_entries) {
+                grow_lock = false;
+                return;
+            }
+
+            entry_list *new_list(allocate_entries(num_entries));
+            entry_list *old_list(read_entries.load());
+
+            // make copied hash table available to writers
+            write_entries.store(new_list);
+
+            copy(
+                old_list->entries, old_list->entries + old_list->num_slots,
+                new_list->entries, new_list->mask);
+
+            // make copied hash table available to readers
+            read_entries.store(new_list);
+
+            // wait for any readers to finish; this will allow old readers to
+            // release
+            while(0 != read_critical_counter.load()) { /* spin */ }
+            old_list->release();
+            old_list = nullptr;
+
+            // done
+            grow_lock = false;
+        }
+
+        inline void begin_read_critical(void) {
+            read_critical_counter.fetch_add(1, std::memory_order_relaxed);
+        }
+
+        inline void end_read_critical(void) {
+            read_critical_counter.fetch_sub(1, std::memory_order_release);
         }
     };
 
+    /// Static initialize the default value.
+    template <typename K, typename V>
+    const K hash_table<K, V>::DEFAULT_KEY = K();
 }
 
 #endif /* Granary_HASH_TABLE_H_ */

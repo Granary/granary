@@ -29,7 +29,7 @@ END_FUNC(granary_asm_apic_id)
 DECLARE_FUNC(granary_atomic_write8)
 GLOBAL_LABEL(granary_atomic_write8:)
     lock;
-    movq %ARG1, (%ARG2);
+    xchg %ARG1, (%ARG2);
     ret;
 END_FUNC(granary_atomic_write8)
 

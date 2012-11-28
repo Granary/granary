@@ -28,6 +28,8 @@ GLOBAL_LABEL(granary_asm_direct_branch:)
     call _ZN7granary24patch_mangled_direct_ctiIXadL_ZNS_ ## op_len ## op ## _EN9dynamorio7_opnd_tEEEEEvPNS_21direct_patch_mcontextE; \
     POPA \
     popf; \
+    lea 0x8(%rsp), %rsp; \
+    ret; \
     END_FUNC(granary_asm_direct_branch_ ## op)
 
 FOR_EACH_DIRECT_BRANCH(MAKE_DIRECT_BRANCH_PATCHER)

@@ -20,7 +20,7 @@ namespace granary {
 
 
     /// True iff the "cpu" state is currently locked.
-    static std::atomic_bool IS_LOCKED;
+    static std::atomic_bool IS_LOCKED(false);
 
 
     /// User space thread-local storage.

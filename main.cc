@@ -19,6 +19,8 @@ int main(int argc, const char **argv) throw() {
     (void) argc;
     (void) argv;
 
+    granary::run_tests();
+
     return 0;
 }
 

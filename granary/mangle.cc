@@ -82,17 +82,16 @@ namespace granary {
     /// location, and then encodes however many NOPs are needed to fill in 8
     /// bytes.
     void stage_8byte_hot_patch(instruction in, app_pc stage, app_pc dest) {
-        const app_pc start_pc(stage);
         instruction_list ls;
-        stage = in.stage_encode(stage, dest);
 
-        unsigned num_nops(8U - static_cast<unsigned>(stage - start_pc));
-        if(8U <= num_nops) {
-            num_nops = 0U;
+        const unsigned size(in.encoded_size());
+
+        ls.append(in);
+        if(size < 8) {
+            inject_mangled_nops(ls, ls.first(), 8U - size);
         }
 
-        inject_mangled_nops(ls, ls.first(), num_nops);
-        ls.encode(stage);
+        ls.stage_encode(stage, dest);
     }
 
 

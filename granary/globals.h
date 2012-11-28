@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "granary/types/dynamorio.h"
+#include "granary/pp.h"
 
 namespace granary {
 
@@ -49,23 +50,34 @@ namespace granary {
 
 
 extern "C" {
-    extern void break_before_fault(void);
-
+    extern void granary_break_on_fault(void);
+    extern int granary_test_return_true(void);
     extern int granary_asm_apic_id(void);
     extern void granary_atomic_write8(uint64_t, uint64_t *);
 }
 
+namespace granary {
 
-/// This is a sort of hack to ensure that static initializers are
-/// compiled to execute.
-struct static_init_list {
-    static_init_list *next;
-};
+    /// This is a sort of hack to ensure that static initializers are
+    /// compiled to execute.
+    struct static_init_list {
+        static_init_list *next;
+    };
 
-extern static_init_list STATIC_LIST_HEAD;
+    extern static_init_list STATIC_LIST_HEAD;
+
+    /// Another static init hack to add test cases to be run automatically.
+    struct static_test_list {
+        void (*func)(void);
+        const char *desc;
+        static_test_list *next;
+    };
+
+    extern static_test_list STATIC_TEST_LIST_HEAD;
+    extern void run_tests(void) throw();
+}
 
 
-#include "granary/pp.h"
 #include "granary/utils.h"
 #include "granary/type_traits.h"
 #include "granary/allocator.h"

@@ -55,8 +55,20 @@ inline void *operator new(size_t size) {
 }
 
 
+/// Overload operator new for global heap allocation.
+inline void *operator new[](size_t size) {
+    return granary::detail::global_allocate(size);
+}
+
+
 /// Overload operator delete for global heap freeing.
 inline void operator delete(void *addr) {
+    granary::detail::global_free(addr);
+}
+
+
+/// Overload operator delete for global heap freeing.
+inline void operator delete[](void *addr) {
     granary::detail::global_free(addr);
 }
 

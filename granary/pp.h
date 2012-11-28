@@ -45,7 +45,7 @@
 #   define IF_USER_(x) , x
 #endif
 
-#define FAULT (break_before_fault(), (*((int *) nullptr) = 0))
+#define FAULT (granary_break_on_fault(), (*((int *) nullptr) = 0))
 #define BARRIER __asm__ __volatile__ ("")
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
@@ -54,13 +54,13 @@
 /// Use to statically initialize some code.
 #define STATIC_INITIALIZE___(id, ...) \
     static void foo_func_ ## id(void) throw(); \
-    struct static_init_ ## id : public static_init_list { \
+    struct static_init_ ## id : public granary::static_init_list { \
     public: \
         static_init_ ## id(void) throw() { \
             __VA_ARGS__ \
             (void) foo_func_ ## id; \
-            this->next = STATIC_LIST_HEAD.next; \
-            STATIC_LIST_HEAD.next = this; \
+            this->next = granary::STATIC_LIST_HEAD.next; \
+            granary::STATIC_LIST_HEAD.next = this; \
         } \
     }; \
     static static_init_ ## id foo_ ## id; \
@@ -71,12 +71,23 @@
 #define STATIC_INITIALIZE(...) STATIC_INITIALIZE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
 
 #if GRANARY_IN_KERNEL
-#   define TEST(code)
+#   define IF_TEST(...)
+#   define ADD_TEST(func, desc)
+#   define ASSERT(cond)
 #else
-#   define TEST(code) code
+#   define IF_TEST(...) __VA_ARGS__
+#   define ADD_TEST(test_func, test_desc) \
+    STATIC_INITIALIZE({ \
+        static granary::static_test_list test__; \
+        test__.func = test_func; \
+        test__.desc = test_desc; \
+        test__.next = granary::STATIC_TEST_LIST_HEAD.next; \
+        granary::STATIC_TEST_LIST_HEAD.next = &(test__); \
+    })
+#   define ASSERT(cond) {if(!(cond)) { FAULT; }}
 #endif
 
-#define ASM(code) __asm__ __volatile__ ( code )
+#define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
 
 
 /// unrolling macros for applying something to all general purpose registers
@@ -111,5 +122,8 @@
     macro(jmp_far, 8, ##__VA_ARGS__) \
     macro(jmp_far_ind, 12, ##__VA_ARGS__) \
     macro(jecxz, 6, ##__VA_ARGS__)
+
+#define TO_STRING_(x) #x
+#define TO_STRING(x) TO_STRING_(x)
 
 #endif /* Granary_PP_H_ */

@@ -20,7 +20,9 @@ namespace granary { namespace detail {
 
 
     void *global_allocate(unsigned long size) throw() {
-        return __vmalloc(size);
+        void * mem(__vmalloc(size));
+        memset(mem, 0, size);
+        return mem;
     }
 
     void global_free(void *addr) throw() {

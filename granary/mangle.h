@@ -12,7 +12,7 @@
 #include "globals.h"
 #include "state.h"
 #include "instruction.h"
-#include "basic_block.h"
+#include "code_cache.h"
 
 
 /// Used to unroll registers in the opposite order in which they are saved
@@ -94,12 +94,11 @@ namespace granary {
             patch_address -= offset;
         }
 
-        // decode the target basic block
+        // get an address into the target basic block
         app_pc target_pc(reinterpret_cast<app_pc>(
             from_application_offset(context->rel_target_offset_from_app)));
 
-
-        basic_block bb(basic_block::translate(cpu, thread, &target_pc));
+        target_pc = code_cache::find(target_pc);
 
         // create the patch code
         uint64_t staged_code_(0ULL);
@@ -111,8 +110,7 @@ namespace granary {
             reinterpret_cast<app_pc>(patch_address));
 
         // patch the code
-        granary_atomic_write8(
-            staged_code_, reinterpret_cast<uint64_t *>(patch_address));
+        *reinterpret_cast<uint64_t *>(patch_address) = staged_code_;
     }
 }
 
