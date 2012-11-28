@@ -37,7 +37,7 @@
 
 /* decode.c -- a full x86 decoder */
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"

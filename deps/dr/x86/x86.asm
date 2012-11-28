@@ -64,7 +64,7 @@
  * Naturally the ARG* macros are only valid at function entry.
  */
 
-#include "x86/asm_defines.asm"
+#include "granary/x86/asm_defines.asm"
 
 .intel_syntax noprefix;
 START_FILE

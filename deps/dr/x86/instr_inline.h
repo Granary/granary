@@ -33,7 +33,7 @@
 #ifndef _INSTR_INLINE_H_
 #define _INSTR_INLINE_H_ 1
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 /* DR_API EXPORT BEGIN */

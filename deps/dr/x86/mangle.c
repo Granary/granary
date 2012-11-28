@@ -38,25 +38,25 @@
 
 /* file "mangle.c" */
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 #include "arch.h"
-#include "dr/link.h"
-#include "dr/fragment.h"
-#include "dr/instrlist.h"
+#include "deps/dr/link.h"
+#include "deps/dr/fragment.h"
+#include "deps/dr/instrlist.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"
 #include "decode.h"
 #include "decode_fast.h"
 #include "disassemble.h"
-#include "dr/hashtable.h"
+#include "deps/dr/hashtable.h"
 #ifdef STEAL_REGISTER
 #include "steal_reg.h"
 #endif
 #include "instrument.h" /* for dr_insert_call */
 
 #ifdef RCT_IND_BRANCH
-# include "dr/rct.h" /* rct_add_rip_rel_addr */
+# include "deps/dr/rct.h" /* rct_add_rip_rel_addr */
 #endif
 
 #ifdef LINUX

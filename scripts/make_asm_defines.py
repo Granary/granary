@@ -27,7 +27,7 @@ with open("scripts/static/asm.S") as lines:
       break
 
 # generate the assembly helper macros
-with open("x86/asm_defines.asm", "w") as f:
+with open("granary/x86/asm_defines.asm", "w") as f:
   def W(*args):
     f.write("".join(map(str, args)) + "\n")
 

@@ -8,6 +8,9 @@
 #include "granary/state.h"
 
 
+void break_before_fault(void) { }
+
+
 /// Hack to ensure static initializers are compiled.
 static_init_list STATIC_LIST_HEAD;
 

@@ -52,17 +52,17 @@
  */
 //#define INSTR_INLINE extern inline
 
-#include "dr/globals.h"
-#include "dr/x86/instr.h"
-#include "dr/x86/arch.h"
-#include "dr/link.h"
-#include "dr/x86/decode.h"
-#include "dr/x86/decode_fast.h"
-#include "dr/x86/instr_create.h"
+#include "deps/dr/globals.h"
+#include "deps/dr/x86/instr.h"
+#include "deps/dr/x86/arch.h"
+#include "deps/dr/link.h"
+#include "deps/dr/x86/decode.h"
+#include "deps/dr/x86/decode_fast.h"
+#include "deps/dr/x86/instr_create.h"
 
 #include <string.h> /* for memcpy */
 
-#include "dr/x86/instr_inline.h"
+#include "deps/dr/x86/instr_inline.h"
 
 #ifdef DEBUG
 # include "disassemble.h"

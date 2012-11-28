@@ -2,16 +2,30 @@
 import re
 
 code = open('granary/gen/instruction.cc', 'w')
-funcs = open('granary/gen/op_to_instr.cc', 'w')
+#direct_ctis = open('granary/gen/mangle_direct_cti.cc', 'w')
 header = open('granary/gen/instruction.h', 'w')
 
 def C(*args):
   global code
   code.write("%s\n" % "".join(map(str, args)))
 
-def F(*args):
-  global funcs
-  funcs.write("%s\n" % "".join(map(str, args)))
+PRE_D_LINES, D_LINES = [], []
+
+def D(*args):
+  return
+  global D_LINES
+  D_LINES.append("%s\n" % "".join(map(str, args)))
+
+def pre_D(*args):
+  return
+  global PRE_D_LINES
+  PRE_D_LINES.append("%s\n" % "".join(map(str, args)))
+
+def write_D():
+  return
+  global direct_ctis, PRE_D_LINES, D_LINES
+  direct_ctis.write("".join(PRE_D_LINES))
+  direct_ctis.write("".join(D_LINES))
 
 def H(*args):
   global header
@@ -103,9 +117,11 @@ def emit_instr_function(lines, i, instr, args):
     m = OPCODE_USE.search(copied_code)
     if m:
       opcode = m.group(1)
-      if opcode not in SEEN_OPCODES:
-        SEEN_OPCODES.add(opcode)
-        F("        OPCODE_TO_INSTR[dynamorio::OP_", opcode, "] = (app_pc) &", instr, "_;")
+      if "call" == opcode or "j" in opcode or "loop" in opcode:
+        if opcode not in SEEN_OPCODES:
+          SEEN_OPCODES.add(opcode)
+          pre_D("        extern void granary_asm_direct_branch_", opcode, "(void);")
+          D("        DIRECT_CTI_TARGETS[dynamorio::OP_", opcode, "] = &granary_asm_direct_branch_", opcode, ";")
 
   return i
 
@@ -135,13 +151,14 @@ def emit_opnd_function(lines, i, opnd, args):
 
   return i
 
-with open("dr/x86/instr_create.h") as lines_:
+with open("deps/dr/x86/instr_create.h") as lines_:
 
-  F('#include "granary/globals.h"')
-  F('#include "granary/instruction.h"')
-  F("namespace granary {")
-  F("    static app_pc OPCODE_TO_INSTR[dynamorio::OP_LAST];")
-  F("    STATIC_INITIALIZE({")
+  D('#include "granary/mangle.h"')
+  D("namespace granary {")
+  D("    direct_cti_patch_func *DIRECT_CTI_TARGETS[dynamorio::OP_LAST];")
+  D("    STATIC_INITIALIZE({")
+
+  pre_D("extern \"C\" {")
 
   C('#include <math.h>')
   C('#include <limits.h>')
@@ -203,6 +220,10 @@ with open("dr/x86/instr_create.h") as lines_:
   H('#endif /* GRANARY_GEN_INSTRUCTION_H_ */')
   H()
 
-  F("    }) /* end of static init */")
-  F("} /* end of granary */")
-  F()
+  D("    }) /* end of static init */")
+  D("} /* end of granary */")
+  D()
+
+  pre_D("} /* end of extern C */")
+
+  write_D()

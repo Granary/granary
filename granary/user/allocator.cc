@@ -61,5 +61,10 @@ namespace granary { namespace detail {
     void *global_allocate(unsigned long size) throw() {
         return malloc(size);
     }
+
+
+    void global_free(void *addr) throw() {
+        return free(addr);
+    }
 }}
 

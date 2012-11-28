@@ -39,17 +39,17 @@ GR_CXX_FLAGS += $(GR_CXX_STD)
 GR_OBJS = 
 
 # DynamoRIO dependencies
-GR_OBJS += bin/dr/instrlist.o
-GR_OBJS += bin/dr/dcontext.o
-GR_OBJS += bin/dr/x86/instr.o
-GR_OBJS += bin/dr/x86/decode.o
-GR_OBJS += bin/dr/x86/decode_fast.o
-GR_OBJS += bin/dr/x86/decode_table.o
-GR_OBJS += bin/dr/x86/encode.o
-GR_OBJS += bin/dr/x86/mangle.o
-GR_OBJS += bin/dr/x86/proc.o
-GR_OBJS += bin/dr/x86/instrument.o
-GR_OBJS += bin/dr/x86/x86.o
+GR_OBJS += bin/deps/dr/instrlist.o
+GR_OBJS += bin/deps/dr/dcontext.o
+GR_OBJS += bin/deps/dr/x86/instr.o
+GR_OBJS += bin/deps/dr/x86/decode.o
+GR_OBJS += bin/deps/dr/x86/decode_fast.o
+GR_OBJS += bin/deps/dr/x86/decode_table.o
+GR_OBJS += bin/deps/dr/x86/encode.o
+GR_OBJS += bin/deps/dr/x86/mangle.o
+GR_OBJS += bin/deps/dr/x86/proc.o
+GR_OBJS += bin/deps/dr/x86/instrument.o
+GR_OBJS += bin/deps/dr/x86/x86.o
 
 # Granary (C++) dependencies
 GR_OBJS += bin/granary/instruction.o
@@ -59,11 +59,11 @@ GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
 
 # Granary (x86) dependencies
-GR_OBJS += bin/x86/direct_branch.o
+GR_OBJS += bin/granary/x86/utils.o
+GR_OBJS += bin/granary/x86/direct_branch.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += bin/granary/gen/instruction.o
-GR_OBJS += bin/granary/gen/op_to_instr.o
 
 # Client code dependencies
 GR_OBJS += bin/clients/instrument.o
@@ -86,13 +86,13 @@ ifneq ($(KERNEL),1)
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
-	GR_MAKE += $(GR_CC) -c bin/dr/x86/x86.S -o bin/dr/x86/x86.o ; 
+	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
 	GR_MAKE += $(GR_CC) $(GR_CC_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
-	define GR_COMPILE_ASM
-		$$($(GR_CC) -c bin/x86/$1.S -o bin/x86/$1.o)
+    define GR_COMPILE_ASM
+    	$$($(GR_CC) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
 endef
 
 # kernel space
@@ -103,7 +103,6 @@ else
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/init.o
 	GR_OBJS += bin/granary/kernel/utils.o
-	GR_OBJS += bin/x86/cpu.o
 
 	# Module objects
 	obj-m += $(GR_NAME).o
@@ -121,24 +120,24 @@ endef
 endif
 
 # DynamoRIO rules for C files
-bin/dr/%.o: dr/%.c
-	$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/dr/$*.$(GR_OUTPUT_FORMAT)
+bin/deps/dr/%.o: deps/dr/%.c
+	$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/deps/dr/$*.$(GR_OUTPUT_FORMAT)
 
 # DynamoRIO rules for assembly files
-bin/dr/%.o: dr/%.asm
-	$(GR_CPP) -I$(PWD) -E $< > bin/dr/$*.1.S
-	python scripts/post_process_asm.py bin/dr/$*.1.S > bin/dr/$*.S
-	rm bin/dr/$*.1.S
+bin/deps/dr/%.o: deps/dr/%.asm
+	$(GR_CPP) -I$(PWD) -E $< > bin/deps/dr/$*.1.S
+	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
+	rm bin/deps/dr/$*.1.S
 
 # Granary rules for C++ files
 bin/granary/%.o: granary/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
 
 # Granary rules for assembly files
-bin/x86/%.o: x86/%.asm
-	$(GR_CPP) -I$(PWD) -E $< > bin/x86/$*.1.S
-	python scripts/post_process_asm.py bin/x86/$*.1.S > bin/x86/$*.S
-	rm bin/x86/$*.1.S
+bin/granary/x86/%.o: granary/x86/%.asm
+	$(GR_CPP) -I$(PWD) -E $< > bin/granary/x86/$*.1.S
+	python scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
+	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)
 
 # Granary rules for client C++ files
@@ -163,11 +162,12 @@ install:
 	-mkdir bin/granary/user
 	-mkdir bin/granary/kernel
 	-mkdir bin/granary/gen
+	-mkdir bin/granary/x86
 	-mkdir bin/clients
 	-mkdir bin/tests
-	-mkdir bin/x86
-	-mkdir bin/dr
-	-mkdir bin/dr/x86
+	-mkdir bin/deps
+	-mkdir bin/deps/dr
+	-mkdir bin/deps/dr/x86
 	
 	# convert DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
 	# instruction-building functions
@@ -187,25 +187,25 @@ all: $(GR_OBJS)
 # the compilation mode (KERNEL=0/1), not all bin folders will have objects
 clean:
 	touch bin/_.$(GR_OUTPUT_FORMAT)
-	touch bin/dr/_.$(GR_OUTPUT_FORMAT)
-	touch bin/dr/x86/_.$(GR_OUTPUT_FORMAT)
+	touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
+	touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
+	touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
 	touch bin/clients/_.$(GR_OUTPUT_FORMAT)
 	touch bin/tests/_.$(GR_OUTPUT_FORMAT)
-	touch bin/x86/_.$(GR_OUTPUT_FORMAT)
 	
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/dr/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/dr/x86/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/x86/*.$(GR_OUTPUT_FORMAT)
 
 	$(GR_CLEAN)

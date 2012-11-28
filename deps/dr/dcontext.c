@@ -6,8 +6,8 @@
  *     Version: $Id$
  */
 
-#include "dr/globals.h"
-#include "dr/types.h"
+#include "deps/dr/globals.h"
+#include "deps/dr/types.h"
 
 dcontext_t DCONTEXT = {
     .x86_mode = false,

@@ -336,10 +336,10 @@ extern "C" {
 #define HEAP_TYPE_FREE(dc, p, type, which, protected) \
     HEAP_ARRAY_FREE(dc, p, type, 1, which, protected)
 
-#include "dr/types.h"
-#include "dr/x86/proc.h"
-#include "dr/link.h"
-#include "dr/instrlist.h"
+#include "deps/dr/types.h"
+#include "deps/dr/x86/proc.h"
+#include "deps/dr/link.h"
+#include "deps/dr/instrlist.h"
 
 extern void *heap_alloc(void *, unsigned long long);
 extern void heap_free(void *, void *, unsigned long long);

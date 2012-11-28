@@ -25,6 +25,7 @@ struct kernel_module *modules = NULL;
 extern int (**kernel_printf)(const char *, ...);
 extern void *(**kernel_vmalloc_exec)(unsigned long);
 extern void *(**kernel_vmalloc)(unsigned long);
+extern void (**kernel_vfree)(void *);
 extern void notify_module_state_change(struct kernel_module *);
 
 /// Find the Granary-representation for an internal module.
@@ -107,6 +108,7 @@ static int init_granary(void) {
     *kernel_printf = printk;
     *kernel_vmalloc_exec = allocate_executable;
     *kernel_vmalloc = allocate;
+    *kernel_vfree = vfree;
 
     register_module_notifier(&notifier_block);
     return 0;

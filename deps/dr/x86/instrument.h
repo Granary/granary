@@ -43,9 +43,9 @@
 #define Granary_INSTRUMENT_H_
 
 
-#include "dr/globals.h"
-#include "dr/x86/arch.h"
-#include "dr/x86/instr.h"
+#include "deps/dr/globals.h"
+#include "deps/dr/x86/arch.h"
+#include "deps/dr/x86/instr.h"
 
 /* to make our own code shorter */
 #define MINSERT instrlist_meta_preinsert

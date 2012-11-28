@@ -50,6 +50,9 @@ namespace granary {
 
 extern "C" {
     extern void break_before_fault(void);
+
+    extern int granary_asm_apic_id(void);
+    extern void granary_atomic_write8(uint64_t, uint64_t *);
 }
 
 

@@ -266,7 +266,7 @@ namespace granary {
         return size;
     }
 
-#define LOOK_FOR_BACK_EDGE 0
+#define LOOK_FOR_BACK_EDGE 1
 
 #if LOOK_FOR_BACK_EDGE
     /// Get a handle for an instruction in the instruction list.
@@ -351,8 +351,8 @@ namespace granary {
 
     /// Decode and translate a single basic block of application/module code.
     basic_block basic_block::translate(cpu_state_handle &cpu,
-                                       thread_state_handle &thread,
-                                       app_pc *pc) throw() {
+                                          thread_state_handle &thread,
+                                          app_pc *pc) throw() {
         const app_pc start_pc(*pc);
         unsigned staged_size(0);
         uint8_t *generated_pc(nullptr);
@@ -360,17 +360,36 @@ namespace granary {
         instruction_list ls;
         unsigned num_direct_branches(0);
 
-        cpu->transient_allocator.free_all();
-
         for(;;) {
             instruction in(instruction::decode(pc));
             if(in.is_cti()) {
+
+                operand target(in.get_cti_target());
+
+#if LOOK_FOR_BACK_EDGE
+                // direct branch (e.g. un/conditional branch, jmp, call)
+                if(dynamorio::opnd_is_pc(target)) {
+                    app_pc target_pc(dynamorio::opnd_get_pc(target));
+
+                    // if it is local back edge then keep control within the
+                    // same basic block.
+                    if(start_pc <= target_pc && target_pc < *pc) {
+                        instruction_list_handle prev_in(
+                            find_local_back_edge_target(ls, target_pc));
+
+                        if(prev_in.is_valid()) {
+                            target = instr_(*prev_in);
+                            dynamorio::instr_set_target(in, target);
+                        }
+                    }
+                }
+#endif
 
                 instruction_list_handle added_in(ls.append(in));
 
                 // used to estimate how many direct branch slots we'll
                 // need to add to the final basic block
-                if(dynamorio::opnd_is_pc(in.get_cti_target())) {
+                if(dynamorio::opnd_is_pc(target)) {
                     ++num_direct_branches;
                     added_in->set_patchable();
                 }
@@ -381,23 +400,6 @@ namespace granary {
                     goto try_instrument;
                 }
 
-#if LOOK_FOR_BACK_EDGE
-                // direct branch (e.g. un/conditional branch, jmp, call)
-
-                operand target(in.get_cti_target());
-                app_pc target_pc(dynamorio::opnd_get_pc(target));
-
-                // if it is local back edge then keep control within the
-                // same basic block.
-                if(start_pc <= target_pc && target_pc < *pc) {
-                    instruction_list_handle prev_in(
-                        find_local_back_edge_target(ls, target_pc));
-
-                    if(prev_in.is_valid()) {
-                        dynamorio::instr_set_target(in, instr_(&(*prev_in)));
-                    }
-                }
-#endif
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in->opcode) {
                 ls.append(in);
@@ -455,7 +457,6 @@ namespace granary {
             if(prev_generated_pc != generated_pc) {
                 *pc = start_pc;
                 ls.clear_for_reuse();
-                cpu->transient_allocator.free_all();
                 continue;
             }
 

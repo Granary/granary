@@ -37,9 +37,9 @@
 
 /* file "instr_list.c" */
 
-#include "dr/globals.h"
-#include "dr/instrlist.h"
-#include "dr/x86/instr.h"
+#include "deps/dr/globals.h"
+#include "deps/dr/instrlist.h"
+#include "deps/dr/x86/instr.h"
 #include <string.h>
 
 #if defined(DEBUG) && defined(CLIENT_INTERFACE)

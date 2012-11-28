@@ -71,6 +71,8 @@ namespace test {
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
             break_on_cbr(&bb_short);
             break_on_cbr(&bb_long);
+
+            granary::unsafe_cast<void (*)(void)>(bb_short.cache_pc_start)();
         })
     }))
 }

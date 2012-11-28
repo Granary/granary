@@ -40,7 +40,28 @@ namespace granary {
 
         /// Allocate some non-executable memory.
         void *global_allocate(unsigned long size) throw();
+
+
+        /// Free some globally allocated memory.
+        void global_free(void *addr) throw();
     }
+
+}
+
+
+/// Overload operator new for global heap allocation.
+inline void *operator new(size_t size) {
+    return granary::detail::global_allocate(size);
+}
+
+
+/// Overload operator delete for global heap freeing.
+inline void operator delete(void *addr) {
+    granary::detail::global_free(addr);
+}
+
+
+namespace granary {
 
 
     /// Defines a generic bump pointer allocator. The allocator is configured

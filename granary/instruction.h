@@ -173,6 +173,12 @@ namespace granary {
         instruction &operator=(const instruction &&that) throw();
 
 
+        /// Return the opcode of the instruction.
+        inline unsigned op_code(void) const throw() {
+            return instr.opcode;
+        }
+
+
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
             return instr.num_srcs;
@@ -263,8 +269,13 @@ namespace granary {
         static instruction decode(app_pc *pc) throw();
 
 
-        /// encodes an instruction into a sequence of bytes
+        /// Encodes an instruction into a sequence of bytes.
         app_pc encode(app_pc pc) throw();
+
+
+        /// Encodes an instruction into a sequence of bytes, but where the staging
+        /// ground is not necessarily the instruction's final location.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
 
 
         /// Slightly evil convenience method for implicitly converting instructions

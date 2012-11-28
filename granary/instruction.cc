@@ -52,7 +52,7 @@ namespace granary {
     }
 
 
-    /// encodes an instruction into a sequence of bytes
+    /// Encodes an instruction into a sequence of bytes.
     app_pc instruction::encode(app_pc pc) throw() {
 
         // address calculation for relative jumps uses the note
@@ -61,6 +61,20 @@ namespace granary {
         instr.note = pc;
 
         return dynamorio::instr_encode(DCONTEXT, &instr, pc);
+    }
+
+
+    /// Encodes an instruction into a sequence of bytes, but where the staging
+    /// ground is not necessarily the instruction's final location.
+    app_pc instruction::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+
+        // address calculation for relative jumps uses the note
+        // field; second-pass encoding for hot patchable instructions
+        // takes advantage of this
+        instr.note = final_pc;
+
+        return dynamorio::instr_encode_to_copy(
+            DCONTEXT, &instr, staged_pc, final_pc);
     }
 
 

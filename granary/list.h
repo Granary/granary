@@ -567,7 +567,7 @@ namespace granary {
 
         /// Insert an element before another object in the list.
         handle_type insert_before(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_) {
+            if(1 >= length_ || nullptr == at_pos) {
                 return prepend(item);
             }
 
@@ -604,7 +604,7 @@ namespace granary {
 
         /// Insert an element after another object in the list
         handle_type insert_after(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_) {
+            if(1 >= length_ || nullptr == at_pos) {
                 return append(item);
             }
 

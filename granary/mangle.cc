@@ -6,20 +6,40 @@
  */
 
 
-#include "granary/globals.h"
+#include "granary/mangle.h"
 #include "granary/state.h"
-#include "granary/instruction.h"
 #include "granary/detach.h"
 
+
+/// Force an instantiation of a particular template.
+#define INSTANTIATE_DIRECT_JUMP_MANGLER(opcode, size) \
+    template void patch_mangled_direct_cti<opcode ## _>(direct_patch_mcontext *);
+
+
+/// Used to forward-declare the assembly funcion patches. These patch functions
+/// eventually call the templates.
+#define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
+    extern void granary_asm_direct_branch_ ## opcode(void);
+
+
+/// Used to forward-declare the assembly funcion patches. These patch functions
+/// eventually call the templates.
+#define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
+    case dynamorio::OP_ ## opcode: return granary_asm_direct_branch_ ## opcode;
+
+
 extern "C" {
-
-    extern void granary_asm_direct_branch(void);
-
+    FOR_EACH_DIRECT_BRANCH(DECLARE_DIRECT_JUMP_MANGLER)
 }
+
 
 namespace granary {
 
 
+    FOR_EACH_DIRECT_BRANCH(INSTANTIATE_DIRECT_JUMP_MANGLER)
+
+
+    typedef void (direct_cti_patch_func)(void);
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
 
@@ -33,8 +53,8 @@ namespace granary {
     /// a specific instruction. This is similar to encode_mangled_
     /// nops in instruction.cc.
     static void inject_mangled_nops(instruction_list &ls,
-                                    instruction_list_handle &in,
-                                    unsigned num_nops) throw() {
+                                      instruction_list_handle in,
+                                      unsigned num_nops) throw() {
 
         if(!mangled_nops) {
             mangled_nops = true;
@@ -57,6 +77,36 @@ namespace granary {
     }
 
 
+    /// Stage an 8-byte hot patch. This will encode the instruction `in` into
+    /// the `stage` location (as if it were going to be placed at the `dest`
+    /// location, and then encodes however many NOPs are needed to fill in 8
+    /// bytes.
+    void stage_8byte_hot_patch(instruction in, app_pc stage, app_pc dest) {
+        const app_pc start_pc(stage);
+        instruction_list ls;
+        stage = in.stage_encode(stage, dest);
+
+        unsigned num_nops(8U - static_cast<unsigned>(stage - start_pc));
+        if(8U <= num_nops) {
+            num_nops = 0U;
+        }
+
+        inject_mangled_nops(ls, ls.first(), num_nops);
+        ls.encode(stage);
+    }
+
+
+    /// Look up and return the assembly patch (see asm/direct_branch.asm)
+    /// function needed to patch an instruction that originally had opcode as
+    /// `opcode`.
+    static direct_cti_patch_func *
+    get_direct_cti_patch_func(int opcode) throw() {
+        switch(opcode) {
+        FOR_EACH_DIRECT_BRANCH(CASE_DIRECT_JUMP_MANGLER);
+        default: return nullptr;
+        }
+    }
+
 
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
@@ -76,7 +126,8 @@ namespace granary {
             push_imm_(int32_(to_application_offset(target)))));
 
         instruction_list_handle in_second(ls.append(
-            jmp_(pc_(unsafe_cast<app_pc>(granary_asm_direct_branch)))));
+            jmp_(pc_(unsafe_cast<app_pc>(
+                get_direct_cti_patch_func(in->op_code()))))));
 
         *in = call_(instr_(*in_first));
 
@@ -86,11 +137,13 @@ namespace granary {
         in->set_mangled();
         in->set_patchable();
 
+        // pad the size out to 8 bytes using NOPs
         const unsigned new_size(in->encoded_size());
-        if(old_size > new_size) {
-            inject_mangled_nops(ls, in, old_size - new_size);
+        if(new_size < 8U) {
+            inject_mangled_nops(ls, in, 8U - new_size);
         }
 
+        IF_DEBUG(old_size > 8, FAULT)
         IF_DEBUG(new_size > 8, FAULT)
     }
 
