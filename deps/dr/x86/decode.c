@@ -1392,7 +1392,7 @@ resolve_var_reg(decode_info_t *di/*IN: x86_mode, prefixes*/,
             return reg_32_to_64(reg32);
         else
 #endif
-            if (can_shrink && (TEST(PREFIX_DATA, di->prefixes) IF_GRANARY(|| TEST(PREFIX_REX_W, di->prefixes))))
+            if (can_shrink && (TEST(PREFIX_DATA, di->prefixes) )) /* IF_GRANARY(|| TEST(PREFIX_REX_W, di->prefixes)) */
                 return reg_32_to_16(reg32);
     }
     return reg32;

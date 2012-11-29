@@ -52,6 +52,7 @@ namespace granary {
 extern "C" {
     extern void granary_break_on_fault(void);
     extern int granary_test_return_true(void);
+    extern int granary_test_return_false(void);
     extern int granary_asm_apic_id(void);
     extern void granary_atomic_write8(uint64_t, uint64_t *);
 }

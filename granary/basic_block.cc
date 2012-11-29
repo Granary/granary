@@ -307,7 +307,7 @@ namespace granary {
         // find the number of targets
         unsigned num_direct_branches(0);
         for(unsigned i(0); i < max; ++i) {
-            if(in->is_cti() && dynamorio::opnd_is_pc(in->get_cti_target())) {
+            if(in->is_cti() && dynamorio::opnd_is_pc(in->cti_target())) {
                 ++num_direct_branches;
             }
             in = in.next();
@@ -324,7 +324,7 @@ namespace granary {
         in = ls.first();
         for(unsigned i(0), j(0); i < max; ++i) {
             if(in->is_cti()) {
-                operand target(in->get_cti_target());
+                operand target(in->cti_target());
                 if(dynamorio::opnd_is_pc(target)) {
                     branch_targets[j].target = target;
                     branch_targets[j].source = in;
@@ -364,7 +364,7 @@ namespace granary {
             instruction in(instruction::decode(pc));
             if(in.is_cti()) {
 
-                operand target(in.get_cti_target());
+                operand target(in.cti_target());
 
 #if LOOK_FOR_BACK_EDGE
                 // direct branch (e.g. un/conditional branch, jmp, call)
@@ -379,7 +379,7 @@ namespace granary {
 
                         if(prev_in.is_valid()) {
                             target = instr_(*prev_in);
-                            dynamorio::instr_set_target(in, target);
+                            in.set_cti_target(target);
                         }
                     }
                 }

@@ -6,6 +6,7 @@
 
 #include "granary/x86/asm_defines.asm"
 
+
 /// For each jump type, expand some macro with enough info to generate test
 /// code.
 ///
@@ -38,7 +39,7 @@
 ///
 /// Note: these tests, unfortunately, depend on frame pointers being present.
 #define MAKE_CBR_TEST_FUNC(opcode, or_flag, and_flag) \
-    static void direct_cti_ ## opcode ## _short(void) throw() { \
+    static void direct_cti_ ## opcode ## _short_true(void) throw() { \
         ASM( \
             "pushf;" \
             "movq $%c0, %%rax;" \
@@ -46,8 +47,10 @@
             "movq $%c1, %%rax;" \
             "and %%rax, (%%rsp);" \
             "popf;" \
-            #opcode " 1f;" \
+            TO_STRING(opcode) " 1f;" \
             "mov $0, %%rax;" \
+            "mov %%rbp, %%rsp;" \
+            "pop %%rbp;" \
             "ret;" \
         "1:  mov $1, %%rax;" \
             "mov %%rbp, %%rsp;" \
@@ -57,7 +60,28 @@
             : "i"(or_flag), "i"(and_flag) \
         ); \
     } \
-    static void direct_cti_ ## opcode ## _long(void) throw() { \
+    static void direct_cti_ ## opcode ## _short_false(void) throw() { \
+        ASM( \
+            "pushf;" \
+            "movq $%c0, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c1, %%rax;" \
+            "and %%rax, (%%rsp);" \
+            "popf;" \
+            TO_STRING(opcode) " 1f;" \
+            "mov $1, %%rax;" \
+            "mov %%rbp, %%rsp;" \
+            "pop %%rbp;" \
+            "ret;" \
+        "1:  mov $0, %%rax;" \
+            "mov %%rbp, %%rsp;" \
+            "pop %%rbp;" \
+            "ret;" \
+            : \
+            : "i"(~and_flag), "i"(~or_flag) \
+        ); \
+    } \
+    static void direct_cti_ ## opcode ## _long_true(void) throw() { \
         ASM( \
             "pushf;" \
             "movq $%c0, %%rax;" \
@@ -67,7 +91,7 @@
             "popf;" \
             "mov %%rbp, %%rsp;" \
             "pop %%rbp;" \
-            #opcode " " TO_STRING(SYMBOL(granary_test_return_true)) ";" \
+            TO_STRING(opcode) " " TO_STRING(SYMBOL(granary_test_return_true)) ";" \
             "mov $0, %%rax;" \
             "mov %%rbp, %%rsp;" \
             "pop %%rbp;" \
@@ -75,26 +99,57 @@
             : \
             : "i"(or_flag), "i"(and_flag) \
         ); \
+    } \
+    static void direct_cti_ ## opcode ## _long_false(void) throw() { \
+        ASM( \
+            "pushf;" \
+            "movq $%c0, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c1, %%rax;" \
+            "and %%rax, (%%rsp);" \
+            "popf;" \
+            "mov %%rbp, %%rsp;" \
+            "pop %%rbp;" \
+            TO_STRING(opcode) " " TO_STRING(SYMBOL(granary_test_return_false)) ";" \
+            "mov $1, %%rax;" \
+            "mov %%rbp, %%rsp;" \
+            "pop %%rbp;" \
+            "ret;" \
+            : \
+            : "i"(~and_flag), "i"(~or_flag) \
+        ); \
     }
+
 
 #define RUN_CBR_TEST_FUNC(opcode, or_flag, and_flag, code) \
     { \
-        granary::app_pc short_cbr((granary::app_pc) direct_cti_ ## opcode ## _short); \
-        granary::basic_block bb_short(granary::basic_block::translate( \
-            cpu, thread, &short_cbr)); \
+        granary::app_pc short_cbr_true((granary::app_pc) direct_cti_ ## opcode ## _short_true); \
+        granary::basic_block bb_short_true(granary::basic_block::translate( \
+            cpu, thread, &short_cbr_true)); \
         \
-        granary::app_pc long_cbr((granary::app_pc) direct_cti_ ## opcode ## _long); \
-        granary::basic_block bb_long(granary::basic_block::translate( \
-            cpu, thread, &long_cbr)); \
+        granary::app_pc short_cbr_false((granary::app_pc) direct_cti_ ## opcode ## _short_false); \
+        granary::basic_block bb_short_false(granary::basic_block::translate( \
+            cpu, thread, &short_cbr_false)); \
+        \
+        granary::app_pc long_cbr_true((granary::app_pc) direct_cti_ ## opcode ## _long_true); \
+        granary::basic_block bb_long_true(granary::basic_block::translate( \
+            cpu, thread, &long_cbr_true)); \
+        \
+        granary::app_pc long_cbr_false((granary::app_pc) direct_cti_ ## opcode ## _long_false); \
+        granary::basic_block bb_long_false(granary::basic_block::translate( \
+            cpu, thread, &long_cbr_false)); \
         \
         code \
     }
 
-static void break_on_cbr(granary::basic_block *bb) {
+
+static void break_on_bb(granary::basic_block *bb) {
     (void) bb;
 }
 
+
 namespace test {
+
 
     enum {
         CF      = (1 << 0), // carry
@@ -106,20 +161,83 @@ namespace test {
         OF      = (1 << 11) // overflow
     };
     
-    IF_TEST(FOR_EACH_CBR(MAKE_CBR_TEST_FUNC))
 
-    IF_TEST(static void direct_cbrs_patched_correctly(void) {
+    FOR_EACH_CBR(MAKE_CBR_TEST_FUNC)
+
+
+    static void direct_cbrs_patched_correctly(void) {
         granary::cpu_state_handle cpu;
         granary::thread_state_handle thread;
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
-            break_on_cbr(&bb_short);
-            break_on_cbr(&bb_long);
 
-            ASSERT(bb_short.call<bool>());
-            ASSERT(bb_long.call<bool>());
+            break_on_bb(&bb_short_true);
+
+            ASSERT(bb_short_true.call<bool>());
+            ASSERT(bb_short_false.call<bool>());
+            ASSERT(bb_long_true.call<bool>());
+            ASSERT(bb_long_false.call<bool>());
         })
-    })
+    }
+
 
     ADD_TEST(direct_cbrs_patched_correctly,
         "Test that targets of direct conditional branches are correctly patched.")
+
+
+    static bool direct_jecxz_short_true(void) {
+        ASM(
+            "mov $0, %rcx;"
+            "jrcxz 1f;"
+            "mov $0, %rax;"
+            "mov %rbp, %rsp;"
+            "pop %rbp;"
+            "ret;"
+        "1: mov $1, %rax;"
+            "mov %rbp, %rsp;"
+            "pop %rbp;"
+            "ret;"
+        );
+        return false; // not reached
+    }
+
+
+    static bool direct_jecxz_short_false(void) {
+        ASM(
+            "mov $1, %rcx;"
+            "jrcxz 1f;"
+            "mov $1, %rax;"
+            "mov %rbp, %rsp;"
+            "pop %rbp;"
+            "ret;"
+        "1: mov $0, %rax;"
+            "mov %rbp, %rsp;"
+            "pop %rbp;"
+            "ret;"
+        );
+        return false; // not reached
+    }
+
+
+    /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
+    static void direct_jexcz_patched_correctly(void) {
+        granary::cpu_state_handle cpu;
+        granary::thread_state_handle thread;
+
+        granary::app_pc jecxz_short_true((granary::app_pc) direct_jecxz_short_true);
+        granary::basic_block bb_jecxz_short_true(granary::basic_block::translate(
+            cpu, thread, &jecxz_short_true));
+
+        granary::app_pc jecxz_short_false((granary::app_pc) direct_jecxz_short_false);
+        granary::basic_block bb_jecxz_short_false(granary::basic_block::translate(
+            cpu, thread, &jecxz_short_false));
+
+        break_on_bb(&bb_jecxz_short_true);
+        break_on_bb(&bb_jecxz_short_false);
+
+        ASSERT(bb_jecxz_short_true.call<bool>());
+        ASSERT(bb_jecxz_short_false.call<bool>());
+    }
+
+    ADD_TEST(direct_jexcz_patched_correctly,
+        "Test that targets of direct jecxz branches are correctly patched.")
 }

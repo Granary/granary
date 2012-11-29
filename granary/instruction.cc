@@ -255,7 +255,7 @@ namespace granary {
             }
 
             if(item->is_cti()) {
-                operand target(item->get_cti_target());
+                operand target(item->cti_target());
                 if(dynamorio::opnd_is_instr(target)) {
                     has_local_jump = true;
                 }
@@ -272,7 +272,7 @@ namespace granary {
             item = first();
             for(unsigned i = 0, max = length(); i < max; ++i) {
                 if(item->is_cti()) {
-                    operand target(item->get_cti_target());
+                    operand target(item->cti_target());
                     if(dynamorio::opnd_is_instr(target)) {
                         item->encode(reinterpret_cast<app_pc>(
                             item->instr.note));
@@ -313,6 +313,7 @@ namespace granary {
     instruction instruction::decode(app_pc *pc) throw() {
         instruction self;
         uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
+
         *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr));
         dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
 

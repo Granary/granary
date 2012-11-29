@@ -25,6 +25,7 @@
     rest \
     DPM_DECLARE_REG(reg)
 
+
 namespace granary {
 
 
@@ -60,9 +61,6 @@ namespace granary {
         uint64_t return_address_after_mangled_call;
     };
 
-    void break_on_patch(direct_patch_mcontext *context) {
-        (void) context;
-    }
 
     /// Patch the code by regenerating the original instruction.
     ///
@@ -109,7 +107,7 @@ namespace granary {
             staged_code,
             reinterpret_cast<app_pc>(patch_address));
 
-        // patch the code
+        // apply the patch
         *reinterpret_cast<uint64_t *>(patch_address) = staged_code_;
     }
 }

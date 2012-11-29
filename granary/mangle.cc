@@ -111,8 +111,8 @@ namespace granary {
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
     static void add_direct_branch_stub(instruction_list &ls,
-                                       instruction_list_handle in,
-                                       operand target) throw() {
+                                          instruction_list_handle in,
+                                          operand target) throw() {
 
         // don't mangle this slot; it is a detach point.
         if(nullptr != find_detach_target(target)) {
@@ -148,8 +148,8 @@ namespace granary {
 
 
     static void mangle_call(instruction_list &ls,
-                            instruction_list_handle in) throw() {
-        operand target(in->get_cti_target());
+                             instruction_list_handle in) throw() {
+        operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(ls, in, target);
         }
@@ -157,30 +157,48 @@ namespace granary {
 
 
     static void mangle_return(instruction_list &ls,
-                              instruction_list_handle in) throw() {
+                                instruction_list_handle in) throw() {
         (void) ls;
         (void) in;
     }
 
 
     static void mangle_jump(instruction_list &ls,
-                            instruction_list_handle in) throw() {
-        operand target(in->get_cti_target());
+                             instruction_list_handle in) throw() {
+        operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(ls, in, target);
         }
     }
 
 
+    static void mangle_loop(instruction_list &ls,
+                              instruction_list_handle in) throw() {
+        operand target(in->cti_target());
+        instruction_list_handle in_first(ls.insert_before(in,
+            jmp_(instr_(*in))));
+        instruction_list_handle in_second(ls.insert_before(in,
+            jmp_(target)));
+
+        in->set_cti_target(instr_(*in_second));
+        in->set_mangled();
+        in_first->set_mangled();
+        in_second->set_pc(in->pc());
+
+        // recursively mangle the jump
+        mangle_jump(ls, in_second);
+    }
+
+
     static void mangle_cli(instruction_list &ls,
-                           instruction_list_handle in) throw() {
+                            instruction_list_handle in) throw() {
         (void) ls;
         (void) in;
     }
 
 
     static void mangle_sti(instruction_list &ls,
-                           instruction_list_handle in) throw() {
+                            instruction_list_handle in) throw() {
         (void) ls;
         (void) in;
     }
@@ -189,8 +207,8 @@ namespace granary {
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
     void mangle(cpu_state_handle &cpu,
-                thread_state_handle &thread,
-                instruction_list &ls) throw() {
+                 thread_state_handle &thread,
+                 instruction_list &ls) throw() {
 
         (void) cpu;
         (void) thread;
@@ -209,6 +227,12 @@ namespace granary {
                     mangle_call(ls, in);
                 } else if(dynamorio::instr_is_return(*in)) {
                     mangle_return(ls, in);
+
+                // LOOP, LOOPcc, JCXZ, JECXZ, JRCXZ
+                } else if(dynamorio::instr_is_cti_loop(*in)) {
+                    mangle_loop(ls, in);
+
+                // JMP, Jcc
                 } else {
                     mangle_jump(ls, in);
                 }

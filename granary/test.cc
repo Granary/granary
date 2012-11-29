@@ -16,6 +16,10 @@ extern "C" {
         return 1;
     }
 
+    int granary_test_return_false(void) {
+        return 0;
+    }
+
 }
 
 

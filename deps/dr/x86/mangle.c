@@ -317,6 +317,7 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         return instr;
     }
 
+#ifndef GRANARY
     if (OP_loopne <= opcode && opcode <= OP_jecxz) {
         uint mangled_sz;
         uint offs;
@@ -431,6 +432,7 @@ convert_to_near_rel_common(dcontext_t *dcontext, instrlist_t *ilist, instr_t *in
         instr_set_operands_valid(instr, true);
         return instr;
     }
+#endif
 
     LOG(THREAD, LOG_INTERP, 1, "convert_to_near_rel: unknown opcode: %d %s\n",
         opcode, info->name);

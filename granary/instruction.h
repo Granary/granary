@@ -218,15 +218,27 @@ namespace granary {
 
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
-		inline operand get_cti_target(void) throw() {
+		inline operand cti_target(void) throw() {
 		    return dynamorio::instr_get_target(&instr);
 		}
+
+
+		/// If this instruction is a CTI, then set the target of the instruction.
+        inline void set_cti_target(operand target) throw() {
+            return dynamorio::instr_set_target(&instr, target);
+        }
 
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
             return instr.translation;
+        }
+
+
+        /// Set the program counter of the instruction.
+        inline void set_pc(app_pc pc) throw() {
+            instr.translation = pc;
         }
 
 
