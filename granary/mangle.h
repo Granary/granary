@@ -74,9 +74,9 @@ namespace granary {
     void patch_mangled_direct_cti(direct_patch_mcontext *context) throw() {
 
         cpu_state_handle cpu;
-        cpu->transient_allocator.free_all();
-
         thread_state_handle thread;
+
+        granary::enter(cpu, thread);
 
         // determine the address to patch; this changes the return address in
         // the machine context to point back to the patch address so that we

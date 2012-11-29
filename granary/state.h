@@ -23,6 +23,12 @@ namespace granary {
     struct cpu_state;
     struct basic_block_state;
     struct basic_block;
+    struct cpu_state_handle;
+    struct thread_state_handle;
+
+
+    /// Notify that we're entering granary.
+    void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw();
 
 
     /// A handle on thread state. Implemented differently in the kernel and in

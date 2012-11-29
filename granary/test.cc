@@ -20,6 +20,13 @@ extern "C" {
         return 0;
     }
 
+    /// Hacks so that we don't need to link in libc++.
+    int __cxa_guard_acquire(void) {
+        return 1;
+    }
+    int __cxa_guard_release(void) {
+        return 1;
+    }
 }
 
 
@@ -27,10 +34,18 @@ namespace granary {
 
     static_test_list STATIC_TEST_LIST_HEAD;
 
+    static_test_list::static_test_list(void) throw()
+        : func(nullptr)
+        , desc(nullptr)
+        , next(nullptr)
+    { }
+
     void run_tests(void) throw() {
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {
-            test->func();
+            if(test->func) {
+                test->func();
+            }
         }
     }
 

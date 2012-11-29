@@ -72,6 +72,8 @@ namespace granary {
         void (*func)(void);
         const char *desc;
         static_test_list *next;
+
+        static_test_list(void) throw();
     };
 
     extern static_test_list STATIC_TEST_LIST_HEAD;

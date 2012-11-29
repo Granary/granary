@@ -17,8 +17,8 @@ namespace granary {
 
 
     app_pc code_cache::find(cpu_state_handle &cpu,
-                       thread_state_handle &thread,
-                       app_pc addr) throw() {
+                              thread_state_handle &thread,
+                              app_pc addr) throw() {
 
         app_pc target_addr(find_detach_target(addr));
         if(nullptr != target_addr) {
@@ -29,7 +29,8 @@ namespace granary {
             return target_addr;
         }
 
-        basic_block bb(basic_block::translate(cpu, thread, &addr));
+        app_pc decode_addr(addr);
+        basic_block bb(basic_block::translate(cpu, thread, &decode_addr));
         CODE_CACHE.store(addr, bb.cache_pc_start);
 
         return bb.cache_pc_start;

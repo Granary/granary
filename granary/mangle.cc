@@ -150,6 +150,7 @@ namespace granary {
     static void mangle_call(instruction_list &ls,
                              instruction_list_handle in) throw() {
         operand target(in->cti_target());
+
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(ls, in, target);
         }
@@ -167,26 +168,10 @@ namespace granary {
                              instruction_list_handle in) throw() {
         operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
-            add_direct_branch_stub(ls, in, target);
+            if(!find_detach_target(target.value.pc)) {
+                add_direct_branch_stub(ls, in, target);
+            }
         }
-    }
-
-
-    static void mangle_loop(instruction_list &ls,
-                              instruction_list_handle in) throw() {
-        operand target(in->cti_target());
-        instruction_list_handle in_first(ls.insert_before(in,
-            jmp_(instr_(*in))));
-        instruction_list_handle in_second(ls.insert_before(in,
-            jmp_(target)));
-
-        in->set_cti_target(instr_(*in_second));
-        in->set_mangled();
-        in_first->set_mangled();
-        in_second->set_pc(in->pc());
-
-        // recursively mangle the jump
-        mangle_jump(ls, in_second);
     }
 
 
@@ -216,21 +201,22 @@ namespace granary {
         instruction_list_handle in(ls.first());
 
         for(unsigned i(0), max(ls.length()); i < max; ++i, in = in.next()) {
-            if(nullptr == in->pc() || in->is_mangled()) {
-                continue;
-            }
+            const bool can_skip(nullptr == in->pc() || in->is_mangled());
 
             // native instruction, we might need to mangle it.
             if(in->is_cti()) {
 
                 if(dynamorio::instr_is_call(*in)) {
+                    if(can_skip) {
+                        continue;
+                    }
                     mangle_call(ls, in);
-                } else if(dynamorio::instr_is_return(*in)) {
-                    mangle_return(ls, in);
 
-                // LOOP, LOOPcc, JCXZ, JECXZ, JRCXZ
-                } else if(dynamorio::instr_is_cti_loop(*in)) {
-                    mangle_loop(ls, in);
+                } else if(dynamorio::instr_is_return(*in)) {
+                    if(can_skip) {
+                        continue;
+                    }
+                    mangle_return(ls, in);
 
                 // JMP, Jcc
                 } else {
@@ -239,14 +225,19 @@ namespace granary {
 
             // clear interrupt
             } else if(dynamorio::OP_cli == (*in)->opcode) {
+                if(can_skip) {
+                    continue;
+                }
                 mangle_cli(ls, in);
 
             // restore interrupt
             } else if(dynamorio::OP_sti == (*in)->opcode) {
+                if(can_skip) {
+                    continue;
+                }
+
                 mangle_sti(ls, in);
 
-            } else {
-                continue;
             }
         }
     }

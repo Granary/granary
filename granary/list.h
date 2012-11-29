@@ -497,9 +497,9 @@ namespace granary {
         }
 
         /// Return the last element in the list.
-        inline item_type last(void) const throw() {
+        inline handle_type last(void) const throw() {
             if(!last_) {
-                return item_type();
+                return handle_type();
             }
 
             return handle_type(last_);

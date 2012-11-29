@@ -17,9 +17,31 @@
 
 #include "deps/murmurhash/murmurhash.h"
 
-
 namespace granary {
+#if 0
+}
+#include <map>
+namespace granary {
+    template <typename K, typename V>
+    struct hash_table {
+        std::map<K, V> map;
 
+        bool load(K key, V *val) const throw() {
+            auto res(map.find(key));
+            if(res->first == key) {
+                *val = res->second;
+                return true;
+            }
+
+            return false;
+        }
+
+        void store(K key, V val) throw() {
+            map[key] = val;
+        }
+    };
+
+#else
 
     /// Default meta information about the hash table, as well as its hash
     /// function.
@@ -41,7 +63,6 @@ namespace granary {
             return fmix(hash);
         }
     };
-
 
     /// Implementation of an eventually consistent hash table.
     template <typename K, typename V>
@@ -256,6 +277,8 @@ namespace granary {
     /// Static initialize the default value.
     template <typename K, typename V>
     const K hash_table<K, V>::DEFAULT_KEY = K();
+#endif
+
 }
 
 #endif /* Granary_HASH_TABLE_H_ */

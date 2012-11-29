@@ -169,9 +169,7 @@ namespace test {
         granary::cpu_state_handle cpu;
         granary::thread_state_handle thread;
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
-
             break_on_bb(&bb_short_true);
-
             ASSERT(bb_short_true.call<bool>());
             ASSERT(bb_short_false.call<bool>());
             ASSERT(bb_long_true.call<bool>());
@@ -231,13 +229,45 @@ namespace test {
         granary::basic_block bb_jecxz_short_false(granary::basic_block::translate(
             cpu, thread, &jecxz_short_false));
 
-        break_on_bb(&bb_jecxz_short_true);
-        break_on_bb(&bb_jecxz_short_false);
-
         ASSERT(bb_jecxz_short_true.call<bool>());
         ASSERT(bb_jecxz_short_false.call<bool>());
     }
 
+
     ADD_TEST(direct_jexcz_patched_correctly,
         "Test that targets of direct jecxz branches are correctly patched.")
+
+
+    static int direct_loop_return_5(void) {
+        ASM(
+            "mov $0, %rax;"
+            "mov $5, %rcx;" // count down from 5
+        "1:  inc %rax;"
+            "loop 2f;"
+            "mov %rbp, %rsp;"
+            "pop %rbp;"
+            "ret;"
+        "2:  jmp 1b;"
+        );
+        return 0; // not reached
+    }
+
+
+    /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
+    static void direct_loop_patched_correctly(void) {
+        granary::cpu_state_handle cpu;
+        granary::thread_state_handle thread;
+
+        granary::app_pc loop_short_5((granary::app_pc) direct_loop_return_5);
+        granary::basic_block bb_loop_short_5(granary::basic_block::translate(
+            cpu, thread, &loop_short_5));
+
+        break_on_bb(&bb_loop_short_5);
+
+        ASSERT(5 == bb_loop_short_5.call<int>());
+    }
+
+
+    ADD_TEST(direct_loop_patched_correctly,
+        "Test that targets of direct loop and loopcc branches are correctly patched.")
 }
