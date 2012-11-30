@@ -40,27 +40,27 @@
  * instrument.c - interface for instrumentation
  */
 
-#include "dr/globals.h"   /* just to disable warning C4206 about an empty file */
+#include "deps/dr/globals.h"   /* just to disable warning C4206 about an empty file */
 
 
-#include "dr/x86/instrument.h"
-#include "dr/instrlist.h"
-#include "dr/x86/arch.h"
-#include "dr/x86/instr.h"
-#include "dr/x86/instr_create.h"
-#include "dr/x86/decode.h"
-#include "dr/x86/disassemble.h"
-#include "dr/fragment.h"
-#include "dr/emit.h"
-#include "dr/link.h"
-#include "dr/monitor.h" /* for mark_trace_head */
+#include "deps/dr/x86/instrument.h"
+#include "deps/dr/instrlist.h"
+#include "deps/dr/x86/arch.h"
+#include "deps/dr/x86/instr.h"
+#include "deps/dr/x86/instr_create.h"
+#include "deps/dr/x86/decode.h"
+#include "deps/dr/x86/disassemble.h"
+#include "deps/dr/fragment.h"
+#include "deps/dr/emit.h"
+#include "deps/dr/link.h"
+#include "deps/dr/monitor.h" /* for mark_trace_head */
 #include <string.h> /* for strstr */
 #include <stdarg.h> /* for varargs */
-#include "dr/nudge.h" /* for nudge_internal() */
-#include "dr/synch.h"
+#include "deps/dr/nudge.h" /* for nudge_internal() */
+#include "deps/dr/synch.h"
 #ifdef LINUX
 # include <sys/time.h> /* ITIMER_* */
-# include "dr/linux/module.h" /* redirect_* functions */
+# include "deps/dr/linux/module.h" /* redirect_* functions */
 #endif
 
 

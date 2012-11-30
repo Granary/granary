@@ -20,7 +20,7 @@ namespace granary {
     /// constructor
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
-        dynamorio::instr_set_x86_mode(&(this->instr), true);
+        dynamorio::instr_set_x86_mode(&(this->instr), false);
     }
 
 
@@ -52,7 +52,7 @@ namespace granary {
     }
 
 
-    /// encodes an instruction into a sequence of bytes
+    /// Encodes an instruction into a sequence of bytes.
     app_pc instruction::encode(app_pc pc) throw() {
 
         // address calculation for relative jumps uses the note
@@ -61,6 +61,20 @@ namespace granary {
         instr.note = pc;
 
         return dynamorio::instr_encode(DCONTEXT, &instr, pc);
+    }
+
+
+    /// Encodes an instruction into a sequence of bytes, but where the staging
+    /// ground is not necessarily the instruction's final location.
+    app_pc instruction::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+
+        // address calculation for relative jumps uses the note
+        // field; second-pass encoding for hot patchable instructions
+        // takes advantage of this
+        instr.note = final_pc;
+
+        return dynamorio::instr_encode_to_copy(
+            DCONTEXT, &instr, staged_pc, final_pc);
     }
 
 
@@ -241,7 +255,7 @@ namespace granary {
             }
 
             if(item->is_cti()) {
-                operand target(item->get_cti_target());
+                operand target(item->cti_target());
                 if(dynamorio::opnd_is_instr(target)) {
                     has_local_jump = true;
                 }
@@ -258,7 +272,7 @@ namespace granary {
             item = first();
             for(unsigned i = 0, max = length(); i < max; ++i) {
                 if(item->is_cti()) {
-                    operand target(item->get_cti_target());
+                    operand target(item->cti_target());
                     if(dynamorio::opnd_is_instr(target)) {
                         item->encode(reinterpret_cast<app_pc>(
                             item->instr.note));
@@ -271,6 +285,27 @@ namespace granary {
         return pc;
     }
 
+    /// Performs a staged encoding of an instruction list into a sequence
+    /// of bytes.
+    ///
+    /// Note: This will not do any fancy jump resolution, alignment, etc.
+    app_pc instruction_list::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+        if(!length()) {
+            return staged_pc;
+        }
+
+        handle_type item(first());
+        for(unsigned i = 0, max = length(); i < max; ++i) {
+            app_pc prev_staged_pc(staged_pc);
+
+            staged_pc = item->stage_encode(staged_pc, final_pc);
+            final_pc += staged_pc - prev_staged_pc;
+            item = item.next();
+        }
+
+        return staged_pc;
+    }
+
 
     /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
     /// following byte. The decoded instruction is returned by value. If
@@ -278,6 +313,7 @@ namespace granary {
     instruction instruction::decode(app_pc *pc) throw() {
         instruction self;
         uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
+
         *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, &(self.instr));
         dynamorio::decode(DCONTEXT, byte_pc, &(self.instr));
 
@@ -290,8 +326,10 @@ namespace granary {
         if(dynamorio::instr_is_cti(&(self.instr))) {
             dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
 
-            if(dynamorio::instr_is_cti_short(&(self.instr)))
-            dynamorio::convert_to_near_rel_common(DCONTEXT, nullptr, &(self.instr));
+            if(dynamorio::instr_is_cti_short(&(self.instr))) {
+                dynamorio::convert_to_near_rel_common(
+                    DCONTEXT, nullptr, &(self.instr));
+            }
         }
 
         return self;

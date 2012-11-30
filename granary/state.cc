@@ -7,37 +7,22 @@
 
 #include "granary/state.h"
 
-
-/// Hack to ensure static initializers are compiled.
-static_init_list STATIC_LIST_HEAD;
-
-
 namespace granary {
 
 
-    void thread_state::add_direct_branch_generation(void) throw() {
-        ++generation_number;
+    /// Hack to ensure static initializers are compiled.
+    static_init_list STATIC_LIST_HEAD;
+
+
+    /// Notify that we're entering granary.
+    void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw() {
+        cpu->transient_allocator.free_all();
+
+        (void) thread;
     }
 
 
-    void thread_state::clear_direct_branch_generation(void) throw() {
-        for(unsigned i(0); i < NUM_DIRECT_BRANCH_SLOTS; ++i) {
-            if(generation_number == used_slots[i]) {
-                used_slots[i] = 0;
-            }
-        }
-        --generation_number;
-    }
-
-
-    /// Find the next free branch lookup slot.
-    direct_branch_slot *thread_state::add_direct_branch(void) throw() {
-        for(unsigned i(0); i < NUM_DIRECT_BRANCH_SLOTS; ++i) {
-            if(!used_slots[i]) {
-                used_slots[i] = generation_number;
-                return &(direct_branch_slots[i]);
-            }
-        }
-        return nullptr;
-    }
+    /// static initialization of global fragment allocator
+    bump_pointer_allocator<detail::fragment_allocator_config> \
+        global_state::fragment_allocator;
 }

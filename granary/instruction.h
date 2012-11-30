@@ -69,6 +69,10 @@ namespace granary {
     struct operand : public dynamorio::opnd_t {
     public:
 
+        inline operand(void) throw() {
+            memset(this, 0, sizeof *this);
+        }
+
         inline operand(const dynamorio::opnd_t &&that) throw() {
             memcpy(this, &that, sizeof *this);
         }
@@ -169,6 +173,12 @@ namespace granary {
         instruction &operator=(const instruction &&that) throw();
 
 
+        /// Return the opcode of the instruction.
+        inline unsigned op_code(void) const throw() {
+            return instr.opcode;
+        }
+
+
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
             return instr.num_srcs;
@@ -208,15 +218,27 @@ namespace granary {
 
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
-		inline operand get_cti_target(void) throw() {
+		inline operand cti_target(void) throw() {
 		    return dynamorio::instr_get_target(&instr);
 		}
+
+
+		/// If this instruction is a CTI, then set the target of the instruction.
+        inline void set_cti_target(operand target) throw() {
+            return dynamorio::instr_set_target(&instr, target);
+        }
 
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
             return instr.translation;
+        }
+
+
+        /// Set the program counter of the instruction.
+        inline void set_pc(app_pc pc) throw() {
+            instr.translation = pc;
         }
 
 
@@ -259,8 +281,13 @@ namespace granary {
         static instruction decode(app_pc *pc) throw();
 
 
-        /// encodes an instruction into a sequence of bytes
+        /// Encodes an instruction into a sequence of bytes.
         app_pc encode(app_pc pc) throw();
+
+
+        /// Encodes an instruction into a sequence of bytes, but where the staging
+        /// ground is not necessarily the instruction's final location.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
 
 
         /// Slightly evil convenience method for implicitly converting instructions
@@ -353,6 +380,12 @@ namespace granary {
 
         /// encodes an instruction list into a sequence of bytes
         app_pc encode(app_pc pc) throw();
+
+        /// Performs a staged encoding of an instruction list into a sequence
+        /// of bytes.
+        ///
+        /// Note: This will not do any fancy jump resolution, alignment, etc.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
     };
 
 

@@ -10,9 +10,9 @@
 
 namespace granary { namespace detail {
 
-    void *(*__vmalloc_exec)(unsigned long size);
-    void *(*__vmalloc)(unsigned long size);
-
+    void *(*__vmalloc_exec)(unsigned long);
+    void *(*__vmalloc)(unsigned long);
+    void (*__vfree)(void *);
 
     void *global_allocate_executable(unsigned long size) throw() {
         return __vmalloc_exec(size);
@@ -20,7 +20,13 @@ namespace granary { namespace detail {
 
 
     void *global_allocate(unsigned long size) throw() {
-        return __vmalloc(size);
+        void * mem(__vmalloc(size));
+        memset(mem, 0, size);
+        return mem;
+    }
+
+    void global_free(void *addr) throw() {
+        return __vfree(addr);
     }
 
 }}
@@ -30,7 +36,7 @@ extern "C" {
 
     void *(**kernel_vmalloc_exec)(unsigned long) = &(granary::detail::__vmalloc_exec);
     void *(**kernel_vmalloc)(unsigned long) = &(granary::detail::__vmalloc);
-
+    void (**kernel_vfree)(void *) = &(granary::detail::__vfree);
 
     void *heap_alloc(void *, unsigned long long size) {
         granary::cpu_state_handle cpu;

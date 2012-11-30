@@ -8,20 +8,21 @@
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
-
-#include "clients/instrument.h"
+#include "granary/policy.h"
 
 #include <algorithm>
 #include <cstring>
 #include <new>
 
+
 namespace granary {
 
 
     /// Forward declarations
-    void mangle(cpu_state_handle &cpu,
-                thread_state_handle &thread,
-                instruction_list &ls) throw();
+    void mangle(instrumentation_policy &policy,
+                 cpu_state_handle &cpu,
+                 thread_state_handle &thread,
+                 instruction_list &ls) throw();
 
 
     enum {
@@ -47,8 +48,13 @@ namespace granary {
         STATE_SIZE_ = sizeof(basic_block_state),
         STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, 16),
 
-        // an estimation of the number of bytes in a direct branch slot
-        BRANCH_SLOT_SIZE_ESTIMATE = 32
+        /// an estimation of the number of bytes in a direct branch slot; each
+        /// slot only requires 10 bytes, but we add 4 extra for any needed
+        /// padding.
+        BRANCH_SLOT_SIZE_ESTIMATE = 14,
+
+        /// Size of a far jmp.
+        CONNECTING_JMP_SIZE = 5
     };
 
 
@@ -90,7 +96,9 @@ namespace granary {
 
 
     /// Get the state of all bytes of an instruction.
-    static code_cache_byte_state get_instruction_state(const instruction in) throw() {
+    static code_cache_byte_state
+    get_instruction_state(const instruction in) throw() {
+
         if(nullptr != in.pc()) {
             return code_cache_byte_state::BB_BYTE_NATIVE;
 
@@ -108,8 +116,8 @@ namespace granary {
 
     /// Set the state of a pair of bits in memory.
     static unsigned initialize_state_bytes(basic_block_info *info,
-                                           instruction_list &ls,
-                                           app_pc pc) throw() {
+                                              instruction_list &ls,
+                                              app_pc pc) throw() {
 
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
@@ -266,9 +274,8 @@ namespace granary {
         return size;
     }
 
-#define LOOK_FOR_BACK_EDGE 0
 
-#if LOOK_FOR_BACK_EDGE
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
     /// Get a handle for an instruction in the instruction list.
     static instruction_list_handle
     find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
@@ -298,16 +305,20 @@ namespace granary {
 
 
     /// Build an array of in-block branches and attempt to resolve their
-    /// targets to local instructions
+    /// targets to local instructions. The net effect is to turn CTIs with pc
+    /// targets into instructions with instr targets (so long as one of the
+    /// instructions in the block has a pc that is targets by one of the CTIs).
     void resolve_local_branches(cpu_state_handle &cpu,
-                                instruction_list &ls) throw() {
+                                   instruction_list &ls) throw() {
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
+
         instruction_list_handle in(ls.first());
         const unsigned max(ls.length());
 
-        // find the number of targets
+        // find the number of pc targets
         unsigned num_direct_branches(0);
         for(unsigned i(0); i < max; ++i) {
-            if(in->is_cti() && dynamorio::opnd_is_pc(in->get_cti_target())) {
+            if(in->is_cti() && dynamorio::opnd_is_pc(in->cti_target())) {
                 ++num_direct_branches;
             }
             in = in.next();
@@ -324,7 +335,7 @@ namespace granary {
         in = ls.first();
         for(unsigned i(0), j(0); i < max; ++i) {
             if(in->is_cti()) {
-                operand target(in->get_cti_target());
+                operand target(in->cti_target());
                 if(dynamorio::opnd_is_pc(target)) {
                     branch_targets[j].target = target;
                     branch_targets[j].source = in;
@@ -334,7 +345,7 @@ namespace granary {
             in = in.next();
         }
 
-        // sort targets
+        // sort targets by their destination (target pc)
         std::sort(branch_targets, branch_targets + num_direct_branches);
 
         // re-target the instructions
@@ -346,58 +357,112 @@ namespace granary {
             }
             in = in.next();
         }
+#else
+       (void) cpu;
+       (void) ls;
+#endif
+    }
+
+
+    /// Translate any loop instructions into a 3-instruction form, and return
+    /// the number of loop instructions found. This is done here instead of
+    /// at mangle time so that we can potentially benefit from `resolve_local_
+    /// branches`.
+    ///
+    /// This turns an instruction like `jecxz <foo>` or `loop <foo>` into:
+    ///         jmp <try_loop>
+    /// do_loop:jmp <foo>
+    ///         loop <do_loop>
+    static unsigned translate_loops(instruction_list &ls) throw() {
+
+        instruction_list_handle in(ls.first());
+        const unsigned max(ls.length());
+        unsigned num_loops(0);
+
+        for(unsigned i(0); i < max; ++i) {
+            if(dynamorio::instr_is_cti_loop(*in)) {
+                ++num_loops;
+
+                operand target(in->cti_target());
+                instruction_list_handle in_first(ls.insert_before(in,
+                    jmp_(instr_(*in))));
+                instruction_list_handle in_second(ls.insert_before(in,
+                    jmp_(target)));
+
+                in_first->set_pc(in->pc());
+                in->set_cti_target(instr_(*in_second));
+                in->set_pc(nullptr);
+                in->set_mangled();
+            }
+
+            in = in.next();
+        }
+
+        return num_loops;
     }
 
 
     /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(cpu_state_handle &cpu,
-                                       thread_state_handle &thread,
-                                       app_pc *pc) throw() {
+    basic_block basic_block::translate(instrumentation_policy &policy,
+                                          cpu_state_handle &cpu,
+                                          thread_state_handle &thread,
+                                          app_pc *pc) throw() {
         const app_pc start_pc(*pc);
         unsigned staged_size(0);
         uint8_t *generated_pc(nullptr);
         uint8_t *prev_generated_pc(nullptr);
         instruction_list ls;
         unsigned num_direct_branches(0);
-
-        cpu->transient_allocator.free_all();
+        bool fall_through_pc(false);
 
         for(;;) {
             instruction in(instruction::decode(pc));
             if(in.is_cti()) {
 
+                operand target(in.cti_target());
+
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
+                // direct branch (e.g. un/conditional branch, jmp, call)
+                if(dynamorio::opnd_is_pc(target)) {
+                    app_pc target_pc(dynamorio::opnd_get_pc(target));
+
+                    // if it is local back edge then keep control within the
+                    // same basic block.
+                    if(start_pc <= target_pc && target_pc < *pc) {
+                        instruction_list_handle prev_in(
+                            find_local_back_edge_target(ls, target_pc));
+
+                        if(prev_in.is_valid()) {
+                            target = instr_(*prev_in);
+                            in.set_cti_target(target);
+                        }
+                    }
+                }
+#endif
+
                 instruction_list_handle added_in(ls.append(in));
 
                 // used to estimate how many direct branch slots we'll
                 // need to add to the final basic block
-                if(dynamorio::opnd_is_pc(in.get_cti_target())) {
+                if(dynamorio::opnd_is_pc(target)) {
                     ++num_direct_branches;
                     added_in->set_patchable();
                 }
 
-                // it's an unconditional jmp; terminate the basic block
-                if(!dynamorio::instr_is_call(in)
-                && !dynamorio::instr_is_cbr(in)) {
+                // it's an conditional jmp; terminate the basic block
+                // it's a conditional jmp; terminate the basic block, and save
+                // the next pc as a fall-through point.
+                if(!dynamorio::instr_is_call(in)) {
+                    if(dynamorio::instr_is_cbr(in)) {
+#if CONFIG_BB_EXTEND_BBS_PAST_CBRS
+                        continue;
+#else
+                        fall_through_pc = true;
+#endif
+                    }
                     goto try_instrument;
                 }
 
-#if LOOK_FOR_BACK_EDGE
-                // direct branch (e.g. un/conditional branch, jmp, call)
-
-                operand target(in.get_cti_target());
-                app_pc target_pc(dynamorio::opnd_get_pc(target));
-
-                // if it is local back edge then keep control within the
-                // same basic block.
-                if(start_pc <= target_pc && target_pc < *pc) {
-                    instruction_list_handle prev_in(
-                        find_local_back_edge_target(ls, target_pc));
-
-                    if(prev_in.is_valid()) {
-                        dynamorio::instr_set_target(in, instr_(&(*prev_in)));
-                    }
-                }
-#endif
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in->opcode) {
                 ls.append(in);
@@ -423,6 +488,10 @@ namespace granary {
             if(!staged_size) {
                 staged_size = basic_block::size(ls) \
                             + num_direct_branches * BRANCH_SLOT_SIZE_ESTIMATE;
+
+                if(fall_through_pc) {
+                    staged_size += CONNECTING_JMP_SIZE;
+                }
             }
 
             prev_generated_pc = cpu->fragment_allocator.\
@@ -432,16 +501,26 @@ namespace granary {
             basic_block_state *block_storage(
                 new (prev_generated_pc) basic_block_state);
 
-            client::instrument(
+            policy.instrument(
                 cpu,
                 thread,
                 block_storage,
                 ls);
 
+            // add in a trailing jump if the last instruction in the basic
+            // block is a conditional branch.
+            if(fall_through_pc) {
+                instruction connecting_jmp(jmp_(pc_(*pc)));
+                connecting_jmp.set_mangled();
+                ls.append(connecting_jmp);
+            }
+
+            num_direct_branches += translate_loops(ls);
             if(num_direct_branches) {
                 resolve_local_branches(cpu, ls);
             }
-            mangle(cpu, thread, ls);
+
+            mangle(policy, cpu, thread, ls);
 
             // re-calculate the size and re-allocate; if our earlier
             // guess was too small then we need to re-instrument the
@@ -455,7 +534,6 @@ namespace granary {
             if(prev_generated_pc != generated_pc) {
                 *pc = start_pc;
                 ls.clear_for_reuse();
-                cpu->transient_allocator.free_all();
                 continue;
             }
 

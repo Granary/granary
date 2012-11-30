@@ -51,7 +51,7 @@ namespace granary {
     template <typename T>
     struct cache_aligned
         : public detail::cache_aligned_impl<T, sizeof(T) % CACHE_LINE_SIZE>
-    { } __attribute__((aligned (CACHE_LINE_SIZE)));
+    { } __attribute__((aligned (CONFIG_MIN_CACHE_LINE_SIZE)));
 
 
 

@@ -40,7 +40,40 @@ namespace granary {
 
         /// Allocate some non-executable memory.
         void *global_allocate(unsigned long size) throw();
+
+
+        /// Free some globally allocated memory.
+        void global_free(void *addr) throw();
     }
+
+}
+
+
+/// Overload operator new for global heap allocation.
+inline void *operator new(size_t size) throw() {
+    return granary::detail::global_allocate(size);
+}
+
+
+/// Overload operator new for global heap allocation.
+inline void *operator new[](size_t size) throw() {
+    return granary::detail::global_allocate(size);
+}
+
+
+/// Overload operator delete for global heap freeing.
+inline void operator delete(void *addr) throw() {
+    granary::detail::global_free(addr);
+}
+
+
+/// Overload operator delete for global heap freeing.
+inline void operator delete[](void *addr) throw() {
+    granary::detail::global_free(addr);
+}
+
+
+namespace granary {
 
 
     /// Defines a generic bump pointer allocator. The allocator is configured
@@ -119,7 +152,7 @@ namespace granary {
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
-            while(!lock.exchange(true)) { }
+            while(lock.exchange(true)) { }
         }
 
 
@@ -131,19 +164,15 @@ namespace granary {
 
         /// Allocate a slab and a corresponding memory arena.
         void allocate_slab(void) throw() {
+            slab *next_slab(free);
 
             // take from the free list
-            if(free) {
-                slab *next_slab(free);
+            if(next_slab) {
                 free = next_slab->next;
-
-                next_slab->next = curr;
-                curr = next_slab;
 
             // allocate a new slab and a new arena for the memory
             } else {
-                slab *next_slab(new (detail::global_allocate(sizeof(slab))) slab);
-                next_slab->next = curr;
+                next_slab = new (detail::global_allocate(sizeof(slab))) slab;
 
                 if(IS_EXECUTABLE) {
                     next_slab->data_ptr = unsafe_cast<uint8_t *>(
@@ -152,24 +181,24 @@ namespace granary {
                     next_slab->data_ptr = unsafe_cast<uint8_t *>(
                         detail::global_allocate(SLAB_SIZE));
                 }
-
-                curr = next_slab;
             }
 
+            next_slab->next = curr;
+            curr = next_slab;
             curr->bump_ptr = curr->data_ptr;
             curr->remaining = SLAB_SIZE;
         }
 
 
         /// Allocate `size` bytes of memory with alignment `align`.
-        uint8_t *allocate(const unsigned align, const unsigned size) throw() {
+        uint8_t *allocate_bare(const unsigned align, const unsigned size) throw() {
 
             last_allocation_size = size;
 
             if(nullptr == curr || curr->remaining < size) {
                 allocate_slab();
             } else {
-                uint64_t next_address(reinterpret_cast<uint64_t>(curr->next));
+                uint64_t next_address(reinterpret_cast<uint64_t>(curr->bump_ptr));
                 unsigned align_offset(ALIGN_TO(next_address, align));
                 unsigned aligned_size(size + align_offset);
 
@@ -185,7 +214,6 @@ namespace granary {
 
             curr->bump_ptr += size;
             curr->remaining -= last_allocation_size;
-
 
             return bumped_ptr;
         }
@@ -208,31 +236,24 @@ namespace granary {
 
         void *allocate_untyped(unsigned align, unsigned num_bytes) throw() {
             acquire();
-            uint8_t *arena(allocate(align, num_bytes));
-            memset(arena, 0, num_bytes);
+            uint8_t *arena(allocate_bare(align, num_bytes));
             release();
+            memset(arena, 0, num_bytes);
             return arena;
         }
 
         template <typename T>
         T *allocate_array(unsigned length) throw() {
-            acquire();
-            uint8_t *arena(allocate(alignof(T), sizeof(T) * length));
-
-            // if the type has a trivial constructor then just clear memory
-            // and hope for the best :-D
-            if(std::is_trivial<T>::value) {
-                memset(arena, 0, sizeof(T) * length);
+            uint8_t *arena(allocate_bare(alignof(T), sizeof(T) * length));
 
             // initialize each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.
-            } else {
+            if(!std::is_trivial<T>::value) {
                 T *ptr(unsafe_cast<T *>(arena));
                 for(const T *last_ptr(ptr + length); ptr < last_ptr; ++ptr) {
                     new (ptr) T;
                 }
             }
-            release();
             return unsafe_cast<T *>(arena);
         }
 

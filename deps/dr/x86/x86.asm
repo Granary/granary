@@ -64,9 +64,8 @@
  * Naturally the ARG* macros are only valid at function entry.
  */
 
-#include "x86/asm_defines.asm"
+#include "granary/x86/asm_defines.asm"
 
-.intel_syntax noprefix;
 START_FILE
 
 /* uint atomic_swap(uint *addr, uint value)
@@ -75,9 +74,9 @@ START_FILE
  */
         DECLARE_FUNC(atomic_swap)
 GLOBAL_LABEL(atomic_swap:)
-        mov      REG_XAX, ARG2
-        mov      REG_XCX, ARG1 /* nop on win64 (ditto for linux64 if used rdi) */
-        xchg     [REG_XCX], eax
+        mov      %ARG2, %REG_XAX
+        mov      %ARG1, %REG_XCX /* nop on win64 (ditto for linux64 if used rdi) */
+        xchg     %eax, (%REG_XCX)
         ret
         END_FUNC(atomic_swap)
 
@@ -87,17 +86,17 @@ GLOBAL_LABEL(atomic_swap:)
         DECLARE_FUNC(cpuid_supported)
 GLOBAL_LABEL(cpuid_supported:)
         PUSHF
-        pop      REG_XAX
-        mov      ecx, eax      /* original eflags in ecx */
-        xor      eax, HEX(200000) /* try to modify bit 21 of eflags */
-        push     REG_XAX
+        pop      %REG_XAX
+        mov      %eax, %ecx      /* original eflags in ecx */
+        xor      HEX(200000), %eax /* try to modify bit 21 of eflags */
+        push     %REG_XAX
         POPF
         PUSHF
-        pop      REG_XAX
-        cmp      ecx, eax
-        mov      eax, 0        /* zero out top bytes */
-        setne    al
-        push     REG_XCX         /* now restore original eflags */
+        pop      %REG_XAX
+        cmp      %eax, %ecx
+        mov      $0, %eax        /* zero out top bytes */
+        setne    %al
+        push     %REG_XCX         /* now restore original eflags */
         POPF
         ret
         END_FUNC(cpuid_supported)
@@ -108,19 +107,19 @@ GLOBAL_LABEL(cpuid_supported:)
  */
         DECLARE_FUNC(our_cpuid)
 GLOBAL_LABEL(our_cpuid:)
-        mov      REG_XDX, ARG1
-        mov      REG_XAX, ARG2
-        push     REG_XBX /* callee-saved */
-        push     REG_XDI /* callee-saved */
+        mov      %ARG1, %REG_XDX
+        mov      %ARG2, %REG_XAX
+        push     %REG_XBX /* callee-saved */
+        push     %REG_XDI /* callee-saved */
         /* not making a call so don't bother w/ 16-byte stack alignment */
-        mov      REG_XDI, REG_XDX
+        mov      %REG_XDX, %REG_XDI
         cpuid
-        mov      [ 0 + REG_XDI], eax
-        mov      [ 4 + REG_XDI], ebx
-        mov      [ 8 + REG_XDI], ecx
-        mov      [12 + REG_XDI], edx
-        pop      REG_XDI /* callee-saved */
-        pop      REG_XBX /* callee-saved */
+        mov      %eax, (%REG_XDI)
+        mov      %ebx, 4(%REG_XDI)
+        mov      %ecx, 8(%REG_XDI)
+        mov      %edx, 12(%REG_XDI)
+        pop      %REG_XDI /* callee-saved */
+        pop      %REG_XBX /* callee-saved */
         ret
         END_FUNC(our_cpuid)
 

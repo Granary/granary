@@ -27,7 +27,7 @@ with open("scripts/static/asm.S") as lines:
       break
 
 # generate the assembly helper macros
-with open("x86/asm_defines.asm", "w") as f:
+with open("granary/x86/asm_defines.asm", "w") as f:
   def W(*args):
     f.write("".join(map(str, args)) + "\n")
 
@@ -58,7 +58,7 @@ with open("x86/asm_defines.asm", "w") as f:
   W('#define DECLARE_FUNC(x) \\\n', align_def, global_def, type_def, " ")
   W('#define GLOBAL_LABEL(x) SYMBOL(x)')
   W('#define END_FUNC(x)')
-  W('#define HEX(v) 0x ## v')
+  W('#define HEX(v) $0x ## v')
   W('#define PUSHF pushf')
   W('#define POPF popf')
   W('#define REG_XAX rax')
