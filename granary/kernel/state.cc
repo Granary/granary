@@ -10,10 +10,6 @@
 
 #include "granary/globals.h"
 
-extern "C" {
-    extern int granary_asm_apic_id(void);
-}
-
 namespace granary {
 
     namespace {

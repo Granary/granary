@@ -10,7 +10,7 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
-#define FAULT (break_before_fault(), ((*((int *) 0)) = 0))
+#define FAULT (granary_break_on_fault(), ((*((volatile int *) 0)) = 0))
 #define IF_GRANARY(x) x
 #define IF_NOT_GRANARY(x)
 #define LINUX 1
@@ -336,16 +336,16 @@ extern "C" {
 #define HEAP_TYPE_FREE(dc, p, type, which, protected) \
     HEAP_ARRAY_FREE(dc, p, type, 1, which, protected)
 
-#include "dr/types.h"
-#include "dr/x86/proc.h"
-#include "dr/link.h"
-#include "dr/instrlist.h"
+#include "deps/dr/types.h"
+#include "deps/dr/x86/proc.h"
+#include "deps/dr/link.h"
+#include "deps/dr/instrlist.h"
 
 extern void *heap_alloc(void *, unsigned long long);
 extern void heap_free(void *, void *, unsigned long long);
 extern dcontext_t *get_thread_private_dcontext(void);
 
-extern void break_before_fault(void);
+extern void granary_break_on_fault(void);
 
 #ifdef __cplusplus
 }

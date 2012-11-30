@@ -39,7 +39,7 @@
  * proc.c - processor-specific routines
  */
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 #include "proc.h"
 #include "instr.h" /* for dr_insert_{save,restore}_fpstate */
 #include "instrument.h" /* for dr_insert_{save,restore}_fpstate */

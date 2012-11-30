@@ -12,6 +12,8 @@
 #include <bitset>
 
 #include "granary/globals.h"
+#include "granary/hash_table.h"
+
 #include "clients/state.h"
 
 namespace granary {
@@ -21,6 +23,12 @@ namespace granary {
     struct cpu_state;
     struct basic_block_state;
     struct basic_block;
+    struct cpu_state_handle;
+    struct thread_state_handle;
+
+
+    /// Notify that we're entering granary.
+    void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw();
 
 
     /// A handle on thread state. Implemented differently in the kernel and in
@@ -39,56 +47,12 @@ namespace granary {
     };
 
 
-    /// Direct branch lookup slot. When translating application
-    /// code for storage in the code cache, we don't want to
-    /// eagerly translate all directly referenced code because that
-    /// might get in the way of micro-optimisations like keeping
-    /// tight loops within the same block, etc., as well as
-    /// introduce overhead/deep stacks if there are long direct
-    /// call/jmp chains.
-    ///
-    /// The solution to this problem is to have a fixed number of
-    /// slots within which each encountered direct address can be
-    /// stored.
-    ///
-    /// When translating a block, if we encounter a jmp <addr>, then
-    /// we find an empty slot N, put <addr> into the slot, and emit
-    /// a mangled jmp <read_slot_N>.
-    struct direct_branch_slot {
-
-        /// The native address of where a direct branch targets
-        app_pc target_pc;
-
-        /// The address of the instruction in the code cache.
-        /// This instruction is patched once the target_pc is
-        /// translated.
-        app_pc patch_pc;
-
-        /// True if decoding the next block should change the
-        /// interrupt state.
-        bool change_interrupt_state;
-        bool new_interrupt_state;
-
-    };
-
-
-
     /// Information maintained by granary about each thread.
     struct thread_state : public client::thread_state {
     private:
 
         friend struct basic_block;
 
-        /// branch lookup slots
-        unsigned generation_number;
-        unsigned used_slots[NUM_DIRECT_BRANCH_SLOTS];
-        direct_branch_slot direct_branch_slots[NUM_DIRECT_BRANCH_SLOTS];
-
-
-        /// Find the next free branch lookup slot.
-        void add_direct_branch_generation(void) throw();
-        void clear_direct_branch_generation(void) throw();
-        direct_branch_slot *add_direct_branch(void) throw();
     };
 
 
@@ -121,14 +85,7 @@ namespace granary {
     };
 #endif
 
-
-    /// Information maintained by granary about each CPU.
-    ///
-    /// Note: when in kernel space, we assume that this state
-    /// 	  is only accessed with interrupts disabled.
-    struct cpu_state : public client::cpu_state {
-    private:
-
+    namespace detail {
         struct fragment_allocator_config {
             enum {
                 SLAB_SIZE = 4 * PAGE_SIZE,
@@ -146,11 +103,21 @@ namespace granary {
                 SHARED = false
             };
         };
+    }
 
+
+    /// Information maintained by granary about each CPU.
+    ///
+    /// Note: when in kernel space, we assume that this state
+    /// 	  is only accessed with interrupts disabled.
+    struct cpu_state : public client::cpu_state {
     public:
 
-        bump_pointer_allocator<fragment_allocator_config> fragment_allocator;
-        bump_pointer_allocator<transient_allocator_config> transient_allocator;
+        bump_pointer_allocator<detail::fragment_allocator_config>
+            fragment_allocator;
+
+        bump_pointer_allocator<detail::transient_allocator_config>
+            transient_allocator;
 
         bool interrupts_enabled;
     };
@@ -176,6 +143,15 @@ namespace granary {
                 ? (sizeof(basic_block_state) + ALIGN_TO(sizeof(basic_block_state), 16))
                 : 0U;
         }
+    };
+
+
+    /// Global state.
+    struct global_state {
+    public:
+
+        static bump_pointer_allocator<detail::fragment_allocator_config>
+            fragment_allocator;
     };
 }
 

@@ -40,7 +40,7 @@
 #ifndef _INSTR_H_
 #define _INSTR_H_ 1
 
-#include "dr/types.h"
+#include "deps/dr/types.h"
 
 #ifdef WINDOWS
 /* disabled warning for

@@ -33,7 +33,7 @@
 #ifndef _INSTR_INLINE_H_
 #define _INSTR_INLINE_H_ 1
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 /* DR_API EXPORT BEGIN */
@@ -62,7 +62,7 @@
 #ifdef CLIENT_ASSERT
 #   undef CLIENT_ASSERT
 #endif
-#define CLIENT_ASSERT(cond, msg) { if(!(cond)) { break_before_fault(); FAULT; } }
+#define CLIENT_ASSERT(cond, msg) { if(!(cond)) { granary_break_on_fault(); FAULT; } }
 #ifdef IF_DEBUG
 #   undef IF_DEBUG
 #endif
@@ -105,7 +105,7 @@
 #define opnd_is_mem_instr       OPND_IS_MEM_INSTR
 #define opnd_is_valid           OPND_IS_VALID
 
-extern void break_before_fault(void);
+extern void granary_break_on_fault(void);
 
 /* Compound predicates */
 INSTR_INLINE
@@ -186,6 +186,7 @@ opnd_create_reg(reg_id_t r)
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
     opnd.value.reg = r;
+    IF_GRANARY( opnd.size = reg_get_size(r); )
     return opnd;
 }
 

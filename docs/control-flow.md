@@ -79,6 +79,26 @@ this is true.
 This is implemented by emitting the direct branch lookup stubs immediately
 following the last instruction of the basic block.
 
+#### Corner Cases
+Translating direct jumps can be challenging because short direct jumps are
+limited by the bit width of their target offset. That is, a short jump might
+bring control flow 20 bytes forward in the instruction stream in the native
+code, but in the instrumented code, that might be 2000 bytes forward.
+
+For conditional branches (`j*` instructions) this is less of an issue because
+each of these instructions has a near and far version. As a result, near
+versions are always converted to far versions.
+
+For conditional branches like `jecxz` or `loop`, this issue is challenging
+because each of these instructions only has a near version. Similary to DynamoRIO,
+this is handled by translating `jecxz <foo>` into:
+
+```asm
+            jmp <test>
+if_zero:    jmp <foo>
+test:       jecxz <if_zero>
+```
+
 ### 2. Execution 
 When executed, the direct branch will jump the the associated instruction 
 stub, which contains enough information for the direct branch handler

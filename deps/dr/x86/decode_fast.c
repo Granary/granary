@@ -37,9 +37,9 @@
 
 /* decode_fast.c -- a partial but fast x86 decoder */
 
-#include "dr/globals.h"
+#include "deps/dr/globals.h"
 #include "decode_fast.h"
-#include "dr/link.h"
+#include "deps/dr/link.h"
 #include "arch.h"
 #include "instr.h"
 #include "instr_create.h"

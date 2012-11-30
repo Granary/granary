@@ -246,7 +246,7 @@ namespace granary {
 
     private:
 
-        template <typename> friend class list;
+        template <typename> friend struct list;
 
         T val;
 
@@ -285,7 +285,7 @@ namespace granary {
 
     private:
 
-        template <typename> friend class list;
+        template <typename> friend struct list;
 
         list_item_with_links<T> val;
 
@@ -497,9 +497,9 @@ namespace granary {
         }
 
         /// Return the last element in the list.
-        inline item_type last(void) const throw() {
+        inline handle_type last(void) const throw() {
             if(!last_) {
-                return item_type();
+                return handle_type();
             }
 
             return handle_type(last_);
@@ -567,7 +567,7 @@ namespace granary {
 
         /// Insert an element before another object in the list.
         handle_type insert_before(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_) {
+            if(1 >= length_ || nullptr == at_pos) {
                 return prepend(item);
             }
 
@@ -604,7 +604,7 @@ namespace granary {
 
         /// Insert an element after another object in the list
         handle_type insert_after(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_) {
+            if(1 >= length_ || nullptr == at_pos) {
                 return append(item);
             }
 

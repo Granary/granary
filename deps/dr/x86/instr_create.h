@@ -65,7 +65,7 @@
 #include "dr_ir_utils.h"
 #endif
 
-#include "dr/x86/decode.h"
+#include "deps/dr/x86/decode.h"
 
 extern bool get_x86_mode(dcontext_t *);
 
