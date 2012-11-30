@@ -50,25 +50,25 @@ namespace granary {
 
 
 /// Overload operator new for global heap allocation.
-inline void *operator new(size_t size) {
+inline void *operator new(size_t size) throw() {
     return granary::detail::global_allocate(size);
 }
 
 
 /// Overload operator new for global heap allocation.
-inline void *operator new[](size_t size) {
+inline void *operator new[](size_t size) throw() {
     return granary::detail::global_allocate(size);
 }
 
 
 /// Overload operator delete for global heap freeing.
-inline void operator delete(void *addr) {
+inline void operator delete(void *addr) throw() {
     granary::detail::global_free(addr);
 }
 
 
 /// Overload operator delete for global heap freeing.
-inline void operator delete[](void *addr) {
+inline void operator delete[](void *addr) throw() {
     granary::detail::global_free(addr);
 }
 

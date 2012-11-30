@@ -23,16 +23,35 @@ GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions
 GR_CXX_FLAGS += -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
+
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
+	
+	# Enable address sanitizer on Granary?
+	GR_ASAN ?= 0
+
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
 	GR_CXX_FLAGS += -Wno-gnu
 	GR_CXX_STD = -std=c++0x
+	
+    ifeq ('0','$(GR_ASAN)')
+    	GR_CC_FLAGS += -fno-sanitize=address
+    	GR_CXX_FLAGS += -fno-sanitize=address
+	else
+		GR_CC_FLAGS += -fsanitize=address
+		GR_CXX_FLAGS += -fsanitize=address
+    endif
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
 	GR_CC_FLAGS += 
+	GR_CXX_FLAGS +=
+endif
+
+ifneq (,$(findstring icc,$(GR_CC))) # icc
+	GR_CC_FLAGS += -diag-disable 188 -diag-disable 186 
 	GR_CXX_FLAGS += 
+	GR_CXX_STD = -std=c++11
 endif
 
 GR_CXX_FLAGS += $(GR_CXX_STD)
@@ -50,6 +69,9 @@ GR_OBJS += bin/deps/dr/x86/mangle.o
 GR_OBJS += bin/deps/dr/x86/proc.o
 GR_OBJS += bin/deps/dr/x86/instrument.o
 GR_OBJS += bin/deps/dr/x86/x86.o
+
+# MurmurHash3 dependencies
+GR_OBJS += bin/deps/murmurhash/murmurhash.o
 
 # Granary (C++) dependencies
 GR_OBJS += bin/granary/instruction.o
@@ -89,7 +111,7 @@ ifneq ($(KERNEL),1)
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CC) $(GR_CC_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
+	GR_MAKE += $(GR_CXX) $(GR_CXX_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
@@ -120,6 +142,10 @@ else
 	define GR_COMPILE_ASM
 endef
 endif
+
+# MumurHash3 rules for C++ files
+bin/deps/murmurhash/%.o: deps/murmurhash/%.cc
+	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/murmurhash/$*.$(GR_OUTPUT_FORMAT)
 
 # DynamoRIO rules for C files
 bin/deps/dr/%.o: deps/dr/%.c
@@ -170,6 +196,7 @@ install:
 	-mkdir bin/deps
 	-mkdir bin/deps/dr
 	-mkdir bin/deps/dr/x86
+	-mkdir bin/deps/murmurhash
 	
 	# convert DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
 	# instruction-building functions
@@ -191,6 +218,7 @@ clean:
 	touch bin/_.$(GR_OUTPUT_FORMAT)
 	touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
 	touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
+	touch bin/deps/murmurhash/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
 	touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
@@ -202,6 +230,7 @@ clean:
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/deps/murmurhash/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)

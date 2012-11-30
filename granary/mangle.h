@@ -108,7 +108,9 @@ namespace granary {
             reinterpret_cast<app_pc>(patch_address));
 
         // apply the patch
-        *reinterpret_cast<uint64_t *>(patch_address) = staged_code_;
+        granary_atomic_write8(
+            staged_code_,
+            reinterpret_cast<uint64_t *>(patch_address));
     }
 }
 

@@ -152,7 +152,9 @@ namespace granary {
         operand target(in->cti_target());
 
         if(dynamorio::opnd_is_pc(target)) {
-            add_direct_branch_stub(ls, in, target);
+            if(!find_detach_target(target.value.pc)) {
+                add_direct_branch_stub(ls, in, target);
+            }
         }
     }
 
@@ -207,15 +209,9 @@ namespace granary {
             if(in->is_cti()) {
 
                 if(dynamorio::instr_is_call(*in)) {
-                    if(can_skip) {
-                        continue;
-                    }
                     mangle_call(ls, in);
 
                 } else if(dynamorio::instr_is_return(*in)) {
-                    if(can_skip) {
-                        continue;
-                    }
                     mangle_return(ls, in);
 
                 // JMP, Jcc

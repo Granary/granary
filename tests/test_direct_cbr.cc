@@ -7,6 +7,11 @@
 #include "granary/x86/asm_defines.asm"
 
 
+#define TEST_CBR 1
+#define TEST_JECXZ 1
+#define TEST_LOOP 1
+
+
 /// For each jump type, expand some macro with enough info to generate test
 /// code.
 ///
@@ -143,13 +148,7 @@
     }
 
 
-static void break_on_bb(granary::basic_block *bb) {
-    (void) bb;
-}
-
-
 namespace test {
-
 
     enum {
         CF      = (1 << 0), // carry
@@ -161,6 +160,8 @@ namespace test {
         OF      = (1 << 11) // overflow
     };
     
+#if TEST_CBR
+
 
     FOR_EACH_CBR(MAKE_CBR_TEST_FUNC)
 
@@ -169,7 +170,6 @@ namespace test {
         granary::cpu_state_handle cpu;
         granary::thread_state_handle thread;
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
-            break_on_bb(&bb_short_true);
             ASSERT(bb_short_true.call<bool>());
             ASSERT(bb_short_false.call<bool>());
             ASSERT(bb_long_true.call<bool>());
@@ -181,6 +181,9 @@ namespace test {
     ADD_TEST(direct_cbrs_patched_correctly,
         "Test that targets of direct conditional branches are correctly patched.")
 
+#endif
+
+#if TEST_JECXZ
 
     static bool direct_jecxz_short_true(void) {
         ASM(
@@ -237,6 +240,9 @@ namespace test {
     ADD_TEST(direct_jexcz_patched_correctly,
         "Test that targets of direct jecxz branches are correctly patched.")
 
+#endif
+
+#if TEST_LOOP
 
     static int direct_loop_return_5(void) {
         ASM(
@@ -262,12 +268,11 @@ namespace test {
         granary::basic_block bb_loop_short_5(granary::basic_block::translate(
             cpu, thread, &loop_short_5));
 
-        break_on_bb(&bb_loop_short_5);
-
         ASSERT(5 == bb_loop_short_5.call<int>());
     }
 
 
     ADD_TEST(direct_loop_patched_correctly,
         "Test that targets of direct loop and loopcc branches are correctly patched.")
+#endif
 }

@@ -15,29 +15,54 @@
 #include "granary/types/dynamorio.h"
 #include "granary/pp.h"
 
+
+/// Set to 1 iff jumps that keep control within the same basic block should be
+/// patched to jump directly back into the same basic block instead of being
+/// turned into slot-based direct jump lookups.
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
+
+
+/// Set to 1 iff basic blocks should contain the instructions immediately
+/// following a conditional branch. If enabled, basic blocks will be bigger.
+#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 0
+
+
+/// Upper bound on the number of processor cores.
+#ifndef CONFIG_MAX_NUM_CPUS
+#   define CONFIG_MAX_NUM_CPUS 8
+#endif
+
+
+/// Lower bound on the cache line size.
+#ifndef CONFIG_MIN_CACHE_LINE_SIZE
+#   define CONFIG_MIN_CACHE_LINE_SIZE 64
+#endif
+
+
+/// Exact size of memory pages.
+#ifndef CONFIG_MEMORY_PAGE_SIZE
+#   define CONFIG_MEMORY_PAGE_SIZE 4096
+#endif
+
+
 namespace granary {
 
     /// Program counter type.
-    typedef typename dynamorio::app_pc app_pc;
+    typedef dynamorio::app_pc app_pc;
 
 
     enum {
 
-        /// Size in bytes of each memory page
-        PAGE_SIZE = 4096U,
+        /// Size in bytes of each memory page.
+        PAGE_SIZE = CONFIG_MEMORY_PAGE_SIZE,
 
 
-        /// some non-zero positive multiple of the cache line size;
-        /// used to pad some st
-        CACHE_LINE_SIZE = 64U,
+        /// Some non-zero positive multiple of the cache line size.
+        CACHE_LINE_SIZE = CONFIG_MIN_CACHE_LINE_SIZE,
 
 
-        /// number of processor cores
-        NUM_CPUS = 8,
-
-
-        /// Number of per-thread direct branch lookup slots to use.
-        NUM_DIRECT_BRANCH_SLOTS = 16ULL
+        /// number of processor cores.
+        NUM_CPUS = CONFIG_MAX_NUM_CPUS
     };
 
     enum {

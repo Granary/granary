@@ -15,8 +15,6 @@
 #include <cstring>
 #include <new>
 
-#define LOOK_FOR_BACK_EDGE 1
-#define BIG_BASIC_BLOCKS 0
 
 namespace granary {
 
@@ -275,7 +273,7 @@ namespace granary {
     }
 
 
-#if LOOK_FOR_BACK_EDGE
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
     /// Get a handle for an instruction in the instruction list.
     static instruction_list_handle
     find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
@@ -305,9 +303,12 @@ namespace granary {
 
 
     /// Build an array of in-block branches and attempt to resolve their
-    /// targets to local instructions
+    /// targets to local instructions. The net effect is to turn CTIs with pc
+    /// targets into instructions with instr targets (so long as one of the
+    /// instructions in the block has a pc that is targets by one of the CTIs).
     void resolve_local_branches(cpu_state_handle &cpu,
                                    instruction_list &ls) throw() {
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
         instruction_list_handle in(ls.first());
         const unsigned max(ls.length());
@@ -354,6 +355,10 @@ namespace granary {
             }
             in = in.next();
         }
+#else
+       (void) cpu;
+       (void) ls;
+#endif
     }
 
 
@@ -382,7 +387,7 @@ namespace granary {
                 instruction_list_handle in_second(ls.insert_before(in,
                     jmp_(target)));
 
-                in_second->set_pc(in->pc());
+                in_first->set_pc(in->pc());
                 in->set_cti_target(instr_(*in_second));
                 in->set_pc(nullptr);
                 in->set_mangled();
@@ -413,7 +418,7 @@ namespace granary {
 
                 operand target(in.cti_target());
 
-#if LOOK_FOR_BACK_EDGE
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
                 // direct branch (e.g. un/conditional branch, jmp, call)
                 if(dynamorio::opnd_is_pc(target)) {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
@@ -446,7 +451,7 @@ namespace granary {
                 // the next pc as a fall-through point.
                 if(!dynamorio::instr_is_call(in)) {
                     if(dynamorio::instr_is_cbr(in)) {
-#if BIG_BASIC_BLOCKS
+#if CONFIG_BB_EXTEND_BBS_PAST_CBRS
                         continue;
 #else
                         fall_through_pc = true;
@@ -503,7 +508,6 @@ namespace granary {
             // block is a conditional branch.
             if(fall_through_pc) {
                 instruction connecting_jmp(jmp_(pc_(*pc)));
-                connecting_jmp.set_pc(nullptr);
                 connecting_jmp.set_mangled();
                 ls.append(connecting_jmp);
             }

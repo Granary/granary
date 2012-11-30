@@ -45,7 +45,7 @@
 #   define IF_USER_(x) , x
 #endif
 
-#define FAULT (granary_break_on_fault(), (*((int *) nullptr) = 0))
+#define FAULT (granary_break_on_fault(), (*((volatile int *) nullptr) = 0))
 #define BARRIER __asm__ __volatile__ ("")
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}

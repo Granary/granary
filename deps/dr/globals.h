@@ -10,7 +10,7 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
-#define FAULT (granary_break_on_fault(), ((*((int *) 0)) = 0))
+#define FAULT (granary_break_on_fault(), ((*((volatile int *) 0)) = 0))
 #define IF_GRANARY(x) x
 #define IF_NOT_GRANARY(x)
 #define LINUX 1

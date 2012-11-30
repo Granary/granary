@@ -246,7 +246,7 @@ namespace granary {
 
     private:
 
-        template <typename> friend class list;
+        template <typename> friend struct list;
 
         T val;
 
@@ -285,7 +285,7 @@ namespace granary {
 
     private:
 
-        template <typename> friend class list;
+        template <typename> friend struct list;
 
         list_item_with_links<T> val;
 
