@@ -1,15 +1,13 @@
 
 #include "granary/globals.h"
-#include "granary/instruction.h"
-#include "granary/basic_block.h"
-#include "granary/state.h"
-
+#include "granary/code_cache.h"
 #include "granary/x86/asm_defines.asm"
 
 
 #define TEST_CBR 1
 #define TEST_JECXZ 1
 #define TEST_LOOP 1
+
 
 
 /// For each jump type, expand some macro with enough info to generate test
@@ -129,20 +127,16 @@
 #define RUN_CBR_TEST_FUNC(opcode, or_flag, and_flag, code) \
     { \
         granary::app_pc short_cbr_true((granary::app_pc) direct_cti_ ## opcode ## _short_true); \
-        granary::basic_block bb_short_true(granary::basic_block::translate( \
-            cpu, thread, &short_cbr_true)); \
+        granary::basic_block bb_short_true(granary::code_cache<>::find(short_cbr_true)); \
         \
         granary::app_pc short_cbr_false((granary::app_pc) direct_cti_ ## opcode ## _short_false); \
-        granary::basic_block bb_short_false(granary::basic_block::translate( \
-            cpu, thread, &short_cbr_false)); \
+        granary::basic_block bb_short_false(granary::code_cache<>::find(short_cbr_false)); \
         \
         granary::app_pc long_cbr_true((granary::app_pc) direct_cti_ ## opcode ## _long_true); \
-        granary::basic_block bb_long_true(granary::basic_block::translate( \
-            cpu, thread, &long_cbr_true)); \
+        granary::basic_block bb_long_true(granary::code_cache<>::find(long_cbr_true)); \
         \
         granary::app_pc long_cbr_false((granary::app_pc) direct_cti_ ## opcode ## _long_false); \
-        granary::basic_block bb_long_false(granary::basic_block::translate( \
-            cpu, thread, &long_cbr_false)); \
+        granary::basic_block bb_long_false(granary::code_cache<>::find(long_cbr_false)); \
         \
         code \
     }
@@ -167,8 +161,6 @@ namespace test {
 
 
     static void direct_cbrs_patched_correctly(void) {
-        granary::cpu_state_handle cpu;
-        granary::thread_state_handle thread;
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
             ASSERT(bb_short_true.call<bool>());
             ASSERT(bb_short_false.call<bool>());
@@ -221,16 +213,11 @@ namespace test {
 
     /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
     static void direct_jexcz_patched_correctly(void) {
-        granary::cpu_state_handle cpu;
-        granary::thread_state_handle thread;
-
         granary::app_pc jecxz_short_true((granary::app_pc) direct_jecxz_short_true);
-        granary::basic_block bb_jecxz_short_true(granary::basic_block::translate(
-            cpu, thread, &jecxz_short_true));
+        granary::basic_block bb_jecxz_short_true(granary::code_cache<>::find(jecxz_short_true));
 
         granary::app_pc jecxz_short_false((granary::app_pc) direct_jecxz_short_false);
-        granary::basic_block bb_jecxz_short_false(granary::basic_block::translate(
-            cpu, thread, &jecxz_short_false));
+        granary::basic_block bb_jecxz_short_false(granary::code_cache<>::find(jecxz_short_false));
 
         ASSERT(bb_jecxz_short_true.call<bool>());
         ASSERT(bb_jecxz_short_false.call<bool>());
@@ -261,13 +248,8 @@ namespace test {
 
     /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
     static void direct_loop_patched_correctly(void) {
-        granary::cpu_state_handle cpu;
-        granary::thread_state_handle thread;
-
         granary::app_pc loop_short_5((granary::app_pc) direct_loop_return_5);
-        granary::basic_block bb_loop_short_5(granary::basic_block::translate(
-            cpu, thread, &loop_short_5));
-
+        granary::basic_block bb_loop_short_5(granary::code_cache<>::find(loop_short_5));
         ASSERT(5 == bb_loop_short_5.call<int>());
     }
 

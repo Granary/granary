@@ -10,6 +10,7 @@
 #define Granary_PP_H_
 
 
+/// Used to denote entrypoints into Granary.
 #define GRANARY_ENTRYPOINT
 
 
@@ -94,8 +95,13 @@
 #define ALL_REGS(R, R_last) \
     R(rdi, R(rsi, R(rdx, R(rbx, R(rcx, R(rax, R(r8, R(r9, R(r10, R(r11, R(r12, R(r13, R(r14, R_last(r15))))))))))))))
 
+/// unrolling macros for applying something to all argument registers
+#define ALL_ARG_REGS(R, R_last) \
+    R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R_last(r9))))))
 
-#define FOR_EACH_DIRECT_BRANCH(macro, ...) \
+
+
+#define FOR_EACH_DIRECT_JUMP(macro, ...) \
     macro(jo, 3, ##__VA_ARGS__) \
     macro(jno, 4, ##__VA_ARGS__) \
     macro(jb, 3, ##__VA_ARGS__) \
@@ -112,7 +118,6 @@
     macro(jnl, 4, ##__VA_ARGS__) \
     macro(jle, 4, ##__VA_ARGS__) \
     macro(jnle, 5, ##__VA_ARGS__) \
-    macro(call, 5, ##__VA_ARGS__) \
     macro(loop, 5, ##__VA_ARGS__) \
     macro(loopne, 7, ##__VA_ARGS__) \
     macro(loope, 6, ##__VA_ARGS__) \

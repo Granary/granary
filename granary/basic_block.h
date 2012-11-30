@@ -18,6 +18,8 @@ namespace granary {
     struct instruction_list;
     struct cpu_state_handle;
     struct thread_state_handle;
+    struct instrumentation_policy;
+    template <typename> struct code_cache;
 
 
     /// different states of bytes in the code cache.
@@ -55,7 +57,6 @@ namespace granary {
     struct basic_block_info {
     public:
 
-
         /// magic number (sequence of 4 int3 instructions) which signals the
         /// beginning of a bb_meta block.
         uint32_t magic:24;
@@ -86,6 +87,8 @@ namespace granary {
     /// imposed on some bytes in the code cache as a convenience.
     struct basic_block {
     public:
+
+        template <typename> friend struct code_cache;
 
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
@@ -119,11 +122,7 @@ namespace granary {
         /// Compute the size of an existing basic block.
         unsigned size(void) const throw();
 
-        /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(cpu_state_handle &cpu,
-                                     thread_state_handle &thread,
-                                     app_pc *pc) throw();
-
+        /// Call the code within the basic block as if is a function.
         template <typename R, typename... Args>
         R call(Args... args) throw() {
             typedef R (func_type)(Args...);
@@ -131,6 +130,19 @@ namespace granary {
         }
 
     protected:
+
+        typedef void (client_instrumenter)(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state *bb,
+            instruction_list &ls);
+
+        /// Decode and translate a single basic block of application/module code.
+        static basic_block translate(instrumentation_policy &policy,
+                                      cpu_state_handle &cpu,
+                                      thread_state_handle &thread,
+                                      app_pc *pc) throw();
+
 
         /// Emit an instruction list as code into a byte array. This will also
         /// emit the basic block meta information and local storage.

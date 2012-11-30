@@ -9,37 +9,12 @@
 #include "granary/mangle.h"
 #include "granary/state.h"
 #include "granary/detach.h"
-
-
-/// Force an instantiation of a particular template.
-#define INSTANTIATE_DIRECT_JUMP_MANGLER(opcode, size) \
-    template void patch_mangled_direct_cti<opcode ## _>(direct_patch_mcontext *);
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
-    extern void granary_asm_direct_branch_ ## opcode(void);
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
-    case dynamorio::OP_ ## opcode: return granary_asm_direct_branch_ ## opcode;
-
-
-extern "C" {
-    FOR_EACH_DIRECT_BRANCH(DECLARE_DIRECT_JUMP_MANGLER)
-}
+#include "granary/policy.h"
 
 
 namespace granary {
 
 
-    FOR_EACH_DIRECT_BRANCH(INSTANTIATE_DIRECT_JUMP_MANGLER)
-
-
-    typedef void (direct_cti_patch_func)(void);
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
 
@@ -95,22 +70,14 @@ namespace granary {
     }
 
 
-    /// Look up and return the assembly patch (see asm/direct_branch.asm)
-    /// function needed to patch an instruction that originally had opcode as
-    /// `opcode`.
-    static direct_cti_patch_func *
-    get_direct_cti_patch_func(int opcode) throw() {
-        switch(opcode) {
-        FOR_EACH_DIRECT_BRANCH(CASE_DIRECT_JUMP_MANGLER);
-        default: return nullptr;
-        }
-    }
+
 
 
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
-    static void add_direct_branch_stub(instruction_list &ls,
+    static void add_direct_branch_stub(instrumentation_policy &policy,
+                                          instruction_list &ls,
                                           instruction_list_handle in,
                                           operand target) throw() {
 
@@ -125,8 +92,7 @@ namespace granary {
             push_imm_(int32_(to_application_offset(target)))));
 
         instruction_list_handle in_second(ls.append(
-            jmp_(pc_(unsafe_cast<app_pc>(
-                get_direct_cti_patch_func(in->op_code()))))));
+            jmp_(pc_(policy.get_direct_cti_patch_func(in->op_code())))));
 
         *in = call_(instr_(*in_first));
 
@@ -147,45 +113,53 @@ namespace granary {
     }
 
 
-    static void mangle_call(instruction_list &ls,
+    static void mangle_call(instrumentation_policy &policy,
+                             instruction_list &ls,
                              instruction_list_handle in) throw() {
         operand target(in->cti_target());
 
         if(dynamorio::opnd_is_pc(target)) {
             if(!find_detach_target(target.value.pc)) {
-                add_direct_branch_stub(ls, in, target);
+                add_direct_branch_stub(policy, ls, in, target);
             }
         }
     }
 
 
-    static void mangle_return(instruction_list &ls,
+    static void mangle_return(instrumentation_policy &policy,
+                                instruction_list &ls,
                                 instruction_list_handle in) throw() {
+        (void) policy;
         (void) ls;
         (void) in;
     }
 
 
-    static void mangle_jump(instruction_list &ls,
+    static void mangle_jump(instrumentation_policy &policy,
+                             instruction_list &ls,
                              instruction_list_handle in) throw() {
         operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             if(!find_detach_target(target.value.pc)) {
-                add_direct_branch_stub(ls, in, target);
+                add_direct_branch_stub(policy, ls, in, target);
             }
         }
     }
 
 
-    static void mangle_cli(instruction_list &ls,
+    static void mangle_cli(instrumentation_policy &policy,
+                            instruction_list &ls,
                             instruction_list_handle in) throw() {
+        (void) policy;
         (void) ls;
         (void) in;
     }
 
 
-    static void mangle_sti(instruction_list &ls,
+    static void mangle_sti(instrumentation_policy &policy,
+                            instruction_list &ls,
                             instruction_list_handle in) throw() {
+        (void) policy;
         (void) ls;
         (void) in;
     }
@@ -193,7 +167,8 @@ namespace granary {
 
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
-    void mangle(cpu_state_handle &cpu,
+    void mangle(instrumentation_policy &policy,
+                 cpu_state_handle &cpu,
                  thread_state_handle &thread,
                  instruction_list &ls) throw() {
 
@@ -209,14 +184,14 @@ namespace granary {
             if(in->is_cti()) {
 
                 if(dynamorio::instr_is_call(*in)) {
-                    mangle_call(ls, in);
+                    mangle_call(policy, ls, in);
 
                 } else if(dynamorio::instr_is_return(*in)) {
-                    mangle_return(ls, in);
+                    mangle_return(policy, ls, in);
 
                 // JMP, Jcc
                 } else {
-                    mangle_jump(ls, in);
+                    mangle_jump(policy, ls, in);
                 }
 
             // clear interrupt
@@ -224,16 +199,14 @@ namespace granary {
                 if(can_skip) {
                     continue;
                 }
-                mangle_cli(ls, in);
+                mangle_cli(policy, ls, in);
 
             // restore interrupt
             } else if(dynamorio::OP_sti == (*in)->opcode) {
                 if(can_skip) {
                     continue;
                 }
-
-                mangle_sti(ls, in);
-
+                mangle_sti(policy, ls, in);
             }
         }
     }

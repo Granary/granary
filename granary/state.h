@@ -85,14 +85,7 @@ namespace granary {
     };
 #endif
 
-
-    /// Information maintained by granary about each CPU.
-    ///
-    /// Note: when in kernel space, we assume that this state
-    /// 	  is only accessed with interrupts disabled.
-    struct cpu_state : public client::cpu_state {
-    private:
-
+    namespace detail {
         struct fragment_allocator_config {
             enum {
                 SLAB_SIZE = 4 * PAGE_SIZE,
@@ -110,11 +103,21 @@ namespace granary {
                 SHARED = false
             };
         };
+    }
 
+
+    /// Information maintained by granary about each CPU.
+    ///
+    /// Note: when in kernel space, we assume that this state
+    /// 	  is only accessed with interrupts disabled.
+    struct cpu_state : public client::cpu_state {
     public:
 
-        bump_pointer_allocator<fragment_allocator_config> fragment_allocator;
-        bump_pointer_allocator<transient_allocator_config> transient_allocator;
+        bump_pointer_allocator<detail::fragment_allocator_config>
+            fragment_allocator;
+
+        bump_pointer_allocator<detail::transient_allocator_config>
+            transient_allocator;
 
         bool interrupts_enabled;
     };
@@ -140,6 +143,15 @@ namespace granary {
                 ? (sizeof(basic_block_state) + ALIGN_TO(sizeof(basic_block_state), 16))
                 : 0U;
         }
+    };
+
+
+    /// Global state.
+    struct global_state {
+    public:
+
+        static bump_pointer_allocator<detail::fragment_allocator_config>
+            fragment_allocator;
     };
 }
 

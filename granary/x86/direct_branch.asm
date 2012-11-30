@@ -11,28 +11,56 @@
 
 START_FILE
 
-/// Handle direct branch lookup and patching
-DECLARE_FUNC(granary_asm_direct_branch)
-GLOBAL_LABEL(granary_asm_direct_branch:)
+/// Defines a "template" for direct branches. This template is decoded and re-
+/// encoded so as to generate many different direct branch stubs (one for each
+/// direct jump instruction and policy).
+DECLARE_FUNC(granary_asm_direct_branch_template)
+GLOBAL_LABEL(granary_asm_direct_branch_template:)
+    pushf
+
+    // this is a Granary entry point, so disable interrupts if we are in the
+    // kernel.
+    IF_KERNEL(cli)
+    PUSHA
+    mov %rsp, %ARG1
+1:
+    call 1b;
+
+    POPA
+    popf
+
+    // the direct branch stubs push on a relative address offset on the stack;
+    // need to get rid of it without changing the flags
+    lea 0x8(%rsp), %rsp
+
+    // return to the now patched instruction
+    ret
+    END_FUNC(granary_asm_direct_branch_template)
 
 
-/// Make a direct branch patcher. This saves the machine state, then passes it
-/// off to the patch_mangled_direct_cti function template in granary/mangle.h.
-#define MAKE_DIRECT_BRANCH_PATCHER(op, op_len) \
-    DECLARE_FUNC(granary_asm_direct_branch_ ## op) \
-    GLOBAL_LABEL(granary_asm_direct_branch_ ## op:) \
-    pushf; \
-    IF_KERNEL(cli;) \
-    PUSHA \
-    mov %rsp, %ARG1; \
-    call _ZN7granary24patch_mangled_direct_ctiIXadL_ZNS_ ## op_len ## op ## _EN9dynamorio7_opnd_tEEEEEvPNS_21direct_patch_mcontextE; \
-    POPA \
-    popf; \
-    lea 0x8(%rsp), %rsp; \
-    ret; \
-    END_FUNC(granary_asm_direct_branch_ ## op)
+/// Defines a "template" for direct calls. This template is decoded and re-
+/// encoded so as to generate a direct call entry stub for each policy. This
+/// is different from the direct branch template in that not as much state
+/// needs to be saved.
+DECLARE_FUNC(granary_asm_direct_call_template)
+GLOBAL_LABEL(granary_asm_direct_call_template:)
+    // this is a Granary entry point, so disable interrupts if we are in the
+    // kernel.
+    IF_KERNEL(pushf; cli)
+    PUSH_ARGS
+    mov %rsp, %ARG1
+1:
+    call 1b;
+    POP_ARGS
+    IF_KERNEL(popf)
 
-FOR_EACH_DIRECT_BRANCH(MAKE_DIRECT_BRANCH_PATCHER)
+    // the direct branch stubs push on a relative address offset on the stack;
+    // need to get rid of it without changing the flags
+    lea 0x8(%rsp), %rsp
+
+    // return to the now patched instruction
+    ret
+    END_FUNC(granary_asm_direct_call_template)
 
 END_FILE
 

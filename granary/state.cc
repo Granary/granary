@@ -9,6 +9,7 @@
 
 namespace granary {
 
+
     /// Hack to ensure static initializers are compiled.
     static_init_list STATIC_LIST_HEAD;
 
@@ -19,4 +20,9 @@ namespace granary {
 
         (void) thread;
     }
+
+
+    /// static initialization of global fragment allocator
+    bump_pointer_allocator<detail::fragment_allocator_config> \
+        global_state::fragment_allocator;
 }

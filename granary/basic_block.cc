@@ -8,8 +8,7 @@
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
-
-#include "clients/instrument.h"
+#include "granary/policy.h"
 
 #include <algorithm>
 #include <cstring>
@@ -20,9 +19,10 @@ namespace granary {
 
 
     /// Forward declarations
-    void mangle(cpu_state_handle &cpu,
-                thread_state_handle &thread,
-                instruction_list &ls) throw();
+    void mangle(instrumentation_policy &policy,
+                 cpu_state_handle &cpu,
+                 thread_state_handle &thread,
+                 instruction_list &ls) throw();
 
 
     enum {
@@ -96,7 +96,9 @@ namespace granary {
 
 
     /// Get the state of all bytes of an instruction.
-    static code_cache_byte_state get_instruction_state(const instruction in) throw() {
+    static code_cache_byte_state
+    get_instruction_state(const instruction in) throw() {
+
         if(nullptr != in.pc()) {
             return code_cache_byte_state::BB_BYTE_NATIVE;
 
@@ -114,8 +116,8 @@ namespace granary {
 
     /// Set the state of a pair of bits in memory.
     static unsigned initialize_state_bytes(basic_block_info *info,
-                                           instruction_list &ls,
-                                           app_pc pc) throw() {
+                                              instruction_list &ls,
+                                              app_pc pc) throw() {
 
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
@@ -401,7 +403,8 @@ namespace granary {
 
 
     /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(cpu_state_handle &cpu,
+    basic_block basic_block::translate(instrumentation_policy &policy,
+                                          cpu_state_handle &cpu,
                                           thread_state_handle &thread,
                                           app_pc *pc) throw() {
         const app_pc start_pc(*pc);
@@ -498,7 +501,7 @@ namespace granary {
             basic_block_state *block_storage(
                 new (prev_generated_pc) basic_block_state);
 
-            client::instrument(
+            policy.instrument(
                 cpu,
                 thread,
                 block_storage,
@@ -517,7 +520,7 @@ namespace granary {
                 resolve_local_branches(cpu, ls);
             }
 
-            mangle(cpu, thread, ls);
+            mangle(policy, cpu, thread, ls);
 
             // re-calculate the size and re-allocate; if our earlier
             // guess was too small then we need to re-instrument the
