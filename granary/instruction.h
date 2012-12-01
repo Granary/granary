@@ -389,6 +389,9 @@ namespace granary {
     };
 
 
+    typedef decltype(instruction_list().first()) instruction_list_handle;
+
+
     /// registers
 #define MAKE_REG(name, upper_name) extern operand name;
     namespace reg {

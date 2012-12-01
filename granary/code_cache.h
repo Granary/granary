@@ -98,6 +98,7 @@ namespace granary {
                 POLICY, cpu, thread, &decode_addr));
 
             CODE_CACHE.store(addr, bb.cache_pc_start);
+            CODE_CACHE.store(bb.cache_pc_start, bb.cache_pc_start);
 
             return bb.cache_pc_start;
         }

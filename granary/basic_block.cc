@@ -58,9 +58,6 @@ namespace granary {
     };
 
 
-    typedef decltype(instruction_list().first()) instruction_list_handle;
-
-
     /// Get the state of a byte in the basic block.
     static code_cache_byte_state get_state(uint8_t *pc_byte_states,
             unsigned i) throw() {

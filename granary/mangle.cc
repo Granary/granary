@@ -70,9 +70,6 @@ namespace granary {
     }
 
 
-
-
-
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
@@ -113,6 +110,19 @@ namespace granary {
     }
 
 
+    /// Add an indirect jump test slot.
+    static void mangle_indirect_call(instrumentation_policy &policy,
+                                        instruction_list &ls,
+                                        instruction_list_handle in,
+                                        operand target) throw() {
+
+        (void) policy;
+        (void) ls;
+        (void) in;
+        (void) target;
+    }
+
+
     static void mangle_call(instrumentation_policy &policy,
                              instruction_list &ls,
                              instruction_list_handle in) throw() {
@@ -122,6 +132,8 @@ namespace granary {
             if(!find_detach_target(target.value.pc)) {
                 add_direct_branch_stub(policy, ls, in, target);
             }
+        } else {
+            mangle_indirect_call(policy, ls, in, target);
         }
     }
 

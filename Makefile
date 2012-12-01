@@ -50,7 +50,7 @@ endif
 
 ifneq (,$(findstring icc,$(GR_CC))) # icc
 	GR_CC_FLAGS += -diag-disable 188 -diag-disable 186 
-	GR_CXX_FLAGS += 
+	GR_CXX_FLAGS += -D__GXX_EXPERIMENTAL_CXX0X__ -Dnullptr="((void *) 0)"
 	GR_CXX_STD = -std=c++11
 endif
 
@@ -80,7 +80,7 @@ GR_OBJS += bin/granary/detach.o
 GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
-GR_OBJS += bin/granary/test.o
+GR_OBJS += bin/granary/register.o
 
 # Granary (x86) dependencies
 GR_OBJS += bin/granary/x86/utils.o
@@ -102,6 +102,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
 	GR_OBJS += bin/granary/user/utils.o
+	GR_OBJS += bin/granary/test.o
 	GR_OBJS += bin/main.o
 
 	# Granary tests
