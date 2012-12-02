@@ -51,6 +51,9 @@
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
+/// If we are invoking cpp (the C pre-processor) then variadic macros are not
+/// allowed; this is just a workaround.
+#ifndef IN_C_PREPROCESSOR
 
 /// Use to statically initialize some code.
 #define STATIC_INITIALIZE___(id, ...) \
@@ -90,6 +93,7 @@
 
 #define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
 
+#endif
 
 /// unrolling macros for applying something to all general purpose registers
 #define ALL_REGS(R, R_last) \
@@ -100,7 +104,7 @@
     R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R_last(r9))))))
 
 
-
+#ifndef IN_C_PREPROCESSOR
 #define FOR_EACH_DIRECT_JUMP(macro, ...) \
     macro(jo, 3, ##__VA_ARGS__) \
     macro(jno, 4, ##__VA_ARGS__) \
@@ -127,6 +131,7 @@
     macro(jmp_far, 8, ##__VA_ARGS__) \
     macro(jmp_far_ind, 12, ##__VA_ARGS__) \
     macro(jecxz, 6, ##__VA_ARGS__)
+#endif
 
 #define TO_STRING_(x) #x
 #define TO_STRING(x) TO_STRING_(x)

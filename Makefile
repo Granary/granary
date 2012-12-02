@@ -27,19 +27,31 @@ GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 	
-	# Enable address sanitizer on Granary?
-	GR_ASAN ?= 0
+	# Enable address sanitizer on Granary? Default is 2, which means it's
+	# "unsupported", i.e. llvm wasn't compiled with compiler-rt.
+	GR_ASAN ?= 2
+	
+	# Enable libc++? (llvm's c++ standard library)
+	GR_LIBCXX ?= 0
 
-	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value
+	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu
 	GR_CXX_STD = -std=c++0x
 	
+	# explicitly enable/disable address sanitizer
     ifeq ('0','$(GR_ASAN)')
     	GR_CC_FLAGS += -fno-sanitize=address
     	GR_CXX_FLAGS += -fno-sanitize=address
 	else
-		GR_CC_FLAGS += -fsanitize=address
-		GR_CXX_FLAGS += -fsanitize=address
+    	ifeq ('1','$(GR_ASAN)')
+    		GR_CC_FLAGS += -fsanitize=address
+    		GR_CXX_FLAGS += -fsanitize=address
+		endif
+    endif
+    
+    # enable the newer standard and use it with libc++
+    ifeq ('1','$(GR_LIBCXX)')
+		GR_CXX_STD = -std=c++11 -stdlib=libc++
     endif
 endif
 
@@ -155,7 +167,7 @@ bin/deps/dr/%.o: deps/dr/%.c
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
-	$(GR_CPP) -I$(PWD) -E $< > bin/deps/dr/$*.1.S
+	$(GR_CPP) -I$(PWD) -DIN_C_PREPROCESSOR -E $< > bin/deps/dr/$*.1.S
 	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
 
@@ -165,7 +177,7 @@ bin/granary/%.o: granary/%.cc
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
-	$(GR_CPP) -I$(PWD) -E $< > bin/granary/x86/$*.1.S
+	$(GR_CPP) -I$(PWD) -DIN_C_PREPROCESSOR -E $< > bin/granary/x86/$*.1.S
 	python scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)

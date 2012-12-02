@@ -7,16 +7,14 @@
 
 
 #include "granary/globals.h"
+#include "granary/x86/asm_defines.asm"
+
+extern int main(int, char **);
 
 namespace granary {
 
     static uint64_t get_application_start(void) throw() {
-        register uint64_t ret_addr asm("rax");
-        __asm__ __volatile__ (
-            "movq $_start, %0;"
-            : "=r"(ret_addr)
-        );
-        return ret_addr;
+        return unsafe_cast<uint64_t>(main);
     }
 
 

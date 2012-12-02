@@ -21,6 +21,7 @@
 .cproject
 .DS_Store
 .tmp_versions
+granary.out.*
 
 # Generated files
 granary/gen/*
