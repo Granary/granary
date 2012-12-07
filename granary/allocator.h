@@ -214,7 +214,6 @@ namespace granary {
 
             curr->bump_ptr += size;
             curr->remaining -= last_allocation_size;
-
             return bumped_ptr;
         }
 
@@ -228,8 +227,12 @@ namespace granary {
 
         template <typename T, typename... Args>
         T *allocate(Args&&... args) throw() {
+            enum {
+                ALIGN = alignof(T),
+                MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
+            };
             acquire();
-            T *ptr(new (allocate(alignof(T), sizeof(T))) T(args...));
+            T *ptr(new (allocate(MIN_ALIGN, sizeof(T))) T(args...));
             release();
             return ptr;
         }
@@ -244,7 +247,11 @@ namespace granary {
 
         template <typename T>
         T *allocate_array(unsigned length) throw() {
-            uint8_t *arena(allocate_bare(alignof(T), sizeof(T) * length));
+            enum {
+                ALIGN = alignof(T),
+                MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
+            };
+            uint8_t *arena(allocate_bare(MIN_ALIGN, sizeof(T) * length));
 
             // initialize each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.

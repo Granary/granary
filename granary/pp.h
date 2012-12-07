@@ -31,29 +31,25 @@
 #define ALIGN_TO(lval, const_align) (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
 #if GRANARY_IN_KERNEL
-#   define IF_KERNEL(x) x
-#   define IF_KERNEL_(x) , x
+#   define IF_KERNEL(...) __VA_ARGS__
+#   define IF_KERNEL_(...) , __VA_ARGS__
 #   define IF_KERNEL_ELSE(if_true, if_false) if_true
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_true
-#   define IF_USER(x)
-#   define IF_USER_(x)
+#   define IF_USER(...)
+#   define IF_USER_(...)
 #else
-#   define IF_KERNEL(x)
-#   define IF_KERNEL_(x)
+#   define IF_KERNEL(...)
+#   define IF_KERNEL_(...)
 #   define IF_KERNEL_ELSE(if_true, if_false) if_false
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_false
-#   define IF_USER(x) x
-#   define IF_USER_(x) , x
+#   define IF_USER(...) __VA_ARGS__
+#   define IF_USER_(...) , __VA_ARGS__
 #endif
 
 #define FAULT (granary_break_on_fault(), (*((volatile int *) nullptr) = 0))
 #define BARRIER __asm__ __volatile__ ("")
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
-
-/// If we are invoking cpp (the C pre-processor) then variadic macros are not
-/// allowed; this is just a workaround.
-#ifndef IN_C_PREPROCESSOR
 
 /// Use to statically initialize some code.
 #define STATIC_INITIALIZE___(id, ...) \
@@ -70,9 +66,12 @@
     static static_init_ ## id foo_ ## id; \
     static __attribute__((noinline)) void foo_func_ ## id(void) { (void) foo_ ## id; }
 
-#define STATIC_INITIALIZE__(line, counter, ...) STATIC_INITIALIZE___(line ## _ ## counter, ##__VA_ARGS__)
-#define STATIC_INITIALIZE_(line, counter, ...) STATIC_INITIALIZE__(line, counter, ##__VA_ARGS__)
-#define STATIC_INITIALIZE(...) STATIC_INITIALIZE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
+#define STATIC_INITIALIZE__(line, counter, ...) \
+    STATIC_INITIALIZE___(line ## _ ## counter, ##__VA_ARGS__)
+#define STATIC_INITIALIZE_(line, counter, ...) \
+    STATIC_INITIALIZE__(line, counter, ##__VA_ARGS__)
+#define STATIC_INITIALIZE(...) \
+    STATIC_INITIALIZE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
 
 #if GRANARY_IN_KERNEL
 #   define IF_TEST(...)
@@ -93,8 +92,6 @@
 
 #define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
 
-#endif
-
 /// unrolling macros for applying something to all general purpose registers
 #define ALL_REGS(R, R_last) \
     R(rdi, R(rsi, R(rdx, R(rbx, R(rcx, R(rax, R(r8, R(r9, R(r10, R(r11, R(r12, R(r13, R(r14, R_last(r15))))))))))))))
@@ -104,7 +101,6 @@
     R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R_last(r9))))))
 
 
-#ifndef IN_C_PREPROCESSOR
 #define FOR_EACH_DIRECT_JUMP(macro, ...) \
     macro(jo, 3, ##__VA_ARGS__) \
     macro(jno, 4, ##__VA_ARGS__) \
@@ -131,7 +127,6 @@
     macro(jmp_far, 8, ##__VA_ARGS__) \
     macro(jmp_far_ind, 12, ##__VA_ARGS__) \
     macro(jecxz, 6, ##__VA_ARGS__)
-#endif
 
 #define TO_STRING_(x) #x
 #define TO_STRING(x) TO_STRING_(x)

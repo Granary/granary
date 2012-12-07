@@ -12,6 +12,16 @@ extern "C" {
 
     void granary_break_on_fault(void) { }
 
+    void granary_break_on_encode(dynamorio::app_pc pc,
+                                 dynamorio::instr_t *instr) {
+        (void) pc;
+        (void) instr;
+    }
+
+    void granary_break_on_allocate(void *ptr) {
+        (void) ptr;
+    }
+
     int granary_test_return_true(void) {
         return 1;
     }

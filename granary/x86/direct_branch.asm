@@ -18,15 +18,20 @@ DECLARE_FUNC(granary_asm_direct_branch_template)
 GLOBAL_LABEL(granary_asm_direct_branch_template:)
     pushf
 
+    // padding for stack frame alignment
+    lea -0x8(%rsp), %rsp
+
     // this is a Granary entry point, so disable interrupts if we are in the
     // kernel.
     IF_KERNEL(cli)
+
     PUSHA
     mov %rsp, %ARG1
 1:
     call 1b;
 
     POPA
+    lea 0x8(%rsp), %rsp
     popf
 
     // the direct branch stubs push on a relative address offset on the stack;
@@ -47,11 +52,14 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     // this is a Granary entry point, so disable interrupts if we are in the
     // kernel.
     IF_KERNEL(pushf; cli)
+    IF_USER(lea -0x8(%rsp), %rsp) // in user space, make sure things are 16-byte aligned
     PUSH_ARGS
     mov %rsp, %ARG1
+
 1:
     call 1b;
     POP_ARGS
+    IF_USER(lea 0x8(%rsp), %rsp)
     IF_KERNEL(popf)
 
     // the direct branch stubs push on a relative address offset on the stack;

@@ -235,21 +235,25 @@ namespace granary {
 
 
     /// encodes an instruction list into a sequence of bytes
-    app_pc instruction_list::encode(app_pc pc) throw() {
+    app_pc instruction_list::encode(app_pc start_pc) throw() {
         if(!length()) {
-            return pc;
+            return start_pc;
         }
 
         handle_type item(first());
+        app_pc prev_pc(nullptr);
+        app_pc pc(start_pc);
         bool has_local_jump(false);
 
         for(unsigned i = 0, max = length(); i < max; ++i) {
+
+            const bool is_hot_patchable(item->is_patchable());
 
             // x86-64 guaranteed quadword atomic writes so long as
             // the memory location is aligned on an 8-byte boundary;
             // we will assume that we are never patching an instruction
             // longer than 8 bytes
-            if(item->is_patchable()) {
+            if(is_hot_patchable) {
                 uint64_t forward_align(ALIGN_TO(reinterpret_cast<uint64_t>(pc), 8));
                 pc = encode_mangled_nops(pc, forward_align);
             }
@@ -261,7 +265,17 @@ namespace granary {
                 }
             }
 
+            prev_pc = pc;
             pc = item->encode(pc);
+            IF_DEBUG(nullptr == pc, granary_break_on_encode(prev_pc, *item));
+
+            // make sure that the instruction is the only "useful" one in it's
+            // 8-byte block
+            if(is_hot_patchable) {
+                uint64_t forward_align(ALIGN_TO(reinterpret_cast<uint64_t>(pc), 8));
+                pc = encode_mangled_nops(pc, forward_align);
+            }
+
             item = item.next();
         }
 

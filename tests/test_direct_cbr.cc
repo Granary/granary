@@ -9,6 +9,10 @@
 #define TEST_LOOP 1
 
 
+void break_on_bb(granary::basic_block *bb) {
+    (void) bb;
+}
+
 
 /// For each jump type, expand some macro with enough info to generate test
 /// code.
@@ -250,6 +254,7 @@ namespace test {
     static void direct_loop_patched_correctly(void) {
         granary::app_pc loop_short_5((granary::app_pc) direct_loop_return_5);
         granary::basic_block bb_loop_short_5(granary::code_cache<>::find(loop_short_5));
+        break_on_bb(&bb_loop_short_5);
         ASSERT(5 == bb_loop_short_5.call<int>());
     }
 

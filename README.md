@@ -21,6 +21,9 @@ Compiling for user space
 make clear KERNEL=0 ; make all KERNEL=0 GR_CC=gcc GR_CXX=g++
 ```
 
+### Compiling with clang
+Other options for clang are `GR_ASAN` and `GR_LIBCXX`.
+
 Compiling for kernel space
 --------------------------
 Note: the last step is likely to fail because we are missing the kernel types

@@ -216,6 +216,14 @@ namespace granary {
 		}
 
 
+        /// Invalidate the raw bits of this instruction.
+        inline void invalidate_raw_bits(void) throw() {
+            dynamorio::instr_set_raw_bits_valid(&instr, false);
+            instr.flags &= ~dynamorio::INSTR_RAW_BITS_ALLOCATED;
+            instr.bytes = nullptr;
+        }
+
+
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
 		inline operand cti_target(void) throw() {
@@ -225,6 +233,7 @@ namespace granary {
 
 		/// If this instruction is a CTI, then set the target of the instruction.
         inline void set_cti_target(operand target) throw() {
+            invalidate_raw_bits();
             return dynamorio::instr_set_target(&instr, target);
         }
 
@@ -238,6 +247,7 @@ namespace granary {
 
         /// Set the program counter of the instruction.
         inline void set_pc(app_pc pc) throw() {
+            invalidate_raw_bits();
             instr.translation = pc;
         }
 

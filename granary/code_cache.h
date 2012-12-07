@@ -119,6 +119,9 @@ namespace granary {
             /// Saved regs.
             ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
 
+            /// Padding for proper stack frame alignment.
+            uint64_t padding;
+
             /// Saved flags.
             uint64_t flags;
 
@@ -134,6 +137,8 @@ namespace granary {
 
             /// Saved regs.
             ALL_ARG_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
+
+            IF_USER(uint64_t padding;)
 
             /// Saved flags.
             IF_KERNEL(uint64_t flags;)

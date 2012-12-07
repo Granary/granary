@@ -75,9 +75,14 @@ namespace granary {
 
 
 extern "C" {
+#if !GRANARY_IN_KERNEL
     extern void granary_break_on_fault(void);
+    extern void granary_break_on_encode(dynamorio::app_pc pc,
+                                        dynamorio::instr_t *instr);
+    extern void granary_break_on_allocate(void *ptr);
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
+#endif
     extern int granary_asm_apic_id(void);
     extern void granary_atomic_write8(uint64_t, uint64_t *);
 }

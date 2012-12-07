@@ -401,9 +401,9 @@ namespace granary {
 
     /// Decode and translate a single basic block of application/module code.
     basic_block basic_block::translate(instrumentation_policy &policy,
-                                          cpu_state_handle &cpu,
-                                          thread_state_handle &thread,
-                                          app_pc *pc) throw() {
+                                       cpu_state_handle &cpu,
+                                       thread_state_handle &thread,
+                                       app_pc *pc) throw() {
         const app_pc start_pc(*pc);
         unsigned staged_size(0);
         uint8_t *generated_pc(nullptr);
@@ -414,6 +414,7 @@ namespace granary {
 
         for(;;) {
             instruction in(instruction::decode(pc));
+
             if(in.is_cti()) {
 
                 operand target(in.cti_target());
@@ -550,9 +551,9 @@ namespace granary {
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
     basic_block basic_block::emit(basic_block_kind kind,
-            instruction_list &ls,
-            app_pc generating_pc,
-            app_pc *generated_pc) throw() {
+                                  instruction_list &ls,
+                                  app_pc generating_pc,
+                                  app_pc *generated_pc) throw() {
 
         app_pc pc = *generated_pc;
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), 16);

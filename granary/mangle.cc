@@ -18,36 +18,23 @@ namespace granary {
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
 
-    static bool mangled_nops(false);
-    static instruction nop3(nop3byte_());
-    static instruction nop2(nop2byte_());
-    static instruction nop1(nop1byte_());
-
-
     /// Injects N bytes of NOPs into an instuction list after
     /// a specific instruction. This is similar to encode_mangled_
     /// nops in instruction.cc.
     static void inject_mangled_nops(instruction_list &ls,
-                                      instruction_list_handle in,
-                                      unsigned num_nops) throw() {
-
-        if(!mangled_nops) {
-            mangled_nops = true;
-            nop3.set_mangled();
-            nop2.set_mangled();
-            nop1.set_mangled();
-        }
+                                    instruction_list_handle in,
+                                    unsigned num_nops) throw() {
 
         for(; num_nops >= 3; num_nops -= 3) {
-            ls.insert_after(in, nop3);
+            ls.insert_after(in, nop3byte_());
         }
 
         for(; num_nops >= 2; num_nops -= 2) {
-            ls.insert_after(in, nop2);
+            ls.insert_after(in, nop2byte_());
         }
 
         for(; num_nops >= 1; num_nops -= 1) {
-            ls.insert_after(in, nop1);
+            ls.insert_after(in, nop1byte_());
         }
     }
 
@@ -74,9 +61,9 @@ namespace granary {
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
     static void add_direct_branch_stub(instrumentation_policy &policy,
-                                          instruction_list &ls,
-                                          instruction_list_handle in,
-                                          operand target) throw() {
+                                       instruction_list &ls,
+                                       instruction_list_handle in,
+                                       operand target) throw() {
 
         // don't mangle this slot; it is a detach point.
         if(nullptr != find_detach_target(target)) {
@@ -99,11 +86,14 @@ namespace granary {
         in->set_mangled();
         in->set_patchable();
 
-        // pad the size out to 8 bytes using NOPs
         const unsigned new_size(in->encoded_size());
+
+        /*
+        // pad the size out to 8 bytes using NOPs
+
         if(new_size < 8U) {
             inject_mangled_nops(ls, in, 8U - new_size);
-        }
+        }*/
 
         IF_DEBUG(old_size > 8, FAULT)
         IF_DEBUG(new_size > 8, FAULT)
@@ -112,9 +102,9 @@ namespace granary {
 
     /// Add an indirect jump test slot.
     static void mangle_indirect_call(instrumentation_policy &policy,
-                                        instruction_list &ls,
-                                        instruction_list_handle in,
-                                        operand target) throw() {
+                                     instruction_list &ls,
+                                     instruction_list_handle in,
+                                     operand target) throw() {
 
         (void) policy;
         (void) ls;
@@ -124,8 +114,8 @@ namespace granary {
 
 
     static void mangle_call(instrumentation_policy &policy,
-                             instruction_list &ls,
-                             instruction_list_handle in) throw() {
+                            instruction_list &ls,
+                            instruction_list_handle in) throw() {
         operand target(in->cti_target());
 
         if(dynamorio::opnd_is_pc(target)) {
@@ -139,8 +129,8 @@ namespace granary {
 
 
     static void mangle_return(instrumentation_policy &policy,
-                                instruction_list &ls,
-                                instruction_list_handle in) throw() {
+                              instruction_list &ls,
+                              instruction_list_handle in) throw() {
         (void) policy;
         (void) ls;
         (void) in;
@@ -148,8 +138,8 @@ namespace granary {
 
 
     static void mangle_jump(instrumentation_policy &policy,
-                             instruction_list &ls,
-                             instruction_list_handle in) throw() {
+                            instruction_list &ls,
+                            instruction_list_handle in) throw() {
         operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             if(!find_detach_target(target.value.pc)) {
@@ -160,8 +150,8 @@ namespace granary {
 
 
     static void mangle_cli(instrumentation_policy &policy,
-                            instruction_list &ls,
-                            instruction_list_handle in) throw() {
+                           instruction_list &ls,
+                           instruction_list_handle in) throw() {
         (void) policy;
         (void) ls;
         (void) in;
@@ -169,8 +159,8 @@ namespace granary {
 
 
     static void mangle_sti(instrumentation_policy &policy,
-                            instruction_list &ls,
-                            instruction_list_handle in) throw() {
+                           instruction_list &ls,
+                           instruction_list_handle in) throw() {
         (void) policy;
         (void) ls;
         (void) in;
@@ -180,9 +170,9 @@ namespace granary {
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
     void mangle(instrumentation_policy &policy,
-                 cpu_state_handle &cpu,
-                 thread_state_handle &thread,
-                 instruction_list &ls) throw() {
+                cpu_state_handle &cpu,
+                thread_state_handle &thread,
+                instruction_list &ls) throw() {
 
         (void) cpu;
         (void) thread;

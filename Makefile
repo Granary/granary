@@ -167,7 +167,7 @@ bin/deps/dr/%.o: deps/dr/%.c
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
-	$(GR_CPP) -I$(PWD) -DIN_C_PREPROCESSOR -E $< > bin/deps/dr/$*.1.S
+	$(GR_CC) -I$(PWD) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
 	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
 
@@ -177,7 +177,7 @@ bin/granary/%.o: granary/%.cc
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
-	$(GR_CPP) -I$(PWD) -DIN_C_PREPROCESSOR -E $< > bin/granary/x86/$*.1.S
+	$(GR_CC) -I$(PWD) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
 	python scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)

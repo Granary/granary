@@ -44,17 +44,16 @@ namespace granary { namespace detail {
 
     void *global_allocate_executable(unsigned long size) throw() {
         void *allocated(malloc(size));
-        uint64_t begin_addr((uint64_t) allocated);
+        uint64_t begin_addr(reinterpret_cast<uint64_t>(allocated));
         uint64_t end_addr(begin_addr + size);
 
         // make each page in this allocation executable
         begin_addr -= (begin_addr % PAGE_SIZE);
         end_addr += ALIGN_TO(end_addr, PAGE_SIZE);
         for(uint64_t addr(begin_addr); addr < end_addr; addr += PAGE_SIZE) {
-            make_page_executable((void *) addr);
+            make_page_executable(reinterpret_cast<void *>(addr));
         }
-
-        return (void *) allocated;
+        return allocated;
     }
 
 
