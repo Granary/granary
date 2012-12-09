@@ -119,9 +119,6 @@ namespace granary {
             /// Saved regs.
             ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
 
-            /// Padding for proper stack frame alignment.
-            uint64_t padding;
-
             /// Saved flags.
             uint64_t flags;
 
@@ -138,9 +135,8 @@ namespace granary {
             /// Saved regs.
             ALL_ARG_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
 
-            IF_USER(uint64_t padding;)
-
-            /// Saved flags.
+            /// Saved flags and padding.
+            IF_KERNEL(uint64_t padding_to_align_to_16_bytes;)
             IF_KERNEL(uint64_t flags;)
 
             /// to_application_offset(target), where target is the destination
@@ -165,8 +161,14 @@ namespace granary {
             typename MContext,
             instruction (*make_opcode)(dynamorio::opnd_t)
         >
-        static void
-        find_and_patch_direct_cti(MContext *context) throw() {
+        static MContext *
+        find_and_patch_direct_cti(MContext *context, uint64_t rsp) throw() {
+
+            if(!(rsp % 16)) {
+                printf("16 byte aligned\n");
+            } else {
+                printf("not 16 byte aligned\n");
+            }
 
             cpu_state_handle cpu;
             thread_state_handle thread;
@@ -206,6 +208,8 @@ namespace granary {
             granary_atomic_write8(
                 staged_code_,
                 reinterpret_cast<uint64_t *>(patch_address));
+
+            return context;
         }
 
 
@@ -213,6 +217,7 @@ namespace granary {
         /// policy and a particular opcode.
         template <typename MContext, instruction (*make_opcode)(dynamorio::opnd_t)>
         static app_pc make_direct_cti_patch_func(void (*template_func)(void)) throw() {
+
             instruction_list ls;
             app_pc start_pc(reinterpret_cast<app_pc>(template_func));
 

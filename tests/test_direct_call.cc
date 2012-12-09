@@ -10,8 +10,11 @@
 #include "granary/code_cache.h"
 #include "granary/x86/asm_defines.asm"
 
+#define TEST_CALL 1
+
 namespace test {
 
+#if TEST_CALL
     static int direct_call_short(void) {
         ASM(
             "mov $0, %rax;"
@@ -40,7 +43,7 @@ namespace test {
 
 
     /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
-    static void direct_loop_patched_correctly(void) {
+    static void direct_call_patched_correctly(void) {
         granary::app_pc call_direct_short((granary::app_pc) direct_call_short);
         granary::basic_block bb_call_direct_short(granary::code_cache<>::find(call_direct_short));
 
@@ -52,8 +55,8 @@ namespace test {
     }
 
 
-    ADD_TEST(direct_loop_patched_correctly,
+    ADD_TEST(direct_call_patched_correctly,
         "Test that targets of direct call are correctly patched.")
-
+#endif
 }
 

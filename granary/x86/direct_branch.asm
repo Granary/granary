@@ -18,20 +18,28 @@ DECLARE_FUNC(granary_asm_direct_branch_template)
 GLOBAL_LABEL(granary_asm_direct_branch_template:)
     pushf
 
-    // padding for stack frame alignment
-    lea -0x8(%rsp), %rsp
-
     // this is a Granary entry point, so disable interrupts if we are in the
     // kernel.
     IF_KERNEL(cli)
 
     PUSHA
+
     mov %rsp, %ARG1
-1:
-    call 1b;
+
+    // ensure 16-byte alignment of the stack; this assumes the stack pointer is
+    // either 8 or 16-byte aligned.
+    push %rsp
+    push (%rsp)
+    and $-0x10, %rsp
+
+    mov %rsp, %ARG2
+
+1:  call 1b;
+
+    // restore the old stack pointer
+    mov 8(%rsp), %rsp
 
     POPA
-    lea 0x8(%rsp), %rsp
     popf
 
     // the direct branch stubs push on a relative address offset on the stack;
@@ -49,18 +57,20 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
 /// needs to be saved.
 DECLARE_FUNC(granary_asm_direct_call_template)
 GLOBAL_LABEL(granary_asm_direct_call_template:)
+
     // this is a Granary entry point, so disable interrupts if we are in the
     // kernel.
-    IF_KERNEL(pushf; cli)
-    IF_USER(lea -0x8(%rsp), %rsp) // in user space, make sure things are 16-byte aligned
-    PUSH_ARGS
+    IF_KERNEL(pushf; cli) // disable interrupts
+    IF_KERNEL(lea -0x8(%rsp), %rsp) // padding for 16-byte stack frame alignment
+    PUSH_ARGS // save arguments
     mov %rsp, %ARG1
+    mov %rsp, %ARG2
 
-1:
-    call 1b;
-    POP_ARGS
-    IF_USER(lea 0x8(%rsp), %rsp)
-    IF_KERNEL(popf)
+1:  call 1b;
+
+    POP_ARGS // restore arguments
+    IF_KERNEL(lea 0x8(%rsp), %rsp) // 'pop' the padding
+    IF_KERNEL(popf) // enable interrupts
 
     // the direct branch stubs push on a relative address offset on the stack;
     // need to get rid of it without changing the flags

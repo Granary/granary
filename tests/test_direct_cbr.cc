@@ -9,11 +9,6 @@
 #define TEST_LOOP 1
 
 
-void break_on_bb(granary::basic_block *bb) {
-    (void) bb;
-}
-
-
 /// For each jump type, expand some macro with enough info to generate test
 /// code.
 ///
@@ -166,9 +161,13 @@ namespace test {
 
     static void direct_cbrs_patched_correctly(void) {
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
+            granary_break_on_bb(&bb_short_true);
             ASSERT(bb_short_true.call<bool>());
+            granary_break_on_bb(&bb_short_false);
             ASSERT(bb_short_false.call<bool>());
+            granary_break_on_bb(&bb_long_true);
             ASSERT(bb_long_true.call<bool>());
+            granary_break_on_bb(&bb_long_false);
             ASSERT(bb_long_false.call<bool>());
         })
     }
@@ -223,7 +222,9 @@ namespace test {
         granary::app_pc jecxz_short_false((granary::app_pc) direct_jecxz_short_false);
         granary::basic_block bb_jecxz_short_false(granary::code_cache<>::find(jecxz_short_false));
 
+        granary_break_on_bb(&bb_jecxz_short_true);
         ASSERT(bb_jecxz_short_true.call<bool>());
+        granary_break_on_bb(&bb_jecxz_short_false);
         ASSERT(bb_jecxz_short_false.call<bool>());
     }
 
@@ -254,7 +255,6 @@ namespace test {
     static void direct_loop_patched_correctly(void) {
         granary::app_pc loop_short_5((granary::app_pc) direct_loop_return_5);
         granary::basic_block bb_loop_short_5(granary::code_cache<>::find(loop_short_5));
-        break_on_bb(&bb_loop_short_5);
         ASSERT(5 == bb_loop_short_5.call<int>());
     }
 

@@ -71,6 +71,10 @@ namespace granary {
         KERNEL_MODULE_START = 0xffffffffa0000000ULL,
         KERNEL_MODULE_END = 0xfffffffffff00000ULL
     };
+
+
+    /// Forward declarations.
+    struct basic_block;
 }
 
 
@@ -79,6 +83,7 @@ extern "C" {
     extern void granary_break_on_fault(void);
     extern void granary_break_on_encode(dynamorio::app_pc pc,
                                         dynamorio::instr_t *instr);
+    extern void granary_break_on_bb(granary::basic_block *bb);
     extern void granary_break_on_allocate(void *ptr);
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);

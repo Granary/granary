@@ -88,13 +88,6 @@ namespace granary {
 
         const unsigned new_size(in->encoded_size());
 
-        /*
-        // pad the size out to 8 bytes using NOPs
-
-        if(new_size < 8U) {
-            inject_mangled_nops(ls, in, 8U - new_size);
-        }*/
-
         IF_DEBUG(old_size > 8, FAULT)
         IF_DEBUG(new_size > 8, FAULT)
     }

@@ -18,6 +18,10 @@ extern "C" {
         (void) instr;
     }
 
+    void granary_break_on_bb(granary::basic_block *bb) {
+        (void) bb;
+    }
+
     void granary_break_on_allocate(void *ptr) {
         (void) ptr;
     }
