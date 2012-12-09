@@ -32,8 +32,6 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     push (%rsp)
     and $-0x10, %rsp
 
-    mov %rsp, %ARG2
-
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
 
@@ -65,7 +63,6 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     IF_KERNEL(lea -0x8(%rsp), %rsp) // padding for 16-byte stack frame alignment
     PUSH_ARGS // save arguments
     mov %rsp, %ARG1
-    mov %rsp, %ARG2
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax

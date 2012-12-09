@@ -61,34 +61,6 @@ namespace granary {
     void register_manager::visit(dynamorio::instr_t *in,
                                     unsigned num_dests) throw() {
         switch(in->opcode) {
-            case dynamorio::OP_cmpxchg:
-            case dynamorio::OP_cmpxchg8b:
-                revive(dynamorio::DR_REG_RAX);
-                revive(dynamorio::DR_REG_RDX);
-                revive(dynamorio::DR_REG_RCX);
-                revive(dynamorio::DR_REG_RBX);
-                break;
-            case dynamorio::OP_cwde:
-            case dynamorio::OP_cdq:
-                revive(dynamorio::DR_REG_RAX);
-                kill(dynamorio::DR_REG_RDX);
-                break;
-            case dynamorio::OP_div:
-            case dynamorio::OP_idiv:
-                revive(dynamorio::DR_REG_RAX);
-                revive(dynamorio::DR_REG_RDX);
-                break;
-
-            case dynamorio::OP_imul:
-                if(0U == num_dests) {
-                    revive(dynamorio::DR_REG_RAX);
-                    kill(dynamorio::DR_REG_RDX);
-                }
-                break;
-
-            case dynamorio::OP_ret:
-                revive(dynamorio::DR_REG_RAX); // typically used for return value
-                break;
             case dynamorio::OP_call:
             case dynamorio::OP_call_ind:
             case dynamorio::OP_call_far:
@@ -96,13 +68,147 @@ namespace granary {
                 kill(dynamorio::DR_REG_R10);
                 kill(dynamorio::DR_REG_R11); // TODO(pag): is this correct?
                 break;
+
+            case dynamorio::OP_cmpxchg:
+            case dynamorio::OP_cmpxchg8b:
+                revive(dynamorio::DR_REG_RAX);
+                revive(dynamorio::DR_REG_RDX);
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RBX);
+                break;
+
             case dynamorio::OP_cpuid:
                 revive(dynamorio::DR_REG_RAX);
                 kill(dynamorio::DR_REG_RBX);
                 kill(dynamorio::DR_REG_RCX);
                 break;
 
-            // TODO
+            case dynamorio::OP_cwde:
+            case dynamorio::OP_cdq:
+                revive(dynamorio::DR_REG_RAX);
+                kill(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_div:
+            case dynamorio::OP_idiv:
+                revive(dynamorio::DR_REG_RAX);
+                revive(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_ins:
+                if(0U == num_dests) {
+                    revive(dynamorio::DR_REG_RDX);
+                    kill(dynamorio::DR_REG_RDI);
+                }
+                break;
+
+            case dynamorio::OP_imul:
+            case dynamorio::OP_mul:
+                if(0U == num_dests) {
+                    revive(dynamorio::DR_REG_RAX);
+                    kill(dynamorio::DR_REG_RDX);
+                }
+                break;
+
+            case dynamorio::OP_monitor:
+                revive(dynamorio::DR_REG_RAX);
+                // fall-through
+            case dynamorio::OP_mwait:
+                revive(dynamorio::DR_REG_RCX);
+                break;
+
+            case dynamorio::OP_out:
+                revive(dynamorio::DR_REG_RAX);
+                break;
+
+            case dynamorio::OP_outs:
+                if(0U == num_dests) {
+                    revive(dynamorio::DR_REG_RSI);
+                    kill(dynamorio::DR_REG_RDX);
+                }
+                break;
+
+            case dynamorio::OP_pcmpestri:
+                revive(dynamorio::DR_REG_RCX);
+                // fall-through
+
+            case dynamorio::OP_pcmpestrm:
+                revive(dynamorio::DR_REG_RAX);
+                revive(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_rdmsr:
+            case dynamorio::OP_rdpmc:
+            case dynamorio::OP_xgetbv:
+                revive(dynamorio::DR_REG_RCX);
+                // fall-through
+            case dynamorio::OP_rdtsc:
+                kill(dynamorio::DR_REG_RAX);
+                kill(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_rdtscp:
+                kill(dynamorio::DR_REG_RAX);
+                kill(dynamorio::DR_REG_RCX);
+                kill(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_rep_ins:
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RDX);
+                kill(dynamorio::DR_REG_RDI);
+                break;
+
+            case dynamorio::OP_rep_movs:
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RSI);
+                kill(dynamorio::DR_REG_RDI);
+                break;
+
+            case dynamorio::OP_rep_outs:
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RSI);
+                kill(dynamorio::DR_REG_RDX);
+                break;
+
+            case dynamorio::OP_rep_lods:
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RSI);
+                kill(dynamorio::DR_REG_RAX);
+                break;
+
+            case dynamorio::OP_rep_stos:
+                revive(dynamorio::DR_REG_RCX);
+                revive(dynamorio::DR_REG_RSI);
+                revive(dynamorio::DR_REG_RAX);
+                break;
+
+            case dynamorio::OP_rep_cmps:
+            case dynamorio::OP_repne_cmps:
+                revive(dynamorio::DR_REG_RDI);
+                revive(dynamorio::DR_REG_RSI);
+                break;
+
+            case dynamorio::OP_rep_scas:
+            case dynamorio::OP_repne_scas:
+                revive(dynamorio::DR_REG_RAX);
+                revive(dynamorio::DR_REG_RDI);
+                break;
+
+            case dynamorio::OP_ret:
+                revive(dynamorio::DR_REG_RAX); // typically used for return value
+                break;
+
+            case dynamorio::OP_wrmsr:
+            case dynamorio::OP_xsetbv:
+                revive(dynamorio::DR_REG_RCX);
+                // fall-through
+            case dynamorio::OP_xrstor:
+            case dynamorio::OP_xsave:
+            case dynamorio::OP_xsaveopt:
+                revive(dynamorio::DR_REG_RAX);
+                revive(dynamorio::DR_REG_RDX);
+                break;
 
             default: break;
             }
@@ -125,6 +231,7 @@ namespace granary {
             }
         }
 
+        // revive/kill implicitly used registers
         visit(in, num_dests);
 
         revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);

@@ -162,13 +162,7 @@ namespace granary {
             instruction (*make_opcode)(dynamorio::opnd_t)
         >
         static MContext *
-        find_and_patch_direct_cti(MContext *context, uint64_t rsp) throw() {
-
-            if(!(rsp % 16)) {
-                printf("16 byte aligned\n");
-            } else {
-                printf("not 16 byte aligned\n");
-            }
+        find_and_patch_direct_cti(MContext *context) throw() {
 
             cpu_state_handle cpu;
             thread_state_handle thread;
