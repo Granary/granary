@@ -8,6 +8,7 @@ GR_NAME = granary
 # Compilation toolchain
 GR_CPP = cpp
 GR_CC = gcc
+GR_LD = gcc
 GR_CXX = g++-4.7
 GR_CXX_STD = -std=gnu++0x
 
@@ -18,11 +19,15 @@ GR_OUTPUT_FORMAT =
 
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
+GR_LD_FLAGS = 
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions
 GR_CXX_FLAGS += -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
+GR_EXTRA_CC_FLAGS ?=
+GR_EXTRA_CXX_FLAGS ?=
+GR_EXTRA_LD_FLAGS ?=
 
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
@@ -93,6 +98,7 @@ GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
 GR_OBJS += bin/granary/register.o
+GR_OBJS += bin/granary/init.o
 
 # Granary (x86) dependencies
 GR_OBJS += bin/granary/x86/utils.o
@@ -120,12 +126,13 @@ ifneq ($(KERNEL),1)
 	# Granary tests
 	GR_OBJS += bin/tests/test_direct_cbr.o
 	GR_OBJS += bin/tests/test_direct_call.o
-
+	
+	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS)
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CXX) -fPIE $(GR_CXX_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
+	GR_MAKE += $(GR_CXX) $(GR_LD_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
@@ -156,6 +163,9 @@ else
 	define GR_COMPILE_ASM
 endef
 endif
+
+GR_CC_FLAGS += $(GR_EXTRA_CC_FLAGS)
+GR_CXX_FLAGS += $(GR_EXTRA_CXX_FLAGS)
 
 # MumurHash3 rules for C++ files
 bin/deps/murmurhash/%.o: deps/murmurhash/%.cc

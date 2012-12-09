@@ -10,6 +10,15 @@
 
 namespace granary {
 
+    /// A list of static initializers.
+    struct static_init_list {
+        static_init_list *next;
+        void (*exec)(void);
+
+        static void append(static_init_list &) throw();
+    };
+
+
     void init(void) throw();
 
 }

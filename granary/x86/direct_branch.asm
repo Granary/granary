@@ -34,7 +34,8 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
 
     mov %rsp, %ARG2
 
-1:  call 1b;
+    // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
+    callq *%rax
 
     // restore the old stack pointer
     mov 8(%rsp), %rsp
@@ -66,7 +67,8 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     mov %rsp, %ARG1
     mov %rsp, %ARG2
 
-1:  call 1b;
+    // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
+    callq *%rax
 
     POP_ARGS // restore arguments
     IF_KERNEL(lea 0x8(%rsp), %rsp) // 'pop' the padding

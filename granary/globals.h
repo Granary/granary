@@ -81,6 +81,8 @@ namespace granary {
 extern "C" {
 #if !GRANARY_IN_KERNEL
     extern void granary_break_on_fault(void);
+    extern int granary_fault(void);
+
     extern void granary_break_on_encode(dynamorio::app_pc pc,
                                         dynamorio::instr_t *instr);
     extern void granary_break_on_bb(granary::basic_block *bb);
@@ -92,32 +94,11 @@ extern "C" {
     extern void granary_atomic_write8(uint64_t, uint64_t *);
 }
 
-namespace granary {
-
-    /// This is a sort of hack to ensure that static initializers are
-    /// compiled to execute.
-    struct static_init_list {
-        static_init_list *next;
-    };
-
-    extern static_init_list STATIC_LIST_HEAD;
-
-    /// Another static init hack to add test cases to be run automatically.
-    struct static_test_list {
-        void (*func)(void);
-        const char *desc;
-        static_test_list *next;
-
-        static_test_list(void) throw();
-    };
-
-    extern static_test_list STATIC_TEST_LIST_HEAD;
-    extern void run_tests(void) throw();
-}
-
 
 #include "granary/utils.h"
 #include "granary/type_traits.h"
 #include "granary/allocator.h"
+#include "granary/init.h"
+#include "granary/test.h"
 
 #endif /* granary_GLOBALS_H_ */

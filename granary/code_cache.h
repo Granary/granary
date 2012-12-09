@@ -224,8 +224,8 @@ namespace granary {
             for(;;) {
                 instruction in(instruction::decode(&start_pc));
                 if(in.is_call()) {
-                    in = call_(pc_(reinterpret_cast<app_pc>(
-                        find_and_patch_direct_cti<MContext, make_opcode>)));
+                    ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<uint64_t>(
+                        find_and_patch_direct_cti<MContext, make_opcode>))));
                 }
 
                 ls.append(in);
@@ -244,11 +244,8 @@ namespace granary {
         }
 
 
-        /// Static initialize the policy for this code cache.
-        ///
-        /// Note: this function initializes fields in the instrumenter template
-        ///       of `policy.h`.
-        static instrumenter<Policy> init_policy(void) throw() {
+        /// Do the actual initialization of a policy field.
+        static void init_policy_call_templates(void) throw() {
 
             // initialize the diruct jump resolvers in the policy
             FOR_EACH_DIRECT_JUMP(DEFINE_DIRECT_JUMP_RESOLVER);
@@ -259,6 +256,20 @@ namespace granary {
                     direct_call_patch_mcontext,
                     call_
                 >(granary_asm_direct_call_template);
+        }
+
+
+        /// Static initialize the policy for this code cache.
+        ///
+        /// Note: this function initializes fields in the instrumenter template
+        ///       of `policy.h`.
+        static instrumenter<Policy> init_policy(void) throw() {
+
+            // do init()-time initialization of policies
+            static static_init_list late_initializer;
+            late_initializer.exec = init_policy_call_templates;
+            static_init_list::append(late_initializer);
+
 
             return instrumenter<Policy>();
         }

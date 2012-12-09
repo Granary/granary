@@ -46,25 +46,26 @@
 #   define IF_USER_(...) , __VA_ARGS__
 #endif
 
-#define FAULT (granary_break_on_fault(), (*((volatile int *) nullptr) = 0))
+#define FAULT (granary_break_on_fault(), granary_fault())
 #define BARRIER __asm__ __volatile__ ("")
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
 /// Use to statically initialize some code.
 #define STATIC_INITIALIZE___(id, ...) \
-    static void foo_func_ ## id(void) throw(); \
-    struct static_init_ ## id : public granary::static_init_list { \
+    static void init_func_ ## id(void) throw(); \
+    struct init_class_ ## id : public granary::static_init_list { \
     public: \
-        static_init_ ## id(void) throw() { \
-            __VA_ARGS__ \
-            (void) foo_func_ ## id; \
-            this->next = granary::STATIC_LIST_HEAD.next; \
-            granary::STATIC_LIST_HEAD.next = this; \
+        init_class_ ## id(void) throw() { \
+            this->exec = init_func_ ## id; \
+            granary::static_init_list::append(*this); \
         } \
     }; \
-    static static_init_ ## id foo_ ## id; \
-    static __attribute__((noinline)) void foo_func_ ## id(void) { (void) foo_ ## id; }
+    static init_class_ ## id init_val_ ## id; \
+    static __attribute__((noinline)) void init_func_ ## id(void) { \
+        (void) init_val_ ## id; \
+        { __VA_ARGS__ } \
+    }
 
 #define STATIC_INITIALIZE__(line, counter, ...) \
     STATIC_INITIALIZE___(line ## _ ## counter, ##__VA_ARGS__)
@@ -84,8 +85,7 @@
         static granary::static_test_list test__; \
         test__.func = test_func; \
         test__.desc = test_desc; \
-        test__.next = granary::STATIC_TEST_LIST_HEAD.next; \
-        granary::STATIC_TEST_LIST_HEAD.next = &(test__); \
+        granary::static_test_list::append(test__); \
     })
 #   define ASSERT(cond) {if(!(cond)) { FAULT; }}
 #endif

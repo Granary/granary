@@ -19,7 +19,7 @@
 MODULE_LICENSE("Dual BSD/GPL");
 
 
-extern void granary_break_on_fault(void) { }
+void granary_break_on_fault(void) { }
 
 struct kernel_module *modules = NULL;
 extern int (**kernel_printf)(const char *, ...);

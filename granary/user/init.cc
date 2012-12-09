@@ -11,7 +11,7 @@
 
 namespace granary {
 
-    void init(void) throw() {
+    void init_user(void) throw() {
 
     }
 

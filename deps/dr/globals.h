@@ -10,7 +10,7 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
-#define FAULT (granary_break_on_fault(), ((*((volatile int *) 0)) = 0))
+#define FAULT (granary_break_on_fault(), granary_fault())
 #define IF_GRANARY(x) x
 #define IF_NOT_GRANARY(x)
 #define LINUX 1
@@ -346,6 +346,7 @@ extern void heap_free(void *, void *, unsigned long long);
 extern dcontext_t *get_thread_private_dcontext(void);
 
 extern void granary_break_on_fault(void);
+extern int granary_fault(void);
 
 #ifdef __cplusplus
 }

@@ -12,10 +12,16 @@ extern "C" {
 
     void granary_break_on_fault(void) { }
 
+    int granary_fault(void) {
+        ASM("mov 0, %rax;");
+        return 1;
+    }
+
     void granary_break_on_encode(dynamorio::app_pc pc,
                                  dynamorio::instr_t *instr) {
         (void) pc;
         (void) instr;
+        granary_fault();
     }
 
     void granary_break_on_bb(granary::basic_block *bb) {
@@ -46,13 +52,23 @@ extern "C" {
 
 namespace granary {
 
-    static_test_list STATIC_TEST_LIST_HEAD;
+
+    /// List of test cases to run.
+    static static_test_list STATIC_TEST_LIST_HEAD;
+
 
     static_test_list::static_test_list(void) throw()
         : func(nullptr)
         , desc(nullptr)
         , next(nullptr)
     { }
+
+
+    void static_test_list::append(static_test_list &entry) throw() {
+        entry.next = STATIC_TEST_LIST_HEAD.next;
+        STATIC_TEST_LIST_HEAD.next = &entry;
+    }
+
 
     void run_tests(void) throw() {
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
