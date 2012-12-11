@@ -81,8 +81,8 @@ namespace granary {
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
         static app_pc find(cpu_state_handle &cpu,
-                    thread_state_handle &thread,
-                    app_pc addr) throw() {
+                           thread_state_handle &thread,
+                           app_pc addr) throw() {
 
             app_pc target_addr(find_detach_target(addr));
             if(nullptr != target_addr) {
@@ -101,6 +101,19 @@ namespace granary {
             CODE_CACHE.store(bb.cache_pc_start, bb.cache_pc_start);
 
             return bb.cache_pc_start;
+        }
+
+        /// Add an entry to the code cache for later prediction.
+        static void predict(cpu_state_handle &cpu,
+                            thread_state_handle &thread,
+                            app_pc app_code,
+                            app_pc cache_code) throw() {
+
+            CODE_CACHE.store(app_code, cache_code);
+            CODE_CACHE.store(cache_code, cache_code);
+
+            (void) cpu;
+            (void) thread;
         }
 
     private:

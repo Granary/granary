@@ -3764,6 +3764,18 @@ instr_is_call(instr_t *instr)
             opc == OP_call_far_ind);
 }
 
+
+bool
+instr_is_jump(instr_t *instr)
+{
+    int opc = instr_get_opcode(instr);
+    return (opc == OP_jmp ||
+            opc == OP_jmp_far ||
+            opc == OP_jmp_ind ||
+            opc == OP_jmp_far_ind);
+}
+
+
 bool 
 instr_is_call_direct(instr_t *instr)
 {

@@ -31,19 +31,25 @@ namespace granary {
         }
 
         // save key info
-        dynamorio::byte *bytes(instr.bytes);
+        //dynamorio::byte *bytes(instr.bytes);
         app_pc translation(instr.translation);
-        dynamorio::uint eflags(instr.eflags);
+        //dynamorio::uint eflags(instr.eflags);
         void *note(instr.note);
         dynamorio::instr_t *next(instr.next);
         dynamorio::instr_t *prev(instr.prev);
 
         memcpy(&instr, &(that.instr), sizeof instr);
 
+        // TODO:
+        // will need to decide what the best approach is here; there are
+        // interesting interactions when dealing with nop2byte_, which manually
+        // allocates is bits, and when such a nop is (stage)encoded and then
+        // assigned to another instruction.
+
         // restore key info
-        instr.bytes = bytes;
+        //instr.bytes = bytes;
         instr.translation = translation;
-        instr.eflags |= eflags;
+        //instr.eflags = eflags;
         instr.note = note;
         instr.next = next;
         instr.prev = prev;
@@ -200,40 +206,6 @@ namespace granary {
     }
 
 
-    /// Used for injecting NOPs before hot-patchable
-    typedef decltype(instruction_list().first()) instruction_list_handle;
-    static bool mangled_nops(false);
-    static instruction nop3(nop3byte_());
-    static instruction nop2(nop2byte_());
-    static instruction nop1(nop1byte_());
-
-
-    /// Encodes N bytes of NOPs into an instuction stream.
-    static app_pc encode_mangled_nops(app_pc pc, unsigned num_nops) throw() {
-
-        if(!mangled_nops) {
-            mangled_nops = true;
-            nop3.set_mangled();
-            nop2.set_mangled();
-            nop1.set_mangled();
-        }
-
-        for(; num_nops >= 3; num_nops -= 3) {
-            pc = nop3.encode(pc);
-        }
-
-        for(; num_nops >= 2; num_nops -= 2) {
-            pc = nop2.encode(pc);
-        }
-
-        for(; num_nops >= 1; num_nops -= 1) {
-            pc = nop1.encode(pc);
-        }
-
-        return pc;
-    }
-
-
     /// encodes an instruction list into a sequence of bytes
     app_pc instruction_list::encode(app_pc start_pc) throw() {
         if(!length()) {
@@ -247,17 +219,6 @@ namespace granary {
 
         for(unsigned i = 0, max = length(); i < max; ++i) {
 
-            const bool is_hot_patchable(item->is_patchable());
-
-            // x86-64 guaranteed quadword atomic writes so long as
-            // the memory location is aligned on an 8-byte boundary;
-            // we will assume that we are never patching an instruction
-            // longer than 8 bytes
-            if(is_hot_patchable) {
-                uint64_t forward_align(ALIGN_TO(reinterpret_cast<uint64_t>(pc), 8));
-                pc = encode_mangled_nops(pc, forward_align);
-            }
-
             if(item->is_cti()) {
                 operand target(item->cti_target());
                 if(dynamorio::opnd_is_instr(target)) {
@@ -268,13 +229,6 @@ namespace granary {
             prev_pc = pc;
             pc = item->encode(pc);
             IF_DEBUG(nullptr == pc, granary_break_on_encode(prev_pc, *item));
-
-            // make sure that the instruction is the only "useful" one in it's
-            // 8-byte block
-            if(is_hot_patchable) {
-                uint64_t forward_align(ALIGN_TO(reinterpret_cast<uint64_t>(pc), 8));
-                pc = encode_mangled_nops(pc, forward_align);
-            }
 
             item = item.next();
         }
@@ -311,7 +265,6 @@ namespace granary {
         handle_type item(first());
         for(unsigned i = 0, max = length(); i < max; ++i) {
             app_pc prev_staged_pc(staged_pc);
-
             staged_pc = item->stage_encode(staged_pc, final_pc);
             final_pc += staged_pc - prev_staged_pc;
             item = item.next();
@@ -355,11 +308,6 @@ namespace granary {
         auto in = first();
         unsigned size(0U);
         for(unsigned i = 0, max = length(); i < max; ++i) {
-
-            if(in->is_patchable()) {
-                size += ALIGN_TO(size, 8);
-            }
-
             size += in->encoded_size();
             in = in.next();
         }

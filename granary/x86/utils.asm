@@ -34,5 +34,12 @@ GLOBAL_LABEL(granary_atomic_write8:)
 END_FUNC(granary_atomic_write8)
 
 
+DECLARE_FUNC(granary_get_stack_pointer)
+GLOBAL_LABEL(granary_get_stack_pointer:)
+    mov %rsp, %rax;
+    lea 0x8(%rax), %rax;
+    ret;
+END_FUNC(granary_get_stack_pointer)
+
 END_FILE
 

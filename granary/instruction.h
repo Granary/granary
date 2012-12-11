@@ -204,6 +204,24 @@ namespace granary {
         }
 
 
+        /// Return true iff this instruction is a RET instruction.
+        inline bool is_return(void) throw() {
+            return dynamorio::instr_is_return(&instr);
+        }
+
+
+        /// Return true iff this instruction is a CALL instruction.
+        inline bool is_jump(void) throw() {
+            return dynamorio::instr_is_jump(&instr);
+        }
+
+
+        /// Return true iff this instruction is a CALL instruction.
+        inline bool is_unconditional_cti(void) throw() {
+            return is_cti() && !dynamorio::instr_is_cbr(&instr);
+        }
+
+
         /// Return true iff this instruction is a CALL instruction.
 		inline bool is_direct_call(void) throw() {
 			return dynamorio::instr_is_call_direct(&instr);
@@ -220,6 +238,7 @@ namespace granary {
         inline void invalidate_raw_bits(void) throw() {
             dynamorio::instr_set_raw_bits_valid(&instr, false);
             instr.flags &= ~dynamorio::INSTR_RAW_BITS_ALLOCATED;
+            instr.flags &= ~dynamorio::INSTR_RAW_BITS_VALID;
             instr.bytes = nullptr;
         }
 

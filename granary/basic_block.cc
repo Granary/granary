@@ -6,23 +6,16 @@
  */
 
 #include "granary/basic_block.h"
+#include "granary/detach.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
-#include "granary/policy.h"
+#include "granary/mangle.h"
 
-#include <algorithm>
 #include <cstring>
 #include <new>
 
 
 namespace granary {
-
-
-    /// Forward declarations
-    void mangle(instrumentation_policy &policy,
-                 cpu_state_handle &cpu,
-                 thread_state_handle &thread,
-                 instruction_list &ls) throw();
 
 
     enum {
@@ -52,6 +45,10 @@ namespace granary {
         /// slot only requires 10 bytes, but we add 4 extra for any needed
         /// padding.
         BRANCH_SLOT_SIZE_ESTIMATE = 14,
+
+        /// Size in bytes of a vtable entry. This is 8 bytes--the size to hold
+        /// an address.
+        VTABLE_ENTRY_SIZE = 8,
 
         /// Size of a far jmp.
         CONNECTING_JMP_SIZE = 5
@@ -255,19 +252,19 @@ namespace granary {
         size += sizeof(basic_block_info); // meta info
         size += num_instruction_bits / BITS_PER_BYTE;
 
-        size += basic_block_state::size(); // block-local storage
-
         return size;
     }
 
 
     /// Compute the size of an existing basic block.
+    ///
+    /// Note: This excludes block-local storage because it is actually
+    ///       allocated separately from the basic block.
     unsigned basic_block::size(void) const throw() {
         unsigned size(info->num_bytes + sizeof *info);
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         size += num_instruction_bits / BITS_PER_BYTE;
-        size += basic_block_state::size(); // block-local storage
         return size;
     }
 
@@ -306,7 +303,7 @@ namespace granary {
     /// targets into instructions with instr targets (so long as one of the
     /// instructions in the block has a pc that is targets by one of the CTIs).
     void resolve_local_branches(cpu_state_handle &cpu,
-                                   instruction_list &ls) throw() {
+                                instruction_list &ls) throw() {
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
         instruction_list_handle in(ls.first());
@@ -326,8 +323,9 @@ namespace granary {
         }
 
         /// build an array of targets
-        local_branch_target *branch_targets(cpu->transient_allocator.\
-            allocate_array<local_branch_target>(num_direct_branches));
+        array<local_branch_target> branch_targets(
+            cpu->transient_allocator.\
+                allocate_array<local_branch_target>(num_direct_branches));
 
         in = ls.first();
         for(unsigned i(0), j(0); i < max; ++i) {
@@ -343,12 +341,14 @@ namespace granary {
         }
 
         // sort targets by their destination (target pc)
-        std::sort(branch_targets, branch_targets + num_direct_branches);
+        branch_targets.sort();
 
         // re-target the instructions
         in = ls.first();
-        for(unsigned i(0), j(0); i < max; ++i) {
-            while(in->pc() == branch_targets[j].target) {
+        for(unsigned i(0), j(0); i < max && j < num_direct_branches; ++i) {
+            while(j < num_direct_branches
+               && in->pc() == branch_targets[j].target) {
+
                 dynamorio::instr_set_target(
                     *(branch_targets[j++].source), instr_(*in));
             }
@@ -404,13 +404,20 @@ namespace granary {
                                        cpu_state_handle &cpu,
                                        thread_state_handle &thread,
                                        app_pc *pc) throw() {
+        enum {
+            _4GB = 4294967296ULL
+        };
+
         const app_pc start_pc(*pc);
-        unsigned staged_size(0);
         uint8_t *generated_pc(nullptr);
-        uint8_t *prev_generated_pc(nullptr);
         instruction_list ls;
         unsigned num_direct_branches(0);
         bool fall_through_pc(false);
+
+        basic_block_state *block_storage(
+            cpu->fragment_allocator.allocate<basic_block_state>());
+
+        //uint8_t *estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>());
 
         for(;;) {
             instruction in(instruction::decode(pc));
@@ -418,11 +425,20 @@ namespace granary {
             if(in.is_cti()) {
 
                 operand target(in.cti_target());
-
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
                 // direct branch (e.g. un/conditional branch, jmp, call)
                 if(dynamorio::opnd_is_pc(target)) {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
+                    //app_pc detach_target_pc(find_detach_target(target_pc));
+
+                    // if the target of this jump is over 4gb away, then we
+                    // can't encode it in the usual way (with a 32-bit %rip-
+                    // relative offset)
+                    //if(detach_target_pc
+                    //&& _4GB < (estimator_pc - detach_target_pc)) {
+                    //    ++num_vtable_entries;
+                   //}
+
 
                     // if it is local back edge then keep control within the
                     // same basic block.
@@ -437,6 +453,14 @@ namespace granary {
                     }
                 }
 #endif
+
+                // if this is an indirect call/jump, then reserve two vtable
+                // entries for target prediction. The first entry encodes the
+                // expected target application pc; the second encodes the
+                // expected target's translation pc.
+                //} else if(!in.is_return()) {
+                //    num_vtable_entries++;
+                //}
 
                 instruction_list_handle added_in(ls.append(in));
 
@@ -458,88 +482,66 @@ namespace granary {
                         fall_through_pc = true;
 #endif
                     }
-                    goto try_instrument;
+                    break;
                 }
 
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in->opcode) {
                 ls.append(in);
-                goto try_instrument;
+                fall_through_pc = true; // TODO
+                break;
 
             // between this block and next block, we should enable interrupts.
             } else if(dynamorio::OP_sti == in->opcode) {
                 ls.append(in);
-                goto try_instrument;
+                fall_through_pc = true; // TODO
+                break;
 
             // some other instruction
             } else {
                 ls.append(in);
             }
-            continue;
-
-        try_instrument:
-
-            // estimate the size of the basic block; this is likely to
-            // underestimate the size, which shouldn't be a problem
-            // except if we're near the end of the fragment allocator's
-            // current arena.
-            if(!staged_size) {
-                staged_size = basic_block::size(ls) \
-                            + num_direct_branches * BRANCH_SLOT_SIZE_ESTIMATE;
-
-                if(fall_through_pc) {
-                    staged_size += CONNECTING_JMP_SIZE;
-                }
-            }
-
-            prev_generated_pc = cpu->fragment_allocator.\
-                allocate_array<uint8_t>(staged_size);
-
-            // call client code to instrument the instructions
-            basic_block_state *block_storage(
-                new (prev_generated_pc) basic_block_state);
-
-            policy.instrument(
-                cpu,
-                thread,
-                block_storage,
-                ls);
-
-            // add in a trailing jump if the last instruction in the basic
-            // block is a conditional branch.
-            if(fall_through_pc) {
-                instruction connecting_jmp(jmp_(pc_(*pc)));
-                connecting_jmp.set_mangled();
-                ls.append(connecting_jmp);
-            }
-
-            num_direct_branches += translate_loops(ls);
-            if(num_direct_branches) {
-                resolve_local_branches(cpu, ls);
-            }
-
-            mangle(policy, cpu, thread, ls);
-
-            // re-calculate the size and re-allocate; if our earlier
-            // guess was too small then we need to re-instrument the
-            // instruction list
-            staged_size = basic_block::size(ls);
-            cpu->fragment_allocator.free_last();
-            generated_pc = cpu->fragment_allocator.\
-                allocate_array<uint8_t>(staged_size);
-
-            // go back around and try again
-            if(prev_generated_pc != generated_pc) {
-                *pc = start_pc;
-                ls.clear_for_reuse();
-                continue;
-            }
-
-            break;
         }
 
+        // invoke client code instrumentation on the basic block
+        policy.instrument(
+            cpu,
+            thread,
+            block_storage,
+            ls);
+
+        // add in a trailing jump if the last instruction in the basic
+        // block if we need to force a connection between this basic block
+        // and the next.
+        if(fall_through_pc) {
+            instruction connecting_jmp(jmp_(pc_(*pc)));
+            connecting_jmp.set_mangled();
+            ls.append(connecting_jmp);
+        }
+
+        // translate loops and resolve local branches into jmps to instructions.
+        // done before mangling, as mangling removes the opportunity to do this
+        // type of transformation.
+        num_direct_branches += translate_loops(ls);
+        if(num_direct_branches) {
+            resolve_local_branches(cpu, ls);
+        }
+
+        basic_block_vtable vtable;
+
+        // prepare the instructions for final execution; this does instruction-
+        // specific translations needed to make the code sane/safe to run.
+        instruction_list_mangler mangler(cpu, thread, policy);
+        mangler.mangle(ls);
+
+        // re-calculate the size and re-allocate; if our earlier
+        // guess was too small then we need to re-instrument the
+        // instruction list
+        generated_pc = cpu->fragment_allocator.\
+            allocate_array<uint8_t>(basic_block::size(ls));
+
         // allocated pc immediately following block-local storage
-        uint8_t *bb_pc(generated_pc + basic_block_state::size());
+        uint8_t *bb_pc(generated_pc + vtable.size());
 
         return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
     }

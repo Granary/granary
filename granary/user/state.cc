@@ -34,15 +34,19 @@ namespace granary {
 
     cpu_state_handle::cpu_state_handle(void) throw()
         : has_lock(false)
+        , stack_pointer(granary_get_stack_pointer())
     {
         while(!IS_LOCKED.exchange(true)) { /* spin */ }
         has_lock = true;
     }
 
 
-    cpu_state_handle::cpu_state_handle(cpu_state_handle &&that) throw() {
-        has_lock = that.has_lock;
-        that.has_lock = false;
+    cpu_state_handle::cpu_state_handle(cpu_state_handle &that) throw() {
+        stack_pointer = granary_get_stack_pointer();
+        if(stack_pointer > that.has_lock) {
+            has_lock = that.has_lock;
+            that.has_lock = false;
+        }
     }
 
 
@@ -54,7 +58,7 @@ namespace granary {
     }
 
 
-    cpu_state_handle &cpu_state_handle::operator=(cpu_state_handle &&that) throw() {
+    cpu_state_handle &cpu_state_handle::operator=(cpu_state_handle &that) throw() {
         if(this != &that) {
             has_lock = that.has_lock;
             that.has_lock = false;

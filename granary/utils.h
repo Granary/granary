@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <cstring>
+#include <algorithm>
 
 namespace granary {
 
@@ -68,6 +69,65 @@ namespace granary {
     /// Converts an offset from the beginning of application code into an
     /// application code pointer (represented as a uint64_t)
     uint64_t from_application_offset(int32_t) throw();
+
+
+    /// Represents a simple boxed array type. This is mostly means to more
+    /// easily pass transiently-allocated arrays around as arguments/return
+    /// values.
+    template <typename T>
+    struct array {
+    private:
+
+        T *elms;
+        unsigned num_elms;
+
+    public:
+
+        array(void) throw()
+            : elms(nullptr)
+            , num_elms(0U)
+        { }
+
+        array(T *elms_, unsigned num_elms_) throw()
+            : elms(elms_)
+            , num_elms(num_elms_)
+        { }
+
+        array(array<T> &&that) throw()
+            : elms(that.elms)
+            , num_elms(that.num_elms)
+        { }
+
+        array<T> &operator=(array<T> &&that) throw() {
+            elms = that.elms;
+            num_elms = that.num_elms;
+            return *this;
+        }
+
+        inline operator T *(void) throw() {
+            return elms;
+        }
+
+        inline T &operator[](unsigned i) throw() {
+            return elms[i];
+        }
+
+        inline const T &operator[](unsigned i) const throw() {
+            return elms[i];
+        }
+
+        inline T *begin(void) throw() {
+            return elms;
+        }
+
+        inline T *end(void) throw() {
+            return elms + num_elms;
+        }
+
+        inline void sort(void) throw() {
+            std::sort(begin(), end());
+        }
+    };
 }
 
 

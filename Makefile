@@ -126,6 +126,7 @@ ifneq ($(KERNEL),1)
 	# Granary tests
 	GR_OBJS += bin/tests/test_direct_cbr.o
 	GR_OBJS += bin/tests/test_direct_call.o
+	GR_OBJS += bin/tests/test_lock_inc.o
 	
 	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS)
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0

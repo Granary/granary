@@ -55,6 +55,10 @@ namespace granary {
         void revive(dynamorio::instr_t *) throw();
 
 
+        /// Revive all registers.
+        void revive_all(void) throw();
+
+
         /// Kill all registers.
         void kill_all(void) throw();
 

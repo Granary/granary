@@ -165,6 +165,67 @@ namespace granary {
         						app_pc generating_pc,
                                 app_pc *generated_pc) throw();
     };
+
+
+    /// Represents a virtual table of addresses for use within a basic block.
+    /// This structure is primarily used by mangle.cc. Vtable entries are one
+    /// of two kinds: addresses (>4gb away from the code cache) or lookups
+    /// (tuple of source, dest addresses) used for predicting the target of an
+    /// indirect branch.
+    struct basic_block_vtable {
+    public:
+
+        struct lookup {
+            uint32_t rel_source;
+            uint32_t rel_dest;
+        } __attribute__((packed));
+
+        struct address {
+            app_pc addr;
+        };
+
+    private:
+
+        union vtable_entry {
+            lookup as_lookup;
+            address as_address;
+        };
+
+        static_assert(sizeof(vtable_entry) == sizeof(uint64_t),
+            "Invalid packing of basic block vtable entries.");
+
+        vtable_entry *arr;
+        unsigned num_entries;
+        unsigned curr_entry;
+    public:
+
+
+
+        inline basic_block_vtable(void)
+            : arr(nullptr)
+            , num_entries(0U)
+            , curr_entry(0U)
+        { }
+
+        inline basic_block_vtable(uint64_t *arr_, unsigned num_entries_)
+            : arr(unsafe_cast<vtable_entry *>(arr_))
+            , num_entries(num_entries_)
+            , curr_entry(0U)
+        { }
+
+        inline lookup &next_lookup(void) throw() {
+            return arr[curr_entry++].as_lookup;
+        }
+
+        inline address &next_address(void) throw() {
+            return arr[curr_entry++].as_address;
+        }
+
+        /// Return the size in bytes of this vtable.
+        inline unsigned size(void) throw() {
+            return num_entries * sizeof *arr;
+        }
+    };
 }
 
 #endif /* granary_BB_H_ */

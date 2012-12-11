@@ -232,7 +232,7 @@ namespace granary {
                 MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
             };
             acquire();
-            T *ptr(new (allocate(MIN_ALIGN, sizeof(T))) T(args...));
+            T *ptr(new (allocate_bare(MIN_ALIGN, sizeof(T))) T(args...));
             release();
             return ptr;
         }
@@ -246,7 +246,12 @@ namespace granary {
         }
 
         template <typename T>
-        T *allocate_array(unsigned length) throw() {
+        inline T *allocate_staged(void) throw() {
+            return unsafe_cast<T *>(allocate_bare(16, 0));
+        }
+
+        template <typename T>
+        array<T> allocate_array(unsigned length) throw() {
             enum {
                 ALIGN = alignof(T),
                 MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
@@ -261,7 +266,7 @@ namespace granary {
                     new (ptr) T;
                 }
             }
-            return unsafe_cast<T *>(arena);
+            return array<T>(unsafe_cast<T *>(arena), length);
         }
 
         void free_last(void) throw() {

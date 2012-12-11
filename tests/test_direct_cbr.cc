@@ -161,13 +161,9 @@ namespace test {
 
     static void direct_cbrs_patched_correctly(void) {
         FOR_EACH_CBR(RUN_CBR_TEST_FUNC, {
-            granary_break_on_bb(&bb_short_true);
             ASSERT(bb_short_true.call<bool>());
-            granary_break_on_bb(&bb_short_false);
             ASSERT(bb_short_false.call<bool>());
-            granary_break_on_bb(&bb_long_true);
             ASSERT(bb_long_true.call<bool>());
-            granary_break_on_bb(&bb_long_false);
             ASSERT(bb_long_false.call<bool>());
         })
     }
@@ -222,9 +218,7 @@ namespace test {
         granary::app_pc jecxz_short_false((granary::app_pc) direct_jecxz_short_false);
         granary::basic_block bb_jecxz_short_false(granary::code_cache<>::find(jecxz_short_false));
 
-        granary_break_on_bb(&bb_jecxz_short_true);
         ASSERT(bb_jecxz_short_true.call<bool>());
-        granary_break_on_bb(&bb_jecxz_short_false);
         ASSERT(bb_jecxz_short_false.call<bool>());
     }
 

@@ -76,11 +76,13 @@ namespace granary {
     struct cpu_state_handle {
     private:
         bool has_lock;
+        uint64_t stack_pointer;
+
     public:
         cpu_state_handle(void) throw();
-        cpu_state_handle(cpu_state_handle &&that) throw();
+        cpu_state_handle(cpu_state_handle &that) throw();
         ~cpu_state_handle(void) throw();
-        cpu_state_handle &operator=(cpu_state_handle &&that) throw();
+        cpu_state_handle &operator=(cpu_state_handle &that) throw();
         cpu_state *operator->(void) throw();
     };
 #endif
