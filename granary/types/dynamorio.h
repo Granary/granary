@@ -341,6 +341,7 @@ enum {
     DR_REG_R13,
     DR_REG_R14,
     DR_REG_R15,
+
     DR_REG_EAX,
     DR_REG_ECX,
     DR_REG_EDX,
@@ -357,6 +358,7 @@ enum {
     DR_REG_R13D,
     DR_REG_R14D,
     DR_REG_R15D,
+
     DR_REG_AX,
     DR_REG_CX,
     DR_REG_DX,
@@ -373,6 +375,7 @@ enum {
     DR_REG_R13W,
     DR_REG_R14W,
     DR_REG_R15W,
+
     DR_REG_AL,
     DR_REG_CL,
     DR_REG_DL,
@@ -389,6 +392,7 @@ enum {
     DR_REG_R13L,
     DR_REG_R14L,
     DR_REG_R15L,
+
     DR_REG_SPL,
     DR_REG_BPL,
     DR_REG_SIL,

@@ -90,21 +90,37 @@ namespace granary {
     }
 
     /// De-reference an address stored in a register
-    operand operand::operator*(void) const throw() {
-        return mem64_(value.reg, 0);
+    operand_base_disp operand::operator*(void) const throw() {
+        operand_base_disp op;
+        op.base = value.reg;
+        op.size = size;
+        return op;
     }
 
 
     /// Accessing some byte offset from the operand (assuming it points to
     /// some memory).
-    operand operand::operator[](int64_t num_bytes) const throw() {
-        return mem64_(value.reg, num_bytes);
+    operand_base_disp operand::operator[](int64_t num_bytes) const throw() {
+        operand_base_disp op;
+        op.base = value.reg;
+        op.disp = num_bytes;
+        op.size = size;
+        return op;
     }
 
 
+    operand_base_disp::operand_base_disp(void) throw()
+        : base(dynamorio::DR_REG_NULL)
+        , index(dynamorio::DR_REG_NULL)
+        , size(dynamorio::OPSZ_lea)
+        , scale(1)
+        , disp(0)
+    { }
+
+
     /// Add an index into an lea operand
-    operand_lea operand::operator+(operand index) const throw() {
-        operand_lea ret;
+    operand_base_disp operand::operator+(operand index) const throw() {
+        operand_base_disp ret;
         ret.base = value.reg;
         ret.index = index.value.reg;
         ret.scale = 1;
@@ -114,9 +130,40 @@ namespace granary {
 
 
     /// Add in the base register to this LEA operand.
-    operand_lea operand::operator+(operand_lea lea) const throw() {
+    operand_base_disp operand::operator+(operand_base_disp lea) const throw() {
         lea.base = value.reg;
         return lea;
+    }
+
+
+    /// Initialize the operand ref with an instruction and operand pointer
+    operand_ref::operand_ref(instruction *instr_, dynamorio::opnd_t *op_) throw()
+        : instr(instr_)
+        , op(unsafe_cast<operand *>(op_))
+    { }
+
+
+    /// Assume that a non-const access of a field of the op will be used
+    /// as an lvalue in an assignment; invalidate the raw bits.
+    operand *operand_ref::operator->(void) throw() {
+        instr->invalidate_raw_bits();
+        return op;
+    }
+
+
+    /// Assign an operand to this operand ref; this will update the operand
+    /// referenced by this ref in place, and will invalidate the raw bits
+    /// of the instruction.
+    operand_ref &operand_ref::operator=(operand that) throw() {
+        *op = that;
+        instr->invalidate_raw_bits();
+        return *this;
+    }
+
+    operand_ref &operand_ref::operator=(operand_base_disp that) throw() {
+        *op = operand(that);
+        instr->invalidate_raw_bits();
+        return *this;
     }
 
 

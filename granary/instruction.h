@@ -18,41 +18,46 @@ namespace granary {
 
     /// Forward declarations.
     struct operand;
-    struct operand_lea;
+    struct operand_base_disp;
+    struct operand_ref;
     struct instruction;
     struct instruction_label;
     struct instruction_list;
 
 
     /// Defines an operand generator for LEA operands
-    struct operand_lea {
+    struct operand_base_disp {
     public:
 
         typename dynamorio::reg_id_t base;
         typename dynamorio::reg_id_t index;
 
+        unsigned char size;
+
         int scale;
         int disp;
+
+        operand_base_disp(void) throw();
 
         /// Add the scale parameter to the LEA operand. Value values are 1, 2,
         /// 4, and 8.
         template <typename T>
-        operand_lea operator*(T scale) const throw() {
+        operand_base_disp operator*(T scale) const throw() {
             static_assert(std::is_integral<T>::value,
                 "Scale must have an integral type.");
 
-            operand_lea ret(*this);
+            operand_base_disp ret(*this);
             ret.scale = static_cast<int>(scale);
             return ret;
         }
 
         /// Add in the displacement to the LEA operand.
         template <typename T>
-        operand_lea operator+(T disp) const throw() {
+        operand_base_disp operator+(T disp) const throw() {
             static_assert(std::is_integral<T>::value,
                 "Displacement must have an integral type.");
 
-            operand_lea ret(*this);
+            operand_base_disp ret(*this);
             ret.disp = static_cast<int>(disp);
             return ret;
         }
@@ -60,7 +65,7 @@ namespace granary {
         /// Implicit conversion from unpacked to packed LEA operand type.
         inline operator typename dynamorio::opnd_t(void) const throw() {
             return dynamorio::opnd_create_base_disp(
-                base, index, scale, disp, dynamorio::OPSZ_lea);
+                base, index, scale, disp, size);
         }
     };
 
@@ -89,25 +94,25 @@ namespace granary {
         }
 
         /// De-referencing creates a new operand type
-        operand operator*(void) const throw();
+        operand_base_disp operator*(void) const throw();
 
         /// Accessing some byte offset from the operand (assuming it points to
         /// some memory)
-        operand operator[](int64_t num_bytes) const throw();
+        operand_base_disp operator[](int64_t num_bytes) const throw();
 
-        operand_lea operator+(operand index) const throw();
+        operand_base_disp operator+(operand index) const throw();
 
-        operand_lea operator+(operand_lea lea) const throw();
+        operand_base_disp operator+(operand_base_disp lea) const throw();
 
         /// Construct an LEA operand with an index and scale. This is to
         /// respect the order of operations. Note: valid values of scale are
         /// 1, 2, 4, and 8.
         template <typename I>
-        operand_lea operator*(I scale) const throw() {
+        operand_base_disp operator*(I scale) const throw() {
             static_assert(std::is_integral<I>::value,
                 "Scale must have an integral type.");
 
-            operand_lea ret;
+            operand_base_disp ret;
             ret.base = dynamorio::DR_REG_NULL;
             ret.index = value.reg;
             ret.scale = static_cast<int>(scale);
@@ -117,11 +122,11 @@ namespace granary {
 
         /// Construct an LEA operand with a base and displacement.
         template <typename I>
-        operand_lea operator+(I disp) const throw() {
+        operand_base_disp operator+(I disp) const throw() {
             static_assert(std::is_integral<I>::value,
                 "Displacement must have an integral type.");
 
-            operand_lea ret;
+            operand_base_disp ret;
             ret.base = dynamorio::DR_REG_NULL;
             ret.index = value.reg;
             ret.scale = 1;
@@ -139,6 +144,55 @@ namespace granary {
 
         inline operator typename dynamorio::reg_id_t(void) const throw() {
             return value.reg;
+        }
+    };
+
+
+    /// Represents a reference to an operand in an instruction. Useful for
+    struct operand_ref {
+    private:
+
+        friend struct instruction;
+
+        instruction *instr;
+        operand *op;
+
+        operand_ref(void) = delete;
+
+        operand_ref(instruction *instr_, dynamorio::opnd_t *op_) throw();
+
+    public:
+
+        /// Const accesses of a field of the op are seen as rvalues and need
+        /// not invalidate the bits of the instruction.
+        inline const operand *operator->(void) const throw() {
+            return op;
+        }
+
+        /// Assume that a non-const access of a field of the op will be used
+        /// as an lvalue in an assignment; invalidate the raw bits.
+        operand *operator->(void) throw();
+
+        /// Assign an operand to this operand ref; this will update the operand
+        /// referenced by this ref in place, and will invalidate the raw bits
+        /// of the instruction.
+        operand_ref &operator=(operand that) throw();
+        operand_ref &operator=(operand_base_disp that) throw();
+
+        inline operator uint64_t(void) const throw() {
+            return op->value.immed_int;
+        }
+
+        inline operator app_pc(void) const throw() {
+            return op->value.pc;
+        }
+
+        inline operator typename dynamorio::reg_id_t(void) const throw() {
+            return op->value.reg;
+        }
+
+        inline operator typename dynamorio::opnd_t(void) const throw() {
+            return *op;
         }
     };
 
@@ -329,6 +383,26 @@ namespace granary {
         /// Get easy access to the internal dynamorio instruction structure
         inline dynamorio::instr_t *operator->(void) throw() {
             return &instr;
+        }
+
+
+        /// Apply a function to all of the destination operands and then all
+        /// of the source operands.
+        template <typename... Args>
+        void for_each_operand(void (*func)(operand_ref, Args&...), Args&... args) throw() {
+            if(instr.num_dsts) {
+                for(int i(0); i < instr.num_dsts; ++i) {
+                    func(operand_ref(this, &(instr.u.o.dsts[i])), args...);
+                }
+            }
+
+            if(instr.num_srcs) {
+                func(operand_ref(this, &(instr.u.o.src0)), args...);
+
+                for(int i(0); i < (instr.num_srcs - 1); ++i) {
+                    func(operand_ref(this, &(instr.u.o.srcs[i])), args...);
+                }
+            }
         }
     };
 

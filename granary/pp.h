@@ -47,7 +47,7 @@
 #endif
 
 #define FAULT (granary_break_on_fault(), granary_fault())
-#define BARRIER __asm__ __volatile__ ("")
+#define BARRIER ASM("" : : : "memory")
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 

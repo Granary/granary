@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include "granary/globals.h"
 
-#define ENABLE_SEGFAULT_HANDLER 0
+#define ENABLE_SEGFAULT_HANDLER 1
 
 #if ENABLE_SEGFAULT_HANDLER
 #include <unistd.h>

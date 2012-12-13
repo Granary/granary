@@ -6,9 +6,9 @@
  */
 
 #include "granary/basic_block.h"
-#include "granary/detach.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
+#include "granary/policy.h"
 #include "granary/mangle.h"
 
 #include <cstring>
@@ -169,13 +169,13 @@ namespace granary {
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes;
-        state = unsafe_cast<basic_block_state *>(
-                cache_pc_start - basic_block_state::size());
-        pc_byte_states = reinterpret_cast<uint8_t *>(
-                cache_pc_end + sizeof(basic_block_info));
+
+        IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
+                cache_pc_end + sizeof(basic_block_info));)
     }
 
 
+#if GRANARY_IN_KERNEL
     /// Returns the next safe interrupt location. This is used in the event that
     /// a basic block is interrupted and we need to determine if we have to
     /// delay the interrupt (e.g. across potentially non-reentrant
@@ -233,6 +233,7 @@ namespace granary {
 
         return nullptr; // shouldn't be reached
     }
+#endif
 
 
     /// Compute the size of a basic block given an instruction list. This
@@ -243,14 +244,15 @@ namespace granary {
 
         // alignment and meta info
         size += ALIGN_TO(size, BB_INFO_BYTE_ALIGNMENT);
+        size += sizeof(basic_block_info); // meta info
 
+#if GRANARY_IN_KERNEL
         // counting set for the bits that have state info about the instruction
         // bytes
         unsigned num_instruction_bits(size * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
-
-        size += sizeof(basic_block_info); // meta info
         size += num_instruction_bits / BITS_PER_BYTE;
+#endif
 
         return size;
     }
@@ -262,9 +264,12 @@ namespace granary {
     ///       allocated separately from the basic block.
     unsigned basic_block::size(void) const throw() {
         unsigned size(info->num_bytes + sizeof *info);
+
+#if GRANARY_IN_KERNEL
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         size += num_instruction_bits / BITS_PER_BYTE;
+#endif
         return size;
     }
 
@@ -404,9 +409,6 @@ namespace granary {
                                        cpu_state_handle &cpu,
                                        thread_state_handle &thread,
                                        app_pc *pc) throw() {
-        enum {
-            _4GB = 4294967296ULL
-        };
 
         const app_pc start_pc(*pc);
         uint8_t *generated_pc(nullptr);
@@ -417,28 +419,16 @@ namespace granary {
         basic_block_state *block_storage(
             cpu->fragment_allocator.allocate<basic_block_state>());
 
-        //uint8_t *estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>());
-
         for(;;) {
             instruction in(instruction::decode(pc));
 
             if(in.is_cti()) {
-
                 operand target(in.cti_target());
+
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
                 // direct branch (e.g. un/conditional branch, jmp, call)
                 if(dynamorio::opnd_is_pc(target)) {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
-                    //app_pc detach_target_pc(find_detach_target(target_pc));
-
-                    // if the target of this jump is over 4gb away, then we
-                    // can't encode it in the usual way (with a 32-bit %rip-
-                    // relative offset)
-                    //if(detach_target_pc
-                    //&& _4GB < (estimator_pc - detach_target_pc)) {
-                    //    ++num_vtable_entries;
-                   //}
-
 
                     // if it is local back edge then keep control within the
                     // same basic block.
@@ -453,14 +443,6 @@ namespace granary {
                     }
                 }
 #endif
-
-                // if this is an indirect call/jump, then reserve two vtable
-                // entries for target prediction. The first entry encodes the
-                // expected target application pc; the second encodes the
-                // expected target's translation pc.
-                //} else if(!in.is_return()) {
-                //    num_vtable_entries++;
-                //}
 
                 instruction_list_handle added_in(ls.append(in));
 
@@ -531,7 +513,7 @@ namespace granary {
 
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
-        instruction_list_mangler mangler(cpu, thread, policy);
+        instruction_list_mangler mangler(cpu, thread, policy, vtable);
         mangler.mangle(ls);
 
         // re-calculate the size and re-allocate; if our earlier

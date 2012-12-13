@@ -93,15 +93,12 @@ namespace granary {
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
         /// follows the info block in memory.
-        uint8_t *pc_byte_states;
+        IF_KERNEL(uint8_t *pc_byte_states;)
 
         /// the meta information for the specific basic block.
         basic_block_info *info;
 
     public:
-
-        /// The block-local storage for this block
-        basic_block_state *state;
 
         /// location information about this basic block
         app_pc cache_pc_start;
@@ -169,9 +166,10 @@ namespace granary {
 
     /// Represents a virtual table of addresses for use within a basic block.
     /// This structure is primarily used by mangle.cc. Vtable entries are one
-    /// of two kinds: addresses (>4gb away from the code cache) or lookups
-    /// (tuple of source, dest addresses) used for predicting the target of an
-    /// indirect branch.
+    /// of two kinds:
+    ///     i)  Instruction addresses that are > 4GB away from the code cache.
+    ///     ii) (source offset, dest offset) pairs used as a cache for predicting
+    ///         the target of an indirect CTI.
     struct basic_block_vtable {
     public:
 
@@ -184,17 +182,17 @@ namespace granary {
             app_pc addr;
         };
 
-    private:
-
-        union vtable_entry {
+        union entry {
             lookup as_lookup;
             address as_address;
         };
 
-        static_assert(sizeof(vtable_entry) == sizeof(uint64_t),
+    private:
+
+        static_assert(sizeof(entry) == sizeof(uint64_t),
             "Invalid packing of basic block vtable entries.");
 
-        vtable_entry *arr;
+        entry *arr;
         unsigned num_entries;
         unsigned curr_entry;
     public:
@@ -207,8 +205,8 @@ namespace granary {
             , curr_entry(0U)
         { }
 
-        inline basic_block_vtable(uint64_t *arr_, unsigned num_entries_)
-            : arr(unsafe_cast<vtable_entry *>(arr_))
+        inline basic_block_vtable(entry *arr_, unsigned num_entries_)
+            : arr(arr_)
             , num_entries(num_entries_)
             , curr_entry(0U)
         { }

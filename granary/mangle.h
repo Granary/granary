@@ -10,11 +10,13 @@
 #define Granary_MANGLE_H_
 
 #include "granary/instruction.h"
-#include "granary/policy.h"
 #include "granary/state.h"
 
 namespace granary {
 
+    /// Forward declarations
+    struct basic_block_vtable;
+    struct instrumentation_policy;
 
     /// Defines an instruction list mangler. This is responsible for
     /// re-structuring instruction lists to make them safe to emit. Making them
@@ -26,6 +28,7 @@ namespace granary {
         cpu_state_handle cpu;
         thread_state_handle thread;
         instrumentation_policy &policy;
+        basic_block_vtable &vtable;
         instruction_list *ls;
 
         void mangle_sti(instruction_list_handle in) throw();
@@ -36,13 +39,20 @@ namespace granary {
         void mangle_call(instruction_list_handle in) throw();
         void mangle_indirect_call(instruction_list_handle in, operand op) throw();
 
+        IF_USER(void mangle_far_memory_refs(instruction_list_handle in,
+                                            app_pc estimator_pc) throw();)
+
         void add_direct_branch_stub(instruction_list_handle in, operand op) throw();
+
+        void add_vtable_entries(unsigned num_needed_vtable_entries,
+                                app_pc estimator_pc) throw();
 
     public:
 
         instruction_list_mangler(cpu_state_handle &cpu_,
                                  thread_state_handle &thread_,
-                                 instrumentation_policy &policy_) throw();
+                                 instrumentation_policy &policy_,
+                                 basic_block_vtable &vtable_) throw();
 
         void mangle(instruction_list &ls);
     };
