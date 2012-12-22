@@ -29,6 +29,16 @@ GR_EXTRA_CC_FLAGS ?=
 GR_EXTRA_CXX_FLAGS ?=
 GR_EXTRA_LD_FLAGS ?=
 
+# Options for generating type information.
+GR_TYPE_CC = $(GR_CC)
+GR_TYPE_CC_FLAGS =
+GR_INPUT_TYPES =
+GR_OUTPUT_TYPES =
+
+# Conditional compilation for kernel code; useful for testing if Granary code
+# compiles independent of the Linux kernel.
+KERNEL ?= 1
+
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 	
@@ -41,7 +51,8 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu
-	GR_CXX_STD = -std=c++0x
+	GR_CXX_STD = -std=c++11
+	GR_TYPE_CC_FLAGS = -std=c++11
 	
 	# explicitly enable/disable address sanitizer
     ifeq ('0','$(GR_ASAN)')
@@ -57,6 +68,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
     # enable the newer standard and use it with libc++
     ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_STD = -std=c++11 -stdlib=libc++
+		GR_TYPE_CC_FLAGS = -std=c++11 -stdlib=libc++
     endif
 endif
 
@@ -110,12 +122,13 @@ GR_OBJS += bin/granary/gen/instruction.o
 # Client code dependencies
 GR_OBJS += bin/clients/instrument.o
 
-# Conditional compilation for kernel code; useful for testing if Granary code
-# compiles independent of the Linux kernel.
-KERNEL ?= 1
-
 # user space
 ifneq ($(KERNEL),1)
+
+	GR_TYPE_CC = $(GR_CXX)
+	GR_INPUT_TYPES = granary/user/posix/types.h
+	GR_OUTPUT_TYPES = granary/gen/user_types.h
+
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
@@ -143,6 +156,11 @@ endef
 
 # kernel space
 else
+	
+	GR_TYPE_CC_FLAGS += -mcmodel=kernel
+	GR_INPUT_TYPES = granary/kernel/linux/types.h
+	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
+
 	GR_OBJS += bin/granary/kernel/module.o
 	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o
@@ -168,13 +186,16 @@ endif
 GR_CC_FLAGS += $(GR_EXTRA_CC_FLAGS)
 GR_CXX_FLAGS += $(GR_EXTRA_CXX_FLAGS)
 
+
 # MumurHash3 rules for C++ files
 bin/deps/murmurhash/%.o: deps/murmurhash/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/murmurhash/$*.$(GR_OUTPUT_FORMAT)
 
+
 # DynamoRIO rules for C files
 bin/deps/dr/%.o: deps/dr/%.c
 	$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/deps/dr/$*.$(GR_OUTPUT_FORMAT)
+
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
@@ -182,9 +203,11 @@ bin/deps/dr/%.o: deps/dr/%.asm
 	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
 
+
 # Granary rules for C++ files
 bin/granary/%.o: granary/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
+
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
@@ -193,9 +216,11 @@ bin/granary/x86/%.o: granary/x86/%.asm
 	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)
 
+
 # Granary rules for client C++ files
 bin/clients/%.o: clients/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
+
 
 # Granary rules for test files
 bin/tests/%.o: tests/%.cc
@@ -208,8 +233,16 @@ bin/tests/%.o: tests/%.cc
 bin/main.o: main.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
 
+
+# pre-process then post-process type information; this is used for wrappers,
+# etc.
+types:
+	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
+	python scripts/post_process_header.py /tmp/ppt.h > $(GR_OUTPUT_TYPES)
+
+
+# make the folders where binaries / generated assemblies are stored
 install:
-	# make the folders where binaries / generated assemblies are stored
 	-mkdir bin
 	-mkdir bin/granary
 	-mkdir bin/granary/user
@@ -233,8 +266,11 @@ install:
 	$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
 	python scripts/make_asm_defines.py
 
+
+# Compile granary
 all: $(GR_OBJS)
 	$(GR_MAKE)
+
 
 # Remove all generated files. This goes and touches some file in all of the
 # directories to make sure cleaning doesn't report any errors; depending on
