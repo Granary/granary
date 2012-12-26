@@ -76,7 +76,8 @@ class CToken(object):
   STATEMENT_END             = 41
 
   EXTENSION                 = 50
-  TYPEOF                    = 51
+  EXTENSION_NO_PARAM        = 51
+  TYPEOF                    = 52
 
   EOF                       = 60
 
@@ -120,11 +121,6 @@ class CToken(object):
     "_Complex":       TYPE_BUILT_IN,
     "_Imaginary":     TYPE_BUILT_IN,
     "wchar_t":        TYPE_BUILT_IN,
-
-    # todo: check if these are okay
-    #"ptrdiff_t":      TYPE_BUILT_IN,
-    #"size_t":         TYPE_BUILT_IN,
-    #"ssize_t":        TYPE_BUILT_IN,
     
     # extensions    
     "asm":            EXTENSION,
@@ -134,14 +130,51 @@ class CToken(object):
     "asm__":          EXTENSION,
     "__asm__":        EXTENSION,
         
-    "_volatile":      EXTENSION,
-    "__volatile":     EXTENSION,
-    "volatile_":      EXTENSION,
-    "volatile__":     EXTENSION,
-    "__volatile__":   EXTENSION,
+    "_volatile":      EXTENSION_NO_PARAM,
+    "__volatile":     EXTENSION_NO_PARAM,
+    "volatile_":      EXTENSION_NO_PARAM,
+    "volatile__":     EXTENSION_NO_PARAM,
+    "__volatile__":   EXTENSION_NO_PARAM,
     
     "__attribute__":  EXTENSION,
+    "noinline":       EXTENSION_NO_PARAM,
     
+    # note: not an exhaustive list
+    "__alias__":      EXTENSION,
+    "__aligned__":    EXTENSION,
+    "__alloc_size__": EXTENSION,
+    "__always_inline__":EXTENSION_NO_PARAM,
+    "__gnu_inline__": EXTENSION_NO_PARAM,
+    "__artificial__": EXTENSION_NO_PARAM,
+    "__flatten__":    EXTENSION_NO_PARAM,
+    "__error__":      EXTENSION,
+    "__warning__":    EXTENSION,
+    "__cdecl__":      EXTENSION_NO_PARAM,
+    "__const__":      EXTENSION_NO_PARAM,
+    "__format__":     EXTENSION,
+    "__format_arg__": EXTENSION,
+    "__leaf__":       EXTENSION_NO_PARAM,
+    "__malloc__":     EXTENSION_NO_PARAM,
+    "__noinline__":   EXTENSION_NO_PARAM,
+    "__noclone__":    EXTENSION_NO_PARAM,
+    "__nonnull__":    EXTENSION,
+    "__noreturn__":   EXTENSION_NO_PARAM,
+    "__nothrow__":    EXTENSION_NO_PARAM,
+    "__pure__":       EXTENSION_NO_PARAM,
+    "__hot__":        EXTENSION_NO_PARAM,
+    "__cold__":       EXTENSION_NO_PARAM,
+    "__no_address_safety_analysis__": EXTENSION_NO_PARAM,
+    "__returns_twice__": EXTENSION_NO_PARAM,
+    "__section__":    EXTENSION_NO_PARAM,
+    "__stdcall__":    EXTENSION_NO_PARAM,
+    "__syscall_linkage__": EXTENSION_NO_PARAM,
+    "__target__":     EXTENSION,
+    "__unused__":     EXTENSION_NO_PARAM,
+    "__used__":       EXTENSION_NO_PARAM,
+    "__visibility__": EXTENSION,
+    "__warn_unused_result__": EXTENSION_NO_PARAM,
+    "__weak__":       EXTENSION_NO_PARAM,
+
     "typeof":         TYPEOF,
     "__typeof__":     TYPEOF,
     "decltype":       TYPEOF,
@@ -149,7 +182,6 @@ class CToken(object):
     # os/compiler-specific extensions
     "__builtin_va_list":TYPE_BUILT_IN,
     "__signed__" :    TYPE_BUILT_IN,
-    
   }
 
   def __init__(self, str_, kind_):
@@ -628,7 +660,7 @@ class CTypeDefinition(CType):
     return "TypeDef(%s)" % self.name
 
 
-class CTypePointer(object):
+class CTypePointer(CType):
   """Represents a C pointer type.
   
   This tracks a single indirection (*) and the flags following that
@@ -651,7 +683,7 @@ class CTypePointer(object):
     return "Pointer(%s%s%s%s)" % (c, r, v, repr(self.ctype))
 
 
-class CTypeArray(CTypePointer):
+class CTypeArray(CTypeCompound):
   """Represents an array type in C.
 
   Some aspects of C99's parameterized (with qualifiers, dependent names, etc.)
@@ -974,7 +1006,7 @@ class CParser(object):
   T_S   = CTypeBuiltIn("short")
   T_US  = CTypeBuiltIn("unsigned short")
   T_I   = CTypeBuiltIn("int")
-  T_UI  = CTypeBuiltIn("unsigned")
+  T_UI  = CTypeBuiltIn("unsigned int")
   T_L   = CTypeBuiltIn("long")
   T_UL  = CTypeBuiltIn("unsigned long")
   T_LL  = CTypeBuiltIn("long long")
@@ -988,10 +1020,6 @@ class CParser(object):
   T_STR = CTypePointer(T_C, is_const=True)
   T_INT = CTypeAttributed(T_LL, CTypeAttributes(is_const=True))
   T_FLT = CTypeAttributed(T_D, CTypeAttributes(is_const=True))
-
-  #T_S   = CTypeBuiltIn("size_t")
-  #T_SS  = CTypeBuiltIn("ssize_t")
-  #T_PD  = CTypeBuiltIn("ptrdiff_t")
 
   VA_LIST = CTypeBuiltIn("__builtin_va_list")
 
@@ -1186,9 +1214,17 @@ class CParser(object):
   def _parse_specifiers(self, stab, toks, i):
     attrs = CTypeAttributes()
     built_in_names = []
+    potential_built_in_names = []
     ctype = None
     defines_type = False
-    extended_attrs = None
+
+    # extending a type with compiler-specific attributes will use a function of
+    # the final type that recursively applies any previously applied extended
+    # attributes.
+    extended_attrs = lambda ctype: ctype
+    def apply_extended_attrs(prev_extended_attrs, extended_attrs):
+      return lambda ctype: CTypeAttributed(
+          prev_extended_attrs(ctype), extended_attrs)
 
     while i < len(toks):
       t = toks[i]
@@ -1202,13 +1238,11 @@ class CParser(object):
         assert not attrs.is_unsigned
         assert not attrs.is_signed
         attrs.is_signed = True
-        built_in_names.append(t.str)
 
       elif "unsigned" == t.str:
         assert not attrs.is_unsigned
         assert not attrs.is_signed
         attrs.is_unsigned = True
-        built_in_names.append(t.str)
 
       # special case 2: both of these storage class specifiers can also be
       # used to define ints.
@@ -1294,23 +1328,34 @@ class CParser(object):
           # todo: unimplemented
           ctype = CTypeExpression(typeof_toks)
 
-      # compiler-specific attributes
+      # compiler-specific attributes (parameterized)
       elif CToken.EXTENSION == t.kind:
-        assert not extended_attrs
         extension_toks = []
-        i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)        
-        extended_attrs = CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.LEFT)
+        i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)
+        extended_attrs = apply_extended_attrs(
+            extended_attrs,
+            CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.LEFT))
+
+      # compiler-specific attributes (non-parameterized)
+      elif CToken.EXTENSION_NO_PARAM == t.kind:
+        extended_attrs = apply_extended_attrs(
+            extended_attrs,
+            CTypeExtendedAttributes([t], CTypeExtendedAttributes.LEFT))
+        i += 1
 
       # probably done the specifiers :-P
       else:
         i -= 1
         break
 
+    if not built_in_names and (attrs.is_signed or attrs.is_unsigned):
+      built_in_names.append("int")
+
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
     
-    if extended_attrs:
-      ctype = CTypeAttributed(ctype, extended_attrs)
+    # apply any extended attributes    
+    ctype = extended_attrs(ctype)
 
     assert ctype
     return i, CTypeAttributed(ctype, attrs), defines_type
@@ -1458,6 +1503,9 @@ class CParser(object):
       ctype.param_types.append(param_ctype)
       ctype.param_names.append(param_name)
 
+    if 1 == len(ctype.param_types) and ctype.param_types[0] is CParser.T_V:
+      ctype.param_names = []
+
     return ctype
 
   # Parse the array size component of an array direct declarator. This does a
@@ -1533,77 +1581,6 @@ class CParser(object):
       i, expr = self._parse_expression(stab, toks, 0, can_have_comma=True)
       return expr
 
-  #BEGIN, BEGIN_CAST_OR_EXPR, BEGIN_TYPEOF, CONT, CONT_TERNARY = range(5)
-  #
-  ## format of precedence table:
-  ##   current state, operator -> precedence, next state, end state
-  #OP_PREC = {
-  #
-  #  # highest (i.e. binds strongly)
-  #  (CONT, "++"):         (1,   BEGIN,              CONT),
-  #  (CONT, "--"):         (1,   BEGIN,              CONT),
-  #  (CONT, "("):          (1,   BEGIN,              CONT),
-  #  (CONT, "["):          (1,   BEGIN,              CONT),
-  #  (CONT, "."):          (1,   BEGIN,              CONT),
-  #  (CONT, "->"):         (1,   BEGIN,              CONT),
-  #
-  #  (BEGIN, "++"):        (2,   BEGIN,              CONT),
-  #  (BEGIN, "--"):        (2,   BEGIN,              CONT),
-  #  (BEGIN, "+"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "-"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "!"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "~"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "("):         (2,   BEGIN_CAST_OR_EXPR, CONT),
-  #  (BEGIN, "*"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "&"):         (2,   BEGIN,              CONT),
-  #  (BEGIN, "sizeof"):    (2,   BEGIN,              CONT),
-  #  (BEGIN, "typeof"):    (2,   BEGIN_TYPEOF,       CONT),
-  #  (BEGIN, "__typeof__"):(2,   BEGIN_TYPEOF,       CONT),
-  #  (BEGIN, "decltype"):  (2,   BEGIN_TYPEOF,       CONT),
-  #
-  #  (CONT, "*"):          (3,   BEGIN,              CONT),
-  #  (CONT, "/"):          (3,   BEGIN,              CONT),
-  #  (CONT, "%"):          (3,   BEGIN,              CONT),
-  #
-  #  (CONT, "+"):          (4,   BEGIN,              CONT),
-  #  (CONT, "-"):          (4,   BEGIN,              CONT),
-  #
-  #  (CONT, "<<"):         (5,   BEGIN,              CONT),
-  #  (CONT, ">>"):         (5,   BEGIN,              CONT),
-  #
-  #  (CONT, "<"):          (6,   BEGIN,              CONT),
-  #  (CONT, "<="):         (6,   BEGIN,              CONT),
-  #  (CONT, ">"):          (6,   BEGIN,              CONT),
-  #  (CONT, ">="):         (6,   BEGIN,              CONT),
-  #
-  #  (CONT, "=="):         (7,   BEGIN,              CONT),
-  #  (CONT, "!="):         (7,   BEGIN,              CONT),
-  #
-  #  (CONT, "&"):          (8,   BEGIN,              CONT),
-  #  (CONT, "^"):          (9,   BEGIN,              CONT),
-  #  (CONT, "|"):          (10,  BEGIN,              CONT),
-  #
-  #  (CONT, "&&"):         (11,  BEGIN,              CONT),
-  #  (CONT, "||"):         (12,  BEGIN,              CONT),
-  #
-  #  (CONT, "?"):          (13,  BEGIN,              CONT_TERNARY),
-  #  (CONT_TERNARY, ":"):  (13,  BEGIN,              CONT),
-  #  (CONT, "="):          (13,  BEGIN,              CONT),
-  #  (CONT, "+="):         (13,  BEGIN,              CONT),
-  #  (CONT, "-="):         (13,  BEGIN,              CONT),
-  #  (CONT, "/="):         (13,  BEGIN,              CONT),
-  #  (CONT, "*="):         (13,  BEGIN,              CONT),
-  #  (CONT, "%="):         (13,  BEGIN,              CONT),
-  #  (CONT, "<<="):        (13,  BEGIN,              CONT),
-  #  (CONT, ">>="):        (13,  BEGIN,              CONT),
-  #  (CONT, "&="):         (13,  BEGIN,              CONT),
-  #  (CONT, "^="):         (13,  BEGIN,              CONT),
-  #  (CONT, "|="):         (13,  BEGIN,              CONT),
-  #
-  #  (CONT, ","):          (14,  BEGIN,              CONT),
-  #  # lowest, i.e. binds weakly
-  #}
-
   # Parse an expression.
   #
   # Args:
@@ -1628,88 +1605,7 @@ class CParser(object):
       else:
         i += 1
 
-    #expr_stack = []
-    #state_stack = [CParser.BEGIN]
-    #
-    #def begin_expr(prec):
-    #  state = state_stack.pop()
-    #  assert CParser.BEGIN is state
-    #
-    #  t = toks[i]
-    #
-    #  # operator
-    #  if t.kind in (CToken.OPERATOR, CToken.TYPEOF):
-    #    prec, next_state, end_state = CParser.OP_PREC[state, t.str]
-    #    state_stack.push(end_state)
-    #    state_stack.push(next_state)
-    #    expr_stack.push(CExpressionOperator(None, t.str, is_prefix=True))
-    #
-    #  # should be a litera of some form...
-    #  state_stack.append(CParser.CONT)
-    #
-    #  if CToken.LITERAL_IDENTIFIER == t.kind:  # identifier
-    #    expr_stack.append(CExpressionIdent(stab.get_var(t.str), t))
-    #  
-    #  elif CToken.LITERAL_NUMBER == t.kind:  # number
-    #    if "." in t.str:
-    #      expr_stack.append(CExpressionLiteral(T_FLT, t.str))
-    #    else:
-    #      expr_stack.append(CExpressionLiteral(T_INT, t.str))
-    #
-    #  elif CToken.LITERAL_STRING == t.kind:  # string / character
-    #    if "'" == t.str[-1]:
-    #      expr_stack.append(CExpressionLiteral(T_CHR, t.str))
-    #    else:
-    #      expr_stack.append(CExpressionLiteral(T_STR, t.str))
-    #
-    #  else:
-    #    assert False
-    #
-    #  return 0 # precedence of a literal
-    #
-    #def begin_cast_or_expr(prec):
-    #  pass
-    #
-    #def begin_typeof(prec):
-    #  pass
-    #
-    #def cont_expr(prec):
-    #  pass
-    #
-    #def cont_ternary(prec):
-    #  pass
-    #
-    #EXPR_PARSERS = {
-    #  CParser.BEGIN:                begin_expr,
-    #  CParser.BEGIN_CAST_OR_EXPR:   begin_cast_or_expr,
-    #  CParser.CONT:                 cont_expr,
-    #  CParser.CONT_TERNARY:         cont_ternary,
-    #}
-    #
-    ## start by parsing the left corner of the expression
-    #t = toks[i]
-    #
-    ## prefix operator
-    #if t.str in "++--!&*~":
-    #  pass
-    #
-    ## parenthesized expression; could be an expression or a type
-    #elif "(" == t.str:
-    #  sub_toks = []
-    #  i = self._get_up_to_balanced(toks, sub_toks, i, t.str)
-    #  expr_or_type = self._parse_expression_or_cast(stab, sub_toks)
-    #
-    ## sizeof
-    #elif "sizeof" == t.str:
-    #  pass
-    #
-    #
-    #
-    #else:
-    #  assert False
-    #
-    ## extend the left corner
-
+    # todo: actually parse expressions
     return i, expr_toks
 
   # Extract a sub-list of tokens (`sub_toks`) from `toks` such that 
@@ -1783,6 +1679,7 @@ class CParser(object):
   def vars(self):
     return self.stab.vars()
 
+
 # for testing
 if "__main__" == __name__:
   import sys
@@ -1793,6 +1690,4 @@ if "__main__" == __name__:
     parser.parse(tokens)
     for var, ctype in parser.vars():
       print var, ctype
-    
-
 

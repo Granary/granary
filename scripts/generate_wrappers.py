@@ -1,6 +1,6 @@
 
 from cparser import *
-
+from cpp import pretty_print_type
 
 def OUT(*args):
   print "".join(map(str, args))
@@ -58,16 +58,20 @@ def will_pre_wrap_fileds(ctype):
   return False
 
 
+def pre_wrap_var(ctype, var_name, O, indent="        "):
+  intern_ctype = base_type(ctype)
+  if not var_name:
+    if isinstance(intern_ctype, CTypeStruct):
+      pre_wrap_fields(intern_ctype, O)
+  elif is_function_pointer(intern_ctype):
+    O(indent, "PRE_WRAP_FUNC(", var_name, ");")
+  elif is_wrappable_type(intern_ctype):
+    O(indent, "PRE_WRAP_RECURSIVE(", var_name, ");")
+
+
 def pre_wrap_fields(ctype, O):
-  for ctype, field_name in ctype.fields():
-    intern_ctype = base_type(ctype)
-    if not field_name:
-      if isinstance(intern_ctype, CTypeStruct):
-        pre_wrap_fields(intern_ctype, O)
-    elif is_function_pointer(intern_ctype):
-      O("        WRAP_FUNC(arg.", field_name, ");")
-    elif is_wrappable_type(intern_ctype):
-      O("        WRAP_RECURSIVE(arg.", field_name, ");")
+  for field_ctype, field_name in ctype.fields():
+    pre_wrap_var(field_ctype, field_name and ("arg.%s" % field_name) or None, O)
 
 
 def post_wrap_fields(ctype, O):
@@ -96,6 +100,8 @@ def will_wrap_function(ret_type, arg_types):
       return True
   return False
 
+
+# Output Granary code that will wrap a C function.
 def wrap_function(ctype, func):
 
   # only care about non-variadic functions if they return wrappable types.
@@ -109,10 +115,11 @@ def wrap_function(ctype, func):
     if not will_wrap_function(ctype.ret_type, ctype.param_types):
       return
 
-  ret_type = base_type(ctype.ret_type)
-  suffix = ""
-  if isinstance(ret_type, CTypeBuiltIn) and "void" == ret_type.name:
-    suffix = "_VOID"
+  internal_ret_type = base_type(ctype.ret_type)
+  suffix, is_void = "", False
+  if isinstance(internal_ret_type, CTypeBuiltIn) \
+  and "void" == internal_ret_type.name:
+    suffix, is_void = "_VOID", True
 
   variadic = ""
   if ctype.is_variadic:
@@ -120,10 +127,42 @@ def wrap_function(ctype, func):
       variadic = ", "
     variadic += "..."
 
+  arg_list = []
+  num_params = [0]
+  def next_param(p):
+    if p:
+      return p
+    else:
+      num_params[0] += 1
+      return "_arg%d" % num_params[0]
+
+  param_names = map(next_param, ctype.param_names)
+  for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
+    if not arg_name:
+      arg_name = ""
+    arg_list.append(pretty_print_type(arg_ctype, arg_name).strip(" "))
+  args = ", ".join(arg_list)
+
   O = OUT
-  O("FUNCTION_WRAPPER", suffix, "(", var, ", (", variadic, ") {")
+  O("FUNCTION_WRAPPER", suffix, "(", var, ", (", args, variadic, ") {")
   if ctype.is_variadic:
     O("    // TODO: variadic arguments")
+  
+  # assignment of return value
+  a, r_v = "", ""
+  if not is_void:
+    r_v = "ret"
+    a = pretty_print_type(ctype.ret_type, r_v) + " = "
+  
+  for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
+    pre_wrap_var(arg_ctype, arg_name, O, indent="    ")
+
+  O("    ", a, var, "(", ", ".join(param_names), ");")
+
+  if not is_void:
+    O("    POST_WRAP_RECURSIVE(", r_v, ");")
+    O("    return ", r_v, ";")
+
   O("})")
   O()
 
