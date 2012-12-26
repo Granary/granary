@@ -237,7 +237,7 @@ bin/main.o: main.cc
 # pre-process then post-process type information; this is used for wrappers,
 # etc.
 types:
-	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
+	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) -I./ -E $(GR_INPUT_TYPES) > /tmp/ppt.h
 	python scripts/post_process_header.py /tmp/ppt.h > $(GR_OUTPUT_TYPES)
 
 

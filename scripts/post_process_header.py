@@ -68,7 +68,7 @@ def match_next_brace_group(lines, i, internal_lines):
       return i
 
     if seen_first_line:
-      internal_lines.append(lines[i])
+      internal_lines.append(lines[i].strip(" \r\n\t"))
     seen_first_line = True
     
     i += 1
@@ -99,18 +99,37 @@ def process_lines(lines):
     if "$" in strip_line:
       continue
 
+    # strip out C++-isms.
     if strip_line.startswith("namespace") \
-    or strip_line.startswith("template") \
-    or "inline" in strip_line:
+    or strip_line.startswith("template"):
       ignore = []
       i = match_next_brace_group(lines, i, ignore)
       continue
 
-    if strip_line.startswith("extern"):
-      code_lines = []
-      i = match_next_brace_group(lines, i, code_lines)
-      process_lines(code_lines)
+    # look for inline function definitions and turn them into declarations
+    if "inline" in strip_line:
+      def_lines = []
+      output_line = strip_line
+      i = match_next_brace_group(lines, i, def_lines)
+      j = 0
+      while "{" not in output_line and j < len(def_lines):
+        if "{" in def_lines[j]:
+          output_line += "\n" + def_lines[j][:-1] # lines end with "{"
+          break
+        output_line += "\n" + def_lines[j]
+        j += 1
+
+      output_line += ";"
+      O(output_line)
       continue
+
+    # this could be an extern function, or a C++ extern "C" { ... }
+    if strip_line.startswith("extern"):
+      if '"C"' in strip_line:
+        code_lines = []
+        i = match_next_brace_group(lines, i, code_lines)
+        process_lines(code_lines)
+        continue
 
     O(strip_line)
 

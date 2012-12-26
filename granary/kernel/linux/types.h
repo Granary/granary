@@ -8,10 +8,12 @@
 #ifndef GR_KERNEL_TYPES_H_
 #define GR_KERNEL_TYPES_H_
 
-#include <linux/version.h>
-#define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
-#define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
-#define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
+#ifdef LINUX
+#   include <linux/version.h>
+#   define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
+#   define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
+#   define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
+#endif
 
 #ifdef __cplusplus
 namespace kernel {
@@ -19,9 +21,12 @@ extern "C" {
 #endif
 
 #if LINUX_MAJOR_VERSION == 3 && LINUX_MINOR_VERSION == 5
-#	include "granary/kernel/types/3.5.0/kernel.h"
+#	  include "granary/kernel/linux/3.5.0/kernel.h"
 #elif LINUX_MAJOR_VERSION == 2 && LINUX_MINOR_VERSION == 6 && LINUX_PATCH_VERSION == 33
-#	include "granary/kernel/types/2.6.33/kernel.h"
+#   include "granary/kernel/linux/2.6.33/kernel.h"
+#else
+#   warning "Defaulting to Linux 2.6.33 kernel types."
+#	  include "granary/kernel/linux/2.6.33/kernel.h"
 #endif
 
 #ifdef __cplusplus

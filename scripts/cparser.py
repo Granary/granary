@@ -147,7 +147,9 @@ class CToken(object):
     "decltype":       TYPEOF,
 
     # os/compiler-specific extensions
-    "__builtin_va_list":    TYPE_BUILT_IN,
+    "__builtin_va_list":TYPE_BUILT_IN,
+    "__signed__" :    TYPE_BUILT_IN,
+    
   }
 
   def __init__(self, str_, kind_):
@@ -216,7 +218,6 @@ class CCharacterReader(object):
     c = self.buff[idx]
     diff = idx - self.last_idx
     if not 0 <= diff:
-      print idx, self.last_idx, diff
       assert False
 
     if 0 < diff:
@@ -262,7 +263,7 @@ class CTokenizer(object):
   """Tokenizer for something like GNU C99."""
 
   def __init__(self, buff_):
-    self.buff = CCharacterReader(buff)
+    self.buff = CCharacterReader(buff_)
     self.len = len(self.buff)
     self.pos = 0
     self.future_tokens = []
@@ -320,7 +321,11 @@ class CTokenizer(object):
 
         # combine adjacent string literals into a single token
         if CToken.LITERAL_STRING == next_tok.kind:
-          tok.str += " " + next_tok.str
+          j = 1
+          if "L" == next_tok.str[0]:
+            j += 1
+
+          tok.str = tok.str[:-1] + next_tok.str[j:]
           continue
 
         self.unget_token(next_tok)
@@ -500,7 +505,16 @@ class CTokenizer(object):
 
 class CType(object):
   """Base class for all types."""
-  pass
+  
+  def __getitem__(self, name):
+    if name in self.__class__.__slots__:
+      return getattr(self, name)
+    elif 'ctype' in self.__class__.__slots__:
+      return self.ctype[name]
+    elif name.startswith("is_"):
+      return False
+    else:
+      assert False
 
 
 class CTypeCompound(CType):
@@ -511,52 +525,82 @@ class CTypeCompound(CType):
 class CTypeStruct(CTypeCompound):
   """Represents a structure type."""
 
-  __slots__ = ('_id', 'name')
+  __slots__ = ('_id', 'name', '_fields', '_field_list', 'has_name')
   ID = 0
 
   def __init__(self, name_=None):
     self._id = CTypeStruct.ID
+    self.has_name = True
     CTypeStruct.ID += 1
     if not name_:
+      self.has_name = False
       name_ = "anon_struct_%d" % self._id
 
-    self.name = name_
+    self.name = "struct " + name_
+    self._fields = {}
+    self._field_list = []
 
   def __repr__(self):
     return "Struct(%s)" % self.name
 
+  def add_field(self, ctype, name):
+    self._field_list.append((ctype, name))
+    if name:
+      self._fields[name] = ctype
+  
+  def fields(self):
+    return iter(self._field_list)
 
-class CTypeUnion(CTypeStruct):
+
+class CTypeUnion(CTypeCompound):
   """Represents a union type."""
 
-  __slots__ = ('_id', 'name')
+  __slots__ = ('_id', 'name', '_fields', '_field_list', 'has_name')
   ID = 0
   
   def __init__(self, name_=None):
     self._id = CTypeUnion.ID
+    self.has_name = True
     CTypeUnion.ID += 1
     if not name_:
+      self.has_name = False
       name_ = "anon_union_%d" % self._id
 
-    self.name = name_
+    self.name = "union " + name_
+    self._fields = {}
+    self._field_list = []
 
   def __repr__(self):
     return "Union(%s)" % self.name
+
+  def add_field(self, ctype, name):
+    self._field_list.append((ctype, name))
+    if name:
+      self._fields[name] = ctype
+
+  def fields(self):
+    return iter(self._field_list)
 
 
 class CTypeEnum(CTypeCompound):
   """Represents an enumeration type."""
 
-  __slots__ = ('_id', 'name')
+  __slots__ = ('_id', 'name', 'fields', 'field_list', 'has_name')
   ID = 0
 
   def __init__(self, name_=None):
     self._id = CTypeEnum.ID
+    self.has_name = True
     CTypeEnum.ID += 1
     if not name_:
+      self.has_name = False
       name_ = "anon_enum_%d" % self._id
+    self.name = "enum " + name_
+    self.field_list = []
+    self.fields = {}
 
-    self.name = name_
+  def __repr__(self):
+    return "Enum(%s)" % self.name
 
 
 class CTypeBuiltIn(CType):
@@ -580,6 +624,9 @@ class CTypeDefinition(CType):
     self.name = name_
     self.ctype = ctype_
 
+  def __repr__(self):
+    return "TypeDef(%s)" % self.name
+
 
 class CTypePointer(object):
   """Represents a C pointer type.
@@ -589,14 +636,19 @@ class CTypePointer(object):
 
   __slots__ = ('ctype', 'is_const', 'is_restrict', 'is_volatile')
 
-  def __init__(self, ctype_):
+  def __init__(self, ctype_, **kargs):
     self.ctype = ctype_
     self.is_const = False
     self.is_restrict = False
     self.is_volatile = False
+    for k in kargs:
+      setattr(self, k, kargs[k])
 
   def __repr__(self):
-    return "TODO ptr"
+    c = self.is_const     and "const "    or ""
+    r = self.is_restrict  and "restrict " or ""
+    v = self.is_volatile  and "volatile " or ""
+    return "Pointer(%s%s%s%s)" % (c, r, v, repr(self.ctype))
 
 
 class CTypeArray(CTypePointer):
@@ -606,7 +658,7 @@ class CTypeArray(CTypePointer):
   declarator features are incorporated."""
 
   __slots__ = ('is_vla', 'is_const', 'is_restrict', 'size_is_lower_bound',
-               'size_expr_toks', 'direct_decl', 'is_dependent')
+               'size_expr_toks', 'direct_decl', 'is_dependent', 'ctype')
 
   def __init__(self, ctype_):
 
@@ -614,8 +666,7 @@ class CTypeArray(CTypePointer):
     self.ctype = ctype_
     self.is_dependent = False
     
-    # true iff either an expression or a "*" is given as the size of the
-    # array.
+    # true iff either an expression or a "*" is given as the size of the array.
     self.is_vla = False
 
     # used for determining the decayed pointer type of this array.
@@ -627,15 +678,18 @@ class CTypeArray(CTypePointer):
     self.size_is_lower_bound = False
     self.size_expr_toks = [] # some list of tokens for later evaluation
 
+  def __repr__(self):
+    return "Array(%s)" % repr(self.ctype)
+
 
 class CTypeAttributes(object):
   """Represents attributes applied to a type."""
 
   __slots__ = ('is_const', 'is_register', 'is_auto', 'is_volatile',
                'is_inline', 'is_extern', 'is_restrict', 'is_signed',
-               'is_unsigned', 'gnuc_attrs')
+               'is_unsigned')
 
-  def __init__(self):
+  def __init__(self, **kargs):
     self.is_const = False
     self.is_register = False
     self.is_auto = False
@@ -645,22 +699,137 @@ class CTypeAttributes(object):
     self.is_restrict = False
     self.is_signed = False
     self.is_unsigned = False
-    self.gnuc_attrs = False
+    for k in kargs:
+      setattr(self, k, kargs[k])
+
+  def __repr__(self):
+    s = ""
+    s += self.is_const    and "const "    or ""
+    s += self.is_register and "register " or ""
+    s += self.is_auto     and "auto "     or ""
+    s += self.is_volatile and "volatile " or ""
+    s += self.is_inline   and "inline "   or ""
+    s += self.is_extern   and "extern "   or ""
+    s += self.is_restrict and "restrict " or ""
+    s += self.is_signed   and "signed "   or ""
+    s += self.is_unsigned and "unsigned " or ""
+    return s
+
+
+class CTypeExtendedAttributes(object):
+  """Defines extension-specific attributes that appear on either the left or
+  right-hand side of some other type."""
+
+  __slots__ = ('attrs', 'side')
+
+  LEFT = 0
+  RIGHT = 1
+
+  def __init__(self, attrs_, side_):
+    self.attrs = attrs_
+    self.side = side_
+
+  def __repr__(self):
+    return " ".join(map(lambda t: t.str, self.attrs))
 
 
 class CTypeAttributed(CType):
   """Represents an attributed type (i.e. a type with attributes)."""
 
+  __slots__ = ('ctype', 'attrs')
+
   def __init__(self, ctype_, attrs_):
+    assert ctype_
+    assert attrs_
     self.ctype = ctype_
     self.attrs = attrs_
+
+  def __repr__(self):
+    a = repr(self.attrs)
+    if isinstance(self.attrs, CTypeExtendedAttributes):
+      if CTypeExtendedAttributes.LEFT == self.attrs.side:
+        return "%s %s" % (a, repr(self.ctype))
+      else:
+        return "%s %s" % (repr(self.ctype), a)
+    else:
+      return "%s%s" % (a, repr(self.ctype))
 
 
 class CTypeExpression(CType):
   """Represents a type that is computed by some expression e.g.: typeof (...)."""
 
+  __slots__ = ('toks',)
+
   def __init__(self, toks_):
     self.toks = toks_
+
+  def __repr__(self):
+    return " ".join(map(lambda t: t.str, self.attrs))
+
+
+class CTypeBitfield(CType):
+  """Represents a bitfield type."""
+
+  __slots__ = ('ctype', 'bits')
+
+  def __init__(self, ctype_, bits_):
+    self.ctype = ctype_
+    self.bits = bits_
+
+  def __repr__(self):
+    return "Bitfield(%s)" % repr(self.ctype)
+
+
+class CTypeFunction(CTypeCompound):
+  """Represents a function type."""
+
+  def __init__(self, ret_type_):
+    self.ret_type = ret_type_
+    self.param_types = []
+    self.param_names = []
+    self.is_variadic = False # e.g. old style, or using ...
+    self.is_old_style_variadic = False # old style, e.g. int foo();
+
+  def __repr__(self):
+    types_str = ", ".join(map(repr, [self.ret_type] + self.param_types))
+    return "Function(%s)" % types_str
+
+
+class CExpression(object):
+  """Base class for expressions."""
+  pass
+
+
+class CExpressionIdent(CExpression):
+  """An identifier AST node."""
+
+  __slots__ = ('type', 'name')
+
+  def __init__(self, type_, name_):
+    self.type = type_
+    self.name = name_
+
+
+class CExpressionLiteral(CExpression):
+  """A literal expression AST node."""
+
+  __slots__ = ('type', 'literal')
+
+  def __init__(self, type_, literal_):
+    self.type = type_
+    self.literal = literal_
+
+
+class CExpressionOperator(CExpression):
+  """And operator expression AST node."""
+  
+  __slots__ = ('type', 'operator', 'expressions', 'is_prefix')
+
+  def __init__(self, type_, operator_, is_prefix_, *expressions_):
+    self.type = type_
+    self.operator = operator_
+    self.expressions = expressions_
+    self.is_prefix = is_prefix_
 
 
 class CStackedDict(object):
@@ -691,16 +860,17 @@ class CStackedDict(object):
     assert item not in self._dict
     self._dict[item] = val
 
+  def __iter__(self):
+    return iter(self._dict)
 
-class CTypeFunction(CTypeCompound):
-  """Represents a function type."""
+  def keys(self):
+    return iter(self._dict.keys())
 
-  def __init__(self, ret_type_):
-    self.ret_type = ret_type_
-    self.param_types = []
-    self.param_names = []
-    self.is_variadic = False # e.g. old style, or using ...
-    self.is_old_style_variadic = False # old style, e.g. int foo();
+  def values(self):
+    return iter(self._dict.values())
+
+  def items(self):
+    return iter(self._dict.items())
 
 
 class CSymbolTable(object):
@@ -716,44 +886,52 @@ class CSymbolTable(object):
   to their types (CType instances)."""
 
   def __init__(self, parent_=None):
-    parent_vars, parent_types = None, None
+    parent_vars = None
+    parent_structs, parent_unions, parent_enums, parent_defs = [None] * 4
     if parent_:
-      parent_vars = parent_.vars
-      parent_types = parent_.types
+      parent_vars = parent_._vars
+      parent_structs = parent_._types[CTypeStruct]
+      parent_unions = parent_._types[CTypeUnion]
+      parent_enums = parent_._types[CTypeEnum]
+      parent_defs = parent_._types[CTypeDefinition]
 
-    self.vars = CStackedDict(parent_vars)
-    self.types = {
-      CTypeStruct:      CStackedDict(parent_types),
-      CTypeUnion:       CStackedDict(parent_types),
-      CTypeEnum:        CStackedDict(parent_types),
-      CTypeDefinition:  CStackedDict(parent_types)
+    self._vars = CStackedDict(parent_vars)
+    self._types = {
+      CTypeStruct:      CStackedDict(parent_structs),
+      CTypeUnion:       CStackedDict(parent_unions),
+      CTypeEnum:        CStackedDict(parent_enums),
+      CTypeDefinition:  CStackedDict(parent_defs)
     }
 
+  def vars(self):
+    return iter(self._vars.items())
+
   def has_var(self, name):
-    return name in self.vars
+    return name in self._vars
 
   def has_type(self, name, const):
-    assert const in self.types
-    return name in self.types[const]
+    assert const in self._types
+    return name in self._types[const]
 
   def set_var(self, name, info):
+    assert name
     try:
-      self.vars[name] = info
+      self._vars[name] = info
     except:
       pass # assume we are re-declaring the same thing.
 
   def set_type(self, name, ctype):
-    assert ctype.__class__ in self.types
-    self.types[ctype.__class__][name] = ctype
+    assert ctype.__class__ in self._types
+    self._types[ctype.__class__][name] = ctype
 
   def get_var(self, name):
-    return self.vars[name]
+    return self._vars[name]
 
   # Get a type by its name and it's type constructor
   def get_type(self, name, const):
-    assert const in self.types
-    assert name in self.types[const]
-    return self.types[const][name]
+    assert const in self._types
+    assert name in self._types[const]
+    return self._types[const][name]
 
 
 class CParser(object):
@@ -779,9 +957,14 @@ class CParser(object):
   # Constructor for making/choosing a symbol table to use when parsing the body
   # of a compound type.
   COMPOUND_TYPE_STAB = {
-    "union":  lambda s: CSymbolTable(s), 
-    "enum":   lambda s: s, # enum places its names into the enclosing symbol table
-    "struct": lambda s: CSymbolTable(s),
+    "union":  lambda _, parent_stab: CSymbolTable(parent_stab),
+    "struct": lambda _, parent_stab: CSymbolTable(parent_stab),
+
+    # enum gets and places its symbols in the enclosing scope. E.g. if we have
+    # struct { enum { FOO } bar; };, then FOO is available in the scope in which
+    # the struct is defined and not limited to being visible within the "{" and
+    # "}" of the definition of the struct.
+    "enum":   lambda self, _: self.scope_stack[-1], 
   }
 
   # Built-in types.
@@ -801,6 +984,11 @@ class CParser(object):
   T_DL  = CTypeBuiltIn("long double")
   T_WC  = CTypeBuiltIn("wchar_t")
 
+  T_CHR = CTypeAttributed(T_C, CTypeAttributes(is_const=True))
+  T_STR = CTypePointer(T_C, is_const=True)
+  T_INT = CTypeAttributed(T_LL, CTypeAttributes(is_const=True))
+  T_FLT = CTypeAttributed(T_D, CTypeAttributes(is_const=True))
+
   #T_S   = CTypeBuiltIn("size_t")
   #T_SS  = CTypeBuiltIn("ssize_t")
   #T_PD  = CTypeBuiltIn("ptrdiff_t")
@@ -816,16 +1004,22 @@ class CParser(object):
     ("char",):                        T_C,
     ("char", "unsigned"):             T_UC,
     ("char", "signed"):               T_C,
+    ("__signed__", "char",):          T_I,
 
     ("short",):                       T_S,
+    ("int", "short"):                 T_S,
     ("short", "unsigned"):            T_US,
+    ("int", "short", "unsigned"):     T_US,
     ("short", "signed"):              T_S,
+    ("__signed__", "short"):          T_S,
 
     ("signed",):                      T_I,
+    ("__signed__",):                  T_I,
     ("int",):                         T_I,
     ("auto",):                        T_I,
     ("register",):                    T_I,
     ("int", "signed"):                T_I,
+    ("__signed__", "int"):            T_I,
     ("unsigned",):                    T_UI,
     ("int", "unsigned"):              T_UI,
 
@@ -834,6 +1028,7 @@ class CParser(object):
     ("int", "long", "unsigned"):      T_UL,
     ("long",):                        T_L,
     ("long", "signed"):               T_L,
+    ("__signed__", "long"):           T_L,
     ("long", "unsigned"):             T_UL,
 
     ("int", "long", "long"):          T_LL,
@@ -841,6 +1036,7 @@ class CParser(object):
     ("int", "long", "long", "unsigned"):T_ULL,
     ("long", "long"):                 T_LL,
     ("long", "long", "signed"):       T_LL,
+    ("__signed__", "long", "long"):   T_LL,
     ("long", "long", "unsigned"):     T_ULL,
 
     ("float",):                       T_F,
@@ -865,9 +1061,9 @@ class CParser(object):
   # Initialize the parser.
   def __init__(self):
     self.stab = CSymbolTable()
+    self.scope_stack = [self.stab]
 
-  # Parse a union, struct, or enum, where i is the position of the opening {
-  # of the compound type definition.
+  # Parse a union or struct.
   #
   # Args:
   #   stab:           Symbol table in which to place new names.
@@ -875,16 +1071,65 @@ class CParser(object):
   #                   parsing.
   #   outer_toks:     The token stream from which we will extract only those
   #                   tokens (`toks`) belonging to this compound type definition.
-  #   j:              Our current cursor position in the `outer_toks`.
+  #   j:              Our current cursor position in the `outer_toks` (the
+  #                   position of the opening '{')
   #
   # Returns:
   #   The position in toks to continue parsing (immediately following the
   #   closing } of the compound type definition).
-  def _parse_compound_type(self, stab, ctype, outer_toks, j):
+  def _parse_struct_union_type(self, stab, struct_ctype, outer_toks, j):
     toks = []
     assert "{" == outer_toks[j].str
     j = self._get_up_to_balanced(outer_toks, toks, j, "{")
+
+    i = 0
+    while i < len(toks):
+      carat = toks[i].carat
+      i, decls, is_typedef = self._parse_declaration(stab, toks, i)
+      assert not is_typedef
+
+      # note: might have an unnamed struct declaration field, so long as it's a
+      # bitfield, or an unnamed union
+      for (ctype, name) in decls:
+        struct_ctype.add_field(ctype, name)
+
     return j
+
+  # Parse an enum type.
+  def _parse_enum_type(self, stab, ctype, outer_toks, j):
+    toks = []
+    assert "{" == outer_toks[j].str
+    j = self._get_up_to_balanced(outer_toks, toks, j, "{")
+    i = 0
+    building_expr = False
+    while i < len(toks):
+      t = toks[i]
+      
+      if CToken.LITERAL_IDENTIFIER == t.kind:
+        if not building_expr:
+          stab.set_var(t.str, ctype)
+        i += 1
+      elif "," == t.str:
+        building_expr = False
+        i += 1
+      elif "=" == t.str:
+        building_expr = True
+        i += 1
+      elif t.str in "[(":
+        assert building_expr
+        sub_expr_toks = []
+        i = self._get_up_to_balanced(toks, sub_expr_toks, i, t.str)
+      else:
+        assert building_expr
+        i += 1
+
+    return j
+
+  COMPOUND_TYPE_PARSER = {
+    "struct": _parse_struct_union_type,
+    "union": _parse_struct_union_type,
+    "enum": _parse_enum_type,
+  }
 
   # Parse a single declaration.
   #
@@ -892,42 +1137,40 @@ class CParser(object):
   #   stab:           Symbol table in which to place new names.
   #   toks:           All tokens within a single declaration (and no more).
   #   i:              A cursor into `toks`.
+  #   end_on_comma:   True iff we should see "," as ending a declaration.
   #
   # Returns:
   #   A cursor on the token in `toks` immediately following the last token of
   #   this declaration.
-  def _parse_declaration(self, stab, toks, i):
-    user_type = False
-    built_in_type = False
+  def _parse_declaration(self, stab, toks, i, end_on_comma=False):
+    user_type, built_in_type, has_declarator = False, False, False
 
     specs = []
     decls = []
     
+    # extraneous useless declaration enders
+    if i < len(toks):
+      t = toks[i]
+      if ";" == t.str or (end_on_comma and "," == t.str):
+        return i + 1, decls, False
+
     i, specs_ctype, defines_type = self._parse_specifiers(stab, toks, i)
 
     # parse the declarators until we make no progress
     while i < len(toks):
       t = toks[i]
-      if t.str in ";)]}":
+      if t.str in ";)]}" or (end_on_comma and "," == t.str):
         i += 1
         break
 
-      i, ctype, name = self._parse_declarator(stab, specs_ctype, toks, i)
+      has_declarator = True
+      i, ctype, name = self._parse_declarator(stab, specs_ctype, toks, i, end_on_comma)
       decls.append((ctype, name))
 
-    # if this was a typedef then define some type(s).
-    if defines_type:
-      for (ctype, name) in decls:
-        assert name
-        ctype = CTypeDefinition(name, ctype)
-        stab.set_type(name, ctype)
-    else:
-      for (ctype, name) in decls:
-        if ctype and name:
-          stab.set_var(name, ctype)
+    if not has_declarator: # e.g. function parameter
+      decls.append((specs_ctype, None))
 
-    print decls
-    return i
+    return i, decls, defines_type
 
   # Parse a list of specifiers.
   #
@@ -945,6 +1188,7 @@ class CParser(object):
     built_in_names = []
     ctype = None
     defines_type = False
+    extended_attrs = None
 
     while i < len(toks):
       t = toks[i]
@@ -954,7 +1198,7 @@ class CParser(object):
         defines_type = True
 
       # special case 1: these can either set the type, or modify it.
-      elif "signed" == t.str:
+      elif t.str in ("signed", "__signed__"):
         assert not attrs.is_unsigned
         assert not attrs.is_signed
         attrs.is_signed = True
@@ -968,14 +1212,10 @@ class CParser(object):
 
       # special case 2: both of these storage class specifiers can also be
       # used to define ints.
-      elif "register" == t.str:
-        assert not attrs.is_register
-        attrs.is_register = True
-        ctype = CParser.BUILT_IN_TYPES[t.str,]
-
-      elif "auto" == t.str:
-        assert not attrs.is_auto
-        attrs.is_auto = True
+      elif t.str in ("register", "auto"):
+        attr_name = "is_" + t.str
+        assert not getattr(attrs, attr_name)
+        setattr(attrs, attr_name, True)
         ctype = CParser.BUILT_IN_TYPES[t.str,]
 
       # normal built-in type
@@ -995,27 +1235,24 @@ class CParser(object):
           i -= 1
           break
 
-      # various qualifiers
-      elif "const" == t.str:
-        attrs.is_const = True
-      elif "volatile" == t.str:
-        attrs.is_volatile = True
-      elif "extern" == t.str:
-        attrs.is_extern = True
-      elif "inline" == t.str:
-        attrs.is_inline = True
-      elif "restrict" == t.str:
-        attrs.is_restrict = True
+      # qualifiers (const, volatile, extern, inline, restrict)
+      elif hasattr(attrs, "is_" + t.str):
+        setattr(attrs, "is_" + t.str, True)
 
       # look for compound types first, and hopefully infer type names.
       elif t.str in CParser.COMPOUND_TYPE:
-        assert (i + 1) < len(toks)
+        assert i < len(toks)
         t2 = toks[i]
-        t3 = toks[i + 1]
+        t3 = None
+
+        if (i + 1) < len(toks): # might not be if we're in a param list
+          t3 = toks[i + 1]
+
         constructor = CParser.COMPOUND_TYPE[t.str]
+        parser = CParser.COMPOUND_TYPE_PARSER[t.str]
 
         # type definition
-        if t2.kind == CToken.LITERAL_IDENTIFIER and "{" == t3.str:
+        if t2.kind == CToken.LITERAL_IDENTIFIER and t3 and "{" == t3.str:
           t2.kind = CToken.TYPE_USER
           
           # get prev. instance from forward declaration
@@ -1025,11 +1262,11 @@ class CParser(object):
             ctype = constructor(t2.str) # define the type
 
           stab.set_type(t2.str, ctype)
-          inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](stab)
-          i = self._parse_compound_type(inner_stab, ctype, toks, i + 1)
+          inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](self, stab)
+          i = parser(self, inner_stab, ctype, toks, i + 1)
 
         # cheat: user-defined type use
-        elif t2.kind == CToken.LITERAL_IDENTIFIER:
+        elif t2.kind in (CToken.LITERAL_IDENTIFIER, CToken.TYPE_USER):
           t2.kind = CToken.TYPE_USER
           i += 1
 
@@ -1042,22 +1279,40 @@ class CParser(object):
         # anonymous type definition
         elif "{" == t2.str:
           ctype = constructor()
-          inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](stab)
-          i = self._parse_compound_type(inner_stab, ctype, toks, i)
+          inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](self, stab)
+          i = parser(self, inner_stab, ctype, toks, i)
+          # todo: parameterize this so that enums are parsed differently.
 
-      # typeof expression
+      # typeof expression; todo: not handling all typeof cases.
       elif CToken.TYPEOF == t.kind:
         typeof_toks = []
-        i = self._get_up_to_balanced(toks, typeof_toks, i, "(")
-        ctype = CTypeExpression(typeof_toks)
+        i = self._get_up_to_balanced(toks, typeof_toks, i - 1, "(", include=True)
+        expr_or_type = self._parse_expression_or_cast(stab, typeof_toks[1:], 0)
+        if isinstance(expr_or_type, CType):
+          ctype = expr_or_type
+        else:
+          # todo: unimplemented
+          ctype = CTypeExpression(typeof_toks)
 
+      # compiler-specific attributes
+      elif CToken.EXTENSION == t.kind:
+        assert not extended_attrs
+        extension_toks = []
+        i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)        
+        extended_attrs = CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.LEFT)
+
+      # probably done the specifiers :-P
       else:
         i -= 1
         break
 
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
-      
+    
+    if extended_attrs:
+      ctype = CTypeAttributed(ctype, extended_attrs)
+
+    assert ctype
     return i, CTypeAttributed(ctype, attrs), defines_type
 
   # Parse an individual declarator. A declarator is the thing being declared,
@@ -1072,14 +1327,20 @@ class CParser(object):
   #                     being declared.
   #   toks:             List of tokens of a declaration statement.
   #   i:                Cursor into `toks`.
+  #   end_on_comma:     Should the declarator end on a comma? (YES: but, this
+  #                     affects whether or not the declarator consumes the
+  #                     comma or if a higher-level function consumes it.)
   #
   # Returns:
   #   A tuple `(i, ctype, name)` where `i` is the next cursor into `toks`,
   #   and `ctype` is the type of the name `name` in the declaration.
-  def _parse_declarator(self, stab, ctype, toks, i):
+  def _parse_declarator(self, stab, ctype, toks, i, end_on_comma=False):
     i, ctype = self._parse_pointers(ctype, toks, i)
     sub_decl_toks, call_recursive = [], False
     name = None
+
+    if i >= len(toks): # e.g. unnamed function argument
+      return i, ctype, name
 
     # go find the left corner of this declarator's direct declarator.
     t = toks[i]
@@ -1096,8 +1357,11 @@ class CParser(object):
       # cheat: these should end the declarator
       if t.str in ")]};":
         break
+
+      # separates two declarators
       elif "," == t.str:
-        i += 1
+        if not end_on_comma:
+          i += 1
         break
 
       # array specifiers; cheat: we will parse this *very* loosely, i.e. not
@@ -1116,11 +1380,17 @@ class CParser(object):
 
       elif CToken.EXTENSION == t.kind:
         extension_toks = []
-        i = self._get_up_to_balanced(toks, extension_toks, i, "(")
-        print extension_toks
+        i = self._get_up_to_balanced(toks, extension_toks, i, "(", include=True)
+        attrs = CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.RIGHT)
+        ctype = CTypeAttributed(ctype, attrs)
+
+      # cheat: assume we're in a struct or a union
+      elif ":" == t.str:
+        i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=False)
+        ctype = CTypeBitfield(ctype, expr)
 
       else:
-        print repr(t.str), t.carat.line, t.carat.column
+        #print repr(t.str), t.carat.line, t.carat.column, ctype
         assert False
 
     if call_recursive:
@@ -1130,19 +1400,7 @@ class CParser(object):
 
 
   # Parse the pointers of a declarator. Parsing pointers is interesting because
-  # there are essentially two cases: pointers to declaration specifiers, and
-  # a sort of "pass-through" where the pointers apply to what's around them. The
-  # implication is that if there is a direct declarator with a nested declarator
-  # then we must first compute the type of the direct declarator, and pass it in
-  # as the base ctype to which we might be pointing.
-  #
-  # Example:
-  #   case 1:           "int *foo", the specifiers is "int" and the base `ctype`
-  #                     will be "int, so the result is an "int *".
-  #   case 2:           "int (*foo)(void)", the specifiers is "int", but because
-  #                     "*foo" is a parenthesized declarator, first we must
-  #                     compute the outer type, "int (void)", and pass it in to
-  #                     the declarator, to get the final "int (*)(void)" type.
+  # later specifiers and pointers apply to the type on the left.
   #
   # Args:
   #   base:             CType instance representing the type that will be
@@ -1161,18 +1419,14 @@ class CParser(object):
       t = toks[i]
       if "*" == t.str:
         base = CTypePointer(base)
-      elif "const" == t.str:
+
+      # qualifiers: const, restrict, volatile
+      elif hasattr(base, "is_" + t.str):
         assert isinstance(base, CTypePointer)
-        assert not base.is_const
-        base.is_const = True
-      elif "restrict" == t.str:
-        assert isinstance(base, CTypePointer)
-        assert not base.is_restrict
-        base.is_restrict = True
-      elif "volatile" == t.str:
-        assert isinstance(base, CTypePointer)
-        assert not base.is_volatile
-        base.is_volatile = True
+        attr_name = "is_" + t.str
+        assert not getattr(base, attr_name)
+        setattr(base, attr_name, True)
+
       else:
         break
       i += 1
@@ -1183,7 +1437,27 @@ class CParser(object):
   # declarations).
   def _parse_param_list(self, stab, ctype, toks):
     ctype = CTypeFunction(ctype)
-    # todo
+    i = 0
+
+    if not toks:
+      ctype.is_variadic = True
+      ctype.is_old_style_variadic = True
+
+    while i < len(toks):
+      t = toks[i]
+      if "..." == t.str:
+        ctype.is_variadic = True
+        break
+
+      i, decls, is_typedef = self._parse_declaration(
+          self.stab, toks, i, end_on_comma=True)
+
+      assert not is_typedef
+      assert 1 == len(decls)
+      param_ctype, param_name = decls[0]
+      ctype.param_types.append(param_ctype)
+      ctype.param_names.append(param_name)
+
     return ctype
 
   # Parse the array size component of an array direct declarator. This does a
@@ -1219,6 +1493,225 @@ class CParser(object):
       i += 1
     return ctype
 
+  # Parse an expression or a type cast.
+  #
+  # Args:
+  #   stab:             Symbol table in which names are looked up.
+  #   toks:             List of tokens to parse. It is assumed that these tokens
+  #                     are exactly those contained between two parentheses,
+  #                     and so form either a type name or an expression.
+  #   i:                Cursor into `toks`.
+  #
+  # Returns:
+  #   A CType instance if this is a type case, or a CExpression instance if this
+  #   is a sub-expression.
+  def _parse_expression_or_cast(self, stab, toks, i):
+
+    t = toks[i]
+
+    # left corner of a cast or a sub-expression might be an identifier that
+    # might be an actual typedef name
+    if CToken.LITERAL_IDENTIFIER == t.kind:
+      if stab.has_type(t.str, CTypeDefinition):
+        t.kind = CToken.TYPE_USER
+
+    # this is a type cast
+    if CToken.TYPE_SPECIFIER == t.kind \
+    or CToken.TYPE_QUALIFIER == t.kind \
+    or CToken.TYPE_BUILT_IN == t.kind \
+    or CToken.TYPE_USER == t.kind \
+    or CToken.SPECIFIER_STORAGE == t.kind \
+    or CToken.SPECIFIER_FUNCTION == t.kind:
+      i, ctype, defines_type = self._parse_specifiers(stab, toks, 0)
+      assert not defines_type
+      i, ctype, name = self._parse_declarator(stab, ctype, toks, i)
+      assert not name
+      return ctype
+
+    # this is a nested expression
+    else:
+      i, expr = self._parse_expression(stab, toks, 0, can_have_comma=True)
+      return expr
+
+  #BEGIN, BEGIN_CAST_OR_EXPR, BEGIN_TYPEOF, CONT, CONT_TERNARY = range(5)
+  #
+  ## format of precedence table:
+  ##   current state, operator -> precedence, next state, end state
+  #OP_PREC = {
+  #
+  #  # highest (i.e. binds strongly)
+  #  (CONT, "++"):         (1,   BEGIN,              CONT),
+  #  (CONT, "--"):         (1,   BEGIN,              CONT),
+  #  (CONT, "("):          (1,   BEGIN,              CONT),
+  #  (CONT, "["):          (1,   BEGIN,              CONT),
+  #  (CONT, "."):          (1,   BEGIN,              CONT),
+  #  (CONT, "->"):         (1,   BEGIN,              CONT),
+  #
+  #  (BEGIN, "++"):        (2,   BEGIN,              CONT),
+  #  (BEGIN, "--"):        (2,   BEGIN,              CONT),
+  #  (BEGIN, "+"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "-"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "!"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "~"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "("):         (2,   BEGIN_CAST_OR_EXPR, CONT),
+  #  (BEGIN, "*"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "&"):         (2,   BEGIN,              CONT),
+  #  (BEGIN, "sizeof"):    (2,   BEGIN,              CONT),
+  #  (BEGIN, "typeof"):    (2,   BEGIN_TYPEOF,       CONT),
+  #  (BEGIN, "__typeof__"):(2,   BEGIN_TYPEOF,       CONT),
+  #  (BEGIN, "decltype"):  (2,   BEGIN_TYPEOF,       CONT),
+  #
+  #  (CONT, "*"):          (3,   BEGIN,              CONT),
+  #  (CONT, "/"):          (3,   BEGIN,              CONT),
+  #  (CONT, "%"):          (3,   BEGIN,              CONT),
+  #
+  #  (CONT, "+"):          (4,   BEGIN,              CONT),
+  #  (CONT, "-"):          (4,   BEGIN,              CONT),
+  #
+  #  (CONT, "<<"):         (5,   BEGIN,              CONT),
+  #  (CONT, ">>"):         (5,   BEGIN,              CONT),
+  #
+  #  (CONT, "<"):          (6,   BEGIN,              CONT),
+  #  (CONT, "<="):         (6,   BEGIN,              CONT),
+  #  (CONT, ">"):          (6,   BEGIN,              CONT),
+  #  (CONT, ">="):         (6,   BEGIN,              CONT),
+  #
+  #  (CONT, "=="):         (7,   BEGIN,              CONT),
+  #  (CONT, "!="):         (7,   BEGIN,              CONT),
+  #
+  #  (CONT, "&"):          (8,   BEGIN,              CONT),
+  #  (CONT, "^"):          (9,   BEGIN,              CONT),
+  #  (CONT, "|"):          (10,  BEGIN,              CONT),
+  #
+  #  (CONT, "&&"):         (11,  BEGIN,              CONT),
+  #  (CONT, "||"):         (12,  BEGIN,              CONT),
+  #
+  #  (CONT, "?"):          (13,  BEGIN,              CONT_TERNARY),
+  #  (CONT_TERNARY, ":"):  (13,  BEGIN,              CONT),
+  #  (CONT, "="):          (13,  BEGIN,              CONT),
+  #  (CONT, "+="):         (13,  BEGIN,              CONT),
+  #  (CONT, "-="):         (13,  BEGIN,              CONT),
+  #  (CONT, "/="):         (13,  BEGIN,              CONT),
+  #  (CONT, "*="):         (13,  BEGIN,              CONT),
+  #  (CONT, "%="):         (13,  BEGIN,              CONT),
+  #  (CONT, "<<="):        (13,  BEGIN,              CONT),
+  #  (CONT, ">>="):        (13,  BEGIN,              CONT),
+  #  (CONT, "&="):         (13,  BEGIN,              CONT),
+  #  (CONT, "^="):         (13,  BEGIN,              CONT),
+  #  (CONT, "|="):         (13,  BEGIN,              CONT),
+  #
+  #  (CONT, ","):          (14,  BEGIN,              CONT),
+  #  # lowest, i.e. binds weakly
+  #}
+
+  # Parse an expression.
+  #
+  # Args:
+  #   stab:         The symbol table from which symbols can be found.
+  #   toks:         List of tokens containing the expression to parse.
+  #   i:            Cursor into the list of tokens, `toks`.
+  #
+  # Returns:
+  #   A tuple `(i, expr)` where
+  def _parse_expression(self, stab, toks, i, can_have_comma):
+    expr_toks = []
+    while i < len(toks):
+      t = toks[i]
+      if t.str in ")]};":
+        break
+      
+      if not can_have_comma and "," == t.str:
+        break
+
+      if t.str in "([{":
+        i = self._get_up_to_balanced(toks, expr_toks, i, t.str)
+      else:
+        i += 1
+
+    #expr_stack = []
+    #state_stack = [CParser.BEGIN]
+    #
+    #def begin_expr(prec):
+    #  state = state_stack.pop()
+    #  assert CParser.BEGIN is state
+    #
+    #  t = toks[i]
+    #
+    #  # operator
+    #  if t.kind in (CToken.OPERATOR, CToken.TYPEOF):
+    #    prec, next_state, end_state = CParser.OP_PREC[state, t.str]
+    #    state_stack.push(end_state)
+    #    state_stack.push(next_state)
+    #    expr_stack.push(CExpressionOperator(None, t.str, is_prefix=True))
+    #
+    #  # should be a litera of some form...
+    #  state_stack.append(CParser.CONT)
+    #
+    #  if CToken.LITERAL_IDENTIFIER == t.kind:  # identifier
+    #    expr_stack.append(CExpressionIdent(stab.get_var(t.str), t))
+    #  
+    #  elif CToken.LITERAL_NUMBER == t.kind:  # number
+    #    if "." in t.str:
+    #      expr_stack.append(CExpressionLiteral(T_FLT, t.str))
+    #    else:
+    #      expr_stack.append(CExpressionLiteral(T_INT, t.str))
+    #
+    #  elif CToken.LITERAL_STRING == t.kind:  # string / character
+    #    if "'" == t.str[-1]:
+    #      expr_stack.append(CExpressionLiteral(T_CHR, t.str))
+    #    else:
+    #      expr_stack.append(CExpressionLiteral(T_STR, t.str))
+    #
+    #  else:
+    #    assert False
+    #
+    #  return 0 # precedence of a literal
+    #
+    #def begin_cast_or_expr(prec):
+    #  pass
+    #
+    #def begin_typeof(prec):
+    #  pass
+    #
+    #def cont_expr(prec):
+    #  pass
+    #
+    #def cont_ternary(prec):
+    #  pass
+    #
+    #EXPR_PARSERS = {
+    #  CParser.BEGIN:                begin_expr,
+    #  CParser.BEGIN_CAST_OR_EXPR:   begin_cast_or_expr,
+    #  CParser.CONT:                 cont_expr,
+    #  CParser.CONT_TERNARY:         cont_ternary,
+    #}
+    #
+    ## start by parsing the left corner of the expression
+    #t = toks[i]
+    #
+    ## prefix operator
+    #if t.str in "++--!&*~":
+    #  pass
+    #
+    ## parenthesized expression; could be an expression or a type
+    #elif "(" == t.str:
+    #  sub_toks = []
+    #  i = self._get_up_to_balanced(toks, sub_toks, i, t.str)
+    #  expr_or_type = self._parse_expression_or_cast(stab, sub_toks)
+    #
+    ## sizeof
+    #elif "sizeof" == t.str:
+    #  pass
+    #
+    #
+    #
+    #else:
+    #  assert False
+    #
+    ## extend the left corner
+
+    return i, expr_toks
+
   # Extract a sub-list of tokens (`sub_toks`) from `toks` such that 
   # `sub_toks` is everything contained between balanced `open_str` and the
   # associated closing string.
@@ -1229,15 +1722,22 @@ class CParser(object):
   #   i:            Cursor position in `toks`.
   #   open_str:     The "opening" bracket type; the associated closing string
   #                 is found in CParser.CLOSING.
+  #   include:      Optionally include the open/closing strings, and anything
+  #                 that comes before the first opening string.
   #
   # Returns:
   #   A cursor position into `toks` that immediately follows the first balanced
   #   closing string associated with `open_str`.
-  def _get_up_to_balanced(self, toks, sub_toks, i, open_str):
+  def _get_up_to_balanced(self, toks, sub_toks, i, open_str, include=False):
     close_str = CParser.CLOSING[open_str]
     num = 1
     while toks[i].str != open_str:
+      if include:
+        sub_toks.append(toks[i])
       i += 1
+
+    if include:
+      sub_toks.append(toks[i])
     i += 1
 
     while i < len(toks):
@@ -1250,6 +1750,8 @@ class CParser(object):
         num -= 1
       
       if not num:
+        if include:
+          sub_toks.append(t)
         break
       else:
         sub_toks.append(t)
@@ -1265,10 +1767,23 @@ class CParser(object):
     toks = list(toks)
     i = 0
     while i < len(toks):
-      i = self._parse_declaration(self.stab, toks, i)
+      carat = toks[i].carat
+      i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
+      
+      for ctype, name in decls:
+        if is_typedef:
+          assert name
+          ctype = CTypeDefinition(name, ctype)
+          self.stab.set_type(name, ctype)
+        else:
+          if name: 
+            self.stab.set_var(name, ctype)
 
-    # todo: return list of declarations.
+  # Generate pairs of variables/functions and their types at the global scope.
+  def vars(self):
+    return self.stab.vars()
 
+# for testing
 if "__main__" == __name__:
   import sys
   with open(sys.argv[1]) as lines_:
@@ -1276,6 +1791,8 @@ if "__main__" == __name__:
     tokens = CTokenizer(buff)
     parser = CParser()
     parser.parse(tokens)
+    for var, ctype in parser.vars():
+      print var, ctype
     
 
 
