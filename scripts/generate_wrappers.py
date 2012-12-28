@@ -1,6 +1,13 @@
+"""Generate Macro-ized C++ code for wrapping detach functions.
+
+This works by iterating over all functions, and for each function, visiting the
+types of its arguments and return value. Type visitors are transitive.
+Eventually, all reachable types are visited. Visitors of certain kinds of types
+will emit type wrappers if and only if a wrapper is necessary to maintain
+attach/detach requirements."""
 
 from cparser import *
-from cpp import pretty_print_type
+from cprinter import pretty_print_type
 
 def OUT(*args):
   print "".join(map(str, args))
@@ -26,7 +33,7 @@ def base_type(ctype):
   prev_type = None
   while prev_type != ctype:
     prev_type = ctype
-    ctype = unattributed_type(unaliased_type(unattributed_type(ctype)))
+    ctype = unaliased_type(unattributed_type(ctype))
   return ctype
 
 
@@ -45,17 +52,26 @@ def is_wrappable_type(ctype):
   return isinstance(ctype, CTypeStruct)
 
 
+WILL_WRAP_CACHE = {}
+
+
 def will_pre_wrap_fileds(ctype):
+  if ctype in WILL_WRAP_CACHE:
+    return WILL_WRAP_CACHE[ctype]
+
+  ret = False
   for ctype, field_name in ctype.fields():
     intern_ctype = base_type(ctype)
     if not field_name:
       if isinstance(intern_ctype, CTypeStruct):
-        return will_pre_wrap_fileds(intern_ctype)
+        ret = will_pre_wrap_fileds(intern_ctype)
     elif is_function_pointer(intern_ctype):
-      return True
+      ret = True
     elif is_wrappable_type(intern_ctype):
-      return True
-  return False
+      ret = True
+  
+  WILL_WRAP_CACHE[ctype] = ret
+  return ret
 
 
 def pre_wrap_var(ctype, var_name, O, indent="        "):
@@ -89,6 +105,12 @@ def wrap_struct(ctype, name):
   O("    }")
   O("    NO_POST")
   O("})")
+  O("")
+
+
+def wrap_typedef(ctype, name):
+  O = OUT
+  O("MAKE_TYPEDEF_WRAPPER(", name, ", ", ctype.name, ")")
   O("")
 
 
@@ -201,9 +223,14 @@ def visit_pointer(ctype):
 def visit_typedef(ctype):
   visit_type(ctype.ctype)
 
-  inner = unattributed_type(ctype.ctype)
-  if isinstance(inner, CTypeStruct) and not inner.has_name:
-    wrap_struct(inner, ctype.name)
+  inner = base_type(ctype.ctype)
+  if isinstance(inner, CTypeStruct) and will_pre_wrap_fileds(inner):
+    if not inner.has_name:
+      # todo: make sure some structures are not double wrapped
+      wrap_struct(inner, ctype.name)
+    else:
+      wrap_typedef(inner, ctype.name)
+
 
 def visit_builtin(ctype):
   pass
@@ -217,7 +244,9 @@ def visit_union(ctype):
 def visit_struct(ctype):
   for field_ctype, field_name in ctype.fields():
     visit_type(field_ctype)
-  wrap_struct(ctype, ctype.name)
+  
+  if ctype.has_name:
+    wrap_struct(ctype, ctype.name)
 
 
 TYPES = set()
@@ -245,11 +274,12 @@ def visit_type(ctype):
 
 def visit_var_def(var, ctype):
   visit_type(ctype)
-  ctype = unattributed_type(ctype)
+  ctype = base_type(ctype)
 
   # don't declare enumeration constants
   if isinstance(ctype, CTypeFunction):
     wrap_function(ctype, var)
+
 
 if "__main__" == __name__:
   import sys
@@ -259,6 +289,7 @@ if "__main__" == __name__:
     parser = CParser()
     parser.parse(tokens)
 
+    OUT("/* Auto-generated wrappers. */")
     for var, ctype in parser.vars():
       visit_var_def(var, ctype)
     

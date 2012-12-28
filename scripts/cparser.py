@@ -1315,9 +1315,9 @@ class CParser(object):
           ctype = constructor()
           inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](self, stab)
           i = parser(self, inner_stab, ctype, toks, i)
-          # todo: parameterize this so that enums are parsed differently.
 
-      # typeof expression; todo: not handling all typeof cases.
+      # typeof expression; todo: not handling all typeof cases (i.e. ones
+      # without parentheses)
       elif CToken.TYPEOF == t.kind:
         typeof_toks = []
         i = self._get_up_to_balanced(toks, typeof_toks, i - 1, "(", include=True)
