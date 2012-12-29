@@ -13,7 +13,6 @@
 /// Used to denote entrypoints into Granary.
 #define GRANARY_ENTRYPOINT
 
-
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
 #   if __GNUC__ >= 4 && __GNUC_MINOR__ >= 7
 #       define FORCE_INLINE inline
@@ -130,5 +129,28 @@
 
 #define TO_STRING_(x) #x
 #define TO_STRING(x) TO_STRING_(x)
+
+
+#define CAT__(x, y) x ## y
+#define CAT_(x, y) CAT__(x, y)
+#define CAT(x, y) CAT_(x, y)
+
+
+/// Determine the number of arguments in a variadic macro argument pack.
+/// Taken from: http://efesx.com/2010/07/17/variadic-macro-to-count-number-of-arguments/#comment-256
+#define NUM_PARAMS(...) NUM_PARAMS_IMPL(, ##__VA_ARGS__,7,6,5,4,3,2,1,0)
+#define NUM_PARAMS_IMPL(_0,_1,_2,_3,_4,_5,_6,_7,N,...) N
+
+
+#define PARAMS(...) __VA_ARGS__
+#define TEMPLATE_PARAMS(...) CAT(TEMPLATE_PARAMS_, NUM_PARAMS(__VA_ARGS__))(__VA_ARGS__)
+#define TEMPLATE_PARAMS_0()
+#define TEMPLATE_PARAMS_1(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_2(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_3(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_4(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_5(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_6(...) < __VA_ARGS__ >
+#define TEMPLATE_PARAMS_7(...) < __VA_ARGS__ >
 
 #endif /* Granary_PP_H_ */

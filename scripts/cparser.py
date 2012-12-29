@@ -100,6 +100,7 @@ class CToken(object):
     "goto":           STATEMENT_BEGIN,
     "if":             STATEMENT_BEGIN,
     "inline":         SPECIFIER_FUNCTION,
+    "__inline__":     SPECIFIER_FUNCTION,
     "int":            TYPE_BUILT_IN,
     "long":           TYPE_BUILT_IN,
     "register":       SPECIFIER_STORAGE,
@@ -719,7 +720,7 @@ class CTypeAttributes(object):
 
   __slots__ = ('is_const', 'is_register', 'is_auto', 'is_volatile',
                'is_inline', 'is_extern', 'is_restrict', 'is_signed',
-               'is_unsigned')
+               'is_unsigned', 'is_static')
 
   def __init__(self, **kargs):
     self.is_const = False
@@ -731,6 +732,7 @@ class CTypeAttributes(object):
     self.is_restrict = False
     self.is_signed = False
     self.is_unsigned = False
+    self.is_static = False
     for k in kargs:
       setattr(self, k, kargs[k])
 
@@ -745,6 +747,7 @@ class CTypeAttributes(object):
     s += self.is_restrict and "restrict " or ""
     s += self.is_signed   and "signed "   or ""
     s += self.is_unsigned and "unsigned " or ""
+    s += self.is_static   and "static "   or ""
     return s
 
 
@@ -1269,9 +1272,13 @@ class CParser(object):
           i -= 1
           break
 
-      # qualifiers (const, volatile, extern, inline, restrict)
+      # qualifiers (const, volatile, extern, inline, restrict, static)
       elif hasattr(attrs, "is_" + t.str):
         setattr(attrs, "is_" + t.str, True)
+
+      # alternate name for some qualifiers
+      elif "__inline__" == t.str:
+        attrs.is_inline = True
 
       # look for compound types first, and hopefully infer type names.
       elif t.str in CParser.COMPOUND_TYPE:
@@ -1353,7 +1360,7 @@ class CParser(object):
 
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
-    
+
     # apply any extended attributes    
     ctype = extended_attrs(ctype)
 

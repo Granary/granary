@@ -42,7 +42,7 @@ def get_lines():
   # now there is only one brace ({ or }) per line.
   return buff.split("\n")
 
-def match_next_brace_group(lines, i, internal_lines):
+def match_next_brace_group(lines, i, internal_lines, include=False):
   """Try to determine the line index (i) of the line that ends a brace
   group. E.g. if a function is defined, """
 
@@ -108,19 +108,26 @@ def process_lines(lines):
 
     # look for inline function definitions and turn them into declarations
     if "inline" in strip_line:
-      def_lines = []
       output_line = strip_line
+      def_lines = []
       i = match_next_brace_group(lines, i, def_lines)
-      j = 0
-      while "{" not in output_line and j < len(def_lines):
-        if "{" in def_lines[j]:
-          output_line += "\n" + def_lines[j][:-1] # lines end with "{"
-          break
-        output_line += "\n" + def_lines[j]
-        j += 1
+
+      if "{" in output_line:
+        output_line = output_line[:-1]
+      elif ";" != output_line[-1]:
+        j = 0
+        while j < len(def_lines): # "{" not in output_line and
+          if "{" in def_lines[j]:
+            output_line += "\n" + def_lines[j][:-1] # lines end with "{"
+            break
+          output_line += "\n" + def_lines[j]
+          j += 1
 
       output_line += ";"
-      O(output_line)
+
+      # don't output functions with internal linkage
+      if "static" not in output_line:
+        O(output_line)
       continue
 
     # this could be an extern function, or a C++ extern "C" { ... }

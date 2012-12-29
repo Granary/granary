@@ -4,9 +4,17 @@ Each function is associated with a unique id."""
 
 from cparser import *
 
+header, code = None, None
 
-def I(*args):
-  print "".join(map(str, args))
+
+def H(*args):
+  global header
+  header.write("".join(map(str, args)) + "\n")
+
+
+def C(*args):
+  global code
+  code.write("".join(map(str, args)) + "\n")
 
 
 def unattributed_type(ctype):
@@ -31,13 +39,28 @@ def base_type(ctype):
 
 SEEN = set()
 
+# TODO: currently have linker errors for these.
+IGNORE = set([
+  "add_profil",
+  "alloca",
+  "profil",
+  "unwhiteout",
+  "zopen"
+])
+
+
+def has_internal_linkage(ctype):
+  is_inline, is_static = False, False
+  if isinstance(ctype, CTypeAttributed):
+    pass
 
 def visit_function(ctype, name):
-  global SEEN
-  if name in SEEN:
+  global SEEN, IGNORE
+  if name in SEEN or name in IGNORE:
     return
   SEEN.add(name)
-  I("    DETATCH_ID_", name, ",")
+  H("        DETACH_ID_", name, ",")
+  C("        {(app_pc) ::", name,", wrapper_of<DETACH_ID_", name, ">(::", name, ")},")
 
 
 def visit_var_def(var, ctype):
@@ -50,19 +73,33 @@ def visit_var_def(var, ctype):
 
 if "__main__" == __name__:
   import sys
+  header = open(sys.argv[2], "w")
+  code = open(sys.argv[3], "w")
   with open(sys.argv[1]) as lines_:
     buff = "".join(lines_)
     tokens = CTokenizer(buff)
     parser = CParser()
     parser.parse(tokens)
 
-    I("/* Auto-generated detach IDs. */")
-    I("#ifndef GRANARY_DETACH_IDS")
-    I("#define GRANARY_DETACH_IDS")
-    I("enum detach_id {")
+    H("/* Auto-generated detach IDs. */")
+    H("#ifndef GRANARY_DETACH_IDS")
+    H("#define GRANARY_DETACH_IDS")
+    H("namespace granary {")
+    H("    enum function_wrapper_id {")
+
+    C("namespace granary {")
+    C("    const function_wrapper FUNCTION_WRAPPERS[] = {")
+
     for var, ctype in parser.vars():
       visit_var_def(var, ctype)
-    I("    LAST_DETACH_ID")
-    I("};")
-    I("#endif /* GRANARY_DETACH_IDS */")
-    I()
+
+    C("        {nullptr, nullptr}")
+    C("    }; /* function_wrapper_id */")
+    C("} /* granary:: */ ")
+    C()
+
+    H("        LAST_DETACH_ID")
+    H("    };")
+    H("} /* granary:: */")
+    H("#endif /* GRANARY_DETACH_IDS */")
+    H()

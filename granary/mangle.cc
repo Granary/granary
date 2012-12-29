@@ -166,7 +166,7 @@ namespace granary {
     }
 
 
-#if !GRANARY_IN_KERNEL
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
 
 
     /// Detect the use of a relative memory operand whose absolute address
@@ -310,7 +310,7 @@ namespace granary {
 
             // direct branch (e.g. un/conditional branch, jmp, call)
             if(dynamorio::opnd_is_pc(target)) {
-#if !GRANARY_IN_KERNEL
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
                 app_pc target_pc(dynamorio::opnd_get_pc(target));
 
                 // update the target of the instruction so that it now uses
@@ -399,7 +399,7 @@ namespace granary {
 
                 // direct branch (e.g. un/conditional branch, jmp, call)
                 if(dynamorio::opnd_is_pc(target)) {
-#if !GRANARY_IN_KERNEL
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
                     bool found_far_op(false);
                     in->for_each_operand(count_far_operands,
                                          estimator_pc,

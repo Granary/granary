@@ -37,7 +37,9 @@
 #ifndef Granary_DYNAMORIO_H_
 #define Granary_DYNAMORIO_H_
 
-#include <string.h>
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include <string.h>
+#endif
 
 #ifdef __cplusplus
 namespace dynamorio {

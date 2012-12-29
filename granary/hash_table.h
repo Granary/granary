@@ -21,6 +21,8 @@
 #include <map>
 
 namespace granary {
+
+#if 0
     template <typename K, typename V>
     struct hash_table {
         std::map<K, V> map;
@@ -39,6 +41,7 @@ namespace granary {
             map[key] = val;
         }
     };
+#endif
 }
 #endif
 

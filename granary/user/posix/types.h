@@ -36,4 +36,10 @@ extern "C" {
 #include <cwchar>
 #include <cwctype>
 
+extern "C" {
+#include <alloca.h>
+#include <sys/types.h>
+#include <fcntl.h>
+}
+
 #endif /* granary_POSIX_TYPES_H_ */

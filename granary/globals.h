@@ -8,9 +8,13 @@
 #ifndef granary_GLOBALS_H_
 #define granary_GLOBALS_H_
 
-#include <cstring>
-#include <cstddef>
-#include <stdint.h>
+/// guard on including the standard library so that its included types don't
+/// interact with the generated types of user/kernel_types in detach.cc.
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include <cstring>
+#   include <cstddef>
+#   include <stdint.h>
+#endif
 
 #include "granary/types/dynamorio.h"
 #include "granary/pp.h"
@@ -44,6 +48,14 @@
 #   define CONFIG_MEMORY_PAGE_SIZE 4096
 #endif
 
+
+/// Translate `%rip`-relative addresses to absolute addresses in user space.
+/// On some 64-bit systems (e.g. Max OS X), the heap tends to be located > 4GB
+/// away from the memory region that contains the code. As a result, translated
+/// `%rip`-relative addresses cannot fit in 32-bits.
+#ifndef CONFIG_TRANSLATE_FAR_ADDRESSES
+#   define CONFIG_TRANSLATE_FAR_ADDRESSES !GRANARY_IN_KERNEL
+#endif
 
 namespace granary {
 

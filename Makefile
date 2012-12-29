@@ -39,15 +39,15 @@ GR_OUTPUT_TYPES =
 # compiles independent of the Linux kernel.
 KERNEL ?= 1
 
+# Enable address sanitizer on Granary? Default is 2, which means it's
+# "unsupported", i.e. llvm wasn't compiled with compiler-rt.
+GR_ASAN ?= 2
+
+# Enable libc++? (llvm's c++ standard library)
+GR_LIBCXX ?= 0
+
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
-	
-	# Enable address sanitizer on Granary? Default is 2, which means it's
-	# "unsupported", i.e. llvm wasn't compiled with compiler-rt.
-	GR_ASAN ?= 2
-	
-	# Enable libc++? (llvm's c++ standard library)
-	GR_LIBCXX ?= 0
 
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu
@@ -111,6 +111,9 @@ GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
 GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/init.o
+
+# Granary wrapper dependencies
+GR_OBJS += bin/granary/wrapper.o
 
 # Granary (x86) dependencies
 GR_OBJS += bin/granary/x86/utils.o
@@ -239,6 +242,16 @@ bin/main.o: main.cc
 types:
 	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) -I./ -E $(GR_INPUT_TYPES) > /tmp/ppt.h
 	python scripts/post_process_header.py /tmp/ppt.h > $(GR_OUTPUT_TYPES)
+
+
+# auto-generate wrappers
+wrappers: types
+	python scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > granary/gen/wrappers.h
+
+
+# auto-generate the hash table stuff needed for wrappers and detaching
+detach: types
+	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.h granary/gen/detach.cc 
 
 
 # make the folders where binaries / generated assemblies are stored

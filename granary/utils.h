@@ -11,9 +11,11 @@
 
 #include "pp.h"
 
-#include <stdint.h>
-#include <cstring>
-#include <algorithm>
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include <stdint.h>
+#   include <cstring>
+#   include <algorithm>
+#endif
 
 namespace granary {
 
@@ -124,9 +126,11 @@ namespace granary {
             return elms + num_elms;
         }
 
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
         inline void sort(void) throw() {
             std::sort(begin(), end());
         }
+#endif
     };
 }
 

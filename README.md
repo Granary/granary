@@ -18,6 +18,7 @@ Compiling for user space
 ------------------------
 
 ```basemake
+make detach KERNEL=0
 make clear KERNEL=0 ; make all KERNEL=0 GR_CC=gcc GR_CXX=g++
 ```
 
@@ -30,5 +31,6 @@ Note: the last step is likely to fail because we are missing the kernel types
 for all but one set of kernel versions.
 
 ```basemake
+make detach KERNEL=1
 make clear KERNEL=1 ; make all KERNEL=1 GR_CC=gcc GR_CXX=g++
 ```
