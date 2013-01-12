@@ -41,5 +41,22 @@ GLOBAL_LABEL(granary_get_stack_pointer:)
     ret;
 END_FUNC(granary_get_stack_pointer)
 
+
+DECLARE_FUNC(granary_disable_interrupts)
+GLOBAL_LABEL(granary_disable_interrupts:)
+    pushf;
+    cli;
+    pop %rax;
+    ret;
+END_FUNC(granary_disable_interrupts)
+
+
+DECLARE_FUNC(granary_restore_flags)
+GLOBAL_LABEL(granary_restore_flags:)
+    push %ARG1;
+    popf
+    ret;
+END_FUNC(granary_restore_flags)
+
 END_FILE
 

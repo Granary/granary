@@ -17,37 +17,31 @@ def IGNORE(*args):
   pass
 
 
-def unattributed_type(ctype):
+def has_extension_attribute(ctype, attr_name):
+  ctype = ctype.unaliased_type()
   while isinstance(ctype, CTypeAttributed):
-    ctype = ctype.ctype
-  return ctype
-
-
-def unaliased_type(ctype):
-  while isinstance(ctype, CTypeDefinition):
-    ctype = ctype.ctype
-  return ctype
-
-
-def base_type(ctype):
-  prev_type = None
-  while prev_type != ctype:
-    prev_type = ctype
-    ctype = unaliased_type(unattributed_type(ctype))
-  return ctype
+    attrs = ctype.attrs
+    if isinstance(attrs, CTypeNameAttributes):
+      attr_toks = attrs.attrs[0][:]
+      attr_toks.extend(attrs.attrs[1])
+      for attr in attr_toks:
+        if attr_name in attr.str:
+          return True
+    ctype = ctype.ctype.unaliased_type()
+  return False
 
 
 def is_function_pointer(ctype):
   if isinstance(ctype, CTypePointer):
-    internal = unattributed_type(ctype.ctype)
+    internal = ctype.ctype.unattributed_type()
     return isinstance(internal, CTypeFunction)
   return False
 
 
 def is_wrappable_type(ctype):
-  ctype = base_type(ctype)
+  ctype = ctype.base_type()
   if isinstance(ctype, CTypePointer):
-    internal = base_type(ctype.ctype)
+    internal = ctype.ctype.base_type()
     return isinstance(internal, CTypeStruct)
   return isinstance(ctype, CTypeStruct)
 
@@ -61,7 +55,7 @@ def will_pre_wrap_fileds(ctype):
 
   ret = False
   for ctype, field_name in ctype.fields():
-    intern_ctype = base_type(ctype)
+    intern_ctype = ctype.base_type()
     if not field_name:
       if isinstance(intern_ctype, CTypeStruct):
         ret = will_pre_wrap_fileds(intern_ctype)
@@ -75,14 +69,14 @@ def will_pre_wrap_fileds(ctype):
 
 
 def pre_wrap_var(ctype, var_name, O, indent="        "):
-  intern_ctype = base_type(ctype)
+  intern_ctype = ctype.base_type()
   if not var_name:
     if isinstance(intern_ctype, CTypeStruct):
       pre_wrap_fields(intern_ctype, O)
   elif is_function_pointer(intern_ctype):
-    O(indent, "PRE_WRAP_FUNC(", var_name, ");")
+    O(indent, "WRAP_FUNCTION(", var_name, ");")
   elif is_wrappable_type(intern_ctype):
-    O(indent, "PRE_WRAP_RECURSIVE(", var_name, ");")
+    O(indent, "PRE_WRAP(", var_name, ");")
 
 
 def pre_wrap_fields(ctype, O):
@@ -94,37 +88,63 @@ def post_wrap_fields(ctype, O):
   pass
 
 
-def wrap_struct(ctype, name):
+def scoped_name(ctype):
+  parts = []
+  while True:
+
+    # if the type is scoped, then we use the internal name
+    # to omit 'struct', 'union', and 'enum' so that we don't
+    # end up with things like "foo::struct bar".
+    if ctype.parent_ctype:
+      parts.append(ctype.internal_name)
+      ctype = ctype.parent_ctype
+
+    # if the type is not scoped, then we use the full name
+    # to disambiguate it from, e.g. functions with the same
+    # name
+    else:
+      parts.append(ctype.name)
+      break
+  return "::".join(reversed(parts))
+
+def wrap_struct(ctype):
   if not will_pre_wrap_fileds(ctype):
     return
 
+  name = scoped_name(ctype)
+
   O = ctype.has_name and OUT or IGNORE
-  O("MAKE_WRAPPER(", name, ", ", "{")
+  O("TYPE_WRAPPER(", name, ", ", "{")
   O("    PRE {")
   pre_wrap_fields(ctype, O)
   O("    }")
   O("    NO_POST")
+  O("    NO_RETURN")
   O("})")
   O("")
 
 
 def wrap_typedef(ctype, name):
   O = OUT
-  O("MAKE_TYPEDEF_WRAPPER(", name, ", ", ctype.name, ")")
-  O("")
+
+  # e.g. "typedef struct foo foo;" is somewhat ambiguous (from the perspective
+  # of C++ template partial specialization), so we omit such typedefs.
+  #if name != ctype.internal_name:
+  #  O("TYPEDEF_WRAPPER(", name, ", ", ctype.name, ")")
+  #O("")
 
 
 def will_wrap_function(ret_type, arg_types):
   ctypes = [ret_type] + arg_types
   for ctype in ctypes:
-    ctype = base_type(ctype)
+    ctype = ctype.base_type()
     if is_function_pointer(ctype) or is_wrappable_type(ctype):
       return True
   return False
 
 
 # Output Granary code that will wrap a C function.
-def wrap_function(ctype, func):
+def wrap_function(ctype, orig_ctype, func):
 
   # only care about non-variadic functions if they return wrappable types.
   if not ctype.is_variadic:
@@ -137,7 +157,16 @@ def wrap_function(ctype, func):
     if not will_wrap_function(ctype.ret_type, ctype.param_types):
       return
 
-  internal_ret_type = base_type(ctype.ret_type)
+  # don't wrap deprecated functions; the compiler will complain about them.
+  if has_extension_attribute(orig_ctype, "deprecated") \
+  or has_extension_attribute(orig_ctype, "leaf"):
+    return
+
+  # internal function
+  elif func.startswith("__"):
+    return
+
+  internal_ret_type = ctype.ret_type.base_type()
   suffix, is_void = "", False
   if isinstance(internal_ret_type, CTypeBuiltIn) \
   and "void" == internal_ret_type.name:
@@ -162,27 +191,28 @@ def wrap_function(ctype, func):
   for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
     if not arg_name:
       arg_name = ""
-    arg_list.append(pretty_print_type(arg_ctype, arg_name).strip(" "))
+    arg_list.append(pretty_print_type(arg_ctype, arg_name, lang="C++").strip(" "))
   args = ", ".join(arg_list)
 
   O = OUT
-  O("FUNCTION_WRAPPER", suffix, "(", var, ", (", args, variadic, ") {")
+  O("FUNCTION_WRAPPER", suffix, "(", func, ", (", args, variadic, "), {")
   if ctype.is_variadic:
     O("    // TODO: variadic arguments")
   
-  # assignment of return value
+  # assignment of return value; unattributed_type is used in place of base type
+  # so that we don't end up with anonymous structs/unions/enums.
   a, r_v = "", ""
   if not is_void:
     r_v = "ret"
-    a = pretty_print_type(ctype.ret_type, r_v) + " = "
+    a = pretty_print_type(ctype.ret_type.unattributed_type(), r_v, "C++") + " = "
   
   for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
     pre_wrap_var(arg_ctype, arg_name, O, indent="    ")
 
-  O("    ", a, var, "(", ", ".join(param_names), ");")
+  O("    ", a, func, "(", ", ".join(param_names), ");")
 
   if not is_void:
-    O("    POST_WRAP_RECURSIVE(", r_v, ");")
+    O("    RETURN_WRAP(", r_v, ");")
     O("    return ", r_v, ";")
 
   O("})")
@@ -223,7 +253,7 @@ def visit_pointer(ctype):
 def visit_typedef(ctype):
   visit_type(ctype.ctype)
 
-  inner = base_type(ctype.ctype)
+  inner = ctype.ctype.base_type()
   if isinstance(inner, CTypeStruct) and will_pre_wrap_fileds(inner):
     if not inner.has_name:
       # todo: make sure some structures are not double wrapped
@@ -246,7 +276,7 @@ def visit_struct(ctype):
     visit_type(field_ctype)
   
   if ctype.has_name:
-    wrap_struct(ctype, ctype.name)
+    wrap_struct(ctype)
 
 
 TYPES = set()
@@ -274,11 +304,12 @@ def visit_type(ctype):
 
 def visit_var_def(var, ctype):
   visit_type(ctype)
-  ctype = base_type(ctype)
+  orig_ctype = ctype
+  ctype = orig_ctype.base_type()
 
   # don't declare enumeration constants
   if isinstance(ctype, CTypeFunction):
-    wrap_function(ctype, var)
+    wrap_function(ctype, orig_ctype, var)
 
 
 if "__main__" == __name__:

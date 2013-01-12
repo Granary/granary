@@ -11,12 +11,13 @@
 
 #include "granary/globals.h"
 #include "granary/state.h"
-#include "granary/hash_table.h"
 #include "granary/mangle.h"
 #include "granary/policy.h"
 #include "granary/detach.h"
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
+
+#include "granary/rcu/hash_table.h"
 
 
 /// Used to unroll registers in the opposite order in which they are saved
@@ -62,7 +63,7 @@ namespace granary {
 
 
         /// Policy-specific shared code cache.
-        static hash_table<app_pc, app_pc> CODE_CACHE;
+        static rcu::hash_table<app_pc, app_pc> CODE_CACHE;
 
 
         /// Instrumentation policy to use.
@@ -89,7 +90,7 @@ namespace granary {
                 return target_addr;
             }
 
-            if(CODE_CACHE.load(addr, &target_addr)) {
+            if(CODE_CACHE.load(addr, target_addr)) {
                 return target_addr;
             }
 
@@ -282,9 +283,9 @@ namespace granary {
         }
     };
 
-    /// Static initialization.
+    /// Static initialization of the global code cache hash table.
     template <typename Policy>
-    hash_table<app_pc, app_pc> code_cache<Policy>::CODE_CACHE;
+    rcu::hash_table<app_pc, app_pc> code_cache<Policy>::CODE_CACHE;
 
     template <typename Policy>
     instrumenter<Policy> code_cache<Policy>::POLICY = \

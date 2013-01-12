@@ -17,24 +17,18 @@ def C(*args):
   code.write("".join(map(str, args)) + "\n")
 
 
-def unattributed_type(ctype):
+def has_extension_attribute(ctype, attr_name):
+  ctype = ctype.unaliased_type()
   while isinstance(ctype, CTypeAttributed):
-    ctype = ctype.ctype
-  return ctype
-
-
-def unaliased_type(ctype):
-  while isinstance(ctype, CTypeDefinition):
-    ctype = ctype.ctype
-  return ctype
-
-
-def base_type(ctype):
-  prev_type = None
-  while prev_type != ctype:
-    prev_type = ctype
-    ctype = unaliased_type(unattributed_type(ctype))
-  return ctype
+    attrs = ctype.attrs
+    if isinstance(attrs, CTypeNameAttributes):
+      attr_toks = attrs.attrs[0][:]
+      attr_toks.extend(attrs.attrs[1])
+      for attr in attr_toks:
+        if attr_name in attr.str:
+          return True
+    ctype = ctype.ctype.unaliased_type()
+  return False
 
 
 SEEN = set()
@@ -45,7 +39,9 @@ IGNORE = set([
   "alloca",
   "profil",
   "unwhiteout",
-  "zopen"
+  "zopen",
+  "_IO_cookie_init",
+  "matherr",
 ])
 
 
@@ -58,16 +54,24 @@ def visit_function(ctype, name):
   global SEEN, IGNORE
   if name in SEEN or name in IGNORE:
     return
+
   SEEN.add(name)
+  
+  if has_extension_attribute(ctype, "deprecated") \
+  or has_extension_attribute(ctype, "leaf"):
+    return
+
+  if name.startswith("__"):
+    return
+
   H("        DETACH_ID_", name, ",")
   C("        {(app_pc) ::", name,", wrapper_of<DETACH_ID_", name, ">(::", name, ")},")
 
 
 def visit_var_def(var, ctype):
-  ctype = base_type(ctype)
 
   # don't declare enumeration constants
-  if isinstance(ctype, CTypeFunction):
+  if isinstance(ctype.base_type(), CTypeFunction):
     visit_function(ctype, var)
 
 

@@ -3,9 +3,7 @@
 # Note: some of this isn't 100% right, especially where function pointers are
 #       concerned.
 
-from cparser import CTypePointer, CTypeFunction, CTypeAttributes, \
-                    CTypeDefinition, CTypeAttributed, CTypeExtendedAttributes, \
-                    CTypeBuiltIn, CTypeArray, CTypeCompound
+from cparser import *
 
 # Pretty-print a CType instance into valid C.
 #
@@ -16,36 +14,47 @@ from cparser import CTypePointer, CTypeFunction, CTypeAttributes, \
 #
 # Returns:
 #   Pretty-printed string.
-def pretty_print_type(ctype, inner=""):
+def pretty_print_type(ctype, inner="", lang="C"):
   s = ""
+
+  def print_function(ctype, s, inner):
+    param_types = []
+      
+    for param_ctype in ctype.param_types:
+      param_types.append(pretty_print_type(param_ctype, lang=lang))
+    
+    if ctype.is_variadic and not ctype.is_old_style_variadic:
+      param_types.append("...")
+
+    if not param_types and not ctype.is_old_style_variadic:
+      param_types.append("void")
+
+    inner = "(%s%s)(%s)" % (s, inner, ", ".join(param_types))
+    return pretty_print_type(ctype.ret_type, inner=inner, lang=lang)
 
   # pointers (including function pointers)
   if isinstance(ctype, CTypePointer):
-    s = "*"
-    s += ctype.is_const     and " const " or "" 
-    s += ctype.is_restrict  and " restrict " or ""
-    s += ctype.is_volatile  and " volatile " or ""
-    
-    spec = ctype.ctype
+    while isinstance(ctype, CTypePointer):
+      s += "*"
+      s += ctype.is_const     and " const " or "" 
+      if "C" == lang:
+        s += ctype.is_restrict  and " restrict " or ""
+      s += ctype.is_volatile  and " volatile " or ""
+      ctype = ctype.ctype
 
     # special case: function pointers
-    if isinstance(spec, CTypeFunction):
-      param_types = []
-      
-      for param_ctype in spec.param_types:
-        param_types.append(pretty_print_type(param_ctype))
-      
-      if spec.is_variadic and not spec.is_old_style_variadic:
-        param_types.append("...")
-
-      inner = "(%s%s)(%s)" % (s, inner, ", ".join(param_types))
-      s = pretty_print_type(spec.ret_type, inner)
+    if isinstance(ctype, CTypeFunction):
+      s = print_function(ctype, s, inner)
     
     # non-function pointer
     else:
-      s = "%s %s%s" % (pretty_print_type(spec).strip(" "),
-                        s.strip(" "),
+      s = "%s %s%s" % (pretty_print_type(ctype, lang=lang).strip(" "),
+                        s,
                         inner.strip(" "))
+
+  # function
+  elif isinstance(ctype, CTypeFunction):
+    s = print_function(ctype, s, inner)
 
   # built-in type
   elif isinstance(ctype, CTypeBuiltIn):
@@ -58,22 +67,31 @@ def pretty_print_type(ctype, inner=""):
   # attributed type
   elif isinstance(ctype, CTypeAttributed):
     attrs = ctype.attrs
-    s = pretty_print_type(ctype.ctype, inner)
+    tok_str = lambda tok: tok.str
+    s = pretty_print_type(ctype.ctype, inner=inner, lang=lang)
 
     if isinstance(attrs, CTypeAttributes):
       for attr in CTypeAttributes.__slots__:
         if attr.startswith("is_"):
           if getattr(attrs, attr):
             s = "%s %s" % (attr[3:], s.strip(" "))
-
-    elif CTypeExtendedAttributes.LEFT == attrs.side:
-      s = "%s %s" % (" ".join(attrs.attrs), s.strip(" "))
     else:
-      s = "%s %s" % (s.strip(" "), " ".join(attrs.attrs))
+
+      # get the storage/visibility attributes
+      for attr in CTypeAttributes.__slots__:
+        if attr.startswith("is_"):
+          if getattr(attrs, attr):
+            s = "%s %s" % (attr[3:], s.strip(" "))
+
+      # put left-hand side extension attributes before and the right-hand side
+      # atributes after
+      lhs = " ".join(t.str for t in attrs.attrs[attrs.LEFT])
+      rhs = " ".join(t.str for t in attrs.attrs[attrs.RIGHT])
+      s = "%s %s %s" % (lhs.strip(" "), s.strip(" "), rhs.strip(" "))
 
   # array
   elif isinstance(ctype, CTypeArray):
-    s = "%s %s[%s]" % (pretty_print_type(ctype.ctype),
+    s = "%s %s[%s]" % (pretty_print_type(ctype.ctype, lang=lang),
                        inner,
                        " ".join(ctype.size_expr_toks))
 

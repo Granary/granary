@@ -19,7 +19,8 @@ namespace granary {
 
     STATIC_INITIALIZE({
         for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
-            function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
+            const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
+            (void) wrapper;
         }
     });
 

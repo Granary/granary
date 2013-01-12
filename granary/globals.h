@@ -49,6 +49,18 @@
 #endif
 
 
+/// The maximum wrapping depth for argument wrappers.
+#ifndef CONFIG_MAX_PRE_WRAP_DEPTH
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 3
+#endif
+#ifndef CONFIG_MAX_POST_WRAP_DEPTH
+#   define CONFIG_MAX_POST_WRAP_DEPTH 3
+#endif
+#ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 3
+#endif
+
+
 /// Translate `%rip`-relative addresses to absolute addresses in user space.
 /// On some 64-bit systems (e.g. Max OS X), the heap tends to be located > 4GB
 /// away from the memory region that contains the code. As a result, translated
@@ -74,7 +86,13 @@ namespace granary {
 
 
         /// number of processor cores.
-        NUM_CPUS = CONFIG_MAX_NUM_CPUS
+        NUM_CPUS = CONFIG_MAX_NUM_CPUS,
+
+
+        /// Maximum wrapping depths
+        MAX_PRE_WRAP_DEPTH = CONFIG_MAX_PRE_WRAP_DEPTH,
+        MAX_POST_WRAP_DEPTH = CONFIG_MAX_POST_WRAP_DEPTH,
+        MAX_RETURN_WRAP_DEPTH = CONFIG_MAX_RETURN_WRAP_DEPTH
     };
 
     enum {
@@ -83,6 +101,10 @@ namespace granary {
         KERNEL_MODULE_START = 0xffffffffa0000000ULL,
         KERNEL_MODULE_END = 0xfffffffffff00000ULL
     };
+
+
+    /// Processor flags
+    typedef unsigned long long flags_t;
 
 
     /// Forward declarations.
@@ -101,6 +123,11 @@ extern "C" {
     extern void granary_break_on_allocate(void *ptr);
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
+#else
+
+    extern flags_t granary_disable_interrupts(void);
+    extern void granary_restore_flags(flags_t);
+
 #endif
 
 
@@ -117,9 +144,10 @@ extern "C" {
 }
 
 
+#include "granary/allocator.h"
 #include "granary/utils.h"
 #include "granary/type_traits.h"
-#include "granary/allocator.h"
+#include "granary/bump_allocator.h"
 #include "granary/init.h"
 #include "granary/test.h"
 

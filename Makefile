@@ -34,6 +34,7 @@ GR_TYPE_CC = $(GR_CC)
 GR_TYPE_CC_FLAGS =
 GR_INPUT_TYPES =
 GR_OUTPUT_TYPES =
+GR_OUTPUT_WRAPPERS =
 
 # Conditional compilation for kernel code; useful for testing if Granary code
 # compiles independent of the Linux kernel.
@@ -131,6 +132,7 @@ ifneq ($(KERNEL),1)
 	GR_TYPE_CC = $(GR_CXX)
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
+	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
 
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
@@ -144,12 +146,12 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_direct_call.o
 	GR_OBJS += bin/tests/test_lock_inc.o
 	
-	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS)
+	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS) -pthread -lrt -lm
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CXX) $(GR_LD_FLAGS) $(GR_OBJS) -o $(GR_NAME).out
+	GR_MAKE += $(GR_CC) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_NAME).out
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
@@ -163,6 +165,7 @@ else
 	GR_TYPE_CC_FLAGS += -mcmodel=kernel
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
+	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
 
 	GR_OBJS += bin/granary/kernel/module.o
 	GR_OBJS += bin/granary/kernel/allocator.o
@@ -246,7 +249,7 @@ types:
 
 # auto-generate wrappers
 wrappers: types
-	python scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > granary/gen/wrappers.h
+	python scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
 
 
 # auto-generate the hash table stuff needed for wrappers and detaching

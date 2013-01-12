@@ -36,7 +36,7 @@ def get_lines():
   buff = buff.replace("}\n;", "};\n")
   buff = buff.replace("extern", "\nextern")
   buff = buff.replace("namespace", "\nnamespace")
-  buff = buff.replace("template", "\ntemplate")
+  buff = buff.replace(r"(^[a-zA-Z_0-9])template", "\1\ntemplate")
   buff = buff.replace("typedef", "\ntypedef")
 
   # now there is only one brace ({ or }) per line.
@@ -126,8 +126,8 @@ def process_lines(lines):
       output_line += ";"
 
       # don't output functions with internal linkage
-      if "static" not in output_line:
-        O(output_line)
+      #if "static" not in output_line:
+      #  O(output_line)
       continue
 
     # this could be an extern function, or a C++ extern "C" { ... }
@@ -137,6 +137,10 @@ def process_lines(lines):
         i = match_next_brace_group(lines, i, code_lines)
         process_lines(code_lines)
         continue
+
+    # special case for re-defining wchar_t
+    if "typedef" in strip_line and "wchar_t;" in strip_line:
+      continue
 
     O(strip_line)
 

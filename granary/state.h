@@ -12,7 +12,6 @@
 #include <bitset>
 
 #include "granary/globals.h"
-#include "granary/hash_table.h"
 
 #include "clients/state.h"
 

@@ -64,11 +64,12 @@ class CToken(object):
   LITERAL_IDENTIFIER        = 12 # can be converted into a TYPE_USER
 
   TYPE_BUILT_IN             = 20
-  TYPE_USER                 = 21 # determined during parsing
-  TYPE_QUALIFIER            = 22
-  TYPE_SPECIFIER            = 23 # e.g. struct, union, enum
-  SPECIFIER_STORAGE         = 24
-  SPECIFIER_FUNCTION        = 25
+  TYPE_MAYBE_BUILT_IN       = 21
+  TYPE_USER                 = 22 # determined during parsing
+  TYPE_QUALIFIER            = 23
+  TYPE_SPECIFIER            = 24 # e.g. struct, union, enum
+  SPECIFIER_STORAGE         = 25
+  SPECIFIER_FUNCTION        = 26
 
   ELLIPSIS                  = 31
 
@@ -88,6 +89,7 @@ class CToken(object):
     "case":           STATEMENT_BEGIN,
     "char":           TYPE_BUILT_IN,
     "const":          TYPE_QUALIFIER,
+    "__const":        TYPE_QUALIFIER,
     "continue":       STATEMENT_BEGIN,
     "default":        STATEMENT_BEGIN,
     "do":             STATEMENT_BEGIN,
@@ -101,10 +103,12 @@ class CToken(object):
     "if":             STATEMENT_BEGIN,
     "inline":         SPECIFIER_FUNCTION,
     "__inline__":     SPECIFIER_FUNCTION,
+    "__inline":       SPECIFIER_FUNCTION,
     "int":            TYPE_BUILT_IN,
     "long":           TYPE_BUILT_IN,
     "register":       SPECIFIER_STORAGE,
     "restrict":       TYPE_QUALIFIER,
+    "__restrict":     TYPE_QUALIFIER,
     "return":         STATEMENT_BEGIN,
     "short":          TYPE_BUILT_IN,
     "signed":         TYPE_BUILT_IN,
@@ -121,7 +125,8 @@ class CToken(object):
     "_Bool":          TYPE_BUILT_IN,
     "_Complex":       TYPE_BUILT_IN,
     "_Imaginary":     TYPE_BUILT_IN,
-    "wchar_t":        TYPE_BUILT_IN,
+
+    "wchar_t":        TYPE_MAYBE_BUILT_IN,
     
     # extensions    
     "asm":            EXTENSION,
@@ -141,6 +146,7 @@ class CToken(object):
     "noinline":       EXTENSION_NO_PARAM,
     
     # note: not an exhaustive list
+    "__extension__":  EXTENSION_NO_PARAM,
     "__alias__":      EXTENSION,
     "__aligned__":    EXTENSION,
     "__alloc_size__": EXTENSION,
@@ -549,6 +555,26 @@ class CType(object):
     else:
       assert False
 
+  def unattributed_type(self):
+    ctype = self
+    while isinstance(ctype, CTypeAttributed):
+      ctype = ctype.ctype
+    return ctype
+
+  def unaliased_type(self):
+    ctype = self
+    while isinstance(ctype, CTypeDefinition):
+      ctype = ctype.ctype
+    return ctype
+
+  def base_type(self):
+    prev_type = None
+    ctype = self
+    while prev_type != ctype:
+      prev_type = ctype
+      ctype = ctype.unattributed_type().unaliased_type()
+    return ctype
+
 
 class CTypeCompound(CType):
   """Base class for user-defined compound types."""
@@ -558,7 +584,9 @@ class CTypeCompound(CType):
 class CTypeStruct(CTypeCompound):
   """Represents a structure type."""
 
-  __slots__ = ('_id', 'name', '_fields', '_field_list', 'has_name')
+  __slots__ = ('_id', 'name', 'internal_name', 
+               '_fields', '_field_list', 'has_name',
+               'parent_ctype')
   ID = 0
 
   def __init__(self, name_=None):
@@ -569,7 +597,9 @@ class CTypeStruct(CTypeCompound):
       self.has_name = False
       name_ = "anon_struct_%d" % self._id
 
+    self.internal_name = name_
     self.name = "struct " + name_
+    self.parent_ctype = None
     self._fields = {}
     self._field_list = []
 
@@ -588,7 +618,9 @@ class CTypeStruct(CTypeCompound):
 class CTypeUnion(CTypeCompound):
   """Represents a union type."""
 
-  __slots__ = ('_id', 'name', '_fields', '_field_list', 'has_name')
+  __slots__ = ('_id', 'name', 'internal_name',
+               '_fields', '_field_list', 'has_name',
+               'parent_ctype')
   ID = 0
   
   def __init__(self, name_=None):
@@ -599,7 +631,9 @@ class CTypeUnion(CTypeCompound):
       self.has_name = False
       name_ = "anon_union_%d" % self._id
 
+    self.internal_name = name_
     self.name = "union " + name_
+    self.parent_ctype = None
     self._fields = {}
     self._field_list = []
 
@@ -618,7 +652,9 @@ class CTypeUnion(CTypeCompound):
 class CTypeEnum(CTypeCompound):
   """Represents an enumeration type."""
 
-  __slots__ = ('_id', 'name', 'fields', 'field_list', 'has_name')
+  __slots__ = ('_id', 'name', 'internal_name',
+               'fields', 'field_list', 'has_name',
+               'parent_ctype')
   ID = 0
 
   def __init__(self, name_=None):
@@ -628,7 +664,10 @@ class CTypeEnum(CTypeCompound):
     if not name_:
       self.has_name = False
       name_ = "anon_enum_%d" % self._id
+
+    self.internal_name = name_
     self.name = "enum " + name_
+    self.parent_ctype = None
     self.field_list = []
     self.fields = {}
 
@@ -656,6 +695,16 @@ class CTypeDefinition(CType):
   def __init__(self, name_, ctype_):
     self.name = name_
     self.ctype = ctype_
+
+    # update internal names of some compound types
+    base_ctype = ctype_.base_type()
+    if isinstance(base_ctype, CTypeStruct) \
+    or isinstance(base_ctype, CTypeUnion) \
+    or isinstance(base_ctype, CTypeEnum):
+      if not base_ctype.has_name:
+        base_ctype.name = name_
+        base_ctype.internal_name = name_
+        base_ctype.has_name = True
 
   def __repr__(self):
     return "TypeDef(%s)" % self.name
@@ -719,53 +768,73 @@ class CTypeAttributes(object):
   """Represents attributes applied to a type."""
 
   __slots__ = ('is_const', 'is_register', 'is_auto', 'is_volatile',
-               'is_inline', 'is_extern', 'is_restrict', 'is_signed',
-               'is_unsigned', 'is_static')
+               'is_restrict', 'is_signed', 'is_unsigned')
 
   def __init__(self, **kargs):
     self.is_const = False
-    self.is_register = False
-    self.is_auto = False
+    self.is_register = False  # todo: put in NameAttributes?
+    self.is_auto = False      # todo: put in NameAttributes?
     self.is_volatile = False
-    self.is_inline = False
-    self.is_extern = False
-    self.is_restrict = False
+    self.is_restrict = False # todo: needed?
     self.is_signed = False
     self.is_unsigned = False
-    self.is_static = False
+    
     for k in kargs:
       setattr(self, k, kargs[k])
 
+  def has_default_attrs(self):
+    if self.is_const or self.is_register or self.is_auto or self.is_volatile:
+      return False
+    elif self.is_restrict or self.is_signed or self.is_unsigned:
+      return False
+    return True
+  
   def __repr__(self):
     s = ""
     s += self.is_const    and "const "    or ""
     s += self.is_register and "register " or ""
     s += self.is_auto     and "auto "     or ""
     s += self.is_volatile and "volatile " or ""
-    s += self.is_inline   and "inline "   or ""
-    s += self.is_extern   and "extern "   or ""
     s += self.is_restrict and "restrict " or ""
     s += self.is_signed   and "signed "   or ""
     s += self.is_unsigned and "unsigned " or ""
-    s += self.is_static   and "static "   or ""
+    
     return s
 
 
-class CTypeExtendedAttributes(object):
-  """Defines extension-specific attributes that appear on either the left or
-  right-hand side of some other type."""
+class CTypeNameAttributes(object):
+  """Defines attributes specific to some named object. These attributes
+  include both visibility specifiers as well as function/variable extended
+  attributes."""
 
-  __slots__ = ('attrs', 'side')
+  __slots__ = ('attrs', 'is_inline', 'is_extern', 'is_static')
 
-  LEFT = 0
-  RIGHT = 1
+  LEFT, RIGHT = 0, 1
 
-  def __init__(self, attrs_, side_):
-    self.attrs = attrs_
-    self.side = side_
+  def __init__(self, that_=None):
+    self.attrs = [[], []]
+    self.is_inline = that_ and that_.is_inline or False
+    self.is_extern = that_ and that_.is_extern or False
+    self.is_static = that_ and that_.is_static or False
+    if that_:
+      self.attrs[self.LEFT].extend(that_.attrs[self.LEFT])
+      self.attrs[self.RIGHT].extend(that_.attrs[self.RIGHT])
+
+  def has_default_attrs(self):
+    if self.is_inline or self.is_extern or self.is_static:
+      return False
+    elif len(self.attrs[0]) or len(self.attrs[1]):
+      return False
+    return True
 
   def __repr__(self):
-    return " ".join(map(lambda t: t.str, self.attrs))
+    s = ""
+    s += self.is_inline   and " inline"   or ""
+    s += self.is_extern   and " extern"   or ""
+    s += self.is_static   and " static"   or ""
+    attrs = self.attrs[self.LEFT][:]
+    attrs.extend(self.attrs[self.RIGHT])
+    return (" ".join(t.str for t in attrs) + s).strip(" ")
 
 
 class CTypeAttributed(CType):
@@ -820,51 +889,22 @@ class CTypeFunction(CTypeCompound):
 
   def __init__(self, ret_type_):
     self.ret_type = ret_type_
+    self.is_static = False
+    self.is_extern = False
+    self.is_inline = False
     self.param_types = []
     self.param_names = []
     self.is_variadic = False # e.g. old style, or using ...
     self.is_old_style_variadic = False # old style, e.g. int foo();
 
+    # raise up these storage class specifiers applied to the return type
+    # to be applied to the function type.
+    for attr in ('is_static', 'is_extern', 'is_inline'):
+      pass # todo
+
   def __repr__(self):
     types_str = ", ".join(map(repr, [self.ret_type] + self.param_types))
     return "Function(%s)" % types_str
-
-
-class CExpression(object):
-  """Base class for expressions."""
-  pass
-
-
-class CExpressionIdent(CExpression):
-  """An identifier AST node."""
-
-  __slots__ = ('type', 'name')
-
-  def __init__(self, type_, name_):
-    self.type = type_
-    self.name = name_
-
-
-class CExpressionLiteral(CExpression):
-  """A literal expression AST node."""
-
-  __slots__ = ('type', 'literal')
-
-  def __init__(self, type_, literal_):
-    self.type = type_
-    self.literal = literal_
-
-
-class CExpressionOperator(CExpression):
-  """And operator expression AST node."""
-  
-  __slots__ = ('type', 'operator', 'expressions', 'is_prefix')
-
-  def __init__(self, type_, operator_, is_prefix_, *expressions_):
-    self.type = type_
-    self.operator = operator_
-    self.expressions = expressions_
-    self.is_prefix = is_prefix_
 
 
 class CStackedDict(object):
@@ -924,11 +964,11 @@ class CSymbolTable(object):
     parent_vars = None
     parent_structs, parent_unions, parent_enums, parent_defs = [None] * 4
     if parent_:
-      parent_vars = parent_._vars
-      parent_structs = parent_._types[CTypeStruct]
-      parent_unions = parent_._types[CTypeUnion]
-      parent_enums = parent_._types[CTypeEnum]
-      parent_defs = parent_._types[CTypeDefinition]
+      parent_vars     = parent_._vars
+      parent_structs  = parent_._types[CTypeStruct]
+      parent_unions   = parent_._types[CTypeUnion]
+      parent_enums    = parent_._types[CTypeEnum]
+      parent_defs     = parent_._types[CTypeDefinition]
 
     self._vars = CStackedDict(parent_vars)
     self._types = {
@@ -971,16 +1011,6 @@ class CSymbolTable(object):
 
 class CParser(object):
   """Parse a token stream of something like C99 and generate an AST."""
-
-  # Different (token) kinds of declaration specifiers.
-  DECL_SPECIFIERS = set([
-    CToken.TYPE_SPECIFIER,
-    CToken.TYPE_QUALIFIER,
-    CToken.SPECIFIER_STORAGE,
-    CToken.SPECIFIER_FUNCTION,
-    CToken.TYPE_BUILT_IN,
-    CToken.TYPE_USER,
-  ])
 
   # Constructors for various different compound types.
   COMPOUND_TYPE = {
@@ -1075,10 +1105,6 @@ class CParser(object):
     ("double", "long"):               T_DL,
 
     ("wchar_t",):                     T_WC,
-
-    #("size_t",):                      T_S,
-    #("ssize_t",):                     T_SS,
-    #("ptrdiff_t",):                   T_PD,
   }
 
   # Mapping of opening brace/bracket/paren chars to their closing chars.
@@ -1089,10 +1115,29 @@ class CParser(object):
     "<": ">",
   }
 
+  # Mapping of compiler-specific specifiers to non-specific specifiers.
+  SPECIFIER_MAP = {
+    "__inline__":           "inline",
+    "__inline":             "inline",
+    "__const":              "const",
+    "__restrict":           "restrict",
+  }
+
   # Initialize the parser.
   def __init__(self):
+
+    # The global symbol table.
     self.stab = CSymbolTable()
+    
+    # Stack of scopes (symbol tables) so that we can always talk about the
+    # current scope using self.scope_stack[-1]
     self.scope_stack = [self.stab]
+
+    # Stack of structure or union types. When parsing, e.g. a structure in a
+    # union, it is good to know that this structure really is a sub-structure
+    # just in case our use case involves interpreting C as if it were C++, where
+    # this nesting is akin to namespacing.
+    self.type_stack = []
 
   # Parse a union or struct.
   #
@@ -1112,8 +1157,14 @@ class CParser(object):
     toks = []
     assert "{" == outer_toks[j].str
     j = self._get_up_to_balanced(outer_toks, toks, j, "{")
-
     i = 0
+    
+    # add in a "breadcrumb" for scope resolution.    
+    if self.type_stack:
+      struct_ctype.parent_ctype = self.type_stack[-1]
+
+    self.type_stack.append(struct_ctype)
+
     while i < len(toks):
       carat = toks[i].carat
       i, decls, is_typedef = self._parse_declaration(stab, toks, i)
@@ -1124,10 +1175,30 @@ class CParser(object):
       for (ctype, name) in decls:
         struct_ctype.add_field(ctype, name)
 
+    self.type_stack.pop()
+
     return j
 
   # Parse an enum type.
+  #
+  # Args:
+  #   stab:           Symbol table in which to place enumeration constants and
+  #                   from where the symbols of constant expressions can be
+  #                   found.
+  #   ctype:          The CTypeEnum instance representing this enumeration.
+  #   outer_toks:     The sequence of tokens within which the definition of the
+  #                   union forms a sub-sequence.
+  #   j:              A pointer into `outer_toks`, where the `j`th `outer_tok`
+  #                   is the opening brace of the enum.
+  #
+  # Returns:
+  #   A pointer into `outer_toks` that points to the token immediately following
+  #   the last token of the enumeration.
   def _parse_enum_type(self, stab, ctype, outer_toks, j):
+    # add in a "breadcrumb" for scope resolution.    
+    if self.type_stack:
+      ctype.parent_ctype = self.type_stack[-1]
+
     toks = []
     assert "{" == outer_toks[j].str
     j = self._get_up_to_balanced(outer_toks, toks, j, "{")
@@ -1156,6 +1227,8 @@ class CParser(object):
 
     return j
 
+
+  # Specific parsing functions for each type of compound user-defined type.
   COMPOUND_TYPE_PARSER = {
     "struct": _parse_struct_union_type,
     "union": _parse_struct_union_type,
@@ -1185,7 +1258,8 @@ class CParser(object):
       if ";" == t.str or (end_on_comma and "," == t.str):
         return i + 1, decls, False
 
-    i, specs_ctype, defines_type = self._parse_specifiers(stab, toks, i)
+    name_attrs = CTypeNameAttributes()
+    i, specs_ctype, defines_type = self._parse_specifiers(stab, name_attrs, toks, i)
 
     # parse the declarators until we make no progress
     while i < len(toks):
@@ -1195,7 +1269,12 @@ class CParser(object):
         break
 
       has_declarator = True
-      i, ctype, name = self._parse_declarator(stab, specs_ctype, toks, i, end_on_comma)
+      i, ctype, ctype_name_attrs, name = self._parse_declarator(
+          stab, specs_ctype, CTypeNameAttributes(name_attrs), toks, i, end_on_comma)
+      
+      if not ctype_name_attrs.has_default_attrs():
+        ctype = CTypeAttributed(ctype, ctype_name_attrs)
+
       decls.append((ctype, name))
 
     if not has_declarator: # e.g. function parameter
@@ -1207,6 +1286,9 @@ class CParser(object):
   #
   # Args:
   #   stab:             Symbol table in which names will be found/placed.
+  #   name_attrs:       A CTypeNameAttributes instance representing the
+  #                     visibility and extension attributes that should be
+  #                     applied to this name.
   #   toks:             List of tokens.
   #   i:                Cursor into `toks`.
   #
@@ -1214,21 +1296,14 @@ class CParser(object):
   #   A tuple `(i, ctype, defines_type)` representing the next cursor position
   #   `i` into `toks` and the `ctype` representing the type speficiers. If
   #   `defines_type` is True then we will be defining some type names.
-  def _parse_specifiers(self, stab, toks, i):
+  def _parse_specifiers(self, stab, name_attrs, toks, i):
     attrs = CTypeAttributes()
     built_in_names = []
     potential_built_in_names = []
     ctype = None
     defines_type = False
 
-    # extending a type with compiler-specific attributes will use a function of
-    # the final type that recursively applies any previously applied extended
-    # attributes.
-    extended_attrs = lambda ctype: ctype
-    def apply_extended_attrs(prev_extended_attrs, extended_attrs):
-      return lambda ctype: CTypeAttributed(
-          prev_extended_attrs(ctype), extended_attrs)
-
+    carat = toks[i].carat
     while i < len(toks):
       t = toks[i]
       i += 1
@@ -1259,6 +1334,33 @@ class CParser(object):
       elif CToken.TYPE_BUILT_IN == t.kind:
         built_in_names.append(t.str)
 
+      # potentially built-in types; this will alter the behaviour of the
+      # tokenizer.
+      elif CToken.TYPE_MAYBE_BUILT_IN == t.kind:
+
+        # if it was previously defined, then it must be a user-defined type.
+        if stab.has_type(t.str, CTypeDefinition):
+          t.kind = CToken.TYPE_USER
+          ctype = stab.get_type(t.str, CTypeDefinition)
+          CToken.RESERVED[t.str] = CToken.TYPE_USER
+
+        # this is the first thing we've seen in a list of types; and we have no
+        # prior definition of the type, so it's likely not user-defined; let's
+        # assume this is a typedef in terms of this built-in type.
+        elif not built_in_names:
+          t.kind = CToken.TYPE_BUILT_IN
+          CToken.RESERVED[t.str] = CToken.TYPE_BUILT_IN
+          built_in_names.append(t.str)
+
+        # we've seen some other built-in types; let's assume that maybe built-
+        # ins and built-ins can't combine, so this is likely a typedef of this
+        # maybe-built-in type.
+        else:
+          t.kind = CToken.LITERAL_IDENTIFIER
+          CToken.RESERVED[t.str] = CToken.TYPE_USER
+          i -= 1
+          break
+
       # typedef name
       elif CToken.TYPE_USER == t.kind:
         ctype = stab.get_type(t.str, CTypeDefinition)
@@ -1272,13 +1374,24 @@ class CParser(object):
           i -= 1
           break
 
-      # qualifiers (const, volatile, extern, inline, restrict, static)
+      # qualifiers (const, volatile, restrict)
       elif hasattr(attrs, "is_" + t.str):
         setattr(attrs, "is_" + t.str, True)
 
-      # alternate name for some qualifiers
-      elif "__inline__" == t.str:
-        attrs.is_inline = True
+      # visibility qualifiers (extern, inline, static)
+      elif hasattr(name_attrs, "is_" + t.str):
+        setattr(name_attrs, "is_" + t.str, True)
+
+      # alternate name for some specifiers/qualifiers
+      elif t.str in CParser.SPECIFIER_MAP:
+        spec = CParser.SPECIFIER_MAP[t.str]
+        attr_name = "is_" + spec
+        if hasattr(attrs, attr_name):
+          setattr(attrs, attr_name, True)
+        elif hasattr(name_attrs, attr_name):
+          setattr(name_attrs, attr_name, True)
+        else:
+          assert False
 
       # look for compound types first, and hopefully infer type names.
       elif t.str in CParser.COMPOUND_TYPE:
@@ -1339,16 +1452,11 @@ class CParser(object):
       elif CToken.EXTENSION == t.kind:
         extension_toks = []
         i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)
-        extended_attrs = apply_extended_attrs(
-            extended_attrs,
-            CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.LEFT))
+        name_attrs.attrs[name_attrs.LEFT].extend(extension_toks)
 
       # compiler-specific attributes (non-parameterized)
       elif CToken.EXTENSION_NO_PARAM == t.kind:
-        extended_attrs = apply_extended_attrs(
-            extended_attrs,
-            CTypeExtendedAttributes([t], CTypeExtendedAttributes.LEFT))
-        i += 1
+        name_attrs.attrs[name_attrs.LEFT].append(t)
 
       # probably done the specifiers :-P
       else:
@@ -1361,11 +1469,15 @@ class CParser(object):
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
 
-    # apply any extended attributes    
-    ctype = extended_attrs(ctype)
+    #if not ctype:
+    #  print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
+    #  print carat.line, carat.column
+
+    if not attrs.has_default_attrs():
+      ctype = CTypeAttributed(ctype, attrs)
 
     assert ctype
-    return i, CTypeAttributed(ctype, attrs), defines_type
+    return i, ctype, defines_type
 
   # Parse an individual declarator. A declarator is the thing being declared,
   # e.g. a variable or a type. Declarators contain some type information that
@@ -1377,6 +1489,8 @@ class CParser(object):
   #   stab:             Symbol table in which to place newly defined names.
   #   ctype:            CType instance representing the base type of whatever is
   #                     being declared.
+  #   name_attrs:       Attributes (visibility/extensions) applied to this
+  #                     named declarator.
   #   toks:             List of tokens of a declaration statement.
   #   i:                Cursor into `toks`.
   #   end_on_comma:     Should the declarator end on a comma? (YES: but, this
@@ -1384,15 +1498,17 @@ class CParser(object):
   #                     comma or if a higher-level function consumes it.)
   #
   # Returns:
-  #   A tuple `(i, ctype, name)` where `i` is the next cursor into `toks`,
-  #   and `ctype` is the type of the name `name` in the declaration.
-  def _parse_declarator(self, stab, ctype, toks, i, end_on_comma=False):
+  #   A tuple `(i, ctype, name_attrs, name)` where `i` is the next cursor into 
+  #   `toks`, `ctype` is the type of the name `name` in the declaration, and
+  #   `name_attrs` are the visibility and extension attributes that apply to
+  #   `name`.
+  def _parse_declarator(self, stab, ctype, name_attrs, toks, i, end_on_comma=False):
     i, ctype = self._parse_pointers(ctype, toks, i)
     sub_decl_toks, call_recursive = [], False
     name = None
 
     if i >= len(toks): # e.g. unnamed function argument
-      return i, ctype, name
+      return i, ctype, name_attrs, name
 
     # go find the left corner of this declarator's direct declarator.
     t = toks[i]
@@ -1430,11 +1546,15 @@ class CParser(object):
         i = self._get_up_to_balanced(toks, expr_toks, i, t.str)
         ctype = self._parse_param_list(stab, ctype, expr_toks)
 
+      # compiler-specific extensions (parameterized)
       elif CToken.EXTENSION == t.kind:
         extension_toks = []
         i = self._get_up_to_balanced(toks, extension_toks, i, "(", include=True)
-        attrs = CTypeExtendedAttributes(extension_toks, CTypeExtendedAttributes.RIGHT)
-        ctype = CTypeAttributed(ctype, attrs)
+        name_attrs.attrs[name_attrs.RIGHT].extend(extension_toks)
+
+      # compiler-specific extensions (non-parameterized)
+      elif CToken.EXTENSION_NO_PARAM == t.kind: 
+        name_attrs.attrs[name_attrs.RIGHT].append(t)
 
       # cheat: assume we're in a struct or a union
       elif ":" == t.str:
@@ -1446,9 +1566,10 @@ class CParser(object):
         assert False
 
     if call_recursive:
-      _, ctype, name = self._parse_declarator(stab, ctype, sub_decl_toks, 0)
+      _, ctype, name_attrs, name = self._parse_declarator(
+          stab, ctype, name_attrs, sub_decl_toks, 0)
 
-    return (i, ctype, name)
+    return (i, ctype, name_attrs, name)
 
 
   # Parse the pointers of a declarator. Parsing pointers is interesting because
@@ -1476,6 +1597,17 @@ class CParser(object):
       elif hasattr(base, "is_" + t.str):
         assert isinstance(base, CTypePointer)
         attr_name = "is_" + t.str
+        assert not getattr(base, attr_name)
+        setattr(base, attr_name, True)
+
+      # alternate named qualifiers
+      elif t.str in CParser.SPECIFIER_MAP:
+        spec = CParser.SPECIFIER_MAP[t.str]
+        attr_name = "is_" + spec
+        if not hasattr(base, attr_name):
+          break
+
+        assert isinstance(base, CTypePointer)
         assert not getattr(base, attr_name)
         setattr(base, attr_name, True)
 
@@ -1507,11 +1639,20 @@ class CParser(object):
       assert not is_typedef
       assert 1 == len(decls)
       param_ctype, param_name = decls[0]
+
       ctype.param_types.append(param_ctype)
       ctype.param_names.append(param_name)
 
-    if 1 == len(ctype.param_types) and ctype.param_types[0] is CParser.T_V:
-      ctype.param_names = []
+    # handle the case where a function takes no arguments and is not old-style
+    # variadic.
+    if 1 == len(ctype.param_types):
+      param_type = ctype.param_types[0]
+      while isinstance(param_type, CTypeAttributed):
+        param_type = param_type.ctype
+
+      if param_type is CParser.T_V:
+        ctype.param_types = []
+        ctype.param_names = []
 
     return ctype
 
@@ -1577,9 +1718,12 @@ class CParser(object):
     or CToken.TYPE_USER == t.kind \
     or CToken.SPECIFIER_STORAGE == t.kind \
     or CToken.SPECIFIER_FUNCTION == t.kind:
-      i, ctype, defines_type = self._parse_specifiers(stab, toks, 0)
+      name_attrs = CTypeNameAttributes()
+      i, ctype, defines_type = self._parse_specifiers(
+          stab, name_attrs, toks, 0)
       assert not defines_type
-      i, ctype, name = self._parse_declarator(stab, ctype, toks, i)
+      i, ctype, name_attrs, name = self._parse_declarator(
+          stab, ctype, name_attrs, toks, i)
       assert not name
       return ctype
 
