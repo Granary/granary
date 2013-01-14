@@ -30,13 +30,8 @@ namespace granary { namespace rcu {
     public:
 
         enum {
-            HASH_SEED = 0xDEADBEEFU
-        };
-
-        static constexpr double LOAD_FACTOR = 0.75;
-
-        enum {
-            MAX_BUCKET_SIZE = 4
+            HASH_SEED = 0xDEADBEEFU,
+            MAX_BUCKET_SIZE = 4U
         };
 
         inline static uint32_t hash(const K &key) throw() {
@@ -69,10 +64,6 @@ namespace granary { namespace rcu {
             // The entries of this bucket; this represents
             // a run-off array.
             hash_table_entry<K, V> entries[1];
-
-            //static_assert(
-            //    offsetof(self_type, num_entries) < offsetof(self_type, entries),
-            //s    "Invalid layout of hash table bucket.");
         };
 
 
@@ -94,14 +85,6 @@ namespace granary { namespace rcu {
             /// The buckets of this hash table; this represents a
             /// run-off array.
             rcu_protected<hash_table_bucket<K, V>> buckets[1];
-
-            //static_assert(
-            //    offsetof(self_type, entry_mask) < offsetof(self_type, buckets),
-            //    "Invalid layout of hash table.");
-
-            //static_assert(
-            //    offsetof(self_type, num_buckets) < offsetof(self_type, buckets),
-            //s    "Invalid layout of hash table.");
         };
     }
 
@@ -127,15 +110,26 @@ namespace granary { namespace rcu {
         typedef detail::hash_table<K, V> table_type;
         typedef hash_table_meta<K, V> meta_type;
 
+        static_assert(
+            offsetof(bucket_type, num_entries) < offsetof(bucket_type, entries),
+            "Invalid layout of hash table bucket.");
+
+        static_assert(
+            offsetof(table_type, entry_mask) < offsetof(table_type, buckets),
+            "Invalid layout of hash table.");
+
+        static_assert(
+            offsetof(table_type, num_buckets) < offsetof(table_type, buckets),
+            "Invalid layout of hash table.");
+
 
         /// The actual hash table.
         rcu_protected<table_type> table;
 
 
         /// Should we grow the table? Writers will make grow requests on the
-        /// table by incrementing the grow_requests value by two. A grow
-        /// request will only be made when the size of a bucket exceeds
-        /// meta_type::MAX_BUCKET_SIZE.
+        /// table by incrementing the grow_requests. A grow request will only
+        /// be made when the size of a bucket exceeds meta_type::MAX_BUCKET_SIZE.
         std::atomic<unsigned> grow_requests;
 
 
@@ -257,6 +251,12 @@ namespace granary { namespace rcu {
             /// The old table to be deleted.
             table_type *old_table;
 
+            /// The grow requests on the table
+            std::atomic<unsigned> *grow_requests;
+
+            /// Should we grow?
+            bool do_grow;
+
 
             /// Scan through a hash table bucket and re-hash the entries. This
             /// executes in the read-critical section of one bucket, and performs
@@ -288,6 +288,12 @@ namespace granary { namespace rcu {
             /// hash table.
             virtual void while_readers_exist(table_ptr rcu_table) throw() {
 
+                // double check our grow requests; someone is growing, or there are no grow requests
+                if(0 == grow_requests->load()) {
+                    do_grow = false;
+                    return;
+                }
+
                 /// allocate the new table
                 const unsigned old_num_buckets(rcu_table->num_buckets);
                 const unsigned new_num_buckets(old_num_buckets * 2);
@@ -313,9 +319,21 @@ namespace granary { namespace rcu {
             }
 
 
+            /// After all readers are done, but before we release mutual
+            /// exclusion, we will permit new grow requests to come in.
+            virtual void after_readers_done(table_ptr) throw() {
+                if(do_grow) {
+                    grow_requests->store(0);
+                }
+            }
+
+
             /// Now no readers are viewing the old buckets, and no writers
             /// are potentially viewing them either; delete the old buckets.
             virtual void teardown(table_ptr) throw() {
+                if(!do_grow) {
+                    return;
+                }
 
                 rcu_protected<bucket_type> *bucket(&(old_table->buckets[0]));
                 const rcu_protected<bucket_type> *max_bucket(
@@ -340,21 +358,16 @@ namespace granary { namespace rcu {
         inline void grow_table(void) throw() {
 
             // someone is growing, or there are no grow requests
-            /*unsigned outstanding_requests(grow_requests.load());
-            if(0 == outstanding_requests
-            || 0 != (outstanding_requests & 1)) {
+            unsigned outstanding_requests(grow_requests.load());
+            if(0 == outstanding_requests) {
                 return;
-            }*/
+            }
 
+            // we will double check inside the grower that there
+            // are no grow requests.
             table_grower grower;
-
-            // race condition: two or more growers can still reach this
-            // point; we will consider this benign.
-            //grow_requests.store(1);
-            table.write(grower);
-
-            // allow new grow requests to be received
-            //grow_requests.store(0);
+            grower.grow_requests = &grow_requests;
+            grower.do_grow = true;
         }
 
 

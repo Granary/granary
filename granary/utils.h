@@ -142,18 +142,23 @@ namespace granary {
 
     public:
 
-        spin_lock(void) throw() = default;
         ~spin_lock(void) throw() = default;
 
         spin_lock(const spin_lock &) throw() = delete;
         spin_lock &operator=(const spin_lock &) throw() = delete;
 
+        spin_lock(void) throw()
+            : lock(ATOMIC_VAR_INIT(false))
+        { }
+
         inline void acquire(void) throw() {
-            while(lock.exchange(true)) { }
+            while(std::atomic_exchange_explicit(&lock, true, std::memory_order_acquire)) {
+                // spin until acquired
+            }
         }
 
         inline void release(void) throw() {
-            lock = false;
+            std::atomic_store_explicit(&lock, false, std::memory_order_release);
         }
     };
 
@@ -163,7 +168,10 @@ namespace granary {
         std::atomic<unsigned> counter;
     public:
 
-        reference_counter(void) throw() = default;
+        reference_counter(void) throw()
+            : counter(ATOMIC_VAR_INIT(0U))
+        { };
+
         ~reference_counter(void) throw() = default;
 
         reference_counter(const reference_counter &) throw() = delete;
