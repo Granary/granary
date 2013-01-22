@@ -42,6 +42,7 @@ IGNORE = set([
   "zopen",
   "_IO_cookie_init",
   "matherr",
+  "setkey",
 ])
 
 

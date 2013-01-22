@@ -113,8 +113,19 @@ namespace granary {
     }
 
 
-    /// Add an indirect jump test slot.
+    /// Add an indirect call slot.
     void instruction_list_mangler::mangle_indirect_call(
+        instruction_list_handle in,
+        operand target
+    ) throw() {
+
+        (void) in;
+        (void) target;
+    }
+
+
+    /// Add an indirect jump slot.
+    void instruction_list_mangler::mangle_indirect_jump(
         instruction_list_handle in,
         operand target
     ) throw() {
@@ -151,6 +162,8 @@ namespace granary {
         operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(in, target);
+        } else {
+            mangle_indirect_jump(in, target);
         }
     }
 

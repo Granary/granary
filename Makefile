@@ -51,9 +51,9 @@ GR_LIBCXX ?= 0
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
-	GR_CXX_FLAGS += -Wno-gnu
+	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes
 	GR_CXX_STD = -std=c++11
-	GR_TYPE_CC_FLAGS = -std=c++11
+	GR_TYPE_CC = $(GR_CC)
 	
 	# explicitly enable/disable address sanitizer
     ifeq ('0','$(GR_ASAN)')
@@ -69,7 +69,6 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
     # enable the newer standard and use it with libc++
     ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_STD = -std=c++11 -stdlib=libc++
-		GR_TYPE_CC_FLAGS = -std=c++11 -stdlib=libc++
     endif
 endif
 
@@ -110,6 +109,7 @@ GR_OBJS += bin/granary/detach.o
 GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
+GR_OBJS += bin/granary/hash_table.o
 GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/init.o
 

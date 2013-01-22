@@ -690,11 +690,12 @@ class CTypeBuiltIn(CType):
 class CTypeDefinition(CType):
   """Represents a `typedef`d type name."""
 
-  __slots__ = ('name', 'ctype')
+  __slots__ = ('name', 'ctype', 'is_missing')
   
-  def __init__(self, name_, ctype_):
+  def __init__(self, name_, ctype_, is_missing=False):
     self.name = name_
     self.ctype = ctype_
+    self.is_missing = is_missing
 
     # update internal names of some compound types
     base_ctype = ctype_.base_type()
@@ -848,15 +849,15 @@ class CTypeAttributed(CType):
     self.ctype = ctype_
     self.attrs = attrs_
 
-  def __repr__(self):
-    a = repr(self.attrs)
-    if isinstance(self.attrs, CTypeExtendedAttributes):
-      if CTypeExtendedAttributes.LEFT == self.attrs.side:
-        return "%s %s" % (a, repr(self.ctype))
-      else:
-        return "%s %s" % (repr(self.ctype), a)
-    else:
-      return "%s%s" % (a, repr(self.ctype))
+  #def __repr__(self):
+  #  a = repr(self.attrs)
+  #  if isinstance(self.attrs, CTypeNameAttributes):
+  #    if CTypeNameAttributes.LEFT == self.attrs.side:
+  #      return "%s %s" % (a, repr(self.ctype))
+  #    else:
+  #      return "%s %s" % (repr(self.ctype), a)
+  #  else:
+  #    return "%s%s" % (a, repr(self.ctype))
 
 
 class CTypeExpression(CType):
@@ -932,7 +933,7 @@ class CStackedDict(object):
     raise IndexError("Item %s is not in the symbol table." % repr(item))
 
   def __setitem__(self, item, val):
-    assert item not in self._dict
+    #assert item not in self._dict
     self._dict[item] = val
 
   def __iter__(self):
@@ -997,7 +998,19 @@ class CSymbolTable(object):
 
   def set_type(self, name, ctype):
     assert ctype.__class__ in self._types
-    self._types[ctype.__class__][name] = ctype
+
+    # special case typedefs; we try as best as we can to handle undefined
+    # types that are later (re)defined. To handle this gracefully,
+    # everything uses the same typedef instance, but we will switch out
+    # the internally aliased type.
+    if isinstance(ctype, CTypeDefinition):
+      tab = self._types[CTypeDefinition]
+      if name not in tab:
+        tab[name] = ctype
+      else:
+        tab[name].ctype = ctype
+    else:
+      self._types[ctype.__class__][name] = ctype
 
   def get_var(self, name):
     return self._vars[name]
@@ -1218,12 +1231,32 @@ class CParser(object):
         building_expr = True
         i += 1
       elif t.str in "[(":
+        #if not building_expr:
+        #  print t.str, t.carat.line, t.carat.column
         assert building_expr
         sub_expr_toks = []
         i = self._get_up_to_balanced(toks, sub_expr_toks, i, t.str)
+
       else:
-        assert building_expr
-        i += 1
+
+        # this is some weird case with enums in the kernel where, after
+        # processing the headers, we might observe things like `0 = 0`
+        # in an enum, so we will skip over stuff until we hit a comma.
+        if not building_expr:
+          i += 1
+          while i < len(toks):
+            t = toks[i]
+            i += 1
+            if t.str in ",}":
+              break
+            elif t.str in "{[(":
+              i = self._get_up_to_balanced(
+                  toks, sub_expr_toks, i - 1, t.str)
+        
+        # assume that if we're building an expression then this is
+        # a token that can validly belong to the expression.
+        else:
+          i += 1
 
     return j
 
@@ -1299,11 +1332,11 @@ class CParser(object):
   def _parse_specifiers(self, stab, name_attrs, toks, i):
     attrs = CTypeAttributes()
     built_in_names = []
-    potential_built_in_names = []
     ctype = None
     defines_type = False
-
+    might_have_type = False
     carat = toks[i].carat
+
     while i < len(toks):
       t = toks[i]
       i += 1
@@ -1316,11 +1349,13 @@ class CParser(object):
         assert not attrs.is_unsigned
         assert not attrs.is_signed
         attrs.is_signed = True
+        might_have_type = True
 
       elif "unsigned" == t.str:
         assert not attrs.is_unsigned
         assert not attrs.is_signed
         attrs.is_unsigned = True
+        might_have_type = True
 
       # special case 2: both of these storage class specifiers can also be
       # used to define ints.
@@ -1329,10 +1364,12 @@ class CParser(object):
         assert not getattr(attrs, attr_name)
         setattr(attrs, attr_name, True)
         ctype = CParser.BUILT_IN_TYPES[t.str,]
+        might_have_type = True
 
       # normal built-in type
       elif CToken.TYPE_BUILT_IN == t.kind:
         built_in_names.append(t.str)
+        might_have_type = True
 
       # potentially built-in types; this will alter the behaviour of the
       # tokenizer.
@@ -1343,6 +1380,7 @@ class CParser(object):
           t.kind = CToken.TYPE_USER
           ctype = stab.get_type(t.str, CTypeDefinition)
           CToken.RESERVED[t.str] = CToken.TYPE_USER
+          might_have_type = True
 
         # this is the first thing we've seen in a list of types; and we have no
         # prior definition of the type, so it's likely not user-defined; let's
@@ -1351,6 +1389,7 @@ class CParser(object):
           t.kind = CToken.TYPE_BUILT_IN
           CToken.RESERVED[t.str] = CToken.TYPE_BUILT_IN
           built_in_names.append(t.str)
+          might_have_type = True
 
         # we've seen some other built-in types; let's assume that maybe built-
         # ins and built-ins can't combine, so this is likely a typedef of this
@@ -1364,15 +1403,58 @@ class CParser(object):
       # typedef name
       elif CToken.TYPE_USER == t.kind:
         ctype = stab.get_type(t.str, CTypeDefinition)
+        might_have_type = True
       
       # possible typedef name
       elif CToken.LITERAL_IDENTIFIER == t.kind:
         if stab.has_type(t.str, CTypeDefinition):
+
+          # todo: assume it's a re-definition of the type in
+          # terms of another typedef'd type.
+          if isinstance(ctype, CTypeDefinition):
+            i -= 1
+            break
+
+          found_ctype = stab.get_type(t.str, CTypeDefinition)
+
+          # assume a definition of a type that was used before
+          # it was defined, so we are defining it now
+          if found_ctype.is_missing \
+          and (might_have_type or ctype or built_in_names) \
+          and defines_type:
+            i -=1
+            break
+
+          # try extra hard to find things that might be defined
+          # before use
+          elif might_have_type or ctype or built_in_names:
+            if defines_type and i < len(toks):
+              t2 = toks[i]
+
+              if t2.str in ":;,{}()[]" \
+              or CToken.EXTENSION == t2.kind \
+              or CToken.EXTENSION_NO_PARAM == t2.kind:
+                i -= 1
+                break
+
+          # this is the type if what we are defining
           t.kind = CToken.TYPE_USER
-          ctype = stab.get_type(t.str, CTypeDefinition)
-        else:
+          ctype = found_ctype
+          might_have_type = True
+
+        # we've seen an identifier before, e.g. a type name;
+        # this is almost certainly the defined type
+        elif ctype or might_have_type:
           i -= 1
           break
+
+        # break the standard here; let's assume that this type
+        # has yet to be defined, but WILL be defined, and we will
+        # define it, on our own for now.
+        else:
+          t.kind = CToken.TYPE_USER
+          ctype = CTypeDefinition(t.str, CParser.T_I, is_missing=True)
+          stab.set_type(t.str, ctype)
 
       # qualifiers (const, volatile, restrict)
       elif hasattr(attrs, "is_" + t.str):
@@ -1396,6 +1478,7 @@ class CParser(object):
       # look for compound types first, and hopefully infer type names.
       elif t.str in CParser.COMPOUND_TYPE:
         assert i < len(toks)
+        might_have_type = True
         t2 = toks[i]
         t3 = None
 
@@ -1439,6 +1522,7 @@ class CParser(object):
       # typeof expression; todo: not handling all typeof cases (i.e. ones
       # without parentheses)
       elif CToken.TYPEOF == t.kind:
+        might_have_type = True
         typeof_toks = []
         i = self._get_up_to_balanced(toks, typeof_toks, i - 1, "(", include=True)
         expr_or_type = self._parse_expression_or_cast(stab, typeof_toks[1:], 0)
@@ -1819,6 +1903,8 @@ class CParser(object):
       
       for ctype, name in decls:
         if is_typedef:
+          #if not name:
+          #  print carat.line, carat.column
           assert name
           ctype = CTypeDefinition(name, ctype)
           self.stab.set_type(name, ctype)

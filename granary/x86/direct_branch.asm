@@ -64,8 +64,17 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     PUSH_ARGS // save arguments
     mov %rsp, %ARG1
 
+    // ensure 16-byte alignment of the stack; this assumes the stack pointer is
+    // either 8 or 16-byte aligned.
+    push %rsp
+    push (%rsp)
+    and $-0x10, %rsp
+
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
+
+    // restore the old stack pointer
+    mov 8(%rsp), %rsp
 
     POP_ARGS // restore arguments
     IF_KERNEL(lea 0x8(%rsp), %rsp) // 'pop' the padding

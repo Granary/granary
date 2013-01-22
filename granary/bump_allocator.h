@@ -76,6 +76,7 @@ namespace granary {
 
         /// The next slab from which we can allocate.
         slab *curr;
+        slab *first;
 
 
         /// A free list of slabs.
@@ -98,7 +99,7 @@ namespace granary {
 
         /// Release the lock on the allocator.
         inline void release(void) throw() {
-            lock = false;
+            lock.store(false);
         }
 
 
@@ -112,6 +113,7 @@ namespace granary {
 
             // allocate a new slab and a new arena for the memory
             } else {
+
                 next_slab = new (detail::global_allocate(sizeof(slab))) slab;
 
                 if(IS_EXECUTABLE) {
@@ -135,7 +137,11 @@ namespace granary {
 
             last_allocation_size = size;
 
-            if(nullptr == curr || curr->remaining < size) {
+            if(nullptr == curr) {
+                allocate_slab();
+                first = curr;
+
+            } else if(curr->remaining < size) {
                 allocate_slab();
             } else {
                 uint64_t next_address(reinterpret_cast<uint64_t>(curr->bump_ptr));
@@ -157,13 +163,37 @@ namespace granary {
             return bumped_ptr;
         }
 
+        /// Free a list of slabs.
+        static void free_slab_list(slab *list) throw() {
+            for(slab *next(nullptr); list; list = next) {
+                next = list->next;
+                if(list->data_ptr) {
+                    detail::global_free(list->data_ptr);
+                    list->data_ptr = nullptr;
+                    list->bump_ptr = nullptr;
+                }
+                detail::global_free(list);
+            }
+        }
+
     public:
 
-        bump_pointer_allocator(void)
+        bump_pointer_allocator(void) throw()
             : curr(nullptr)
+            , first(nullptr)
             , free(nullptr)
             , last_allocation_size(0)
-            { }
+        { }
+
+        ~bump_pointer_allocator(void) throw() {
+            // de-allocate the free list
+            free_slab_list(free);
+            free = nullptr;
+
+            // de-allocate the active list
+            free_slab_list(curr);
+            curr = nullptr;
+        }
 
         template <typename T, typename... Args>
         T *allocate(Args&&... args) throw() {
@@ -194,7 +224,7 @@ namespace granary {
         array<T> allocate_array(unsigned length) throw() {
             enum {
                 ALIGN = alignof(T),
-                MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
+                MIN_ALIGN = (ALIGN < 16 && IS_EXECUTABLE) ? 16 : ALIGN
             };
             uint8_t *arena(allocate_bare(MIN_ALIGN, sizeof(T) * length));
 
@@ -223,6 +253,12 @@ namespace granary {
             if(!IS_TRANSIENT || IS_SHARED) {
                 FAULT;
             }
+
+            if(first) {
+                first->next = free;
+                first = nullptr;
+            }
+
             free = curr;
             curr = nullptr;
             last_allocation_size = 0;

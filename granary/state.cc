@@ -19,6 +19,6 @@ namespace granary {
 
 
     /// static initialization of global fragment allocator
-    bump_pointer_allocator<detail::fragment_allocator_config> \
+    bump_pointer_allocator<detail::global_fragment_allocator_config> \
         global_state::fragment_allocator;
 }

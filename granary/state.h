@@ -89,10 +89,19 @@ namespace granary {
     namespace detail {
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = 4 * PAGE_SIZE,
+                SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false
+            };
+        };
+
+        struct global_fragment_allocator_config {
+            enum {
+                SLAB_SIZE = PAGE_SIZE,
+                EXECUTABLE = true,
+                TRANSIENT = false,
+                SHARED = true
             };
         };
 
@@ -151,7 +160,7 @@ namespace granary {
     struct global_state {
     public:
 
-        static bump_pointer_allocator<detail::fragment_allocator_config>
+        static bump_pointer_allocator<detail::global_fragment_allocator_config>
             fragment_allocator;
     };
 }

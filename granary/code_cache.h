@@ -17,7 +17,7 @@
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
 
-#include "granary/rcu/hash_table.h"
+#include "granary/hash_table.h"
 
 
 /// Used to unroll registers in the opposite order in which they are saved
@@ -63,7 +63,7 @@ namespace granary {
 
 
         /// Policy-specific shared code cache.
-        static rcu::hash_table<app_pc, app_pc> CODE_CACHE;
+        static shared_hash_table<app_pc, app_pc> CODE_CACHE;
 
 
         /// Instrumentation policy to use.
@@ -99,7 +99,7 @@ namespace granary {
                 POLICY, cpu, thread, &decode_addr));
 
             CODE_CACHE.store(addr, bb.cache_pc_start);
-            CODE_CACHE.store(bb.cache_pc_start, bb.cache_pc_start);
+            //CODE_CACHE.store(bb.cache_pc_start, bb.cache_pc_start);
 
             return bb.cache_pc_start;
         }
@@ -111,7 +111,7 @@ namespace granary {
                             app_pc cache_code) throw() {
 
             CODE_CACHE.store(app_code, cache_code);
-            CODE_CACHE.store(cache_code, cache_code);
+            //CODE_CACHE.store(cache_code, cache_code);
 
             (void) cpu;
             (void) thread;
@@ -248,6 +248,12 @@ namespace granary {
 
             ls.encode(dest_pc);
 
+            // free all transiently allocated blocks so that we don't blow up
+            // the transient memory requirements when generating code cache
+            // templates/
+            cpu_state_handle cpu;
+            cpu->transient_allocator.free_all();
+
             return dest_pc;
         }
 
@@ -285,7 +291,7 @@ namespace granary {
 
     /// Static initialization of the global code cache hash table.
     template <typename Policy>
-    rcu::hash_table<app_pc, app_pc> code_cache<Policy>::CODE_CACHE;
+    shared_hash_table<app_pc, app_pc> code_cache<Policy>::CODE_CACHE;
 
     template <typename Policy>
     instrumenter<Policy> code_cache<Policy>::POLICY = \

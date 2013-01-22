@@ -12,25 +12,28 @@
 
 namespace granary {
 
-    /// Optionally atomic value.
     template <typename T, bool is_atomic>
-    struct opt_atomic {
+    struct opt_atomic;
+
+    /// Optionally atomic value.
+    template <typename T>
+    struct opt_atomic<T, false> {
     private:
         T val;
 
     public:
 
-        typedef opt_atomic<T, is_atomic> self_type;
+        typedef opt_atomic<T, false> self_type;
 
-        opt_atomic(void) throw()
+        inline opt_atomic(void) throw()
             : val()
         { }
 
-        opt_atomic(self_type &&val_) throw()
+        inline opt_atomic(self_type &&val_) throw()
             : val(val_.val)
         { }
 
-        opt_atomic(T &&val_) throw()
+        inline opt_atomic(T &&val_) throw()
             : val(val_)
         { }
 
@@ -51,6 +54,14 @@ namespace granary {
         inline T &operator=(T &&new_val) throw() {
             val = new_val;
             return val;
+        }
+
+        inline T load(void) const throw() {
+            return val;
+        }
+
+        inline void store(T new_val) throw() {
+            val = new_val;
         }
     };
 

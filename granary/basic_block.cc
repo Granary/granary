@@ -554,7 +554,7 @@ namespace granary {
             *pc++ = BB_PADDING;
         }
 
-        BARRIER;
+        //BARRIER;
 
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
@@ -567,7 +567,7 @@ namespace granary {
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
-        pc += initialize_state_bytes(info, ls, pc);
+        IF_KERNEL( pc += initialize_state_bytes(info, ls, pc); )
 
         *generated_pc = pc;
         return basic_block(start_pc);

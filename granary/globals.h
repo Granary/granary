@@ -12,6 +12,9 @@
 /// interact with the generated types of user/kernel_types in detach.cc.
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <cstring>
+#   if !GRANARY_IN_KERNEL
+#      include <cstdio> // TODO: for printf-debugging
+#   endif
 #   include <cstddef>
 #   include <stdint.h>
 #endif

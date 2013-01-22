@@ -136,6 +136,37 @@
 #define CAT(x, y) CAT_(x, y)
 
 
+/// Splat the arguments of a variadic macro
+#define SPLAT(...) __VA_ARGS__
+
+#define NOTHING__
+#define NOTHING_ NOTHING__
+#define NOTHING NOTHING_
+
+#define EACH(pp, ap, sep, ...) \
+    CAT(EACH_, NUM_PARAMS(__VA_ARGS__))(pp, ap, sep, ##__VA_ARGS__)
+
+#define EACH_0(pp, ap, sep,a0)
+
+#define EACH_1(pp, ap, sep, a0) \
+    CAT(CAT(pp, a0), ap)
+
+#define EACH_2(pp, ap, sep, a0, a1) \
+    EACH_1(pp, ap, sep, a0) sep CAT(CAT(pp, a1), ap)
+
+#define EACH_3(pp, ap, sep, a0, a1, a2) \
+    EACH_2(pp, ap, sep, a0, a1) sep CAT(CAT(pp, a2), ap)
+
+#define EACH_4(pp, ap, sep, a0, a1, a2, a3) \
+    EACH_3(pp, ap, sep, a0, a1, a2) sep CAT(CAT(pp, a3), ap)
+
+#define EACH_5(pp, ap, sep, a0, a1, a2, a3, a4) \
+    EACH_4(pp, ap, sep, a0, a1, a2, a3) sep CAT(CAT(pp, a4), ap)
+
+#define EACH_6(pp, ap, sep, a0, a1, a2, a3, a4, a5) \
+    EACH_5(pp, ap, sep, a0, a1, a2, a3, a4) sep CAT(CAT(pp, a5), ap)
+
+
 /// Determine the number of arguments in a variadic macro argument pack.
 /// Taken from: http://efesx.com/2010/07/17/variadic-macro-to-count-number-of-arguments/#comment-256
 #define NUM_PARAMS(...) NUM_PARAMS_IMPL(, ##__VA_ARGS__,7,6,5,4,3,2,1,0)
@@ -143,6 +174,12 @@
 
 
 #define PARAMS(...) __VA_ARGS__
+
+
+#define NOTHING__
+#define NOTHING_ NOTHING__
+#define NOTHING NOTHING_
+
 #define TEMPLATE_PARAMS(...) CAT(TEMPLATE_PARAMS_, NUM_PARAMS(__VA_ARGS__))(__VA_ARGS__)
 #define TEMPLATE_PARAMS_0()
 #define TEMPLATE_PARAMS_1(...) < __VA_ARGS__ >

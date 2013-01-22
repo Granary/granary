@@ -34,9 +34,9 @@ def get_lines():
   buff = buff.replace("}", "}\n")
   buff = buff.replace(";", ";\n")
   buff = buff.replace("}\n;", "};\n")
-  buff = buff.replace("extern", "\nextern")
-  buff = buff.replace("namespace", "\nnamespace")
-  buff = buff.replace(r"(^[a-zA-Z_0-9])template", "\1\ntemplate")
+  buff = buff.replace(r"([^a-zA-Z_0-9])extern", "\1\nextern", re.MULTILINE)
+  buff = buff.replace(r"([^a-zA-Z_0-9])namespace", "\1\nnamespace", re.MULTILINE)
+  buff = buff.replace(r"(^[a-zA-Z_0-9])template", "\1\ntemplate", re.MULTILINE)
   buff = buff.replace("typedef", "\ntypedef")
 
   # now there is only one brace ({ or }) per line.
