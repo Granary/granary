@@ -164,7 +164,7 @@ opnd_is_far_rel_addr(opnd_t opnd)
 
 /* opnd_t constructors */
 
-/* XXX: How can we macro-ify these?  We can use C99 initializers or a copy from
+/* XXX: How can we macro-ify these?  We can use C99 initialisers or a copy from
  * a constant, but that implies a full initialization, when we could otherwise
  * partially intialize.  Do we care?
  */

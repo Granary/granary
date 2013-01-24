@@ -91,7 +91,7 @@ namespace granary {
     };
 
 
-    /// Static-initialize the wrapper address.
+    /// Static-initialise the wrapper address.
     template <enum function_wrapper_id id, typename R, typename... Args>
     typename wrapped_function<id, R, Args...>::func_type *
     wrapped_function<id, R, Args...>::WRAPPED_ADDRESS = \
@@ -127,7 +127,7 @@ namespace granary {
     };
 
 
-    /// Static-initialize the wrapper address.
+    /// Static-initialise the wrapper address.
     template <enum function_wrapper_id id, typename... Args>
     typename wrapped_function<id, void, Args...>::func_type *
     wrapped_function<id, void, Args...>::WRAPPED_ADDRESS = \

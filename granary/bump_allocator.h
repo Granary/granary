@@ -228,7 +228,7 @@ namespace granary {
             };
             uint8_t *arena(allocate_bare(MIN_ALIGN, sizeof(T) * length));
 
-            // initialize each element using placement new syntax; C++ standard
+            // initialise each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.
             if(!std::is_trivial<T>::value) {
                 T *ptr(unsafe_cast<T *>(arena));
@@ -239,6 +239,7 @@ namespace granary {
             return array<T>(unsafe_cast<T *>(arena), length);
         }
 
+        /// Free the last thing allocated.
         void free_last(void) throw() {
             if(IS_SHARED) {
                 FAULT;
@@ -249,6 +250,7 @@ namespace granary {
             last_allocation_size = 0;
         }
 
+        /// Free all allocated objects.
         void free_all(void) throw() {
             if(!IS_TRANSIENT || IS_SHARED) {
                 FAULT;

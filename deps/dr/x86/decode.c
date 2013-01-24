@@ -111,7 +111,7 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
+        ASSERT(!dynamo_initialised || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         old_mode = initexit_x86_mode;
         initexit_x86_mode = x86;
     } else {
@@ -142,7 +142,7 @@ get_x86_mode(dcontext_t *dcontext)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
+        ASSERT(!dynamo_initialised || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         return initexit_x86_mode;
     } else
         return dcontext->x86_mode;
@@ -705,7 +705,7 @@ read_instruction(byte *pc, byte *orig_pc,
     const instr_info_t *info;
     bool vex_noprefix = false;
 
-    /* initialize di */
+    /* initialise di */
     /* though we only need di->start_pc for full decode rip-rel (and
      * there only post-read_instruction()) and decode_from_copy(), and
      * di->orig_pc only for decode_from_copy(), we assume that
@@ -1722,7 +1722,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
 /* Decodes the opcode and eflags usage of instruction at address pc
  * into instr.
  * This corresponds to a Level 2 decoding.
- * Assumes that instr is already initialized, but uses the x86/x64 mode
+ * Assumes that instr is already initialised, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.
@@ -1788,7 +1788,7 @@ check_is_variable_size(opnd_t op)
 /* Decodes the instruction at address pc into instr, filling in the
  * instruction's opcode, eflags usage, prefixes, and operands.
  * This corresponds to a Level 3 decoding.
- * Assumes that instr is already initialized, but uses the x86/x64 mode
+ * Assumes that instr is already initialised, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.

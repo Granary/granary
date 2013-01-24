@@ -16,7 +16,6 @@ namespace granary {
 
     /// Forward declarations
     struct basic_block_vtable;
-    struct instrumentation_policy;
 
     /// Defines an instruction list mangler. This is responsible for
     /// re-structuring instruction lists to make them safe to emit. Making them
@@ -27,7 +26,7 @@ namespace granary {
 
         cpu_state_handle cpu;
         thread_state_handle thread;
-        instrumentation_policy &policy;
+        instrumentation_policy policy;
         basic_block_vtable &vtable;
         instruction_list *ls;
 
@@ -59,11 +58,30 @@ namespace granary {
     };
 
 
-    /// Stage an 8-byte hot patch. This will encode the instruction `in` into
-    /// the `stage` location (as if it were going to be placed at the `dest`
-    /// location, and then encodes however many NOPs are needed to fill in 8
-    /// bytes.
-    void stage_8byte_hot_patch(instruction in, app_pc stage, app_pc dest);
+    /// Defines a data type used to de/mangle an address that may or may not
+    /// contain policy-specific bits.
+    union address_mangler {
+
+        /// The mangled address in terms of what is saved/restored on the stack.
+        struct {
+            uint32_t push1;
+            uint32_t push2;
+        } as_components  __attribute__((packed));
+
+        /// The mangled address in terms of the policy and address components.
+        struct {
+            uint64_t address_low:56;
+            uint8_t policy_id:8;
+        } as_policy_address __attribute__((packed));
+
+        /// The mangled address as an actual address.
+        app_pc as_address;
+
+        /// The mangled address as an unsigned int, which is convenient for
+        /// bit masking.
+        int64_t as_int;
+
+    } __attribute__((packed));
 
 }
 

@@ -34,7 +34,7 @@ namespace granary {
     public:
 
 
-        /// Initialize the register manager so that every register is live.
+        /// Initialise the register manager so that every register is live.
         register_manager(void) throw();
 
 

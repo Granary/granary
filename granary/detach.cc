@@ -17,7 +17,7 @@ namespace granary {
         int16_t HASH_TABLE_INDICES[LAST_DETACH_ID];
     }
 
-    STATIC_INITIALIZE({
+    STATIC_INITIALISE({
         for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
             (void) wrapper;

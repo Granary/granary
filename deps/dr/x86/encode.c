@@ -1261,7 +1261,7 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
      * when done.  The first
      * operand that would need a prefix to match its template sets the
      * prefixes.  Rather than force operands that don't want prefixes
-     * to say so (thus requiring a 3-value field: uninitialized,
+     * to say so (thus requiring a 3-value field: uninitialised,
      * prefix, and no-prefix, and extra work in the common case) we
      * instead do a 2nd pass if any operand wanted a prefix.
      * If an operand wants no prefix and the flag is set, the match fails.
@@ -2275,6 +2275,10 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
 #endif
         memcpy(dst_pc, instr->bytes, instr->length);
     return orig_dst_pc + instr->length;
+}
+
+void break_here(void) {
+
 }
 
 /* Encodes instrustion instr.  The parameter copy_pc points

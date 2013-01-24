@@ -7,7 +7,7 @@
  */
 
 
-#include "register.h"
+#include "granary/register.h"
 #include "granary/instruction.h"
 
 namespace granary {
@@ -17,14 +17,14 @@ namespace granary {
     static uint32_t FORCE_LIVE(0U);
 
 
-    STATIC_INITIALIZE({
+    STATIC_INITIALISE({
         FORCE_LIVE |= (1U << dynamorio::DR_REG_NULL);
         FORCE_LIVE |= (1U << dynamorio::DR_REG_RSP);
         FORCE_LIVE |= (1U << dynamorio::DR_REG_RBP);
     })
 
 
-    /// Initialize the register manager so that every register is live.
+    /// Initialise the register manager so that every register is live.
     register_manager::register_manager(void) throw()
         : live(~0U)
         , undead(0U)

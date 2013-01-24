@@ -4808,7 +4808,7 @@ set_selfmod_sandbox_offsets(dcontext_t *dcontext)
     uint len;
     /* We assume this is called at init, when .data is +w and we need no
      * synch on accessing buf */
-    ASSERT(!dynamo_initialized);
+    ASSERT(!dynamo_initialised);
     for (i = 0; i < SELFMOD_NUM_S2RO; i++) {
         for (j = 0; j < SELFMOD_NUM_EFLAGS; j++) {
 #ifdef X64
@@ -6116,7 +6116,7 @@ insert_inline_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 
 #else /* CLIENT_INTERFACE */
 
-/* Stub implementation ifndef CLIENT_INTERFACE.  Initializes cci and returns
+/* Stub implementation ifndef CLIENT_INTERFACE.  Initialises cci and returns
  * false for no inlining.  We use dr_insert_clean_call internally, but we don't
  * need it to do inlining.
  */

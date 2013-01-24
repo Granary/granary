@@ -21,6 +21,7 @@ namespace granary {
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(&(this->instr), false);
+        this->set_mangled(); // default to mangled.
     }
 
 
@@ -136,7 +137,7 @@ namespace granary {
     }
 
 
-    /// Initialize the operand ref with an instruction and operand pointer
+    /// Initialise the operand ref with an instruction and operand pointer
     operand_ref::operand_ref(instruction *instr_, dynamorio::opnd_t *op_) throw()
         : instr(instr_)
         , op(unsafe_cast<operand *>(op_))

@@ -27,7 +27,8 @@
 
 #define GRANARY
 
-#define ALIGN_TO(lval, const_align) (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
+#define ALIGN_TO(lval, const_align) \
+    (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
 #if GRANARY_IN_KERNEL
 #   define IF_KERNEL(...) __VA_ARGS__
@@ -50,8 +51,8 @@
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
-/// Use to statically initialize some code.
-#define STATIC_INITIALIZE___(id, ...) \
+/// Use to statically initialise some code.
+#define STATIC_INITIALISE___(id, ...) \
     static void init_func_ ## id(void) throw(); \
     struct init_class_ ## id : public granary::static_init_list { \
     public: \
@@ -66,12 +67,12 @@
         { __VA_ARGS__ } \
     }
 
-#define STATIC_INITIALIZE__(line, counter, ...) \
-    STATIC_INITIALIZE___(line ## _ ## counter, ##__VA_ARGS__)
-#define STATIC_INITIALIZE_(line, counter, ...) \
-    STATIC_INITIALIZE__(line, counter, ##__VA_ARGS__)
-#define STATIC_INITIALIZE(...) \
-    STATIC_INITIALIZE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
+#define STATIC_INITIALISE__(line, counter, ...) \
+    STATIC_INITIALISE___(line ## _ ## counter, ##__VA_ARGS__)
+#define STATIC_INITIALISE_(line, counter, ...) \
+    STATIC_INITIALISE__(line, counter, ##__VA_ARGS__)
+#define STATIC_INITIALISE(...) \
+    STATIC_INITIALISE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
 
 #if GRANARY_IN_KERNEL
 #   define IF_TEST(...)
@@ -80,7 +81,7 @@
 #else
 #   define IF_TEST(...) __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
-    STATIC_INITIALIZE({ \
+    STATIC_INITIALISE({ \
         static granary::static_test_list test__; \
         test__.func = test_func; \
         test__.desc = test_desc; \
@@ -96,8 +97,8 @@
     R(rdi, R(rsi, R(rdx, R(rbx, R(rcx, R(rax, R(r8, R(r9, R(r10, R(r11, R(r12, R(r13, R(r14, R_last(r15))))))))))))))
 
 /// unrolling macros for applying something to all argument registers
-#define ALL_ARG_REGS(R, R_last) \
-    R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R_last(r9))))))
+#define ALL_CALL_REGS(R, R_last) \
+    R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R(r9, R(rbp, R_last(rax))))))))
 
 
 #define FOR_EACH_DIRECT_JUMP(macro, ...) \
@@ -135,9 +136,6 @@
 #define CAT_(x, y) CAT__(x, y)
 #define CAT(x, y) CAT_(x, y)
 
-
-/// Splat the arguments of a variadic macro
-#define SPLAT(...) __VA_ARGS__
 
 #define NOTHING__
 #define NOTHING_ NOTHING__
@@ -180,7 +178,8 @@
 #define NOTHING_ NOTHING__
 #define NOTHING NOTHING_
 
-#define TEMPLATE_PARAMS(...) CAT(TEMPLATE_PARAMS_, NUM_PARAMS(__VA_ARGS__))(__VA_ARGS__)
+#define TEMPLATE_PARAMS(...) \
+    CAT(TEMPLATE_PARAMS_, NUM_PARAMS(__VA_ARGS__))(__VA_ARGS__)
 #define TEMPLATE_PARAMS_0()
 #define TEMPLATE_PARAMS_1(...) < __VA_ARGS__ >
 #define TEMPLATE_PARAMS_2(...) < __VA_ARGS__ >

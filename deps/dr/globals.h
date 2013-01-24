@@ -12,6 +12,7 @@
 #define GRANARY
 #define FAULT (granary_break_on_fault(), granary_fault())
 #define IF_GRANARY(x) x
+#define IF_GRANARY_ELSE(x,y) x
 #define IF_NOT_GRANARY(x)
 #define LINUX 1
 #define X64 1
@@ -96,7 +97,7 @@ extern "C" {
 #define TLS_XDX_SLOT 0
 
 #define dynamo_exited 0
-#define dynamo_initialized 0
+#define dynamo_initialised 0
 #define assert_reachable 0
 #define GLOBAL_DCONTEXT (&DCONTEXT)
 

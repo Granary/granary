@@ -19,7 +19,7 @@ namespace granary {
     struct cpu_state_handle;
     struct thread_state_handle;
     struct instrumentation_policy;
-    template <typename> struct code_cache;
+    struct code_cache;
 
 
     /// different states of bytes in the code cache.
@@ -88,7 +88,7 @@ namespace granary {
     struct basic_block {
     public:
 
-        template <typename> friend struct code_cache;
+        friend struct code_cache;
 
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
@@ -135,10 +135,10 @@ namespace granary {
             instruction_list &ls);
 
         /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(instrumentation_policy &policy,
-                                      cpu_state_handle &cpu,
-                                      thread_state_handle &thread,
-                                      app_pc *pc) throw();
+        static basic_block translate(instrumentation_policy policy,
+                                     cpu_state_handle &cpu,
+                                     thread_state_handle &thread,
+                                     app_pc *pc) throw();
 
 
         /// Emit an instruction list as code into a byte array. This will also
@@ -174,17 +174,18 @@ namespace granary {
     public:
 
         struct lookup {
-            uint32_t rel_source;
-            uint32_t rel_dest;
+            uint32_t    rel_source;
+            uint32_t    rel_dest;
         } __attribute__((packed));
 
         struct address {
-            app_pc addr;
-        };
+            uint8_t     policy:8;
+            uint64_t    addr:56;
+        } __attribute__((packed));
 
         union entry {
-            lookup as_lookup;
-            address as_address;
+            lookup      as_lookup;
+            address     as_address;
         };
 
     private:

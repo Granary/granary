@@ -12,6 +12,7 @@
 
 #include "granary/globals.h"
 #include "granary/list.h"
+#include "granary/policy.h"
 
 namespace granary {
 
@@ -59,6 +60,14 @@ namespace granary {
 
             operand_base_disp ret(*this);
             ret.disp = static_cast<int>(disp);
+            return ret;
+        }
+
+        /// Add in the displacement to the LEA operand.
+        template <typename T>
+        inline operand_base_disp operator-(T disp) const throw() {
+            operand_base_disp ret(this->operator+(disp));
+            ret.disp = -ret.disp;
             return ret;
         }
 
@@ -225,6 +234,12 @@ namespace granary {
             memcpy(this, &that, sizeof *this);
         }
         instruction &operator=(const instruction &&that) throw();
+
+
+        /// Return the code cache policy to be used for the target of this CTI.
+        inline instrumentation_policy policy(void) const throw() {
+            return instrumentation_policy(instr.granary_policy);
+        }
 
 
         /// Return the opcode of the instruction.

@@ -45,7 +45,7 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
     mod = (struct module *) vmod;
 
-    // initialize
+    // initialise
     module->is_granary = is_granary;
     module->init = &(mod->init);
     module->exit = &(mod->exit);
@@ -101,7 +101,7 @@ static void *allocate(unsigned long size) {
 
 
 
-/// Initialize Granary.
+/// Initialise Granary.
 static int init_granary(void) {
     printk("Loading Granary...\n");
 

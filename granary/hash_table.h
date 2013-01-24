@@ -43,11 +43,25 @@ namespace granary {
 
         /// Represents an entry in a hash table.
         template <typename K, typename V, bool is_shared>
-        struct hash_table_entry {
+        struct hash_table_entry;
+
+
+        /// Shared version of a hash table entry.
+        template <typename K, typename V>
+        struct hash_table_entry<K, V, true> {
         public:
-            opt_atomic<bool, is_shared> is_valid;
-            opt_atomic<K, is_shared> key;
-            opt_atomic<V, is_shared> value;
+            std::atomic<bool> is_valid;
+            std::atomic<K> key;
+            std::atomic<V> value;
+        };
+
+
+        /// Private/unshared version of a hash table entry.
+        template <typename K, typename V>
+        struct hash_table_entry<K, V, false> {
+        public:
+            K key;
+            V value;
         };
 
 
@@ -91,15 +105,15 @@ namespace granary {
 
 
         RCU_GENERIC_PROTOCOL(
-            (typename K, typename V, bool is_shared),
-            detail::hash_table_entry_slots, (K, V, is_shared),
+            (typename K, typename V),
+            detail::hash_table_entry_slots, (K, V, true),
             RCU_VALUE(mask),
             RCU_VALUE(entries));
 
 
         RCU_GENERIC_PROTOCOL(
-            (typename K, typename V, bool is_shared),
-            detail::hash_table_impl, (K, V, is_shared),
+            (typename K, typename V),
+            detail::hash_table_impl, (K, V, true),
 
             RCU_VALUE(num_entries),
             RCU_VALUE(scaling_factor),
@@ -112,11 +126,142 @@ namespace granary {
     struct hash_table {
     private:
 
-        detail::hash_table_impl<K, V, false> table;
+        typedef hash_table_meta<K, V> meta_type;
+        typedef detail::hash_table_impl<K, V, false> table_type;
+        typedef detail::hash_table_entry_slots<K, V, false> slots_type;
+        typedef detail::hash_table_entry<K, V, false> entry_type;
+
+        table_type table;
+
+        /// Insert an entry into the hash table. Returns true iff an element
+        /// with the key didn't previously exist in the hash table.
+        bool insert(
+            K key,
+            V value,
+            bool update
+        ) throw() {
+            entry_type *slots(&(table.entry_slots->entries[0]));
+            const uint32_t mask(table.entry_slots->mask);
+
+            uint32_t entry_base(meta_type::hash(key));
+            const K default_key = K();
+
+            for(;; entry_base += 1) {
+                entry_base &= mask;
+                entry_type &entry(slots[entry_base]);
+
+                // insert position
+                if(default_key == entry.key) {
+                    entry.value = value;
+                    entry.key = key;
+                    break;
+
+                // already inserted
+                } if(entry.key == key) {
+                    if(update) {
+                        entry.value = value;
+                    }
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// Grow the hash table. This increases the hash table's size by two.
+        void grow(void) throw() {
+
+            entry_type *old_slots(table.entry_slots);
+            const uint32_t num_old_slots(old_slots->mask + 1U);
+
+            const uint32_t num_new_slots(num_old_slots << 1);
+            slots_type *new_slots(
+                new_trailing_vla<slots_type, entry_type>(num_new_slots));
+
+            // update the table
+            new_slots->mask = num_new_slots - 1U;
+            table.entry_slots = new_slots;
+            table.scaling_factor *= 2;
+
+            // transfer elements to the new slots
+            for(uint32_t i(0); i < num_old_slots; ++i) {
+                entry_type &entry_old(old_slots[i]);
+                if(!entry_old.is_valid.load()) {
+                    continue;
+                }
+
+                insert(entry_old.key, entry_old.value, true);
+            }
+
+            delete old_slots;
+        }
 
     public:
 
+        /// Constructor, default-initialise the slots.
+        hash_table(void) throw() {
+            // size of the default hash table
+            const uint32_t capacity(1U << meta_type::DEFAULT_SCALE_FACTOR);
 
+            // allocate the default slots
+            slots_type *slots(
+                new_trailing_vla<slots_type, entry_type>(capacity));
+
+            slots->mask = capacity - 1;
+
+            // initialise the internal table
+            table.num_entries = 0;
+            table.scaling_factor = meta_type::DEFAULT_SCALE_FACTOR;
+            table.entry_slots = slots;
+        }
+
+
+        /// Destructor, free the slots.
+        ~hash_table(void) throw() {
+            if(table.entry_slots) {
+                delete table.entry_slots;
+                table.entry_slots = nullptr;
+            }
+        }
+
+        /// Search for an entry in the hash table.
+        inline bool load(const K key, V &value) const throw() {
+            slots_type *slots(table.entry_slots);
+            const uint32_t mask(slots->mask);
+            const entry_type * const entries(&(slots->entries[0]));
+
+            uint32_t entry_base(meta_type::hash(key));
+            const K default_key = K();
+
+            for(;; entry_base += 1) {
+                entry_base &= mask;
+                const entry_type &entry(entries[entry_base]);
+
+                // default value; nothing there.
+                if(entry.key == default_key) {
+                    break;
+
+                // found it.
+                } else if(entry.key == key) {
+                    value = entry.value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// Store a value in the hash table.
+        inline bool store(K key, V value, bool update=true) throw() {
+            const uint32_t max_num_entries(
+                HASH_TABLE_MAX_SIZES[table.scaling_factor]);
+
+            // check if we need to grow the hash table.
+            if(table.num_entries > max_num_entries) {
+                grow();
+            }
+
+            return insert(key, value, update);
+        }
     };
 
 
@@ -188,11 +333,15 @@ namespace granary {
 
             const K new_key;
             const V new_value;
+            const bool overwrite_old_value;
+            bool stored_value;
             slots_write_ref_type old_slots;
 
-            add_entry(const K key_, const V value_) throw()
+            add_entry(const K key_, const V value_, bool update) throw()
                 : new_key(key_)
                 , new_value(value_)
+                , overwrite_old_value(update)
+                , stored_value(false)
                 , old_slots()
             { }
 
@@ -202,7 +351,8 @@ namespace granary {
                 entry_type *slots,
                 uint32_t mask,
                 K key,
-                V value
+                V value,
+                bool update
             ) throw() {
                 uint32_t entry_base(meta_type::hash(key));
                 bool invalid(false);
@@ -215,14 +365,17 @@ namespace granary {
                     if(entry.is_valid.compare_exchange_strong(invalid, true)) {
                         entry.value.store(value);
                         entry.key.store(key);
+                        break;
 
                     // already inserted
                     } if(entry.key.load() == key) {
-                        entry.value.store(value);
+                        if(update) {
+                            entry.value.store(value);
+                        }
                         return false;
                     }
                 }
-                return false;
+                return true;
             }
 
             /// Grow the hash table. This increases the hash table's size by
@@ -248,7 +401,8 @@ namespace granary {
 
                     insert(
                         &(new_slots->entries[0]), new_mask,
-                        entry_old.key.load(), entry_old.value.load());
+                        entry_old.key.load(), entry_old.value.load(),
+                        true);
                 }
 
                 return new_slots;
@@ -281,9 +435,11 @@ namespace granary {
                     slots_write_ref_type(table.entry_slots).entries,
                     slots_write_ref_type(table.entry_slots).mask,
                     new_key,
-                    new_value));
+                    new_value,
+                    overwrite_old_value));
 
                 if(added_element) {
+                    stored_value = true;
                     table.num_entries = table.num_entries + 1;
                 }
             }
@@ -360,15 +516,16 @@ namespace granary {
             }
         }
 
+        /// Load a value from the hash table.
         inline bool load(const K key, V &val) const throw() {
-            val = nullptr;
-            bool found(table.read(read_table, key, val));
-            return found;
+            return table.read(read_table, key, val);
         }
 
-        void store(K key, V value) throw() {
-            add_entry entry_adder(key, value);
+        /// Store a value in the hash table.
+        inline bool store(K key, V value, bool update=true) throw() {
+            add_entry entry_adder(key, value, update);
             table.write(entry_adder);
+            return entry_adder.stored_value;
         }
     };
 }

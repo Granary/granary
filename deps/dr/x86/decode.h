@@ -456,7 +456,7 @@ enum {
  * enum, as its storage size is compiler-specific).  opnd_size_t is a
  * byte, so the largest value here needs to be <= 255.
  */
-enum {
+enum op_size_type {
     /* register enum values are used for TYPE_*REG but we only use them
      * as opnd_size_t when we have the type available, so we can overlap
      * the two enums by adding new registers consecutively to the reg enum.
@@ -667,7 +667,7 @@ DR_UNS_API
  * into \p instr.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialized, and uses the x86/x64 mode
+ * Assumes that \p instr is already initialised, and uses the x86/x64 mode
  * set for it rather than the current thread's mode!
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
@@ -683,7 +683,7 @@ DR_API
  * instruction's opcode, eflags usage, prefixes, and operands.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialised, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
@@ -708,7 +708,7 @@ DR_API
  * (see instr_get_translation()) is set to \p orig_pc.
  * The instruction's opcode, eflags usage, prefixes, and operands are
  * all filled in.
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialised, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().

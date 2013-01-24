@@ -71,12 +71,12 @@ struct _instr_list_t {
 /* basic instrlist_t functions */
 
 DR_API
-/** Returns an initialized instrlist_t allocated on the thread-local heap. */
+/** Returns an initialised instrlist_t allocated on the thread-local heap. */
 instrlist_t*
 instrlist_create(dcontext_t *dcontext);
 
 DR_API
-/** Initializes \p ilist. */
+/** Initialises \p ilist. */
 void 
 instrlist_init(instrlist_t *ilist);
 

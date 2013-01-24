@@ -10,7 +10,7 @@
 
 namespace granary {
 
-    /// A list of static initializers.
+    /// A list of static initialisers.
     struct static_init_list {
         static_init_list *next;
         void (*exec)(void);

@@ -8,50 +8,129 @@
 
 #include "granary/mangle.h"
 #include "granary/basic_block.h"
+#include "granary/code_cache.h"
 #include "granary/state.h"
 #include "granary/detach.h"
-#include "granary/policy.h"
 #include "granary/register.h"
 
+
+/// Used to unroll registers in the opposite order in which they are saved
+/// by PUSHA in x86/asm_helpers.asm. This is so that we can operate on the
+/// pushed state on the stack as a form of machine context.
+#define DPM_DECLARE_REG(reg) \
+    uint64_t reg;
+
+
+#define DPM_DECLARE_REG_CONT(reg, rest) \
+    rest \
+    DPM_DECLARE_REG(reg)
+
+
+/// Used to forward-declare the assembly funcion patches. These patch functions
+/// eventually call the templates.
+#define DEFINE_DIRECT_JUMP_RESOLVER(opcode, size) \
+    direct_branch_ ## opcode = \
+        make_direct_cti_patch_func<\
+            direct_jump_patch_mcontext, \
+            opcode ## _ \
+        >(granary_asm_direct_branch_template);
+
+
+/// Used to forward-declare the assembly function patches. These patch functions
+/// eventually call the templates.
+#define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
+    case dynamorio::OP_ ## opcode: return direct_branch_ ## opcode;
+
+
+/// Used to forward-declare the assembly funcion patches. These patch functions
+/// eventually call the templates.
+#define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
+    static app_pc direct_branch_ ## opcode;
+
+
+extern "C" {
+    extern void granary_asm_direct_branch_template(void);
+    extern void granary_asm_direct_call_template(void);
+}
+
+
 namespace granary {
+
+    namespace {
+
+        /// Specific instruction manglers used for branch lookup.
+        DECLARE_DIRECT_JUMP_MANGLER(call, 5)
+        FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
+    }
 
     enum {
         _4GB = 4294967296ULL
     };
 
 
-    /// Computes the absolute value of a pointer difference.
-    static uint64_t pc_diff(ptrdiff_t diff) {
-        if(diff < 0) {
-            return static_cast<uint64_t>(-diff);
-        }
-        return static_cast<uint64_t>(diff);
-    }
+    /// A machine context representation for direct jump patches. The
+    /// struture contains as much state as is saved by the direct assembly
+    /// direct jump patch functions.
+    ///
+    /// The high-level operation here is that the patch function will know
+    /// what to patch because of the return address on the stack (we guarantee
+    /// that hot-patchable instructions will be aligned on 8-byte boundaries)
+    /// and that we know where we need to patch the target to by looking at the
+    /// relative target offset from the beginning of application code.
+    struct direct_jump_patch_mcontext {
+
+        /// Saved registers.
+        ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
+
+        /// Saved flags.
+        uint64_t flags;
+
+        /// The target address of a jump, including the policy to use when
+        /// translating the target basic block.
+        address_mangler target_address;
+
+        /// The return address *immediately* following the mangled instruction.
+        uint64_t return_address_after_mangled_call;
+    };
+
+
+    /// Machine context for direct calls. This saves fewer registers
+    struct direct_call_patch_mcontext {
+
+        /// Saved registers.
+        ALL_CALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
+
+        /// Saved flags and padding.
+        IF_KERNEL(uint64_t flags;)
+
+        /// The target address of a call, including the policy to use when
+        /// translating the target basic block.
+        address_mangler target_address;
+
+        /// The return address *immediately* following the mangled instruction.
+        uint64_t return_address_after_mangled_call;
+    };
 
 
     /// Injects N bytes of NOPs into an instuction list after
     /// a specific instruction.
-    static void inject_mangled_nops(instruction_list &ls,
-                                    instruction_list_handle in,
-                                    unsigned num_nops) throw() {
+    static void inject_mangled_nops(
+        instruction_list &ls,
+        instruction_list_handle in,
+        unsigned num_nops
+    ) throw() {
         instruction nop;
 
         for(; num_nops >= 3; num_nops -= 3) {
-            nop = nop3byte_();
-            nop.set_mangled();
-            ls.insert_after(in, nop);
+            ls.insert_after(in, nop3byte_());
         }
 
         for(; num_nops >= 2; num_nops -= 2) {
-            nop = nop2byte_();
-            nop.set_mangled();
-            ls.insert_after(in, nop);
+            ls.insert_after(in, nop2byte_());
         }
 
         for(; num_nops >= 1; num_nops -= 1) {
-            nop = nop1byte_();
-            nop.set_mangled();
-            ls.insert_after(in, nop);
+            ls.insert_after(in, nop1byte_());
         }
     }
 
@@ -60,7 +139,11 @@ namespace granary {
     /// the `stage` location (as if it were going to be placed at the `dest`
     /// location, and then encodes however many NOPs are needed to fill in 8
     /// bytes.
-    void stage_8byte_hot_patch(instruction in, app_pc stage, app_pc dest) {
+    static void stage_8byte_hot_patch(
+        instruction in,
+        app_pc stage,
+        app_pc dest
+    ) {
         instruction_list ls;
         ls.append(in);
 
@@ -70,6 +153,138 @@ namespace granary {
         }
 
         ls.stage_encode(stage, dest);
+    }
+
+
+    /// Patch the code by regenerating the original instruction.
+    ///
+    /// Note: in kernel mode, this function executes with interrupts
+    ///       disabled.
+    ///
+    /// Note: this function alters a return address in `context` so that
+    ///       when the corresponding assembly patch function returns, it
+    ///       will return to the instruction just patched.
+    GRANARY_ENTRYPOINT
+    template <
+        typename MContext,
+        instruction (*make_opcode)(dynamorio::opnd_t)
+    >
+    static MContext *
+    find_and_patch_direct_cti(MContext *context) throw() {
+
+        cpu_state_handle cpu;
+        thread_state_handle thread;
+
+        granary::enter(cpu, thread);
+
+        // determine the address to patch; this changes the return address in
+        // the machine context to point back to the patch address so that we
+        // are guaranteed that we resume in the code cache, we execute the
+        // intended instruction.
+        uint64_t patch_address(context->return_address_after_mangled_call);
+        unsigned offset(patch_address % 8);
+        if(0 == offset) {
+            context->return_address_after_mangled_call -= 8U;
+            patch_address -= 8U;
+        } else {
+            context->return_address_after_mangled_call -= offset;
+            patch_address -= offset;
+        }
+
+        // get an address into the target basic block
+        app_pc target_pc(code_cache::find(cpu, thread, context->target_address));
+
+        // create the patch code
+        uint64_t staged_code_(0ULL);
+        app_pc staged_code(reinterpret_cast<app_pc>(&staged_code_));
+
+        stage_8byte_hot_patch(
+            make_opcode(pc_(target_pc)),
+            staged_code,
+            reinterpret_cast<app_pc>(patch_address));
+
+        // apply the patch
+        granary_atomic_write8(
+            staged_code_,
+            reinterpret_cast<uint64_t *>(patch_address));
+
+        return context;
+    }
+
+
+    /// Make a direct patch function that is specific to a particular opcode.
+    template <
+        typename MContext,
+        instruction (*make_opcode)(dynamorio::opnd_t)
+    >
+    static app_pc make_direct_cti_patch_func(
+        void (*template_func)(void)
+    ) throw() {
+
+        instruction_list ls;
+        app_pc start_pc(reinterpret_cast<app_pc>(template_func));
+
+        for(;;) {
+            instruction in(instruction::decode(&start_pc));
+            if(in.is_call()) {
+                ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<int64_t>(
+                    find_and_patch_direct_cti<MContext, make_opcode>))));
+            }
+
+            ls.append(in);
+
+            if(dynamorio::OP_ret == in.op_code()) {
+                break;
+            }
+        }
+
+        app_pc dest_pc(global_state::fragment_allocator.allocate_array<uint8_t>(
+            ls.encoded_size()));
+
+        ls.encode(dest_pc);
+
+        // free all transiently allocated blocks so that we don't blow up
+        // the transient memory requirements when generating code cache
+        // templates/
+        cpu_state_handle cpu;
+        cpu->transient_allocator.free_all();
+
+        return dest_pc;
+    }
+
+
+    STATIC_INITIALISE({
+
+        // initialise the direct jump resolvers in the policy
+        FOR_EACH_DIRECT_JUMP(DEFINE_DIRECT_JUMP_RESOLVER);
+
+        // initialise the direct call resolver in the policy
+        direct_branch_call = \
+            make_direct_cti_patch_func<
+                direct_call_patch_mcontext,
+                call_
+            >(granary_asm_direct_call_template);
+    });
+
+
+    /// Look up and return the assembly patch (see asm/direct_branch.asm)
+    /// function needed to patch an instruction that originally had opcode as
+    /// `opcode`.
+    static app_pc get_direct_cti_patch_func(int opcode) throw() {
+        switch(opcode) {
+        CASE_DIRECT_JUMP_MANGLER(call, 5)
+        FOR_EACH_DIRECT_JUMP(CASE_DIRECT_JUMP_MANGLER);
+        default: return nullptr;
+        }
+    }
+
+
+    /// Computes the absolute value of a pointer difference.
+    static uint64_t pc_diff(ptrdiff_t diff) {
+        if(diff < 0) {
+            return static_cast<uint64_t>(-diff);
+        }
+        return static_cast<uint64_t>(diff);
     }
 
 
@@ -92,17 +307,30 @@ namespace granary {
 
         const unsigned old_size(in->encoded_size());
 
-        instruction_list_handle in_first(ls->append(
-            push_imm_(int32_(to_application_offset(target)))));
+        address_mangler am;
 
-        instruction_list_handle in_second(ls->append(
-            jmp_(pc_(policy.get_direct_cti_patch_func(in->op_code())))));
+        // set the target
+        am.as_address = target;
 
-        *in = call_(instr_(*in_first));
+        // set the policy, potentially using policy inheritance
+        uint8_t target_policy(in->policy().policy_id);
+        if(!target_policy) {
+            target_policy = policy.policy_id;
+        }
+        am.as_policy_address.policy_id = target_policy;
 
-        // set the state of the instructions to mangled
-        in_first->set_mangled();
-        in_second->set_mangled();
+        // add in the patch code
+        instruction_list_handle patch(
+            ls->append(lea_(reg::rsp, reg::rsp[-16])));
+        ls->append(mov_st_(reg::rsp[0], reg::rax));
+        ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
+        ls->append(mov_st_(reg::rsp[8], reg::rax));
+        ls->append(pop_(reg::rax));
+        ls->append(jmp_(pc_(get_direct_cti_patch_func(in->op_code()))));
+
+        *in = call_(instr_(*patch));
+
+        // change the state of the patched instruction.
         in->set_mangled();
         in->set_patchable();
 
@@ -294,7 +522,7 @@ namespace granary {
 
 
     /// Goes through all instructions and adds vtable entries for the direct
-    /// calls to far pcs, and indirect calls.
+    /// calls to far PCs, and indirect calls.
     void instruction_list_mangler::add_vtable_entries(
         unsigned num_needed_vtable_entries,
         app_pc estimator_pc
@@ -305,7 +533,7 @@ namespace granary {
             cpu->fragment_allocator.allocate_array<basic_block_vtable::entry>(
                 num_needed_vtable_entries));
 
-        // initialize the vtable
+        // initialise the vtable
         vtable = basic_block_vtable(entries.begin(), num_needed_vtable_entries);
 
         instruction_list_handle in(ls->first());
@@ -329,12 +557,15 @@ namespace granary {
                 // update the target of the instruction so that it now uses
                 // one of the vtable entries.
                 if(_4GB < pc_diff(estimator_pc - target_pc)) {
-
-                    printf("adding vtable entry for instruction(%p) targeting (%p)\n", in->pc(), target_pc);
+                    /*
+                    //printf("adding vtable entry for instruction(%p) targeting (%p)\n", in->pc(), target_pc);
 
                     basic_block_vtable::address &addr(vtable.next_address());
                     addr.addr = target_pc;
-                    in->set_cti_target(absmem_(&(addr.addr), 8));
+                    addr.policy = policy.policy_id;
+                    in->set_cti_target(absmem_(&addr, 8));
+                    */
+                    // TODO
                 }
 #endif
             // indirect branch lookup; need vtable entry for caching.
@@ -353,7 +584,7 @@ namespace granary {
 
         instruction_list_handle in(ls->first());
 
-        // go mangle instructions; note: indirect cti mangling happens here.
+        // go mangle instructions; note: indirect CTI mangling happens here.
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = in.next()) {
             const bool can_skip(nullptr == in->pc() || in->is_mangled());
 

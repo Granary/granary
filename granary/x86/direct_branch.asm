@@ -60,8 +60,8 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     // this is a Granary entry point, so disable interrupts if we are in the
     // kernel.
     IF_KERNEL(pushf; cli) // disable interrupts
-    IF_KERNEL(lea -0x8(%rsp), %rsp) // padding for 16-byte stack frame alignment
-    PUSH_ARGS // save arguments
+
+    PUSHA_CALL // save caller and callee saved regs
     mov %rsp, %ARG1
 
     // ensure 16-byte alignment of the stack; this assumes the stack pointer is
@@ -76,8 +76,7 @@ GLOBAL_LABEL(granary_asm_direct_call_template:)
     // restore the old stack pointer
     mov 8(%rsp), %rsp
 
-    POP_ARGS // restore arguments
-    IF_KERNEL(lea 0x8(%rsp), %rsp) // 'pop' the padding
+    POPA_CALL // restore caller and callee saved regs
     IF_KERNEL(popf) // enable interrupts
 
     // the direct branch stubs push on a relative address offset on the stack;

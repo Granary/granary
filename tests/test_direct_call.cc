@@ -6,9 +6,9 @@
  *     Version: $Id$
  */
 
-#include "granary/globals.h"
-#include "granary/code_cache.h"
-#include "granary/x86/asm_defines.asm"
+#include "granary/test.h"
+
+#if CONFIG_RUN_TEST_CASES
 
 #define TEST_CALL 1
 
@@ -45,9 +45,12 @@ namespace test {
     /// Test jcxz/jecxz/jrcxz; Note: there is no far version of jrxcz.
     static void direct_call_patched_correctly(void) {
         granary::app_pc call_direct_short((granary::app_pc) direct_call_short);
-        granary::basic_block bb_call_direct_short(granary::code_cache<>::find(call_direct_short));
+        granary::basic_block bb_call_direct_short(granary::code_cache::find(
+            call_direct_short, granary::test_policy()));
+
         granary::app_pc call_direct_far((granary::app_pc) direct_call_far);
-        granary::basic_block bb_call_direct_far(granary::code_cache<>::find(call_direct_far));
+        granary::basic_block bb_call_direct_far(granary::code_cache::find(
+            call_direct_far, granary::test_policy()));
 
         ASSERT(bb_call_direct_short.call<bool>());
         ASSERT(bb_call_direct_far.call<bool>());
@@ -59,3 +62,4 @@ namespace test {
 #endif
 }
 
+#endif

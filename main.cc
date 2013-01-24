@@ -31,7 +31,10 @@ int main(int argc, const char **argv) throw() {
     (void) argv;
 
     granary::init();
+
+#if CONFIG_RUN_TEST_CASES
     granary::run_tests();
+#endif
 
     return 0;
 }

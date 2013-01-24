@@ -99,7 +99,7 @@ def emit_instr_function(lines, i, instr, args):
   # emit the new function
   H("    instruction ", instr, "_(", arg_list, ");")
   C("instruction ", instr, "_(", arg_list, ") {")
-  C("    instruction in__;")
+  C("    instruction in__; // need to make sure granary policy is 0")
   if 1 <= len(args):
     C("    dynamorio::dcontext_t dc__ = {")
     C("        false, /* x86_mode */")
@@ -108,6 +108,13 @@ def emit_instr_function(lines, i, instr, args):
     C("    };")
     C("    dynamorio::dcontext_t *", args[0], " = &dc__;")
   C("   ", copied_code)
+
+  # this is a hack: the way be build base/disp operand types from
+  # registers is such that the register size can propagate through.
+  # this is an attempt to fix it in some cases.
+  if "lea" == instr:
+    C("    in__.instr.u.o.src0.size = dynamorio::OPSZ_lea;")
+
   C("    return in__;")
   for arg in args[1:]:
     C("    (void) ", arg, ";")
@@ -156,7 +163,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   D('#include "granary/mangle.h"')
   D("namespace granary {")
   D("    direct_cti_patch_func *DIRECT_CTI_TARGETS[dynamorio::OP_LAST];")
-  D("    STATIC_INITIALIZE({")
+  D("    STATIC_INITIALISE({")
 
   pre_D("extern \"C\" {")
 

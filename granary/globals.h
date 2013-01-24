@@ -23,6 +23,10 @@
 #include "granary/pp.h"
 
 
+/// Set the 1 iff we should run test cases (before doing anything else).
+#define CONFIG_RUN_TEST_CASES 1
+
+
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
@@ -112,6 +116,10 @@ namespace granary {
 
     /// Forward declarations.
     struct basic_block;
+
+#if CONFIG_RUN_TEST_CASES
+    extern void run_tests(void) throw();
+#endif
 }
 
 
@@ -152,6 +160,5 @@ extern "C" {
 #include "granary/type_traits.h"
 #include "granary/bump_allocator.h"
 #include "granary/init.h"
-#include "granary/test.h"
 
 #endif /* granary_GLOBALS_H_ */

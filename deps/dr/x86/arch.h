@@ -502,7 +502,7 @@ typedef struct _far_ref_t {
 
 /* Defines book-keeping structures needed for an indirect branch lookup routine */
 typedef struct ibl_code_t {
-    bool initialized:1; /* currently only used for ibl routines */
+    bool initialised:1; /* currently only used for ibl routines */
     bool thread_shared_routine:1;
     bool ibl_head_is_inlined:1;
     byte *indirect_branch_lookup_routine;

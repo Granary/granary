@@ -65,7 +65,7 @@ instrlist_create(dcontext_t *dcontext)
     return ilist;
 }
 
-/* initializes an instrlist_t object */
+/* initialises an instrlist_t object */
 void
 instrlist_init(instrlist_t *ilist)
 {

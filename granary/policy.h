@@ -1,122 +1,140 @@
 /*
  * policy.h
  *
- *  Created on: 2012-11-30
+ *  Created on: 2013-01-23
  *      Author: pag
- *     Version: $Id$
  */
 
-#ifndef Granary_POLICY_H_
-#define Granary_POLICY_H_
+#ifndef GRANARY_POLICY_H_
+#define GRANARY_POLICY_H_
 
 #include "granary/globals.h"
-#include "clients/instrument.h"
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
-    case dynamorio::OP_ ## opcode: return direct_branch_ ## opcode;
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
-    static app_pc direct_branch_ ## opcode;
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define DEFINE_DIRECT_JUMP_MANGLER(opcode, size) \
-    template <typename Policy> \
-    app_pc instrumenter<Policy>::direct_branch_ ## opcode = nullptr;
-
 
 namespace granary {
-
-
-    /// Represents null instrumentation, i.e. nothing extra added.
-    struct null_policy { };
 
 
     /// Forward declarations.
     struct cpu_state_handle;
     struct thread_state_handle;
+    struct basic_block;
     struct basic_block_state;
     struct instruction_list;
-    template <typename> struct code_cache;
+    struct instruction_list_mangler;
+    struct code_cache;
+    template <typename> struct policy_for;
 
-    /// Defines an abstract instrumentation policy.
+
+    /// Represents a handle on an instrumentation policy.
     struct instrumentation_policy {
-    public:
-
-
-        virtual ~instrumentation_policy(void) throw() { }
-
-
-        /// Invoke client code to instrument an instruction list.
-        virtual void
-        instrument(cpu_state_handle &cpu,
-                    thread_state_handle &thread,
-                    basic_block_state *bb,
-                    instruction_list &ls) throw() = 0;
-
-
-        /// Find the policy-specific direct CTI patch function.
-        virtual app_pc
-        get_direct_cti_patch_func(int opcode) throw() = 0;
-    };
-
-
-    /// Defines a concrete instrumentation policy in terms of client
-    /// instrumentation.
-    ///
-    /// Note: this structure is tightly coupled to the code_cache, in that the
-    ///       code cache itself is reponsible for initializing all of the
-    ///       static fields of the policy.
-    template <typename Policy>
-    struct instrumenter : public instrumentation_policy {
     private:
 
-        template <typename> friend struct code_cache;
+        friend struct basic_block;
+        friend struct code_cache;
+        friend struct instruction_list_mangler;
+        template <typename> friend struct policy_for;
 
-        DECLARE_DIRECT_JUMP_MANGLER(call, 5)
-        FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
+        typedef instrumentation_policy (basic_block_visitor)(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state &bb,
+            instruction_list &ls
+        );
+
+        friend struct instruction_list_mangler;
+        friend struct instruction;
+
+        /// Policy basic block visitor functions for each policy. The code
+        /// cache will use this array of function pointers (initialised
+        /// partially at compile time and partially at run time) to determine
+        /// which client-code basic block visitor functions should be called.
+        static basic_block_visitor *POLICY_FUNCTIONS[256];
+
+
+        /// Policy ID tracker.
+        static std::atomic<unsigned> NEXT_POLICY_ID;
+
+
+        /// The identifier for this policy.
+        const uint8_t policy_id;
+
+
+        static instrumentation_policy missing_policy(
+            cpu_state_handle &,
+            thread_state_handle &,
+            basic_block_state &,
+            instruction_list &
+        ) throw();
+
+
+        /// Do not allow default initialisations of policies: require that they
+        /// have IDs through some well-defined means.
+        instrumentation_policy(void) throw() = delete;
+
+
+        /// Takes in a policy ID directly.
+        instrumentation_policy(uint16_t policy_id_) throw()
+            : policy_id(policy_id_)
+        { }
+
+
+        /// Invoke client code instrumentation.
+        inline instrumentation_policy instrument(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            return POLICY_FUNCTIONS[policy_id](cpu, thread, bb, ls);
+        }
 
     public:
 
-        virtual ~instrumenter(void) throw() { }
+        instrumentation_policy(const instrumentation_policy &) throw() = default;
 
-        /// Invoke client instrumentation on an instruction list that represents
-        /// a basic block.
-        virtual void
-        instrument(cpu_state_handle &cpu,
-                    thread_state_handle &thread,
-                    basic_block_state *bb,
-                    instruction_list &ls) throw()  {
+        instrumentation_policy &
+        operator=(const instrumentation_policy &) throw() = default;
 
-            client::instrument<Policy>::basic_block(cpu, thread, bb, ls);
+        bool operator==(const instrumentation_policy &that) const throw() {
+            return policy_id == that.policy_id;
         }
 
-
-        /// Look up and return the assembly patch (see asm/direct_branch.asm)
-        /// function needed to patch an instruction that originally had opcode as
-        /// `opcode`.
-        virtual app_pc
-        get_direct_cti_patch_func(int opcode) throw() {
-            switch(opcode) {
-            CASE_DIRECT_JUMP_MANGLER(call, 5)
-            FOR_EACH_DIRECT_JUMP(CASE_DIRECT_JUMP_MANGLER);
-            default: return nullptr;
-            }
+        bool operator!=(const instrumentation_policy &that) const throw() {
+            return policy_id != that.policy_id;
         }
     };
 
-    FOR_EACH_DIRECT_JUMP(DEFINE_DIRECT_JUMP_MANGLER);
-    DEFINE_DIRECT_JUMP_MANGLER(call, 5)
+
+    /// Gets us the policy for some client policy type.
+    template <typename T>
+    struct policy_for {
+    private:
+
+        static unsigned POLICY_ID;
+
+        /// Initialise the policy `T`.
+        static unsigned init_policy(void) throw() {
+            unsigned policy_id(
+                instrumentation_policy::NEXT_POLICY_ID.fetch_add(1U));
+
+            instrumentation_policy::POLICY_FUNCTIONS[policy_id] = \
+                &(T::visit_basic_block);
+
+            return policy_id;
+        }
+
+    public:
+
+        operator instrumentation_policy(void) const throw() {
+            return instrumentation_policy(POLICY_ID);
+        }
+    };
+
+
+    /// This does the actual policy initialisation. The combination of
+    /// instantiations of the `policy_for` template (in client code) and the
+    /// static function/field ensure that policies are initialised early on.
+    template <typename T>
+    unsigned policy_for<T>::POLICY_ID = init_policy();
 }
 
-#undef CASE_DIRECT_JUMP_MANGLER
-#undef DECLARE_DIRECT_JUMP_MANGLER
-#undef DEFINE_DIRECT_JUMP_MANGLER
-#endif /* Granary_POLICY_H_ */
+#endif /* GRANARY_POLICY_H_ */

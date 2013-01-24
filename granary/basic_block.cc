@@ -109,7 +109,7 @@ namespace granary {
 
 
     /// Set the state of a pair of bits in memory.
-    static unsigned initialize_state_bytes(basic_block_info *info,
+    static unsigned initialise_state_bytes(basic_block_info *info,
                                               instruction_list &ls,
                                               app_pc pc) throw() {
 
@@ -117,7 +117,7 @@ namespace granary {
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
-        // initialize all state bytes to have their states as padding bytes
+        // initialise all state bytes to have their states as padding bytes
         memset((void *) pc, static_cast<int>(~0U), num_state_bytes);
 
         instruction_list_handle in(ls.first());
@@ -307,7 +307,8 @@ namespace granary {
     /// targets to local instructions. The net effect is to turn CTIs with pc
     /// targets into instructions with instr targets (so long as one of the
     /// instructions in the block has a pc that is targets by one of the CTIs).
-    void resolve_local_branches(cpu_state_handle &cpu,
+    void resolve_local_branches(instrumentation_policy policy,
+                                cpu_state_handle &cpu,
                                 instruction_list &ls) throw() {
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
@@ -317,7 +318,9 @@ namespace granary {
         // find the number of pc targets
         unsigned num_direct_branches(0);
         for(unsigned i(0); i < max; ++i) {
-            if(in->is_cti() && dynamorio::opnd_is_pc(in->cti_target())) {
+            if(in->is_cti()
+            && in->policy() == policy
+            && dynamorio::opnd_is_pc(in->cti_target())) {
                 ++num_direct_branches;
             }
             in = in.next();
@@ -334,7 +337,7 @@ namespace granary {
 
         in = ls.first();
         for(unsigned i(0), j(0); i < max; ++i) {
-            if(in->is_cti()) {
+            if(in->is_cti() && policy == in->policy()) {
                 operand target(in->cti_target());
                 if(dynamorio::opnd_is_pc(target)) {
                     branch_targets[j].target = target;
@@ -352,7 +355,8 @@ namespace granary {
         in = ls.first();
         for(unsigned i(0), j(0); i < max && j < num_direct_branches; ++i) {
             while(j < num_direct_branches
-               && in->pc() == branch_targets[j].target) {
+               && in->pc() == branch_targets[j].target
+               && in->policy() == policy) {
 
                 dynamorio::instr_set_target(
                     *(branch_targets[j++].source), instr_(*in));
@@ -405,7 +409,7 @@ namespace granary {
 
 
     /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(instrumentation_policy &policy,
+    basic_block basic_block::translate(instrumentation_policy policy,
                                        cpu_state_handle &cpu,
                                        thread_state_handle &thread,
                                        app_pc *pc) throw() {
@@ -431,8 +435,11 @@ namespace granary {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
 
                     // if it is local back edge then keep control within the
-                    // same basic block.
-                    if(start_pc <= target_pc && target_pc < *pc) {
+                    // same basic block. Note: the policy of this basic block
+                    // must match the policy of the destination basic block.
+                    if(start_pc <= target_pc
+                    && target_pc < *pc
+                    && policy == in.policy()) {
                         instruction_list_handle prev_in(
                             find_local_back_edge_target(ls, target_pc));
 
@@ -485,12 +492,16 @@ namespace granary {
             }
         }
 
-        // invoke client code instrumentation on the basic block
-        policy.instrument(
+        // invoke client code instrumentation on the basic block; the client
+        // might return a different instrumentation policy to use. The effect
+        // of this is that if we are in policy P1, and the client returns policy
+        // P2, then we will emit a block to P1's code cache that jumps us into
+        // P2's code cache.
+        instrumentation_policy client_policy(policy.instrument(
             cpu,
             thread,
-            block_storage,
-            ls);
+            *block_storage,
+            ls));
 
         // add in a trailing jump if the last instruction in the basic
         // block if we need to force a connection between this basic block
@@ -506,14 +517,14 @@ namespace granary {
         // type of transformation.
         num_direct_branches += translate_loops(ls);
         if(num_direct_branches) {
-            resolve_local_branches(cpu, ls);
+            resolve_local_branches(policy, cpu, ls);
         }
 
         basic_block_vtable vtable;
 
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
-        instruction_list_mangler mangler(cpu, thread, policy, vtable);
+        instruction_list_mangler mangler(cpu, thread, client_policy, vtable);
         mangler.mangle(ls);
 
         // re-calculate the size and re-allocate; if our earlier
@@ -567,7 +578,7 @@ namespace granary {
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
-        IF_KERNEL( pc += initialize_state_bytes(info, ls, pc); )
+        IF_KERNEL( pc += initialise_state_bytes(info, ls, pc); )
 
         *generated_pc = pc;
         return basic_block(start_pc);

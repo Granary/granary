@@ -1635,8 +1635,8 @@ instr_create(dcontext_t *dcontext)
     instr_t *instr = dcontext->allocated_instr;
     dcontext->allocated_instr = 0;
 
-    /* everything initializes to 0, even flags, to indicate
-     * an uninitialized instruction */
+    /* everything initialises to 0, even flags, to indicate
+     * an uninitialised instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     IF_X64(instr_set_x86_mode(instr, !X64_CACHE_MODE_DC(dcontext)));
     return instr;
@@ -1706,8 +1706,8 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 void
 instr_init(dcontext_t *dcontext, instr_t *instr)
 {
-    /* everything initializes to 0, even flags, to indicate
-     * an uninitialized instruction */
+    /* everything initialises to 0, even flags, to indicate
+     * an uninitialised instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
 }
@@ -1777,7 +1777,7 @@ instr_mem_usage(instr_t *instr)
 
 /* Frees all dynamically allocated storage that was allocated by instr
  * Also zeroes out instr's fields
- * This instr must have been initialized before!
+ * This instr must have been initialised before!
  */
 void 
 instr_reset(dcontext_t *dcontext, instr_t *instr)
@@ -1792,7 +1792,7 @@ instr_reset(dcontext_t *dcontext, instr_t *instr)
  * fields, whether instr is ok to mangle, and instr's x86 mode.
  * Use this routine when you want to decode more information into the
  * same instr_t structure.
- * This instr must have been initialized before!
+ * This instr must have been initialised before!
  */
 void 
 instr_reuse(dcontext_t *dcontext, instr_t *instr)
@@ -1983,7 +1983,7 @@ instr_set_opcode(instr_t *instr, int opcode)
  * Not to be confused with an invalid opcode, which can be OP_INVALID or
  * OP_UNDECODED.  OP_INVALID means an instruction with no valid fields:
  * raw bits (may exist but do not correspond to a valid instr), opcode,
- * eflags, or operands.  It could be an uninitialized
+ * eflags, or operands.  It could be an uninitialised
  * instruction or the result of decoding an invalid sequence of bytes.
  */
 bool 
@@ -2549,7 +2549,7 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 
 /* creates array of bytes to store raw bytes of an instr into
  * (original bits are read-only)
- * initializes array to the original bits!
+ * initialises array to the original bits!
  */
 void
 instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)

@@ -111,6 +111,7 @@ GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
 GR_OBJS += bin/granary/hash_table.o
 GR_OBJS += bin/granary/register.o
+GR_OBJS += bin/granary/policy.o
 GR_OBJS += bin/granary/init.o
 
 # Granary wrapper dependencies

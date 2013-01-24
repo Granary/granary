@@ -73,7 +73,7 @@ DR_UNS_API
  * Decodes the size of the instruction at address \p pc.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialised, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
@@ -103,7 +103,7 @@ DR_UNS_API
  * automatically re-relativized (though encoding will fail if the new
  * encode location cannot reach the original target).
  *
- * Assumes that \p instr is already initialized, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialised, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().

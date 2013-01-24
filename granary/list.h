@@ -402,7 +402,7 @@ namespace granary {
 
     public:
 
-        /// Initialize an empty list.
+        /// Initialise an empty list.
         list(void) throw()
             : first_(nullptr)
             , last_(nullptr)

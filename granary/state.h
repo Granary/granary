@@ -24,7 +24,7 @@ namespace granary {
     struct basic_block;
     struct cpu_state_handle;
     struct thread_state_handle;
-
+    struct instruction_list_mangler;
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw();
@@ -129,6 +129,8 @@ namespace granary {
         bump_pointer_allocator<detail::transient_allocator_config>
             transient_allocator;
 
+        //hash_table<app_pc, app_pc>
+
         bool interrupts_enabled;
     };
 
@@ -163,6 +165,10 @@ namespace granary {
         static bump_pointer_allocator<detail::global_fragment_allocator_config>
             fragment_allocator;
     };
+
+
+    /// Client state.
+    struct client_state { };
 }
 
 #endif /* granary_STATE_H_ */

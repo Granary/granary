@@ -219,7 +219,7 @@ class CCharacterReader(object):
 
   TAB_SIZE = 4
 
-  # Initialize the CCharacterReader.
+  # Initialise the CCharacterReader.
   #
   # Args:
   #   buff_:          Indexible sequence of characters.
@@ -1136,7 +1136,7 @@ class CParser(object):
     "__restrict":           "restrict",
   }
 
-  # Initialize the parser.
+  # Initialise the parser.
   def __init__(self):
 
     # The global symbol table.

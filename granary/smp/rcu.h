@@ -26,7 +26,6 @@ namespace granary { namespace smp {
 
 /// Defines the type protocol for an RCU-protected data structure.
 #define RCU_PROTOCOL(type_name, ...) \
-    template <> \
     RCU_GENERIC_PROTOCOL((), type_name, (), #__VA_ARGS__)
 
 
@@ -77,7 +76,7 @@ namespace granary { namespace smp {
         } \
     }; \
     \
-    template <SPLAT tpl_args> \
+    template <PARAMS tpl_args> \
     union rcu_write_reference<type_name TEMPLATE_PARAMS tpl_params > { \
     private: \
         \
@@ -92,6 +91,10 @@ namespace granary { namespace smp {
         \
         inline rcu_write_reference(base_type__ *ptr__) throw() \
             : internal_pointer__(ptr__) \
+        { } \
+        \
+        inline rcu_write_reference(std::nullptr_t) throw() \
+            : internal_pointer__(nullptr) \
         { } \
         \
     public: \

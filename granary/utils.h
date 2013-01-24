@@ -161,6 +161,28 @@ namespace granary {
         return unsafe_cast<T *>(internal);
     }
 #endif
+
+    namespace {
+        template<typename T>
+        class type_id_impl {
+        public:
+            static unsigned get(void) throw() {
+                static unsigned id_(0);
+                return id_++;
+            }
+        };
+    }
+
+
+    /// Used to statically define IDs for particular classes.
+    template <typename T, typename Category=void>
+    class type_id {
+    public:
+        static unsigned get(void) throw() {
+            static type_id id_(type_id_impl<Category>::get());
+            return id_;
+        }
+    };
 }
 
 

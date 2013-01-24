@@ -6,7 +6,7 @@
  *     Version: $Id$
  */
 
-#include "globals.h"
+#include "granary/test.h"
 
 extern "C" {
 
@@ -49,14 +49,27 @@ extern "C" {
     }
 }
 
+#if CONFIG_RUN_TEST_CASES
 
 namespace granary {
+
+
+    /// Instruction a basic block.
+    instrumentation_policy test_policy::visit_basic_block(
+        cpu_state_handle &,
+        thread_state_handle &,
+        basic_block_state &,
+        instruction_list &
+    ) throw() {
+        return granary::policy_for<test_policy>();
+    }
 
 
     /// List of test cases to run.
     static static_test_list STATIC_TEST_LIST_HEAD;
 
 
+    /// Initialise the list of test functions to execute.
     static_test_list::static_test_list(void) throw()
         : func(nullptr)
         , desc(nullptr)
@@ -78,5 +91,6 @@ namespace granary {
             }
         }
     }
-
 }
+#endif
+

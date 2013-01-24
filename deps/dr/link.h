@@ -451,7 +451,7 @@ coarse_deref_ibl_prefix(dcontext_t *dcontext, cache_pc target);
 coarse_info_t *
 get_stub_coarse_info(cache_pc pc);
 
-/* Initializes an array of linkstubs beginning with first */
+/* Initialises an array of linkstubs beginning with first */
 void linkstubs_init(linkstub_t *first, int num_direct, int num_indirect, fragment_t *f);
 
 bool is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *l,

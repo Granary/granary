@@ -578,7 +578,8 @@ struct _instr_t {
     byte * bytes;
     uint length;
     app_pc translation;
-    uint opcode;
+    uint16_t opcode;
+    uint8_t granary_policy; // code cache policy for granary
     byte rip_rel_pos;
     byte num_dsts;
     byte num_srcs;
@@ -675,7 +676,7 @@ enum {
     REGPARM_END_ALIGN = 16
 };
 
-enum {
+enum op_code_type {
     OP_INVALID,
     OP_UNDECODED,
     OP_CONTD,
@@ -1826,7 +1827,7 @@ enum {
     TYPE_INDIR_VAR_REG_SIZEx3x5
 };
 
-enum {
+enum op_size_type {
     OPSZ_NA = DR_REG_INVALID + 1,
     OPSZ_FIRST = OPSZ_NA,
     OPSZ_0,
@@ -1984,7 +1985,7 @@ typedef struct _far_ref_t {
 } far_ref_t;
 
 typedef struct ibl_code_t {
-    bool initialized :1;
+    bool initialised :1;
     bool thread_shared_routine :1;
     bool ibl_head_is_inlined :1;
     byte * indirect_branch_lookup_routine;

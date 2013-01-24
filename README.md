@@ -33,5 +33,6 @@ for all but one set of kernel versions.
 
 ```basemake
 make detach KERNEL=1
+make wrappers KERNEL=1
 make clear KERNEL=1 ; make all KERNEL=1 GR_CC=gcc GR_CXX=g++
 ```
