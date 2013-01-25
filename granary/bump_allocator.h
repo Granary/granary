@@ -133,7 +133,7 @@ namespace granary {
 
 
         /// Allocate `size` bytes of memory with alignment `align`.
-        uint8_t *allocate_bare(const unsigned align, const unsigned size) throw() {
+        uint8_t *allocate_bare(const unsigned align, unsigned size) throw() {
 #if CONFIG_PRECISE_ALLOCATE
             (void) align;
             if(IS_EXECUTABLE) {
@@ -143,6 +143,13 @@ namespace granary {
                 return unsafe_cast<uint8_t *>(detail::global_allocate(size));
             }
 #else
+
+            // ensure that all allocations within an executable slab leave the
+            // next allocatable address nicely aligned.
+            if(IS_EXECUTABLE) {
+                size += ALIGN_TO(size, 16);
+            }
+
             last_allocation_size = size;
 
             if(nullptr == curr) {
@@ -152,7 +159,8 @@ namespace granary {
             } else if(curr->remaining < size) {
                 allocate_slab();
             } else {
-                uint64_t next_address(reinterpret_cast<uint64_t>(curr->bump_ptr));
+                uint64_t next_address(
+                    reinterpret_cast<uint64_t>(curr->bump_ptr));
                 unsigned align_offset(ALIGN_TO(next_address, align));
                 unsigned aligned_size(size + align_offset);
 

@@ -157,10 +157,10 @@ namespace granary {
         ///                     emitted, this pointer is updated to the address
         ///                     of the memory location immediately following
         ///                     the basic block.
-        static basic_block emit(basic_block_kind kind,
-        						instruction_list &ls,
-        						app_pc generating_pc,
-                                app_pc *generated_pc) throw();
+        static void emit(basic_block_kind kind,
+                         instruction_list &ls,
+                         app_pc generating_pc,
+                         app_pc generated_pc) throw();
     };
 
 

@@ -23,6 +23,7 @@ namespace granary {
         BB_PADDING      = 0xCC,
         BB_MAGIC        = 0xCCAACC,
         BB_MAGIC_MASK   = 0xFFFFFF00,
+        BB_ALIGN        = 16,
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
@@ -39,7 +40,7 @@ namespace granary {
 
         /// aligned state size
         STATE_SIZE_ = sizeof(basic_block_state),
-        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, 16),
+        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, BB_ALIGN),
 
         /// an estimation of the number of bytes in a direct branch slot; each
         /// slot only requires 10 bytes, but we add 4 extra for any needed
@@ -191,13 +192,9 @@ namespace granary {
             if(code_cache_byte_state::BB_BYTE_NATIVE & byte_state) {
                 return next;
 
-            // In the case of a mangled instruction, we will follow the discipline
-            // that there can only be one mangled instruction in a translated
-            // fragment, which is a safe interrupt point.
-            //
-            // otherwise, we should be in a different kind of basic block
-            // altogether, and the interrupt policy should be handled where we
-            // have that context.
+            // We assume that all mangled instructions are introduced by
+            // Granary proper and not by client code, and so represent
+            // safe interrupt points.
             } else if(code_cache_byte_state::BB_BYTE_MANGLED & byte_state) {
                 if(basic_block_kind::BB_TRANSLATED_FRAGMENT == info->kind) {
                     return next;
@@ -533,10 +530,9 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
 
-        // allocated pc immediately following block-local storage
-        uint8_t *bb_pc(generated_pc + vtable.size());
+        emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, generated_pc);
 
-        return emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, &bb_pc);
+        return basic_block(generated_pc);
     }
 
 
@@ -545,13 +541,12 @@ namespace granary {
     ///
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
-    basic_block basic_block::emit(basic_block_kind kind,
+    void basic_block::emit(basic_block_kind kind,
                                   instruction_list &ls,
                                   app_pc generating_pc,
-                                  app_pc *generated_pc) throw() {
+                                  app_pc pc) throw() {
 
-        app_pc pc = *generated_pc;
-        pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), 16);
+        pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);
 
         // add in the instructions
         const app_pc start_pc(pc);
@@ -565,11 +560,7 @@ namespace granary {
             *pc++ = BB_PADDING;
         }
 
-        //BARRIER;
-
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
-
-        // TODO: memory error below.
 
         // fill in the info
         info->magic = static_cast<uint32_t>(BB_MAGIC);
@@ -581,9 +572,6 @@ namespace granary {
         // fill in the byte state set
         pc += sizeof(basic_block_info);
         IF_KERNEL( pc += initialise_state_bytes(info, ls, pc); )
-
-        *generated_pc = pc;
-        return basic_block(start_pc);
     }
 }
 
