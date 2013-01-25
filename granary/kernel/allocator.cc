@@ -19,6 +19,11 @@ namespace granary { namespace detail {
     }
 
 
+    void global_free_executable(void *addr, unsigned long) throw() {
+        return __vfree(addr);
+    }
+
+
     void *global_allocate(unsigned long size) throw() {
         void * mem(__vmalloc(size));
         memset(mem, 0, size);
@@ -44,7 +49,10 @@ extern "C" {
     }
 
 
-    void heap_free(void *, void *, unsigned long long) {
-        return;
+    void heap_free(void *, void *addr, unsigned long long) {
+#if CONFIG_PRECISE_ALLOCATE
+        granary::detail::global_free(addr);
+#endif
+        (void) addr;
     }
 }

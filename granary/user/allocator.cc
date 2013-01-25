@@ -25,8 +25,11 @@ extern "C" {
         return cpu->transient_allocator.allocate_untyped(16, size);
     }
 
-    void heap_free(void *, void *, unsigned long long) {
-        //free(ptr);
+    void heap_free(void *, void *addr, unsigned long long) {
+#if CONFIG_PRECISE_ALLOCATE
+        granary::detail::global_free(addr);
+#endif
+        (void) addr;
     }
 
     /// (un)protect up to two pages
@@ -43,17 +46,28 @@ extern "C" {
 namespace granary { namespace detail {
 
     void *global_allocate_executable(unsigned long size) throw() {
-        void *allocated(malloc(size));
-        uint64_t begin_addr(reinterpret_cast<uint64_t>(allocated));
-        uint64_t end_addr(begin_addr + size);
 
-        // make each page in this allocation executable
-        begin_addr -= (begin_addr % PAGE_SIZE);
-        end_addr += ALIGN_TO(end_addr, PAGE_SIZE);
-        for(uint64_t addr(begin_addr); addr < end_addr; addr += PAGE_SIZE) {
-            make_page_executable(reinterpret_cast<void *>(addr));
+        // shared map just in case we manage to get user space instrumentation
+        // working in a more general case.
+        void *allocated(mmap(
+            nullptr,
+            size + ALIGN_TO(size, PAGE_SIZE),
+            PROT_READ | PROT_WRITE | PROT_EXEC,
+            MAP_ANONYMOUS | MAP_SHARED,
+            -1,
+            0));
+
+        if(MAP_FAILED == allocated) {
+            granary_break_on_fault();
+            granary_fault();
         }
+
         return allocated;
+    }
+
+
+    void global_free_executable(void *addr, unsigned long size) throw() {
+        munmap(addr, size);
     }
 
 

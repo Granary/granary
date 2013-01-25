@@ -31,6 +31,7 @@ namespace granary {
         friend struct basic_block;
         friend struct code_cache;
         friend struct instruction_list_mangler;
+        friend struct instruction;
         template <typename> friend struct policy_for;
 
         typedef instrumentation_policy (basic_block_visitor)(
@@ -40,8 +41,6 @@ namespace granary {
             instruction_list &ls
         );
 
-        friend struct instruction_list_mangler;
-        friend struct instruction;
 
         /// Policy basic block visitor functions for each policy. The code
         /// cache will use this array of function pointers (initialised

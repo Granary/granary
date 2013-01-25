@@ -37,6 +37,10 @@ namespace granary {
         void *global_allocate_executable(unsigned long size) throw();
 
 
+        /// Free globally allocated executable memory.
+        void global_free_executable(void *addr, unsigned long size) throw();
+
+
         /// Allocate some non-executable memory.
         void *global_allocate(unsigned long size) throw();
 

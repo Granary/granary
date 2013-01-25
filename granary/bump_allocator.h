@@ -55,12 +55,12 @@ namespace granary {
             SLAB_SIZE = IF_KERNEL_ELSE(
                     SLAB_SIZE_,
                     IS_EXECUTABLE
-                    ? (SLAB_SIZE_ + ALIGN_TO(SLAB_SIZE_, PAGE_SIZE) + PAGE_SIZE)
-                            : SLAB_SIZE_),
+                        ? (SLAB_SIZE_ + ALIGN_TO(SLAB_SIZE_, PAGE_SIZE))
+                        : SLAB_SIZE_),
 
-                              // Alignment within the slab for the first allocated
-                              // memory
-                              FIRST_ALLOCATION_ALIGN = IS_EXECUTABLE ? PAGE_SIZE : 16
+            // Alignment within the slab for the first allocated
+            // memory
+            FIRST_ALLOCATION_ALIGN = IS_EXECUTABLE ? PAGE_SIZE : 16
         };
 
 
@@ -83,7 +83,7 @@ namespace granary {
         slab *free;
 
 
-        /// Lock used to serialize allocations.
+        /// Lock used to serialise allocations.
         opt_atomic<bool, IS_SHARED> lock;
 
 
@@ -134,7 +134,15 @@ namespace granary {
 
         /// Allocate `size` bytes of memory with alignment `align`.
         uint8_t *allocate_bare(const unsigned align, const unsigned size) throw() {
-
+#if CONFIG_PRECISE_ALLOCATE
+            (void) align;
+            if(IS_EXECUTABLE) {
+                return unsafe_cast<uint8_t *>(
+                    detail::global_allocate_executable(ALIGN_TO(size, PAGE_SIZE)));
+            } else {
+                return unsafe_cast<uint8_t *>(detail::global_allocate(size));
+            }
+#else
             last_allocation_size = size;
 
             if(nullptr == curr) {
@@ -161,6 +169,7 @@ namespace granary {
             curr->bump_ptr += size;
             curr->remaining -= last_allocation_size;
             return bumped_ptr;
+#endif
         }
 
         /// Free a list of slabs.
@@ -168,7 +177,12 @@ namespace granary {
             for(slab *next(nullptr); list; list = next) {
                 next = list->next;
                 if(list->data_ptr) {
-                    detail::global_free(list->data_ptr);
+                    if(IS_EXECUTABLE) {
+                        detail::global_free_executable(
+                            list->data_ptr, SLAB_SIZE);
+                    } else {
+                        detail::global_free(list->data_ptr);
+                    }
                     list->data_ptr = nullptr;
                     list->bump_ptr = nullptr;
                 }
@@ -245,8 +259,11 @@ namespace granary {
                 FAULT;
             }
 
-            curr->bump_ptr -= last_allocation_size;
-            curr->remaining += last_allocation_size;
+            if(curr && last_allocation_size) {
+                curr->bump_ptr -= last_allocation_size;
+                curr->remaining += last_allocation_size;
+            }
+
             last_allocation_size = 0;
         }
 

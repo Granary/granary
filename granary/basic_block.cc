@@ -569,6 +569,8 @@ namespace granary {
 
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
+        // TODO: memory error below.
+
         // fill in the info
         info->magic = static_cast<uint32_t>(BB_MAGIC);
         info->kind = kind;
