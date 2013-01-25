@@ -146,6 +146,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_direct_cbr.o
 	GR_OBJS += bin/tests/test_direct_call.o
 	GR_OBJS += bin/tests/test_lock_inc.o
+	GR_OBJS += bin/tests/test_direct_rec.o
 	
 	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS) -pthread -lrt -lm
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
