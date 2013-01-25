@@ -38,10 +38,6 @@ namespace granary {
         BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
         BITS_PER_QWORD = BITS_PER_BYTE * 8,
 
-        /// aligned state size
-        STATE_SIZE_ = sizeof(basic_block_state),
-        STATE_SIZE = STATE_SIZE_ + ALIGN_TO(STATE_SIZE_, BB_ALIGN),
-
         /// an estimation of the number of bytes in a direct branch slot; each
         /// slot only requires 10 bytes, but we add 4 extra for any needed
         /// padding.
@@ -417,8 +413,10 @@ namespace granary {
         unsigned num_direct_branches(0);
         bool fall_through_pc(false);
 
-        basic_block_state *block_storage(
-            cpu->fragment_allocator.allocate<basic_block_state>());
+        basic_block_state *block_storage(nullptr);
+        if(basic_block_state::size()) {
+            block_storage = cpu->fragment_allocator.allocate<basic_block_state>();
+        }
 
         for(;;) {
             instruction in(instruction::decode(pc));

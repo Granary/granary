@@ -12,6 +12,7 @@
 #include <bitset>
 
 #include "granary/globals.h"
+#include "granary/hash_table.h"
 
 #include "clients/state.h"
 
@@ -25,6 +26,7 @@ namespace granary {
     struct cpu_state_handle;
     struct thread_state_handle;
     struct instruction_list_mangler;
+
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw();
@@ -123,14 +125,25 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
+
+        /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::fragment_allocator_config>
             fragment_allocator;
 
+
+        /// Allocator for objects whose lifetimes end before the next entry
+        /// into Granary.
         bump_pointer_allocator<detail::transient_allocator_config>
             transient_allocator;
 
-        //hash_table<app_pc, app_pc>
 
+        /// The CPU-private "mirror" of the global code cache. This code cache
+        /// mirrors the global one insofar as entries move from the global one
+        /// into local ones over the course of execution.
+        hash_table<app_pc, app_pc> code_cache;
+
+
+        /// Are interrupts currently enabled on this CPU?
         bool interrupts_enabled;
     };
 
@@ -147,12 +160,13 @@ namespace granary {
     struct basic_block_state : public client::basic_block_state {
     public:
 
-        /// Returns the size of the basic block state, plus any extra
-        /// padding needed to follow the basic block state in order for
-        /// instructions to be aligned on a 16 byte boundary.
+        /// Returns the size of the basic block state. Because every struct has
+        /// size at least 1 byte, we use this to determine if there *really* is
+        /// anything in the basic block state, or if it's just an empty struct,
+        /// in which case its size is actually 0 bytes.
         constexpr inline static unsigned size(void) throw() {
             return (sizeof(detail::dummy_block_state) > sizeof(uint64_t))
-                ? (sizeof(basic_block_state) + ALIGN_TO(sizeof(basic_block_state), 16))
+                ? sizeof(basic_block_state)
                 : 0U;
         }
     };
