@@ -12,14 +12,20 @@
 
 namespace test {
 
+
     static int (*true_func)(void) = granary_test_return_true;
+
+
     static int (*false_func)(void) = granary_test_return_false;
+
+
     static bool indirect_call(void) throw() {
         if(true_func() && false_func()) {
             return false;
         }
         return true;
     }
+
 
     /// Test that the targets of indirect calls are correctly resolved.
     static void indirect_call_mangled_correctly(void) {

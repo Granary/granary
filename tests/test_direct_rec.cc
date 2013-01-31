@@ -11,6 +11,7 @@
 
 namespace test {
 
+
     static int test_fibonacci(int i) throw() {
         if(0 == i) {
             return 1;

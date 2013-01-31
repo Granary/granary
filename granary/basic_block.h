@@ -167,68 +167,6 @@ namespace granary {
                            app_pc generated_pc) throw();
     };
 
-
-    /// Represents a virtual table of addresses for use within a basic block.
-    /// This structure is primarily used by mangle.cc. Vtable entries are one
-    /// of two kinds:
-    ///     i)  Instruction addresses that are > 4GB away from the code cache.
-    ///     ii) (source offset, dest offset) pairs used as a cache for predicting
-    ///         the target of an indirect CTI.
-    struct basic_block_vtable {
-    public:
-
-        struct lookup {
-            uint32_t    rel_source;
-            uint32_t    rel_dest;
-        } __attribute__((packed));
-
-        struct address {
-            uint8_t     policy:8;
-            uint64_t    addr:56;
-        } __attribute__((packed));
-
-        union entry {
-            lookup      as_lookup;
-            address     as_address;
-        };
-
-    private:
-
-        static_assert(sizeof(entry) == sizeof(uint64_t),
-            "Invalid packing of basic block vtable entries.");
-
-        entry *arr;
-        unsigned num_entries;
-        unsigned curr_entry;
-    public:
-
-
-
-        inline basic_block_vtable(void)
-            : arr(nullptr)
-            , num_entries(0U)
-            , curr_entry(0U)
-        { }
-
-        inline basic_block_vtable(entry *arr_, unsigned num_entries_)
-            : arr(arr_)
-            , num_entries(num_entries_)
-            , curr_entry(0U)
-        { }
-
-        inline lookup &next_lookup(void) throw() {
-            return arr[curr_entry++].as_lookup;
-        }
-
-        inline address &next_address(void) throw() {
-            return arr[curr_entry++].as_address;
-        }
-
-        /// Return the size in bytes of this vtable.
-        inline unsigned size(void) throw() {
-            return num_entries * sizeof *arr;
-        }
-    };
 }
 
 #endif /* granary_BB_H_ */

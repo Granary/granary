@@ -36,6 +36,7 @@ namespace granary {
 
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
+        GRANARY_ENTRYPOINT
         inline static app_pc find(mangled_address addr) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;

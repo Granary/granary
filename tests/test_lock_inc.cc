@@ -7,7 +7,9 @@
 
 namespace test {
 
-#if TEST_LOCK
+
+    /// The static integer complicates things in user space because it might
+    /// be more than 4gb away from the code cache.
     static int local_lock_inc(void) throw() {
         static volatile int i(0);
         ASM(
@@ -40,7 +42,6 @@ namespace test {
     ADD_TEST(test_local_lock_inc,
         "Test that `lock inc` is encoded and behaves correctly.")
 
-#endif
 }
 
 #endif

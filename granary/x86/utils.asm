@@ -28,7 +28,7 @@ END_FUNC(granary_asm_apic_id)
 /// Atomically write 8 bytes to memory.
 DECLARE_FUNC(granary_atomic_write8)
 GLOBAL_LABEL(granary_atomic_write8:)
-    xchg %ARG1, (%ARG2);
+    lock xchg %ARG1, (%ARG2);
     ret;
 END_FUNC(granary_atomic_write8)
 

@@ -514,11 +514,9 @@ namespace granary {
             resolve_local_branches(policy, cpu, ls);
         }
 
-        basic_block_vtable vtable;
-
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
-        instruction_list_mangler mangler(cpu, thread, client_policy, vtable);
+        instruction_list_mangler mangler(cpu, thread, client_policy);
         mangler.mangle(ls);
 
         // re-calculate the size and re-allocate; if our earlier

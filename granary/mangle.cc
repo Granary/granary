@@ -67,7 +67,7 @@ namespace granary {
 
 
     /// A machine context representation for direct jump/call patches. The
-    /// struture contains as much state as is saved by the direct assembly
+    /// structure contains as much state as is saved by the direct assembly
     /// direct jump patch functions.
     ///
     /// The high-level operation here is that the patch function will know
@@ -207,17 +207,19 @@ namespace granary {
         instruction_list_handle in,
         unsigned num_nops
     ) throw() {
-        instruction nop;
+        //printf("num nops = %u\n", num_nops);
+        //instruction nop;
 
         for(; num_nops >= 3; num_nops -= 3) {
-            ls.insert_after(in, nop3byte_());
+            in = ls.insert_after(in, nop3byte_());
         }
 
-        for(; num_nops >= 2; num_nops -= 2) {
-            ls.insert_after(in, nop2byte_());
+        if(2 == num_nops) {
+            in = ls.insert_after(in, nop2byte_());
+            num_nops -= 2;
         }
 
-        for(; num_nops >= 1; num_nops -= 1) {
+        if(num_nops) {
             ls.insert_after(in, nop1byte_());
         }
     }
@@ -259,10 +261,18 @@ namespace granary {
     static direct_cti_patch_mcontext *
     find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
+        // notify Granary that we're entering!
         cpu_state_handle cpu;
         thread_state_handle thread;
-
         granary::enter(cpu, thread);
+
+        // get an address into the target basic block using two stage lookup.
+        app_pc target_pc(
+            cpu->code_cache.find(context->target_address.as_address));
+
+        if(!target_pc) {
+            target_pc = code_cache::find(cpu, thread, context->target_address);
+        }
 
         // determine the address to patch; this changes the return address in
         // the machine context to point back to the patch address so that we
@@ -277,9 +287,6 @@ namespace granary {
             context->return_address_after_mangled_call -= offset;
             patch_address -= offset;
         }
-
-        // get an address into the target basic block
-        app_pc target_pc(code_cache::find(cpu, thread, context->target_address));
 
         // create the patch code
         uint64_t staged_code_(0ULL);
@@ -421,6 +428,8 @@ namespace granary {
 
         IF_DEBUG(old_size > 8, FAULT)
         IF_DEBUG(new_size > 8, FAULT)
+
+        (void) new_size;
     }
 
 
@@ -493,30 +502,6 @@ namespace granary {
 #if CONFIG_TRANSLATE_FAR_ADDRESSES
 
 
-    /// Detect the use of a relative memory operand whose absolute address
-    /// will be too far away from the encoding location, and increment the
-    /// vtable counter so that we can spill the absolute address there.
-    static void count_far_operands(
-        operand_ref op,
-        app_pc &estimator_pc,
-        unsigned &num_far_ops,
-        bool &counted_for_instr
-    ) throw() {
-        if(counted_for_instr
-        || (   dynamorio::REL_ADDR_kind != op->kind
-            && dynamorio::PC_kind != op->kind)) {
-            return;
-        }
-
-        // if the operand is too far away then we need to spill that address to
-        // a vtable slot.
-        if(_4GB < pc_diff(estimator_pc - op->value.pc)) {
-            ++num_far_ops;
-            counted_for_instr = true;
-        }
-    }
-
-
     /// Find a far memory operand and its size. If we've already found one in
     /// this instruction then don't repeat the check.
     static void find_far_operand(
@@ -552,7 +537,7 @@ namespace granary {
     }
 
 
-    /// Mangle %rip-relative memeory operands into absolute memory operands
+    /// Mangle %rip-relative memory operands into absolute memory operands
     /// (indirectly through a spill register) in user space. This checks to see
     /// if %rip-relative operands and > 4gb away and converts them to a
     /// different form. This is a "two step" process, in that a DR instruction
@@ -606,62 +591,6 @@ namespace granary {
 #endif
 
 
-    /// Goes through all instructions and adds vtable entries for the direct
-    /// calls to far PCs, and indirect calls.
-    void instruction_list_mangler::add_vtable_entries(
-        unsigned num_needed_vtable_entries,
-        app_pc estimator_pc
-    ) throw() {
-
-        // allocate the vtable entries in the fragment cache
-        array<basic_block_vtable::entry> entries(
-            cpu->fragment_allocator.allocate_array<basic_block_vtable::entry>(
-                num_needed_vtable_entries));
-
-        // initialise the vtable
-        vtable = basic_block_vtable(entries.begin(), num_needed_vtable_entries);
-
-        instruction_list_handle in(ls->first());
-        instruction_list_handle next_in;
-
-        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
-            next_in = in.next();
-
-            // native instruction, we might need to mangle it.
-            if(!in->is_cti()) {
-                continue;
-            }
-
-            operand target(in->cti_target());
-
-            // direct branch (e.g. un/conditional branch, jmp, call)
-            if(dynamorio::opnd_is_pc(target)) {
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
-                app_pc target_pc(dynamorio::opnd_get_pc(target));
-
-                // update the target of the instruction so that it now uses
-                // one of the vtable entries.
-                if(_4GB < pc_diff(estimator_pc - target_pc)) {
-                    printf("in here??\n");
-                    /*
-                    //printf("adding vtable entry for instruction(%p) targeting (%p)\n", in->pc(), target_pc);
-
-                    basic_block_vtable::address &addr(vtable.next_address());
-                    addr.addr = target_pc;
-                    addr.policy = policy.policy_id;
-                    in->set_cti_target(absmem_(&addr, 8));
-                    */
-                    // TODO
-                }
-#endif
-            // indirect branch lookup; need vtable entry for caching.
-            } else {
-                // TODO?
-            }
-        }
-    }
-
-
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
     void instruction_list_mangler::mangle(instruction_list &ls_) throw() {
@@ -669,10 +598,17 @@ namespace granary {
         ls = &ls_;
 
         instruction_list_handle in(ls->first());
+        instruction_list_handle next_in;
+
+        // used to estimate if an address is too far away from the code cache
+        // to use relative addressing.
+        uint8_t *estimator_pc(
+            cpu->fragment_allocator.allocate_staged<uint8_t>());
 
         // go mangle instructions; note: indirect CTI mangling happens here.
-        for(unsigned i(0), max(ls->length()); i < max; ++i, in = in.next()) {
+        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
             const bool can_skip(nullptr == in->pc() || in->is_mangled());
+            next_in = in.next();
 
             // native instruction, we might need to mangle it.
             if(in->is_cti()) {
@@ -701,51 +637,6 @@ namespace granary {
                     continue;
                 }
                 mangle_sti(in);
-            }
-        }
-
-        // used to detect when and how many vtable entries are needed; vtable
-        // entries are typically used for far direct jumps and as a cache for
-        // indirect jumps, but can also be used in user space for far absolute
-        // addresses.
-        unsigned num_needed_vtable_entries(0U);
-        uint8_t *estimator_pc(
-            cpu->fragment_allocator.allocate_staged<uint8_t>());
-
-        // do a second-pass over all instructions, looking for any hot-patchable
-        // instructions, and aligning them nicely.
-        //
-        // Extra alignment/etc needs to be done here instead of in encoding
-        // because of how basic block allocation works.
-        unsigned align(0);
-        instruction_list_handle prev_in;
-        instruction_list_handle next_in;
-        in = ls->first();
-
-        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
-
-            if(in->is_cti()) {
-
-
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
-
-                // direct branch (e.g. un/conditional branch, jmp, call)
-                if(dynamorio::opnd_is_pc(in->cti_target())) {
-                    bool found_far_op(false);
-                    in->for_each_operand(count_far_operands,
-                                         estimator_pc,
-                                         num_needed_vtable_entries,
-                                         found_far_op);
-                }
-#endif
-
-                // indirect branch lookup; need vtable entry for caching.
-                // we assume that the only indirect branches that need a vtable
-                // entry are those that map to an application instruction.
-                //} else if(in->pc()) {
-                //    ++num_needed_vtable_entries;
-                //}
-                // TODO?
 
             // if in user space, look for uses of relative addresses in operands
             // that are no longer reachable with %rip-relative encoding, and
@@ -754,22 +645,34 @@ namespace granary {
             } else {
                 IF_USER(mangle_far_memory_refs(in, estimator_pc);)
             }
+        }
 
+
+        // do a second-pass over all instructions, looking for any hot-patchable
+        // instructions, and aligning them nicely.
+        //
+        // Extra alignment/etc needs to be done here instead of in encoding
+        // because of how basic block allocation works.
+        unsigned align(0);
+        instruction_list_handle prev_in;
+        in = ls->first();
+
+        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
+
+            next_in = in.next();
             const bool is_hot_patchable(in->is_patchable());
 
-            // x86-64 guaranteed quadword atomic writes so long as
-            // the memory location is aligned on an 8-byte boundary;
-            // we will assume that we are never patching an instruction
-            // longer than 8 bytes
+            // x86-64 guaranteed quadword atomic writes so long as the memory
+            // location is aligned on an 8-byte boundary; we will assume that
+            // we are never patching an instruction longer than 8 bytes
             if(is_hot_patchable) {
                 uint64_t forward_align(ALIGN_TO(align, 8));
                 inject_mangled_nops(*ls, prev_in, forward_align);
                 align += forward_align;
             }
 
-            align += in->encoded_size();
             prev_in = in;
-            next_in = in.next();
+            align += in->encoded_size();
 
             // make sure that the instruction is the only "useful" one in it's
             // 8-byte block
@@ -779,12 +682,6 @@ namespace granary {
                 align += forward_align;
             }
         }
-
-        // go add the vtable entries; this is also where indirect cti mangling
-        // happens
-        if(num_needed_vtable_entries) {
-            add_vtable_entries(num_needed_vtable_entries, estimator_pc);
-        }
     }
 
 
@@ -792,13 +689,11 @@ namespace granary {
     instruction_list_mangler::instruction_list_mangler(
         cpu_state_handle &cpu_,
         thread_state_handle &thread_,
-        instrumentation_policy &policy_,
-        basic_block_vtable &vtable_
+        instrumentation_policy &policy_
     ) throw()
         : cpu(cpu_)
         , thread(thread_)
         , policy(policy_)
-        , vtable(vtable_)
         , ls(nullptr)
     { }
 

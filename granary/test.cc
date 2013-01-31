@@ -87,6 +87,7 @@ namespace granary {
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {
             if(test->func) {
+                printf("Running test '%s'\n", test->desc);
                 test->func();
             }
         }

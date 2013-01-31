@@ -52,8 +52,6 @@ namespace granary {
     /// that, defaults to the global code cache.
     app_pc code_cache::find_on_cpu(mangled_address addr) throw() {
         cpu_state_handle cpu;
-        //addr.as_policy_address.policy_id = \
-        //    policy_for<ibl_exit_policy>::POLICY_ID;
         return cpu->code_cache.find(addr.as_address);
     }
 
