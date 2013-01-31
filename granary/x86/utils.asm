@@ -57,5 +57,6 @@ GLOBAL_LABEL(granary_restore_flags:)
     ret;
 END_FUNC(granary_restore_flags)
 
+
 END_FILE
 

@@ -20,7 +20,6 @@ namespace granary {
     STATIC_INITIALISE({
         FORCE_LIVE |= (1U << dynamorio::DR_REG_NULL);
         FORCE_LIVE |= (1U << dynamorio::DR_REG_RSP);
-        //FORCE_LIVE |= (1U << dynamorio::DR_REG_RBP);
     })
 
 

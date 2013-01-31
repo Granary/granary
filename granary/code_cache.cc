@@ -196,9 +196,8 @@ namespace granary {
 
                     operand target(in.cti_target());
                     if(!dynamorio::opnd_is_pc(target)) {
-                        // TODO: user space initialisation of cpu and thread
-                        //       state uses an indirect call
-                        continue;
+                        used_regs.kill_all();
+                        return used_regs;
                     }
 
                     process_bbs.append(dynamorio::opnd_get_pc(target));
