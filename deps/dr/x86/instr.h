@@ -42,6 +42,10 @@
 
 #include "deps/dr/types.h"
 
+#ifndef X64
+#   define X64
+#endif
+
 #ifdef WINDOWS
 /* disabled warning for
  *   "nonstandard extension used : bit field types other than int"
@@ -559,7 +563,7 @@ struct _opnd_t {
 /* DR_API EXPORT BEGIN */
 #ifdef DR_FAST_IR
 /** x86 operand kinds */
-enum {
+enum op_kind_type {
     NULL_kind,
     IMMED_INTEGER_kind,
     IMMED_FLOAT_kind,

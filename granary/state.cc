@@ -17,8 +17,7 @@ namespace granary {
         (void) thread;
     }
 
-
-    /// static initialization of global fragment allocator
+    /// Static initialisation of global fragment allocator
     bump_pointer_allocator<detail::global_fragment_allocator_config> \
-        global_state::fragment_allocator;
+        global_state::FRAGMENT_ALLOCATOR;
 }

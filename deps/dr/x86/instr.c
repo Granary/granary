@@ -1631,9 +1631,12 @@ reg_get_size(reg_id_t reg)
 instr_t*
 instr_create(dcontext_t *dcontext)
 {
-    //instr_t *instr = (instr_t*) heap_alloc(dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
     instr_t *instr = dcontext->allocated_instr;
-    dcontext->allocated_instr = 0;
+    if(!instr) {
+        instr = (instr_t*) heap_alloc(
+            dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+        dcontext->allocated_instr = 0;
+    }
 
     /* everything initialises to 0, even flags, to indicate
      * an uninitialised instruction */

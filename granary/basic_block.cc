@@ -20,8 +20,8 @@ namespace granary {
 
     enum {
 
-        BB_PADDING      = 0xCC,
-        BB_MAGIC        = 0xCCAACC,
+        BB_PADDING      = 0xEA,
+        BB_MAGIC        = 0xD4D5D6,
         BB_MAGIC_MASK   = 0xFFFFFF00,
         BB_ALIGN        = 16,
 
@@ -168,7 +168,7 @@ namespace granary {
         cache_pc_start = cache_pc_end - info->num_bytes;
 
         IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
-                cache_pc_end + sizeof(basic_block_info));)
+            cache_pc_end + sizeof(basic_block_info));)
     }
 
 
@@ -415,7 +415,7 @@ namespace granary {
 
         basic_block_state *block_storage(nullptr);
         if(basic_block_state::size()) {
-            block_storage = cpu->fragment_allocator.allocate<basic_block_state>();
+            block_storage = cpu->block_allocator.allocate<basic_block_state>();
         }
 
         for(;;) {
@@ -455,7 +455,6 @@ namespace granary {
                     added_in->set_patchable();
                 }
 
-                // it's an conditional jmp; terminate the basic block
                 // it's a conditional jmp; terminate the basic block, and save
                 // the next pc as a fall-through point.
                 if(!dynamorio::instr_is_call(in)) {
@@ -528,9 +527,22 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
 
-        emit(BB_TRANSLATED_FRAGMENT, ls, start_pc, generated_pc);
+        app_pc emitted_pc = emit(
+            BB_TRANSLATED_FRAGMENT, ls, block_storage, start_pc, generated_pc);
 
-        return basic_block(generated_pc);
+        // If this isn't the case, then there there was likely a buffer
+        // overflow. This assumes that the fragment allocator always aligns
+        // executable code on a 16 byte boundary.
+        ASSERT(generated_pc == emitted_pc);
+
+        basic_block ret(emitted_pc);
+
+        // quick double check to make sure that we can properly resolve the
+        // basic block info later. If this isn't the case, then we likely need
+        // to choose different magic values, or make them longer.
+        ASSERT(generated_pc == ret.cache_pc_start);
+
+        return ret;
     }
 
 
@@ -539,10 +551,11 @@ namespace granary {
     ///
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
-    void basic_block::emit(basic_block_kind kind,
-                                  instruction_list &ls,
-                                  app_pc generating_pc,
-                                  app_pc pc) throw() {
+    app_pc basic_block::emit(basic_block_kind kind,
+                             instruction_list &ls,
+                             basic_block_state *block_storage,
+                             app_pc generating_pc,
+                             app_pc pc) throw() {
 
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);
 
@@ -566,10 +579,13 @@ namespace granary {
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
         info->hotness = 0;
         info->generating_pc = generating_pc;
+        info->state = block_storage;
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
         IF_KERNEL( pc += initialise_state_bytes(info, ls, pc); )
+
+        return start_pc;
     }
 }
 

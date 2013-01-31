@@ -172,7 +172,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_null(void)
 {
-    opnd_t opnd;
+    opnd_t opnd = {0};
     opnd.kind = NULL_kind;
     return opnd;
 }
@@ -181,7 +181,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg(reg_id_t r)
 {
-    opnd_t opnd IF_DEBUG(= {0});  /* FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd = {0};  /* GRANARY TODO: was IF_DEBUG(= {0})  FIXME: Needed until i#417 is fixed. */
     CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
@@ -194,7 +194,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_pc(app_pc pc)
 {
-    opnd_t opnd;
+    opnd_t opnd = {0};
     opnd.kind = PC_kind;
     opnd.value.pc = pc;
     return opnd;

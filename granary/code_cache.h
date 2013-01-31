@@ -25,11 +25,21 @@ namespace granary {
     struct code_cache {
     public:
 
+        /// Indirect branch lookup routine.
+        static app_pc IBL_COMMON_ENTRY_ROUTINE;
+
+
+        /// Find fast. This looks in the cpu-private cache first, and failing
+        /// that, defaults to the global code cache.
+        static app_pc find_on_cpu(mangled_address addr) throw()
+            __attribute__((hot, flatten));
+
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
-        inline static app_pc find(address_mangler addr) throw() {
+        inline static app_pc find(mangled_address addr) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
+            enter(cpu, thread);
             return find(cpu, thread, addr);
         }
 
@@ -39,12 +49,8 @@ namespace granary {
         inline static app_pc find(app_pc addr, Policy) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
-            address_mangler mangled_addr;
             instrumentation_policy policy((policy_for<Policy>()));
-
-            mangled_addr.as_address = addr;
-            mangled_addr.as_policy_address.policy_id = policy.policy_id;
-
+            mangled_address mangled_addr(addr, policy);
             return find(cpu, thread, mangled_addr);
         }
 
@@ -52,13 +58,17 @@ namespace granary {
         /// the code cache.
         static app_pc find(cpu_state_handle &cpu,
                            thread_state_handle &thread,
-                           address_mangler addr) throw();
+                           mangled_address addr) throw();
+
+        /// Initialise the indirect branch lookup routine.
+        static void init_ibl(void) throw();
+        static app_pc ibl_exit_for(app_pc) throw();
 
         /*
         /// Add an entry to the code cache for later prediction.
         static void predict(cpu_state_handle &cpu,
                             thread_state_handle &thread,
-                            address_mangler app_code,
+                            mangled_address app_code,
                             app_pc cache_code) throw();
         */
     };

@@ -12,6 +12,7 @@
 #include "granary/state.h"
 #include "granary/detach.h"
 #include "granary/register.h"
+#include "granary/hash_table.h"
 
 
 /// Used to unroll registers in the opposite order in which they are saved
@@ -30,10 +31,8 @@
 /// eventually call the templates.
 #define DEFINE_DIRECT_JUMP_RESOLVER(opcode, size) \
     direct_branch_ ## opcode = \
-        make_direct_cti_patch_func<\
-            direct_jump_patch_mcontext, \
-            opcode ## _ \
-        >(granary_asm_direct_branch_template);
+        make_direct_cti_patch_func<opcode ## _ >( \
+            granary_asm_direct_branch_template);
 
 
 /// Used to forward-declare the assembly function patches. These patch functions
@@ -50,7 +49,6 @@
 
 extern "C" {
     extern void granary_asm_direct_branch_template(void);
-    extern void granary_asm_direct_call_template(void);
 }
 
 
@@ -68,7 +66,7 @@ namespace granary {
     };
 
 
-    /// A machine context representation for direct jump patches. The
+    /// A machine context representation for direct jump/call patches. The
     /// struture contains as much state as is saved by the direct assembly
     /// direct jump patch functions.
     ///
@@ -77,7 +75,7 @@ namespace granary {
     /// that hot-patchable instructions will be aligned on 8-byte boundaries)
     /// and that we know where we need to patch the target to by looking at the
     /// relative target offset from the beginning of application code.
-    struct direct_jump_patch_mcontext {
+    struct direct_cti_patch_mcontext {
 
         /// Saved registers.
         ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
@@ -87,29 +85,119 @@ namespace granary {
 
         /// The target address of a jump, including the policy to use when
         /// translating the target basic block.
-        address_mangler target_address;
+        mangled_address target_address;
 
         /// The return address *immediately* following the mangled instruction.
         uint64_t return_address_after_mangled_call;
     };
 
 
-    /// Machine context for direct calls. This saves fewer registers
-    struct direct_call_patch_mcontext {
+    /// Represents an indirect operand.
+    union indirect_operand {
 
-        /// Saved registers.
-        ALL_CALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
+        // Note: order of these fields is significant. The policy_id needs to
+        //       align with the high-order bits in case the target of an
+        //       indirect CTI is loaded through an absolute memory location. If
+        //       that's the case, then the policy_id will only clobber the high
+        //       bits, which is fine.
+        struct {
+            int32_t displacement;
+            uint8_t base_reg;
+            uint8_t index_reg;
+            uint8_t scale;
+            uint8_t policy_id;
+        } as_operand __attribute__((packed));
 
-        /// Saved flags and padding.
-        IF_KERNEL(uint64_t flags;)
+        uint64_t as_uint;
 
-        /// The target address of a call, including the policy to use when
-        /// translating the target basic block.
-        address_mangler target_address;
+        indirect_operand(void) throw()
+            : as_uint(0UL)
+        { }
 
-        /// The return address *immediately* following the mangled instruction.
-        uint64_t return_address_after_mangled_call;
+
+        /// Initialise an indirect operand (for use in operand-specific IBL
+        /// lookup) from an operand and from a policy. Care is taken to make
+        /// sure different kinds of indirect operands are distinguishable.
+        indirect_operand(operand op, instrumentation_policy policy) throw()
+            : as_uint(0UL)
+        {
+            if(dynamorio::opnd_is_abs_addr(op)) {
+                as_uint = reinterpret_cast<uint64_t>(op.value.addr);
+
+            } else if(dynamorio::BASE_DISP_kind == op.kind) {
+                as_operand.base_reg = op.value.base_disp.base_reg;
+                as_operand.index_reg = op.value.base_disp.index_reg;
+                as_operand.scale = op.value.base_disp.scale;
+                as_operand.displacement = op.value.base_disp.disp;
+
+            } else if(dynamorio::REG_kind == op.kind) {
+                as_operand.base_reg = op.value.reg;
+                as_operand.scale = ~0; // bigger than any possible valid scale.
+                as_operand.index_reg = ~0;
+
+                // should make it unlikely to conflict with abs address kinds
+                as_operand.displacement = ~0;
+            } else {
+                FAULT;
+            }
+
+            as_operand.policy_id = policy.policy_id;
+        }
     };
+
+
+    /// The operand-specific IBL entry routines.
+    static shared_hash_table<uint64_t, app_pc> IBL_ENTRY_ROUTINE;
+
+
+    /// Find or make an IBL entry routine.
+    app_pc instruction_list_mangler::ibl_entry_for(
+        operand target,
+        instrumentation_policy policy
+    ) throw() {
+        app_pc routine(nullptr);
+        const indirect_operand op(target, policy);
+
+        // got it; we've previously created it.
+        if(IBL_ENTRY_ROUTINE.load(op.as_uint, routine)) {
+            return routine;
+        }
+
+        // don't have it; go encode it.
+        instruction_list ibl;
+        ibl.append(push_(reg::arg1));
+        ibl.append(push_(reg::ret));
+
+        // save flags / disable interrupts
+#if GRANARY_IN_KERNEL
+        ibl.append(pushf_()));
+        ibl.append(cli_());
+#else
+        ibl.append(lahf_());
+        ibl.append(push_(reg::rax)); // because rax == ret
+#endif
+
+        // add in the policy to the address to be looked up.
+        ibl.append(mov_ld_(reg::arg1, target));
+        ibl.append(shl_(reg::arg1, int8_(mangled_address::POLICY_NUM_BITS)));
+        ibl.append(or_(reg::arg1, int8_(op.as_operand.policy_id)));
+
+        // go to the common ibl lookup routine
+        ibl.append(jmp_(pc_(code_cache::IBL_COMMON_ENTRY_ROUTINE)));
+
+        app_pc ibl_code(cpu->fragment_allocator.allocate_array<uint8_t>(
+            ibl.encoded_size()));
+
+        ibl.encode(ibl_code);
+
+        // try to store the entry routine.
+        if(!IBL_ENTRY_ROUTINE.store(op.as_uint, ibl_code)) {
+            cpu->fragment_allocator.free_last();
+            IBL_ENTRY_ROUTINE.load(op.as_uint, ibl_code);
+        }
+
+        return ibl_code;
+    }
 
 
     /// Injects N bytes of NOPs into an instuction list after
@@ -166,11 +254,10 @@ namespace granary {
     ///       will return to the instruction just patched.
     GRANARY_ENTRYPOINT
     template <
-        typename MContext,
         instruction (*make_opcode)(dynamorio::opnd_t)
     >
-    static MContext *
-    find_and_patch_direct_cti(MContext *context) throw() {
+    static direct_cti_patch_mcontext *
+    find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
         cpu_state_handle cpu;
         thread_state_handle thread;
@@ -198,8 +285,12 @@ namespace granary {
         uint64_t staged_code_(0ULL);
         app_pc staged_code(reinterpret_cast<app_pc>(&staged_code_));
 
+        // make the cti instruction, and try to widen it if necessary.
+        instruction cti(make_opcode(pc_(target_pc)));
+        cti.widen_if_cti();
+
         stage_8byte_hot_patch(
-            make_opcode(pc_(target_pc)),
+            cti,
             staged_code,
             reinterpret_cast<app_pc>(patch_address));
 
@@ -214,7 +305,6 @@ namespace granary {
 
     /// Make a direct patch function that is specific to a particular opcode.
     template <
-        typename MContext,
         instruction (*make_opcode)(dynamorio::opnd_t)
     >
     static app_pc make_direct_cti_patch_func(
@@ -228,7 +318,7 @@ namespace granary {
             instruction in(instruction::decode(&start_pc));
             if(in.is_call()) {
                 ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<int64_t>(
-                    find_and_patch_direct_cti<MContext, make_opcode>))));
+                    find_and_patch_direct_cti<make_opcode>))));
             }
 
             ls.append(in);
@@ -238,7 +328,7 @@ namespace granary {
             }
         }
 
-        app_pc dest_pc(global_state::fragment_allocator.allocate_array<uint8_t>(
+        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(
             ls.encoded_size()));
 
         ls.encode(dest_pc);
@@ -259,11 +349,8 @@ namespace granary {
         FOR_EACH_DIRECT_JUMP(DEFINE_DIRECT_JUMP_RESOLVER);
 
         // initialise the direct call resolver in the policy
-        direct_branch_call = \
-            make_direct_cti_patch_func<
-                direct_call_patch_mcontext,
-                call_
-            >(granary_asm_direct_call_template);
+        direct_branch_call = make_direct_cti_patch_func<call_>(
+            granary_asm_direct_branch_template);
     });
 
 
@@ -307,26 +394,22 @@ namespace granary {
 
         const unsigned old_size(in->encoded_size());
 
-        address_mangler am;
-
-        // set the target
-        am.as_address = target;
-
-        // set the policy, potentially using policy inheritance
-        uint8_t target_policy(in->policy().policy_id);
+        instrumentation_policy target_policy(in->policy());
         if(!target_policy) {
-            target_policy = policy.policy_id;
+            target_policy = policy;
         }
-        am.as_policy_address.policy_id = target_policy;
+
+        // set the policy-fied target
+        mangled_address am(target, target_policy.base_policy());
 
         // add in the patch code
         instruction_list_handle patch(
-            ls->append(lea_(reg::rsp, reg::rsp[-16])));
-        ls->append(mov_st_(reg::rsp[0], reg::rax));
-        ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
-        ls->append(mov_st_(reg::rsp[8], reg::rax));
-        ls->append(pop_(reg::rax));
-        ls->append(jmp_(pc_(get_direct_cti_patch_func(in->op_code()))));
+            ls->append(lea_(reg::rsp, reg::rsp[-8])));
+            ls->append(push_(reg::rax));
+            ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
+            ls->append(mov_st_(reg::rsp[8], reg::rax));
+            ls->append(pop_(reg::rax));
+            ls->append(jmp_(pc_(get_direct_cti_patch_func(in->op_code()))));
 
         *in = call_(instr_(*patch));
 
@@ -341,25 +424,25 @@ namespace granary {
     }
 
 
-    /// Add an indirect call slot.
-    void instruction_list_mangler::mangle_indirect_call(
+    /// Mangle an indirect control transfer instruction.
+    void instruction_list_mangler::mangle_indirect_cti(
         instruction_list_handle in,
         operand target
     ) throw() {
 
-        (void) in;
-        (void) target;
-    }
+        instrumentation_policy target_policy(in->policy());
+        if(!target_policy) {
+            target_policy = policy;
+        }
 
+        // convert the policy into an IBL policy.
+        instrumentation_policy target_policy_ibl(policy.indirect_cti_policy());
 
-    /// Add an indirect jump slot.
-    void instruction_list_mangler::mangle_indirect_jump(
-        instruction_list_handle in,
-        operand target
-    ) throw() {
-
-        (void) in;
-        (void) target;
+        if(in->is_call()) {
+            *in = call_(pc_(ibl_entry_for(target, target_policy_ibl)));
+        } else {
+            *in = jmp_(pc_(ibl_entry_for(target, target_policy_ibl)));
+        }
     }
 
 
@@ -370,8 +453,8 @@ namespace granary {
 
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(in, target);
-        } else {
-            mangle_indirect_call(in, target);
+        } else if(!dynamorio::opnd_is_instr(target)) {
+            mangle_indirect_cti(in, target);
         }
     }
 
@@ -390,8 +473,8 @@ namespace granary {
         operand target(in->cti_target());
         if(dynamorio::opnd_is_pc(target)) {
             add_direct_branch_stub(in, target);
-        } else {
-            mangle_indirect_jump(in, target);
+        } else if(!dynamorio::opnd_is_instr(target)) {
+            mangle_indirect_cti(in, target);
         }
     }
 
@@ -420,7 +503,8 @@ namespace granary {
         bool &counted_for_instr
     ) throw() {
         if(counted_for_instr
-        || (dynamorio::REL_ADDR_kind != op->kind && dynamorio::PC_kind != op->kind)) {
+        || (   dynamorio::REL_ADDR_kind != op->kind
+            && dynamorio::PC_kind != op->kind)) {
             return;
         }
 
@@ -459,7 +543,8 @@ namespace granary {
 
     /// Update a far operand in place.
     static void update_far_operand(operand_ref op, operand &new_op) throw() {
-        if(dynamorio::REL_ADDR_kind != op->kind && dynamorio::PC_kind != op->kind) {
+        if(dynamorio::REL_ADDR_kind != op->kind
+        && dynamorio::PC_kind != op->kind) {
             return;
         }
 
@@ -557,6 +642,7 @@ namespace granary {
                 // update the target of the instruction so that it now uses
                 // one of the vtable entries.
                 if(_4GB < pc_diff(estimator_pc - target_pc)) {
+                    printf("in here??\n");
                     /*
                     //printf("adding vtable entry for instruction(%p) targeting (%p)\n", in->pc(), target_pc);
 
@@ -570,7 +656,7 @@ namespace granary {
 #endif
             // indirect branch lookup; need vtable entry for caching.
             } else {
-
+                // TODO?
             }
         }
     }
@@ -639,23 +725,27 @@ namespace granary {
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
 
             if(in->is_cti()) {
-                operand target(in->cti_target());
+
+
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
 
                 // direct branch (e.g. un/conditional branch, jmp, call)
-                if(dynamorio::opnd_is_pc(target)) {
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
+                if(dynamorio::opnd_is_pc(in->cti_target())) {
                     bool found_far_op(false);
                     in->for_each_operand(count_far_operands,
                                          estimator_pc,
                                          num_needed_vtable_entries,
                                          found_far_op);
+                }
 #endif
+
                 // indirect branch lookup; need vtable entry for caching.
                 // we assume that the only indirect branches that need a vtable
                 // entry are those that map to an application instruction.
-                } else if(in->pc()) {
-                    ++num_needed_vtable_entries;
-                }
+                //} else if(in->pc()) {
+                //    ++num_needed_vtable_entries;
+                //}
+                // TODO?
 
             // if in user space, look for uses of relative addresses in operands
             // that are no longer reachable with %rip-relative encoding, and

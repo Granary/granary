@@ -6,6 +6,7 @@
  */
 
 #include "granary/policy.h"
+#include "granary/mangle.h"
 
 namespace granary {
 
@@ -15,14 +16,16 @@ namespace granary {
     /// partially at compile time and partially at run time) to determine
     /// which client-code basic block visitor functions should be called.
     instrumentation_policy::basic_block_visitor *
-    instrumentation_policy::POLICY_FUNCTIONS[256] = {
+    instrumentation_policy::POLICY_FUNCTIONS[
+        1 << mangled_address::POLICY_NUM_BITS
+    ] = {
         &(instrumentation_policy::missing_policy)
     };
 
 
     /// Policy ID tracker.
     std::atomic<unsigned> instrumentation_policy::NEXT_POLICY_ID(
-        ATOMIC_VAR_INIT(1U));
+        ATOMIC_VAR_INIT(2U));
 
 
     /// Instrumentation policy for basic blocks where the policy is missing.

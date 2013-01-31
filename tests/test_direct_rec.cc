@@ -35,8 +35,6 @@ namespace test {
         native_result = test_fibonacci(30);
         inst_result = bb_fib.call<int, int>(30);
 
-
-
         ASSERT(native_result == inst_result);
     }
 

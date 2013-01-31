@@ -373,6 +373,10 @@ namespace granary {
         }
 
 
+        /// Widen this instruction if its a CTI.
+        void widen_if_cti(void) throw();
+
+
         /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
@@ -427,8 +431,8 @@ namespace granary {
     template <>
     struct list_meta<instruction> {
         enum {
-            EMBED = false,
-            UNROLL = 5,
+            HAS_NEXT = 1,
+            HAS_PREV = 1,
             NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
             PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
         };
@@ -509,6 +513,9 @@ namespace granary {
 
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
+
+    /// Special instruction for making call slots.
+    instruction call_ind_slot_(operand slot_addr) throw();
 
     /// registers
 #define MAKE_REG(name, upper_name) extern operand name;

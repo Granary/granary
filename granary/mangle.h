@@ -36,8 +36,7 @@ namespace granary {
         void mangle_jump(instruction_list_handle in) throw();
         void mangle_return(instruction_list_handle in) throw();
         void mangle_call(instruction_list_handle in) throw();
-        void mangle_indirect_call(instruction_list_handle in, operand op) throw();
-        void mangle_indirect_jump(instruction_list_handle in, operand op) throw();
+        void mangle_indirect_cti(instruction_list_handle in, operand op) throw();
 
         IF_USER(void mangle_far_memory_refs(instruction_list_handle in,
                                             app_pc estimator_pc) throw();)
@@ -46,6 +45,12 @@ namespace granary {
 
         void add_vtable_entries(unsigned num_needed_vtable_entries,
                                 app_pc estimator_pc) throw();
+
+        /// Get the IBL entry point for an indirect operand and policy.
+        app_pc ibl_entry_for(
+            operand target,
+            instrumentation_policy policy
+        ) throw();
 
     public:
 
@@ -60,19 +65,25 @@ namespace granary {
 
     /// Defines a data type used to de/mangle an address that may or may not
     /// contain policy-specific bits.
-    union address_mangler {
+    union mangled_address {
 
-        /// The mangled address in terms of what is saved/restored on the stack.
-        struct {
-            uint32_t push1;
-            uint32_t push2;
-        } as_components  __attribute__((packed));
+        enum {
+            POLICY_NUM_BITS = 8U
+        };
 
         /// The mangled address in terms of the policy and address components.
+        /// Note: order of these fields is significant.
         struct {
-            uint64_t address_low:56;
-            uint8_t policy_id:8;
+            uint8_t policy_id:POLICY_NUM_BITS; // low
+            uint64_t _:(64 - POLICY_NUM_BITS);
         } as_policy_address __attribute__((packed));
+
+        /// Used to extract "address space" high-order bits for recovering a
+        /// native address.
+        struct {
+            uint64_t _:(64 - POLICY_NUM_BITS);
+            uint8_t lost_bits:POLICY_NUM_BITS; // high
+        } as_recovery_address __attribute__((packed));
 
         /// The mangled address as an actual address.
         app_pc as_address;
@@ -80,6 +91,17 @@ namespace granary {
         /// The mangled address as an unsigned int, which is convenient for
         /// bit masking.
         int64_t as_int;
+
+        mangled_address(void) throw()
+            : as_int(0L)
+        { }
+
+        mangled_address(app_pc addr_, instrumentation_policy policy_) throw()
+            : as_address(addr_)
+        {
+            as_int <<= POLICY_NUM_BITS;
+            as_policy_address.policy_id = policy_.policy_id;
+        }
 
     } __attribute__((packed));
 

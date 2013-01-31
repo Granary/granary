@@ -191,7 +191,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   H('    inline operand far_pc_(uint16_t sel, app_pc pc) { return dynamorio::opnd_create_far_pc(sel, pc); }')
   H('    inline operand instr_(dynamorio::instr_t *instr) { return dynamorio::opnd_create_instr(instr); }')
   H('    inline operand far_instr_(uint16_t sel, instruction *instr) { return dynamorio::opnd_create_far_instr(sel, &(instr->instr)); }')
-
+  H('    operand mem_pc_(app_pc *);')
   lines = list(lines_)
   i = 0
   while i < len(lines):

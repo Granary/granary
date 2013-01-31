@@ -61,8 +61,14 @@ namespace granary {
         void revive_all(void) throw();
 
 
+        /// Revive all registers used in another register manager (including
+        /// zombies). This is like a set union.
+        void revive_all(register_manager) throw();
+
+
         /// Kill all registers.
         void kill_all(void) throw();
+        void kill_all_live(void) throw();
 
 
         /// Forcibly kill/revive all registers used in a particular operand.

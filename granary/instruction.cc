@@ -11,8 +11,47 @@
 
 namespace granary {
 
+    /// Operand that represents a PC stored somewhere in memory.
+    operand mem_pc_(app_pc *pc) {
+        operand op;
+        op.kind = dynamorio::BASE_DISP_kind;
+        op.value.addr = pc;
+        op.size = dynamorio::OPSZ_8;
+        return op;
+    }
 
-    // used frequently in instruction functions
+    namespace {
+        void func(void) throw() { }
+        static void (*func_ptr)(void) = &func;
+        static void call_through_slot(void) throw() {
+            func_ptr();
+        }
+    }
+
+    /// Used to construct an indirect call based on a memory slot.
+    instruction call_ind_slot_(operand op) throw() {
+        static app_pc call_ind_addr(nullptr);
+
+        // find the address of the indirect call instruction.
+        if(!call_ind_addr) {
+            call_ind_addr = unsafe_cast<app_pc>(call_through_slot);
+            for(app_pc addr(call_ind_addr);;) {
+                call_ind_addr = addr;
+                instruction in(instruction::decode(&addr));
+                if(in.is_cti()) {
+                    break;
+                }
+            }
+        }
+
+        app_pc addr(call_ind_addr);
+        instruction in(instruction::decode(&addr));
+        in.set_mangled();
+        in.set_cti_target(op);
+        return in;
+    }
+
+    /// used frequently in instruction functions
     typename dynamorio::dcontext_t *instruction::DCONTEXT = \
         dynamorio::get_thread_private_dcontext();
 
@@ -210,7 +249,7 @@ namespace granary {
     /// Get a pointer to the internal dynamorio::instr_t for use by
     /// control-flow instructions.
     instruction_label::operator instruction *(void) throw() {
-        return &(**instr);
+        return &(instr->get_value());
     }
 
 
@@ -322,6 +361,22 @@ namespace granary {
     }
 
 
+    /// Widen this instruction if its a CTI.
+    void instruction::widen_if_cti(void) throw() {
+
+        // hack for getting dynamorio to maintain proper rip-relative
+        // associations in the encoding process.
+        if(dynamorio::instr_is_cti(&instr)) {
+            dynamorio::instr_set_raw_bits_valid(&instr, false);
+
+            if(dynamorio::instr_is_cti_short(&instr)) {
+                dynamorio::convert_to_near_rel_common(
+                    DCONTEXT, nullptr, &instr);
+            }
+        }
+    }
+
+
     /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
     /// following byte. The decoded instruction is returned by value. If
     /// the instruction cannot be decoded, then *pc is set to NULL.
@@ -336,16 +391,7 @@ namespace granary {
         self.instr.translation = byte_pc;
         self.instr.bytes = byte_pc;
 
-        // hack for getting dynamorio to maintain proper rip-relative
-        // associations in the encoding process.
-        if(dynamorio::instr_is_cti(&(self.instr))) {
-            dynamorio::instr_set_raw_bits_valid(&(self.instr), false);
-
-            if(dynamorio::instr_is_cti_short(&(self.instr))) {
-                dynamorio::convert_to_near_rel_common(
-                    DCONTEXT, nullptr, &(self.instr));
-            }
-        }
+        self.widen_if_cti();
 
         return self;
     }

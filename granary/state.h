@@ -57,10 +57,8 @@ namespace granary {
     };
 
 
-    /// Define a CPU state handle; extra layer of indirection for user space
-    /// because there is no useful way to know that we're always on the same
-    /// cpu.
-#if GRANARY_IN_KERNEL
+    /// Define a CPU state handle; in user space, the cpu state is also thread
+    /// private.
     struct cpu_state_handle {
     private:
         cpu_state *state;
@@ -73,22 +71,11 @@ namespace granary {
             return state;
         }
     };
-#else
-    struct cpu_state_handle {
-    private:
-        bool has_lock;
-        uint64_t stack_pointer;
 
-    public:
-        cpu_state_handle(void) throw();
-        cpu_state_handle(cpu_state_handle &that) throw();
-        ~cpu_state_handle(void) throw();
-        cpu_state_handle &operator=(cpu_state_handle &that) throw();
-        cpu_state *operator->(void) throw();
-    };
-#endif
 
     namespace detail {
+
+        /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -98,6 +85,19 @@ namespace granary {
             };
         };
 
+
+        /// CPU-private block-local storage allocators.
+        struct block_allocator_config {
+            enum {
+                SLAB_SIZE = PAGE_SIZE / 8,
+                EXECUTABLE = false,
+                TRANSIENT = false,
+                SHARED = false
+            };
+        };
+
+
+        /// Shared/Gencode fragment allocators.
         struct global_fragment_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -107,13 +107,41 @@ namespace granary {
             };
         };
 
+
+        /// Transient memory allocator.
         struct transient_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE,
+                SLAB_SIZE = PAGE_SIZE / 2,
                 EXECUTABLE = false,
                 TRANSIENT = true,
                 SHARED = false
             };
+        };
+
+
+        /// Meta information for the cpu-private code cache.
+        struct cpu_code_cache_meta {
+            enum {
+                HASH_SEED = 0xDEADBEEFU,
+            };
+
+            enum {
+                DEFAULT_SCALE_FACTOR = 8U,
+                MAX_SCAN_SCALE_FACTOR = 8U
+            };
+
+            FORCE_INLINE static uint32_t hash(const app_pc target_) throw() {
+                const uint64_t target(reinterpret_cast<uint64_t>(target_));
+                uint32_t h(target);
+
+                /// 32-bit finalizer from Murmurhash3 on the 32-low-order bits.
+                h ^= h >> 16;
+                h *= 0x85ebca6b;
+                h ^= h >> 13;
+                h *= 0xc2b2ae35;
+                h ^= h >> 16;
+                return h;
+            }
         };
     }
 
@@ -130,6 +158,9 @@ namespace granary {
         bump_pointer_allocator<detail::fragment_allocator_config>
             fragment_allocator;
 
+        /// The block-local storage allocator for this CPU.
+        bump_pointer_allocator<detail::block_allocator_config>
+            block_allocator;
 
         /// Allocator for objects whose lifetimes end before the next entry
         /// into Granary.
@@ -140,7 +171,7 @@ namespace granary {
         /// The CPU-private "mirror" of the global code cache. This code cache
         /// mirrors the global one insofar as entries move from the global one
         /// into local ones over the course of execution.
-        hash_table<app_pc, app_pc> code_cache;
+        hash_table<app_pc, app_pc, detail::cpu_code_cache_meta> code_cache;
 
 
         /// Are interrupts currently enabled on this CPU?
@@ -176,8 +207,9 @@ namespace granary {
     struct global_state {
     public:
 
+        /// The fragment allocator for global gencode.
         static bump_pointer_allocator<detail::global_fragment_allocator_config>
-            fragment_allocator;
+            FRAGMENT_ALLOCATOR;
     };
 
 

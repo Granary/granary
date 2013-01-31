@@ -2277,10 +2277,6 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
     return orig_dst_pc + instr->length;
 }
 
-void break_here(void) {
-
-}
-
 /* Encodes instrustion instr.  The parameter copy_pc points
  * to the address of this instruction in the fragment cache.
  * Checks for and fixes pc-relative instructions.  

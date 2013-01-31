@@ -6,6 +6,7 @@
  */
 
 #include "granary/globals.h"
+#include "granary/code_cache.h"
 
 namespace granary {
 
@@ -31,6 +32,8 @@ namespace granary {
 
     /// Initialise granary.
     void init(void) throw() {
+
+        // run all static initialisers.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
         for(; init; init = init->next) {
             if(init->exec) {
@@ -38,6 +41,10 @@ namespace granary {
             }
         }
 
+        // initialise the ibl entry routine.
+        code_cache::init_ibl();
+
+        // initialise for kernel or user space.
         IF_KERNEL(init_kernel());
         IF_USER(init_user());
     }

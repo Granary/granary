@@ -74,6 +74,9 @@ namespace granary {
         /// used to measure some threshold of the "hotness" of this basic block
         volatile uint8_t hotness;
 
+        /// Pointer to this block's block-local storage.
+        basic_block_state *state;
+
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
         /// pc X, then the generating pc is X.
@@ -157,10 +160,11 @@ namespace granary {
         ///                     emitted, this pointer is updated to the address
         ///                     of the memory location immediately following
         ///                     the basic block.
-        static void emit(basic_block_kind kind,
-                         instruction_list &ls,
-                         app_pc generating_pc,
-                         app_pc generated_pc) throw();
+        static app_pc emit(basic_block_kind kind,
+                           instruction_list &ls,
+                           basic_block_state *block_storage,
+                           app_pc generating_pc,
+                           app_pc generated_pc) throw();
     };
 
 

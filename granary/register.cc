@@ -38,10 +38,23 @@ namespace granary {
     }
 
 
+    /// Kill all live registers.
+    void register_manager::kill_all_live(void) throw() {
+        live = FORCE_LIVE;
+    }
+
+
     /// Revive all registers.
     void register_manager::revive_all(void) throw() {
         live = ~0U;
         undead = 0U;
+    }
+
+
+    /// Revive all registers used in another register manager.
+    void register_manager::revive_all(register_manager that) throw() {
+        live |= that.live;
+        undead |= that.undead;
     }
 
 
@@ -178,7 +191,7 @@ namespace granary {
     /// Returns the next 64-bit "free" dead register.
     dynamorio::reg_id_t register_manager::get_zombie(void) throw() {
         uint64_t zombies((live | undead));
-        for(unsigned pos(0); pos < 32; ++pos) {
+        for(unsigned pos(0); pos <= dynamorio::DR_REG_R15; ++pos) {
             uint32_t mask = (1 << pos);
             if(!(mask & zombies)) {
                 undead |= mask;

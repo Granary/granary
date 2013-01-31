@@ -21,6 +21,8 @@ namespace granary {
     struct instruction_list;
     struct instruction_list_mangler;
     struct code_cache;
+    union mangled_address;
+    union indirect_operand;
     template <typename> struct policy_for;
 
 
@@ -28,11 +30,20 @@ namespace granary {
     struct instrumentation_policy {
     private:
 
+        enum {
+            NUM_PSEUDO_POLICIES = 1,
+            NUM_POLICIES = 1 + NUM_PSEUDO_POLICIES,
+            INDIRECT_CTI_POLICY_INCREMENT = 1
+        };
+
         friend struct basic_block;
         friend struct code_cache;
         friend struct instruction_list_mangler;
         friend struct instruction;
+        friend union mangled_address;
+        friend union indirect_operand;
         template <typename> friend struct policy_for;
+
 
         typedef instrumentation_policy (basic_block_visitor)(
             cpu_state_handle &cpu,
@@ -46,7 +57,7 @@ namespace granary {
         /// cache will use this array of function pointers (initialised
         /// partially at compile time and partially at run time) to determine
         /// which client-code basic block visitor functions should be called.
-        static basic_block_visitor *POLICY_FUNCTIONS[256];
+        static basic_block_visitor *POLICY_FUNCTIONS[];
 
 
         /// Policy ID tracker.
@@ -54,7 +65,7 @@ namespace granary {
 
 
         /// The identifier for this policy.
-        const uint8_t policy_id;
+        uint8_t policy_id;
 
 
         static instrumentation_policy missing_policy(
@@ -71,7 +82,7 @@ namespace granary {
 
 
         /// Takes in a policy ID directly.
-        instrumentation_policy(uint16_t policy_id_) throw()
+        inline instrumentation_policy(uint16_t policy_id_) throw()
             : policy_id(policy_id_)
         { }
 
@@ -83,7 +94,11 @@ namespace granary {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
-            return POLICY_FUNCTIONS[policy_id](cpu, thread, bb, ls);
+            basic_block_visitor *visitor(POLICY_FUNCTIONS[policy_id]);
+            if(!visitor) {
+                return missing_policy(cpu, thread, bb, ls);
+            }
+            return visitor(cpu, thread, bb, ls);
         }
 
     public:
@@ -100,6 +115,31 @@ namespace granary {
         bool operator!=(const instrumentation_policy &that) const throw() {
             return policy_id != that.policy_id;
         }
+
+        inline bool operator!(void) const throw() {
+            return !policy_id;
+        }
+
+        inline bool is_indirect_cti_policy(void) const throw() {
+            return INDIRECT_CTI_POLICY_INCREMENT == (policy_id % NUM_POLICIES);
+        }
+
+
+        /// Convert this policy (or pseudo policy) to the equivalent indirect
+        /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
+        inline instrumentation_policy indirect_cti_policy(void) throw() {
+            const uint8_t base_policy_id(policy_id - (policy_id % NUM_POLICIES));
+            return instrumentation_policy(
+                base_policy_id + INDIRECT_CTI_POLICY_INCREMENT);
+        }
+
+
+        /// Return the "base" policy for this policy. This converts any pseudo
+        /// policies back into non-pseudo policies.
+        inline instrumentation_policy base_policy(void) throw() {
+            return instrumentation_policy(
+                policy_id - (policy_id % NUM_POLICIES));
+        }
     };
 
 
@@ -108,12 +148,17 @@ namespace granary {
     struct policy_for {
     private:
 
+        friend struct code_cache;
+
         static unsigned POLICY_ID;
 
         /// Initialise the policy `T`.
         static unsigned init_policy(void) throw() {
+
+            // get IDs for one policy and its pseudo-policies
             unsigned policy_id(
-                instrumentation_policy::NEXT_POLICY_ID.fetch_add(1U));
+                instrumentation_policy::NEXT_POLICY_ID.fetch_add(
+                    instrumentation_policy::NUM_POLICIES));
 
             instrumentation_policy::POLICY_FUNCTIONS[policy_id] = \
                 &(T::visit_basic_block);
