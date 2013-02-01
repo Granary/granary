@@ -15,30 +15,31 @@
 namespace test {
 
 #if TEST_CALL
+
     static int direct_call_short(void) {
+        register int64_t ret asm("rcx") = 0;
         ASM(
-            "mov $0, %rax;"
+            "mov $0, %%rax;"
             "call 1f;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
+            "movq %%rax, %0;"
+            "jmp 2f;"
+        "1:  mov $1, %%rax;"
             "ret;"
-        "1:  mov $1, %rax;"
-            "ret;"
+        "2:"
+            : "=r"(ret)
         );
-        return 0; // not reached
+        return ret;
     }
 
     static int direct_call_far(void) {
+        register int64_t ret asm("rcx") = 0;
         ASM(
-            "mov $0, %rax;"
+            "mov $0, %%rax;"
             "call " TO_STRING(SYMBOL(granary_test_return_true)) ";"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
-        "1:  mov $1, %rax;"
-            "ret;"
+            "movq %%rax, %0;"
+            : "=r"(ret)
         );
-        return 0; // not reached
+        return ret;
     }
 
 

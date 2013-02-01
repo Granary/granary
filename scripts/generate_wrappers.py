@@ -49,7 +49,7 @@ def is_wrappable_type(ctype):
 WILL_WRAP_CACHE = {}
 
 
-def will_pre_wrap_fileds(ctype):
+def will_pre_wrap_feilds(ctype):
   if ctype in WILL_WRAP_CACHE:
     return WILL_WRAP_CACHE[ctype]
 
@@ -58,7 +58,7 @@ def will_pre_wrap_fileds(ctype):
     intern_ctype = ctype.base_type()
     if not field_name:
       if isinstance(intern_ctype, CTypeStruct):
-        ret = will_pre_wrap_fileds(intern_ctype)
+        ret = will_pre_wrap_feilds(intern_ctype)
     elif is_function_pointer(intern_ctype):
       ret = True
     elif is_wrappable_type(intern_ctype):
@@ -108,7 +108,7 @@ def scoped_name(ctype):
   return "::".join(reversed(parts))
 
 def wrap_struct(ctype):
-  if not will_pre_wrap_fileds(ctype):
+  if not will_pre_wrap_feilds(ctype):
     return
 
   name = scoped_name(ctype)
@@ -254,7 +254,7 @@ def visit_typedef(ctype):
   visit_type(ctype.ctype)
 
   inner = ctype.ctype.base_type()
-  if isinstance(inner, CTypeStruct) and will_pre_wrap_fileds(inner):
+  if isinstance(inner, CTypeStruct) and will_pre_wrap_feilds(inner):
     if not inner.has_name:
       # todo: make sure some structures are not double wrapped
       wrap_struct(inner, ctype.name)

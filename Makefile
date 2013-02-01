@@ -19,10 +19,11 @@ GR_OUTPUT_FORMAT =
 
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
+#-g3 -O0
 GR_LD_FLAGS = 
-GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
-GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti -fno-exceptions
-GR_CXX_FLAGS += -Wall -Werror -Wextra -Wstrict-aliasing=2
+GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -mno-red-zone
+GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -mno-red-zone -fno-rtti 
+GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
 GR_EXTRA_CC_FLAGS ?=
@@ -154,7 +155,7 @@ ifneq ($(KERNEL),1)
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CC) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_NAME).out
+	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_NAME).out
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 

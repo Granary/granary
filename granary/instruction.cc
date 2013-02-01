@@ -21,10 +21,19 @@ namespace granary {
     }
 
     namespace {
-        void func(void) throw() { }
-        static void (*func_ptr)(void) = &func;
+
+        __attribute__((noinline, optimize("O0")))
+        void func(void) throw() {
+            ASM("");
+        }
+
+        static void (* volatile func_ptr)(void) = &func;
+
+        __attribute__((noinline, optimize("O0")))
         static void call_through_slot(void) throw() {
+            ASM("");
             func_ptr();
+            ASM("");
         }
     }
 

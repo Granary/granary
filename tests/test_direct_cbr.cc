@@ -37,88 +37,95 @@
 /// the target of the short jumps needs to be outside of the basic
 /// block, which will stop at ret (otherwise it would be optimized into
 /// and in-block jump).
-///
-/// Note: these tests, unfortunately, depend on frame pointers being present.
 #define MAKE_CBR_TEST_FUNC(opcode, or_flag, and_flag) \
-    static void direct_cti_ ## opcode ## _short_true(void) throw() { \
+    static int direct_cti_ ## opcode ## _short_true(void) throw() { \
+        register int64_t ret asm("rcx") = 0; \
         ASM( \
             "pushf;" \
-            "movq $%c0, %%rax;" \
-            "or %%rax, (%%rsp);" \
             "movq $%c1, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c2, %%rax;" \
             "and %%rax, (%%rsp);" \
             "popf;" \
             TO_STRING(opcode) " 1f;" \
             "mov $0, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
-            "ret;" \
+            "jmp 2f;" \
         "1:  mov $1, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
-            "ret;" \
-            : \
+        "2:  movq %%rax, %0;" \
+            : "=r"(ret) \
             : "i"(or_flag), "i"(and_flag) \
+            : "rax" \
         ); \
+        return ret; \
     } \
-    static void direct_cti_ ## opcode ## _short_false(void) throw() { \
+    \
+    static int direct_cti_ ## opcode ## _short_false(void) throw() { \
+        register int64_t ret asm("rcx") = 0; \
         ASM( \
             "pushf;" \
-            "movq $%c0, %%rax;" \
-            "or %%rax, (%%rsp);" \
             "movq $%c1, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c2, %%rax;" \
             "and %%rax, (%%rsp);" \
             "popf;" \
             TO_STRING(opcode) " 1f;" \
             "mov $1, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
-            "ret;" \
+            "jmp 2f;" \
         "1:  mov $0, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
-            "ret;" \
-            : \
+        "2:  movq %%rax, %0;" \
+            : "=r"(ret) \
             : "i"(~and_flag), "i"(~or_flag) \
+            : "rax" \
         ); \
+        return ret; \
     } \
-    static void direct_cti_ ## opcode ## _long_true(void) throw() { \
+    \
+    static int direct_cti_ ## opcode ## _long_true(void) throw() { \
+        register int64_t ret asm("rcx") = 0; \
         ASM( \
+            "call 1f;" \
+            "movq %%rax, %0;" \
+            "jmp 2f;" \
+        "1:" \
             "pushf;" \
-            "movq $%c0, %%rax;" \
-            "or %%rax, (%%rsp);" \
             "movq $%c1, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c2, %%rax;" \
             "and %%rax, (%%rsp);" \
             "popf;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
             TO_STRING(opcode) " " TO_STRING(SYMBOL(granary_test_return_true)) ";" \
             "mov $0, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
             "ret;" \
-            : \
+        "2:" \
+            : "=r"(ret) \
             : "i"(or_flag), "i"(and_flag) \
+            : "rax" \
         ); \
+        return ret; \
     } \
-    static void direct_cti_ ## opcode ## _long_false(void) throw() { \
+    \
+    static int direct_cti_ ## opcode ## _long_false(void) throw() { \
+        register int64_t ret asm("rcx") = 0; \
         ASM( \
+            "call 1f;" \
+            "movq %%rax, %0;" \
+            "jmp 2f;" \
+        "1:" \
             "pushf;" \
-            "movq $%c0, %%rax;" \
-            "or %%rax, (%%rsp);" \
             "movq $%c1, %%rax;" \
+            "or %%rax, (%%rsp);" \
+            "movq $%c2, %%rax;" \
             "and %%rax, (%%rsp);" \
             "popf;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
             TO_STRING(opcode) " " TO_STRING(SYMBOL(granary_test_return_false)) ";" \
             "mov $1, %%rax;" \
-            "mov %%rbp, %%rsp;" \
-            "pop %%rbp;" \
             "ret;" \
-            : \
+        "2:" \
+            : "=r"(ret) \
             : "i"(~and_flag), "i"(~or_flag) \
+            : "rax" \
         ); \
+        return ret; \
     }
 
 
@@ -184,36 +191,35 @@ namespace test {
 #if TEST_JECXZ
 
     static bool direct_jecxz_short_true(void) {
+        register int64_t ret asm("rbx") = 0;
         ASM(
-            "mov $0, %rcx;"
+            "mov $0, %%rcx;"
             "jrcxz 1f;"
-            "mov $0, %rax;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
-        "1: mov $1, %rax;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
+            "mov $0, %%rax;"
+            "jmp 2f;"
+        "1:  mov $1, %%rax;"
+        "2:  movq %%rax, %0;"
+            : "=r"(ret)
+            :
+            : "rax", "rcx"
         );
-        return false; // not reached
+        return ret;
     }
 
-
     static bool direct_jecxz_short_false(void) {
+        register int64_t ret asm("rbx") = 0;
         ASM(
-            "mov $1, %rcx;"
+            "mov $1, %%rcx;"
             "jrcxz 1f;"
-            "mov $1, %rax;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
-        "1: mov $0, %rax;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
+            "mov $1, %%rax;"
+            "jmp 2f;"
+        "1:  mov $0, %%rax;"
+        "2:  movq %%rax, %0;"
+            : "=r"(ret)
+            :
+            : "rax", "rcx"
         );
-        return false; // not reached
+        return ret;
     }
 
 
@@ -240,17 +246,18 @@ namespace test {
 #if TEST_LOOP
 
     static int direct_loop_return_5(void) {
+        register int64_t ret asm("rbx") = 0;
         ASM(
-            "mov $0, %rax;"
-            "mov $5, %rcx;" // count down from 5
-        "1:  inc %rax;"
+            "mov $0, %%rax;"
+            "mov $5, %%rcx;" // count down from 5
+        "1:  inc %%rax;"
             "loop 2f;"
-            "mov %rbp, %rsp;"
-            "pop %rbp;"
-            "ret;"
+            "jmp 3f;"
         "2:  jmp 1b;"
+        "3:  movq %%rax, %0;"
+            : "=r"(ret)
         );
-        return 0; // not reached
+        return ret;
     }
 
 

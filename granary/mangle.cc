@@ -165,20 +165,29 @@ namespace granary {
 
         // don't have it; go encode it.
         instruction_list ibl;
+
+
         ibl.append(push_(reg::arg1));
+
+        // omit a redundant move if possible; this also handles the case where
+        // ret == target.
+        if(dynamorio::REG_kind != target.kind
+        || (reg::arg1.value.reg != target.value.reg)) {
+            ibl.append(mov_ld_(reg::arg1, target));
+        }
+
         ibl.append(push_(reg::ret));
 
         // save flags / disable interrupts
 #if GRANARY_IN_KERNEL
-        ibl.append(pushf_()));
-        ibl.append(cli_());
+            ibl.append(pushf_()));
+            ibl.append(cli_());
 #else
         ibl.append(lahf_());
         ibl.append(push_(reg::rax)); // because rax == ret
 #endif
 
         // add in the policy to the address to be looked up.
-        ibl.append(mov_ld_(reg::arg1, target));
         ibl.append(shl_(reg::arg1, int8_(mangled_address::POLICY_NUM_BITS)));
         ibl.append(or_(reg::arg1, int8_(op.as_operand.policy_id)));
 
@@ -570,20 +579,33 @@ namespace granary {
         //       we don't need to deliver precise (or any for that matter)
         //       interrupts. As such, this code is not interrupt safe.
 
+
+        const uint64_t addr(reinterpret_cast<uint64_t>(far_op.value.pc));
+
+
+
+
         register_manager rm;
         rm.kill_all();
+
+        // mini peephole optimisation; ideally will allow us to avoid
+        // spilling a register.
+        instruction_list_handle next_in(in.next());
+        if(next_in.is_valid()) {
+            rm.visit(*next_in);
+        }
+
         rm.revive(*in);
 
         operand spill_reg(rm.get_zombie());
-        const uint64_t addr(reinterpret_cast<uint64_t>(far_op.value.pc));
 
         ls->insert_before(in, push_(spill_reg));
-        ls->insert_after(in, pop_(spill_reg));
         ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
+        ls->insert_after(in, pop_(spill_reg));
 
-        // overwrite the op
         operand_base_disp new_op_(*spill_reg);
         new_op_.size = far_op.size;
+
         operand new_op(new_op_);
 
         in->for_each_operand(update_far_operand, new_op);

@@ -94,7 +94,10 @@
 
 /// unrolling macros for applying something to all general purpose registers
 #define ALL_REGS(R, R_last) \
-    R(rdi, R(rsi, R(rdx, R(rbx, R(rcx, R(rax, R(r8, R(r9, R(r10, R(r11, R(r12, R(r13, R(r14, R_last(r15))))))))))))))
+    R(rax, R(rbx, R(rcx, R(rdx, \
+    R(rbp, R(rsi, R(rdi, R(r8, \
+    R(r9, R(r10, R(r11, R(r12, \
+    R(r13, R(r14, R_last(r15)))))))))))))))
 
 /// unrolling macros for applying something to all argument registers
 #define ALL_CALL_REGS(R, R_last) \
