@@ -421,6 +421,11 @@ namespace granary {
         for(;;) {
             instruction in(instruction::decode(pc));
 
+            // TODO: curiosity.
+            if(dynamorio::OP_INVALID == in.op_code()) {
+                break;
+            }
+
             if(in.is_cti()) {
                 operand target(in.cti_target());
 

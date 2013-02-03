@@ -174,7 +174,16 @@ namespace granary {
         // ret == target.
         if(dynamorio::REG_kind != target.kind
         || (reg::arg1.value.reg != target.value.reg)) {
-            ibl.append(mov_ld_(reg::arg1, target));
+
+            if(dynamorio::REL_ADDR_kind == target.kind
+            || dynamorio::opnd_is_abs_addr(target)) {
+                ibl.append(mov_imm_(
+                    reg::arg1,
+                    int64_(reinterpret_cast<uint64_t>(target.value.addr))));
+                ibl.append(mov_ld_(reg::arg1, reg::arg1[0]));
+            } else {
+                ibl.append(mov_ld_(reg::arg1, target));
+            }
         }
 
         ibl.append(push_(reg::ret));
