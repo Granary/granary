@@ -43,6 +43,18 @@ extern "C" {
     }
 }
 
+#ifndef MAP_ANONYMOUS
+#   ifdef MAP_ANON
+#       define MAP_ANONYMOUS MAP_ANON
+#   else
+#       define MAP_ANONYMOUS 0
+#   endif
+#endif
+
+#ifndef MAP_SHARED
+#   define MAP_SHARED 0
+#endif
+
 namespace granary { namespace detail {
 
     void *global_allocate_executable(unsigned long size) throw() {

@@ -17,12 +17,19 @@ namespace granary { namespace types {
 
 extern "C" {
 
+#define restrict __restrict__
+
 #if GRANARY_IN_KERNEL
 #   include "granary/gen/kernel_types.h"
 #else
+// OS X-specific hack.
+#   ifdef __APPLE__
+typedef wchar_t __darwin_wchar_t;
+#   endif
 #   include "granary/gen/user_types.h"
 #endif
-
+#undef restrict
+#undef wchar_t
 }
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB

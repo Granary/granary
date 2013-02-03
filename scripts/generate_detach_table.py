@@ -43,6 +43,19 @@ IGNORE = set([
   "_IO_cookie_init",
   "matherr",
   "setkey",
+  "zopen",
+
+  # apple-only?
+  "pthread_rwlock_downgrade_np",
+  "pthread_rwlock_upgrade_np",
+  "pthread_rwlock_tryupgrade_np",
+  "pthread_rwlock_held_np",
+  "pthread_rwlock_rdheld_np",
+  "pthread_rwlock_wrheld_np",
+  "pthread_getname_np",
+  "pthread_setname_np",
+  "pthread_rwlock_longrdlock_np",
+  "pthread_rwlock_yieldwrlock_np",
 ])
 
 

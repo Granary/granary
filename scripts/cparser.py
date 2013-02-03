@@ -188,7 +188,7 @@ class CToken(object):
 
     # os/compiler-specific extensions
     "__builtin_va_list":TYPE_BUILT_IN,
-    "__signed__" :    TYPE_BUILT_IN,
+    "__signed__" :      TYPE_BUILT_IN,
   }
 
   def __init__(self, str_, kind_):
@@ -849,16 +849,6 @@ class CTypeAttributed(CType):
     self.ctype = ctype_
     self.attrs = attrs_
 
-  #def __repr__(self):
-  #  a = repr(self.attrs)
-  #  if isinstance(self.attrs, CTypeNameAttributes):
-  #    if CTypeNameAttributes.LEFT == self.attrs.side:
-  #      return "%s %s" % (a, repr(self.ctype))
-  #    else:
-  #      return "%s %s" % (repr(self.ctype), a)
-  #  else:
-  #    return "%s%s" % (a, repr(self.ctype))
-
 
 class CTypeExpression(CType):
   """Represents a type that is computed by some expression e.g.: typeof (...)."""
@@ -1385,7 +1375,7 @@ class CParser(object):
         # this is the first thing we've seen in a list of types; and we have no
         # prior definition of the type, so it's likely not user-defined; let's
         # assume this is a typedef in terms of this built-in type.
-        elif not built_in_names:
+        elif not might_have_type: # built_in_names:
           t.kind = CToken.TYPE_BUILT_IN
           CToken.RESERVED[t.str] = CToken.TYPE_BUILT_IN
           built_in_names.append(t.str)
@@ -1903,8 +1893,8 @@ class CParser(object):
       
       for ctype, name in decls:
         if is_typedef:
-          #if not name:
-          #  print carat.line, carat.column
+          if not name:
+            print carat.line, carat.column
           assert name
           ctype = CTypeDefinition(name, ctype)
           self.stab.set_type(name, ctype)

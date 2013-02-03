@@ -8,10 +8,6 @@
 #ifndef granary_POSIX_TYPES_H_
 #define granary_POSIX_TYPES_H_
 
-extern "C" {
-
-#undef __cplusplus
-
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -36,8 +32,7 @@ extern "C" {
 #include <fcntl.h>
 #include <pthread.h>
 
-#define __cplusplus
 
-}
+#undef __GR_HAS_CPP
 
 #endif /* granary_POSIX_TYPES_H_ */

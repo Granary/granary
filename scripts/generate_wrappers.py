@@ -314,6 +314,19 @@ def visit_var_def(var, ctype):
 
 if "__main__" == __name__:
   import sys
+  ignore_set = set([
+    "zopen",
+    "pthread_rwlock_downgrade_np",
+    "pthread_rwlock_upgrade_np",
+    "pthread_rwlock_tryupgrade_np",
+    "pthread_rwlock_held_np",
+    "pthread_rwlock_rdheld_np",
+    "pthread_rwlock_wrheld_np",
+    "pthread_getname_np",
+    "pthread_setname_np",
+    "pthread_rwlock_longrdlock_np",
+    "pthread_rwlock_yieldwrlock_np",
+  ])
   with open(sys.argv[1]) as lines_:
     buff = "".join(lines_)
     tokens = CTokenizer(buff)
@@ -322,5 +335,6 @@ if "__main__" == __name__:
 
     OUT("/* Auto-generated wrappers. */")
     for var, ctype in parser.vars():
-      visit_var_def(var, ctype)
+      if var not in ignore_set:
+        visit_var_def(var, ctype)
     

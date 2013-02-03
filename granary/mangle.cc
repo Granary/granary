@@ -121,7 +121,8 @@ namespace granary {
         indirect_operand(operand op, instrumentation_policy policy) throw()
             : as_uint(0UL)
         {
-            if(dynamorio::opnd_is_abs_addr(op)) {
+            if(dynamorio::opnd_is_abs_addr(op)
+            || dynamorio::REL_ADDR_kind == op.kind) {
                 as_uint = reinterpret_cast<uint64_t>(op.value.addr);
 
             } else if(dynamorio::BASE_DISP_kind == op.kind) {

@@ -1,6 +1,7 @@
 
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
+UNAME = $(shell uname)
 
 # Config
 GR_NAME = granary
@@ -54,7 +55,6 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes
 	GR_CXX_STD = -std=c++11
-	GR_TYPE_CC = $(GR_CC)
 	
 	# explicitly enable/disable address sanitizer
     ifeq ('0','$(GR_ASAN)')
@@ -131,7 +131,6 @@ GR_OBJS += bin/clients/instrument.o
 # user space
 ifneq ($(KERNEL),1)
 
-	GR_TYPE_CC = $(GR_CXX)
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
@@ -149,8 +148,14 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_lock_inc.o
 	GR_OBJS += bin/tests/test_direct_rec.o
 	GR_OBJS += bin/tests/test_indirect_cti.o
+
+	# figure out how to link in various libraries that might be OS-specific
+	GR_LD_SPECIFIC = -pthread -lrt
+	ifeq ($(UNAME), Darwin)
+		GR_LD_SPECIFIC = -lpthread
+	endif
 	
-	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS) -pthread -lrt -lm
+	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_SPECIFIC) -lm
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
