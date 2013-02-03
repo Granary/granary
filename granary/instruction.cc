@@ -20,45 +20,6 @@ namespace granary {
         return op;
     }
 
-    namespace {
-
-        __attribute__((noinline, optimize("O0")))
-        void func(void) throw() {
-            ASM("");
-        }
-
-        static void (* volatile func_ptr)(void) = &func;
-
-        __attribute__((noinline, optimize("O0")))
-        static void call_through_slot(void) throw() {
-            ASM("");
-            func_ptr();
-            ASM("");
-        }
-    }
-
-    /// Used to construct an indirect call based on a memory slot.
-    instruction call_ind_slot_(operand op) throw() {
-        static app_pc call_ind_addr(nullptr);
-
-        // find the address of the indirect call instruction.
-        if(!call_ind_addr) {
-            call_ind_addr = unsafe_cast<app_pc>(call_through_slot);
-            for(app_pc addr(call_ind_addr);;) {
-                call_ind_addr = addr;
-                instruction in(instruction::decode(&addr));
-                if(in.is_cti()) {
-                    break;
-                }
-            }
-        }
-
-        app_pc addr(call_ind_addr);
-        instruction in(instruction::decode(&addr));
-        in.set_mangled();
-        in.set_cti_target(op);
-        return in;
-    }
 
     /// used frequently in instruction functions
     typename dynamorio::dcontext_t *instruction::DCONTEXT = \

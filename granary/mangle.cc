@@ -190,11 +190,12 @@ namespace granary {
 
         // save flags / disable interrupts
 #if GRANARY_IN_KERNEL
-            ibl.append(pushf_()));
+            ibl.append(pushf_());
             ibl.append(cli_());
 #else
-        ibl.append(lahf_());
-        ibl.append(push_(reg::rax)); // because rax == ret
+        ibl.append(pushf_());
+        //ibl.append(lahf_());
+        //ibl.append(push_(reg::rax)); // because rax == ret
 #endif
 
         // add in the policy to the address to be looked up.

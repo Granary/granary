@@ -262,7 +262,7 @@ namespace granary {
             in = ls.insert_after(in,
                 mov_imm_(clobber_reg,
                     int64_(unsafe_cast<int64_t>(target))));
-            in = ls.insert_after(in, call_ind_slot_(clobber_reg));
+            in = ls.insert_after(in, call_ind_(clobber_reg));
 
         // add in a direct, pc relative call.
         } else {
@@ -282,10 +282,11 @@ namespace granary {
 
         // restore the flags / interrupts.
 #if GRANARY_IN_KERNEL
-        ibl.append(popf_()));
+        ibl.append(popf_());
 #else
-        ibl.append(pop_(reg::rax));
-        ibl.append(lahf_());
+        ibl.append(popf_());
+        //ibl.append(pop_(reg::rax));
+        //ibl.append(lahf_());
 #endif
 
         ibl.append(pop_(reg::rax));

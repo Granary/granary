@@ -24,7 +24,8 @@
 #define OUT
 #define INSTR_INLINE
 #define STANDALONE_DECODER 1
-#define LOG(...)
+#define LOG(a, b, c, ...)
+//printf("%s on %s:%d\n", #__VA_ARGS__, __FILE__, __LINE__)
 #define DODEBUG(...)
 #define CLIENT_ASSERT(cond, ...) { if(!(cond)) { FAULT; } }
 #define SELF_UNPROTECT_DATASEC(...)

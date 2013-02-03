@@ -41,6 +41,10 @@
 #   include <string.h>
 #endif
 
+#ifndef X64
+#   define X64 1
+#endif
+
 #ifdef __cplusplus
 namespace dynamorio {
 extern "C" {

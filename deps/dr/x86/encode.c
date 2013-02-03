@@ -1132,6 +1132,7 @@ opnd_type_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
              * to generalize we'll want opsize_var_size(reg_get_size(opsize)) or sthg.
              */
             CLIENT_ASSERT(reg_get_size(opsize) == OPSZ_4, "internal decoding error");
+
             return (reg_size_ok(di, base, optype, OPSZ_VARSTACK, true/*addr*/) &&
                     base == resolve_var_reg(di, opsize, true,
                                             true _IF_X64(true) _IF_X64(false)
@@ -1253,8 +1254,9 @@ encoding_possible(decode_info_t *di, instr_t *in, const instr_info_t * ii)
         return false;
     LOG(THREAD, LOG_EMIT, ENC_LEVEL, "\nencoding_possible on "PFX"\n", ii->opcode);
 
-    if (TEST(X64_MODE(di) ? X64_INVALID : X86_INVALID, ii->flags))
+    if (TEST(X64_MODE(di) ? X64_INVALID : X86_INVALID, ii->flags)) {
         return false;
+    }
 
     /* For size prefixes we use the di prefix field since that's what
      * the decode.c routines use; we transfer to the instr's prefix field

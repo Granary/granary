@@ -43,7 +43,7 @@
 #include "deps/dr/types.h"
 
 #ifndef X64
-#   define X64
+#   define X64 1
 #endif
 
 #ifdef WINDOWS
