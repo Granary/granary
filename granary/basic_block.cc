@@ -5,6 +5,7 @@
  *      Author: Peter Goodman
  */
 
+#include "granary/globals.h"
 #include "granary/basic_block.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
@@ -24,6 +25,11 @@ namespace granary {
         BB_MAGIC        = 0xD4D5D6,
         BB_MAGIC_MASK   = 0xFFFFFF00,
         BB_ALIGN        = 16,
+
+        /// Maximum size in bytes of a decoded basic block. This relates to
+        /// *decoding* only and not the resulting size of a basic block after
+        /// translation.
+        BB_MAX_SIZE_BYTES = (PAGE_SIZE / 4) * 3,
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
@@ -418,11 +424,18 @@ namespace granary {
             block_storage = cpu->block_allocator.allocate<basic_block_state>();
         }
 
-        for(;;) {
+        for(unsigned byte_len(0); ;) {
             instruction in(instruction::decode(pc));
 
             // TODO: curiosity.
             if(dynamorio::OP_INVALID == in.op_code()) {
+                break;
+            }
+
+            // very big basic block; cut it short and connect it with a tail.
+            byte_len += in.instr.length;
+            if(byte_len > BB_MAX_SIZE_BYTES) {
+                fall_through_pc = true;
                 break;
             }
 
@@ -529,6 +542,8 @@ namespace granary {
         // instruction list
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
+
+        //printf("generated_pc = %p\n", generated_pc);
 
         app_pc emitted_pc = emit(
             BB_TRANSLATED_FRAGMENT, ls, block_storage, start_pc, generated_pc);

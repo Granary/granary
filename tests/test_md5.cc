@@ -1,7 +1,8 @@
 
 #include <cstring>
-#include <cstdlib>
 #include "granary/test.h"
+
+#define printf(...)
 
 extern "C" {
 
@@ -218,7 +219,8 @@ extern "C" {
     #define F(x, y, z) (((x) & (y)) | (~(x) & (z)))
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + F(b,c,d) + X[k] + Ti;\
-      a = ROTATE_LEFT(t, s) + b
+      a = ROTATE_LEFT(t, s) + b;\
+      printf("1: t = %d, a = %d\n", t, a)
         /* Do the following 16 operations. */
         SET(a, b, c, d,  0,  7,  T1);
         SET(d, a, b, c,  1, 12,  T2);
@@ -244,7 +246,8 @@ extern "C" {
     #define G(x, y, z) (((x) & (z)) | ((y) & ~(z)))
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + G(b,c,d) + X[k] + Ti;\
-      a = ROTATE_LEFT(t, s) + b
+      a = ROTATE_LEFT(t, s) + b;\
+      printf("2: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  1,  5, T17);
         SET(d, a, b, c,  6,  9, T18);
@@ -270,7 +273,8 @@ extern "C" {
     #define H(x, y, z) ((x) ^ (y) ^ (z))
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + H(b,c,d) + X[k] + Ti;\
-      a = ROTATE_LEFT(t, s) + b
+      a = ROTATE_LEFT(t, s) + b;\
+      printf("3: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  5,  4, T33);
         SET(d, a, b, c,  8, 11, T34);
@@ -296,7 +300,8 @@ extern "C" {
     #define I(x, y, z) ((y) ^ ((x) | ~(z)))
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + I(b,c,d) + X[k] + Ti;\
-      a = ROTATE_LEFT(t, s) + b
+      a = ROTATE_LEFT(t, s) + b; \
+      printf("4: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  0,  6, T49);
         SET(d, a, b, c,  7, 10, T50);
@@ -431,6 +436,7 @@ namespace test {
         str[999] = '\0';
 
         bb_func.call<void, char *, char *>(&(str[0]), &(hash_instrumented[0]));
+        printf("\n\n\n\n\n\n\n");
         md5(&(str[0]), &(hash_native[0]));
 
         ASSERT(0 == memcmp(hash_native, hash_instrumented, 32));

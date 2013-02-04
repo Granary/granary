@@ -217,6 +217,13 @@ namespace granary {
 
     public:
 
+        enum {
+            DONT_MANGLE     = (1 << 0),
+            DELAY           = (1 << 1),
+            DELAY_BEGIN     = (1 << 2),
+            DELAY_END       = (1 << 3)
+        };
+
         typename dynamorio::instr_t instr;
 
 
@@ -233,6 +240,8 @@ namespace granary {
         inline instruction(const instruction &&that) throw() {
             memcpy(this, &that, sizeof *this);
         }
+
+
         instruction &operator=(const instruction &&that) throw();
 
 
@@ -342,12 +351,14 @@ namespace granary {
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags);
+            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags)
+                || 0 != (DONT_MANGLE & instr.granary_flags);
         }
 
 
         /// Set the state of the instruction to be mangled.
         inline void set_mangled(void) throw() {
+            instr.granary_flags |= DONT_MANGLE;
             instr.flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
         }
 

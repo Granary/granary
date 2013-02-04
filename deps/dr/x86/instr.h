@@ -1746,6 +1746,7 @@ struct _instr_t {
 
     IF_GRANARY_ELSE(uint16_t, uint)    opcode;
     IF_GRANARY(uint8_t granary_policy; )
+    IF_GRANARY(uint8_t granary_flags; )
 
 #ifdef X64
     /* PR 251479: offset into instr's raw bytes of rip-relative 4-byte displacement */

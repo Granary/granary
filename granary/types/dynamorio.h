@@ -584,6 +584,7 @@ struct _instr_t {
     app_pc translation;
     uint16_t opcode;
     uint8_t granary_policy; // code cache policy for granary
+    uint8_t granary_flags; // flags, e.g. delay, don't mangle, etc.
     byte rip_rel_pos;
     byte num_dsts;
     byte num_srcs;

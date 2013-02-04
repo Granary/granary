@@ -640,21 +640,25 @@ namespace granary {
 
         // go mangle instructions; note: indirect CTI mangling happens here.
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
-            const bool can_skip(nullptr == in->pc() || in->is_mangled());
+            const bool is_mangled(in->is_mangled());
+            const bool can_skip(nullptr == in->pc() || is_mangled);
             next_in = in.next();
 
             // native instruction, we might need to mangle it.
             if(in->is_cti()) {
 
-                if(dynamorio::instr_is_call(*in)) {
-                    mangle_call(in);
+                if(!is_mangled) {
 
-                } else if(dynamorio::instr_is_return(*in)) {
-                    mangle_return(in);
+                    if(dynamorio::instr_is_call(*in)) {
+                        mangle_call(in);
 
-                // JMP, Jcc
-                } else {
-                    mangle_jump(in);
+                    } else if(dynamorio::instr_is_return(*in)) {
+                        mangle_return(in);
+
+                    // JMP, Jcc
+                    } else {
+                        mangle_jump(in);
+                    }
                 }
 
             // clear interrupt

@@ -53,14 +53,56 @@ extern "C" {
 
 namespace granary {
 
+#define PUSH_LAST_REG(r) \
+    in = ls.insert_after(in, granary::push_(granary::reg::r));
+
+#define POP_LAST_REG(r) \
+    in = ls.insert_after(in, granary::pop_(granary::reg::r));
+
+#define PUSH_REG(reg, rest) \
+    PUSH_LAST_REG(reg) \
+    rest
+
+#define POP_REG(reg, rest) \
+    rest \
+    POP_LAST_REG(reg)
 
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_basic_block(
         cpu_state_handle &,
         thread_state_handle &,
         basic_block_state &,
-        instruction_list &
+        instruction_list &ls
     ) throw() {
+#if 0
+        uint64_t start_pc(reinterpret_cast<uint64_t>(ls.first()->pc()));
+        instruction_list_handle in(ls.prepend(granary::label_()));
+        ALL_REGS(PUSH_REG, PUSH_LAST_REG);
+        static const char *debug("bb start_pc = %p\n");
+        in = ls.insert_after(in, granary::pushf_());
+
+        // align the stack.
+        in = ls.insert_after(in, granary::push_(granary::reg::rsp));
+        in = ls.insert_after(in, granary::push_(granary::reg::rsp[0]));
+        in = ls.insert_after(in, granary::and_(granary::reg::rsp, granary::int8_(-16)));
+
+        // call printf
+        in = ls.insert_after(in, granary::mov_imm_(
+            granary::reg::arg1, granary::int64_(reinterpret_cast<uint64_t>(debug))));
+        in = ls.insert_after(in, granary::mov_imm_(
+            granary::reg::arg2, granary::int64_(start_pc)));
+        in = ls.insert_after(in, granary::mov_imm_(
+            granary::reg::rax, int64_(granary::unsafe_cast<uint64_t>(printf))));
+        in = ls.insert_after(in, granary::call_ind_(granary::reg::rax));
+        in->set_mangled();
+
+        // restore previous stack alignment
+        in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
+
+        in = ls.insert_after(in, granary::popf_());
+        ALL_REGS(POP_REG, POP_LAST_REG);
+#endif
+        (void) ls;
         return granary::policy_for<test_policy>();
     }
 

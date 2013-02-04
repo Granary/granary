@@ -132,6 +132,24 @@ namespace granary {
         }
 
 
+        /// Allocate a large slab of memory specific to only one allocation
+        /// request.
+        void allocate_custom_slab(unsigned size) throw() {
+            slab *next_slab(new (detail::global_allocate(sizeof(slab))) slab);
+            if(IS_EXECUTABLE) {
+                next_slab->data_ptr = unsafe_cast<uint8_t *>(
+                    detail::global_allocate_executable(size));
+            } else {
+                next_slab->data_ptr = unsafe_cast<uint8_t *>(
+                    detail::global_allocate(size));
+            }
+            next_slab->next = curr;
+            curr = next_slab;
+            curr->bump_ptr = curr->data_ptr;
+            curr->remaining = size;
+        }
+
+
         /// Allocate `size` bytes of memory with alignment `align`.
         uint8_t *allocate_bare(const unsigned align, unsigned size) throw() {
 #if CONFIG_PRECISE_ALLOCATE
@@ -148,6 +166,11 @@ namespace granary {
             // next allocatable address nicely aligned.
             if(IS_EXECUTABLE) {
                 size += ALIGN_TO(size, 16);
+            }
+
+            // very big allocation; requires a custom slab.
+            if(size > SLAB_SIZE) {
+                allocate_custom_slab(size + ALIGN_TO(size, SLAB_SIZE));
             }
 
             last_allocation_size = size;
