@@ -1874,10 +1874,10 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
      * can be too far to reach from our heap
      */
 
-    IF_NOT_GRANARY( byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
-                           HEAPACCT(ACCT_IR)); )
+    byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
+                           HEAPACCT(ACCT_IR));
 
-    IF_GRANARY( byte buf[32] = {0}; )
+    //IF_GRANARY( byte buf[32] = {0}; )
 
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.

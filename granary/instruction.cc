@@ -30,7 +30,6 @@ namespace granary {
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(&(this->instr), false);
-        this->set_mangled(); // default to mangled.
     }
 
 

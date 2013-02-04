@@ -33,8 +33,8 @@ namespace test {
         granary::basic_block bb_fib(granary::code_cache::find(
             fib, granary::test_policy()));
 
-        native_result = test_fibonacci(30);
-        inst_result = bb_fib.call<int, int>(30);
+        native_result = test_fibonacci(5);
+        inst_result = bb_fib.call<int, int>(5);
 
         ASSERT(native_result == inst_result);
     }

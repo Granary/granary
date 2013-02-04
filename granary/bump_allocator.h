@@ -90,6 +90,10 @@ namespace granary {
         /// The size of the last allocation.
         unsigned last_allocation_size;
 
+#if CONFIG_PRECISE_ALLOCATE
+        void *staged_addr;
+#endif
+
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
@@ -154,12 +158,18 @@ namespace granary {
         uint8_t *allocate_bare(const unsigned align, unsigned size) throw() {
 #if CONFIG_PRECISE_ALLOCATE
             (void) align;
+            uint8_t *ret(nullptr);
             if(IS_EXECUTABLE) {
-                return unsafe_cast<uint8_t *>(
-                    detail::global_allocate_executable(ALIGN_TO(size, PAGE_SIZE)));
+                ret = unsafe_cast<uint8_t *>(
+                    detail::global_allocate_executable(
+                        size + ALIGN_TO(size, PAGE_SIZE)));
             } else {
-                return unsafe_cast<uint8_t *>(detail::global_allocate(size));
+                ret = unsafe_cast<uint8_t *>(detail::global_allocate(size));
             }
+
+            staged_addr = ret;
+
+            return ret;
 #else
 
             // ensure that all allocations within an executable slab leave the
@@ -262,7 +272,15 @@ namespace granary {
 
         template <typename T>
         inline T *allocate_staged(void) throw() {
+#if CONFIG_PRECISE_ALLOCATE
+            if(staged_addr) {
+                return unsafe_cast<T *>(staged_addr);
+            } else {
+                return unsafe_cast<T *>(allocate_bare(16, 1));
+            }
+#else
             return unsafe_cast<T *>(allocate_bare(16, 0));
+#endif
         }
 
         template <typename T>

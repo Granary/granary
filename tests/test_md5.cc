@@ -1,11 +1,13 @@
 
 #include <cstring>
+#include <cstdlib>
+#include <cstdio>
 #include "granary/test.h"
 
-#define printf(...)
+#define PR(...)
+//printf(__VA_ARGS__)
 
-extern "C" {
-
+namespace test { namespace md5 {
     /*
       Copyright (C) 1999, 2000, 2002 Aladdin Enterprises.  All rights reserved.
 
@@ -144,6 +146,13 @@ extern "C" {
     #define T63    0x2ad7d2bb
     #define T64 /* 0xeb86d391 */ (T_MASK ^ 0x14792c6e)
 
+    void memcpy(void *dest, const void *src, int len) throw() {
+        char *dest_c((char *) dest);
+        const char *src_c((char *) src);
+        for(int i(0); i < len; ++i, ++dest_c, ++src_c) {
+            *dest_c = *src_c;
+        }
+    }
 
     static void
     md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
@@ -220,7 +229,7 @@ extern "C" {
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + F(b,c,d) + X[k] + Ti;\
       a = ROTATE_LEFT(t, s) + b;\
-      printf("1: t = %d, a = %d\n", t, a)
+      PR("1: t = %d, a = %d\n", t, a)
         /* Do the following 16 operations. */
         SET(a, b, c, d,  0,  7,  T1);
         SET(d, a, b, c,  1, 12,  T2);
@@ -247,7 +256,7 @@ extern "C" {
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + G(b,c,d) + X[k] + Ti;\
       a = ROTATE_LEFT(t, s) + b;\
-      printf("2: t = %d, a = %d\n", t, a)
+      PR("2: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  1,  5, T17);
         SET(d, a, b, c,  6,  9, T18);
@@ -274,7 +283,7 @@ extern "C" {
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + H(b,c,d) + X[k] + Ti;\
       a = ROTATE_LEFT(t, s) + b;\
-      printf("3: t = %d, a = %d\n", t, a)
+      PR("3: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  5,  4, T33);
         SET(d, a, b, c,  8, 11, T34);
@@ -301,7 +310,7 @@ extern "C" {
     #define SET(a, b, c, d, k, s, Ti)\
       t = a + I(b,c,d) + X[k] + Ti;\
       a = ROTATE_LEFT(t, s) + b; \
-      printf("4: t = %d, a = %d\n", t, a)
+      PR("4: t = %d, a = %d\n", t, a)
          /* Do the following 16 operations. */
         SET(a, b, c, d,  0,  6, T49);
         SET(d, a, b, c,  7, 10, T50);
@@ -401,6 +410,13 @@ extern "C" {
         digest[i] = (md5_byte_t)(pms->abcd[i >> 2] >> ((i & 3) << 3));
     }
 
+    void md5_digest(md5_byte_t *digest, const char *input, int len) {
+        md5_state_t state;
+        md5_init(&state);
+        md5_append(&state, (const md5_byte_t *) input, len);
+        md5_finish(&state, digest);
+    }
+
     void md5(char *input, char *out) {
         md5_state_t state;
         md5_byte_t digest[16];
@@ -417,29 +433,37 @@ extern "C" {
 
         strncpy(out, hex_output, 33);
     }
-}
+}} /* test::md5 */
 
 namespace test {
 
     static void test_md5(void) {
-        granary::app_pc func((granary::app_pc) md5);
+        granary::app_pc func((granary::app_pc) md5::md5_digest);
         granary::basic_block bb_func(granary::code_cache::find(
             func, granary::test_policy()));
 
         char str[1000] = {0};
-        char hash_native[33] = {0};
-        char hash_instrumented[33] = {0};
+        //char hash_native[33] = {0};
+        //char hash_instrumented[33] = {0};
+        md5::md5_byte_t digest_native[16];
+        md5::md5_byte_t digest_instrumented[16];
 
-        for(int i(0); i < 999; ++i) {
-            str[i] = rand() % 254 + 1;
+        for(int j(0); j < 2; ++j) {
+            for(int i(0); i < 999; ++i) {
+                str[i] = rand() % 254 + 1;
+            }
+            str[999] = '\0';
+
+            bb_func.call<void, md5::md5_byte_t *, const char *, int>(
+                &(digest_instrumented[0]),
+                &(str[0]),
+                999);
+            PR("\n\n\n\n\n\n\n");
+            md5::md5_digest(&(digest_native[0]), &(str[0]), 999);
+
+
+            ASSERT(0 == memcmp(digest_native, digest_instrumented, 16));
         }
-        str[999] = '\0';
-
-        bb_func.call<void, char *, char *>(&(str[0]), &(hash_instrumented[0]));
-        printf("\n\n\n\n\n\n\n");
-        md5(&(str[0]), &(hash_native[0]));
-
-        ASSERT(0 == memcmp(hash_native, hash_instrumented, 32));
     }
 
 

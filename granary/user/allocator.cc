@@ -65,7 +65,7 @@ namespace granary { namespace detail {
             nullptr,
             size + ALIGN_TO(size, PAGE_SIZE),
             PROT_READ | PROT_WRITE | PROT_EXEC,
-            MAP_ANONYMOUS | MAP_SHARED,
+            MAP_ANONYMOUS | MAP_PRIVATE,
             -1,
             0));
 

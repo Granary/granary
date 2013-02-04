@@ -522,6 +522,12 @@ namespace granary {
     };
 
 
+    inline instruction mangled(instruction in) throw() {
+        in.set_mangled();
+        return in;
+    }
+
+
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
 

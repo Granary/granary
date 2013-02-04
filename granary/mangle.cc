@@ -436,7 +436,7 @@ namespace granary {
             ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
             ls->append(mov_st_(reg::rsp[8], reg::rax));
             ls->append(pop_(reg::rax));
-            ls->append(jmp_(pc_(get_direct_cti_patch_func(in->op_code()))));
+            ls->append(mangled(jmp_(pc_(get_direct_cti_patch_func(in->op_code())))));
 
         *in = call_(instr_(*patch));
 
@@ -472,6 +472,8 @@ namespace granary {
         } else {
             *in = jmp_(pc_(ibl_entry_for(target, target_policy_ibl)));
         }
+
+        in->set_mangled();
     }
 
 
@@ -516,6 +518,24 @@ namespace granary {
     void instruction_list_mangler::mangle_sti(instruction_list_handle in) throw() {
 
         (void) in;
+    }
+
+
+    void instruction_list_mangler::mangle_lea(
+        instruction_list_handle in,
+        app_pc estimator_pc
+    ) throw() {
+        if(dynamorio::REL_ADDR_kind != in->instr.u.o.src0.kind) {
+            return;
+        }
+
+        // it's an LEA to a far address; convert to a 64-bit move.
+        app_pc target_pc(in->instr.u.o.src0.value.pc);
+        if(_4GB < pc_diff(estimator_pc - target_pc)) {
+            *in = mov_imm_(
+                in->instr.u.o.dsts[0],
+                int64_(reinterpret_cast<uint64_t>(target_pc)));
+        }
     }
 
 
@@ -593,11 +613,8 @@ namespace granary {
 
         const uint64_t addr(reinterpret_cast<uint64_t>(far_op.value.pc));
 
-
-
-
         register_manager rm;
-        rm.kill_all();
+        rm.revive_all();
 
         // mini peephole optimisation; ideally will allow us to avoid
         // spilling a register.
@@ -608,17 +625,28 @@ namespace granary {
 
         rm.revive(*in);
 
-        operand spill_reg(rm.get_zombie());
+        dynamorio::reg_id_t spill_reg_id(rm.get_zombie());
+        operand spill_reg;
 
-        ls->insert_before(in, push_(spill_reg));
-        ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
-        ls->insert_after(in, pop_(spill_reg));
+        // use a dead register
+        if(spill_reg_id) {
+            spill_reg = spill_reg_id;
+            ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
+
+        // spill a register for use
+        } else {
+            rm.kill_all();
+            rm.revive(*in);
+            spill_reg = rm.get_zombie();
+            ls->insert_before(in, push_(spill_reg));
+            ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
+            ls->insert_after(in, pop_(spill_reg));
+        }
 
         operand_base_disp new_op_(*spill_reg);
         new_op_.size = far_op.size;
 
         operand new_op(new_op_);
-
         in->for_each_operand(update_far_operand, new_op);
     }
 #endif
@@ -674,6 +702,10 @@ namespace granary {
                     continue;
                 }
                 mangle_sti(in);
+
+            // lea that loads too far.
+            } else if(dynamorio::OP_lea == (*in)->opcode) {
+                IF_USER(mangle_lea(in, estimator_pc);)
 
             // if in user space, look for uses of relative addresses in operands
             // that are no longer reachable with %rip-relative encoding, and

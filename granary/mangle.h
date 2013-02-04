@@ -30,6 +30,8 @@ namespace granary {
         void mangle_sti(instruction_list_handle in) throw();
         void mangle_cli(instruction_list_handle in) throw();
 
+        void mangle_lea(instruction_list_handle in, app_pc) throw();
+
         void mangle_jump(instruction_list_handle in) throw();
         void mangle_return(instruction_list_handle in) throw();
         void mangle_call(instruction_list_handle in) throw();

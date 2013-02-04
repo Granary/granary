@@ -67,6 +67,14 @@ namespace granary {
     rest \
     POP_LAST_REG(reg)
 
+    static void debug_bb(app_pc *ret_addr) throw() {
+        granary::basic_block bb(*ret_addr);
+        printf("bb native_pc = %p instrumented_pc = %p\n",
+            bb.info->generating_pc,
+            bb.cache_pc_start);
+        (void) ret_addr;
+    }
+
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_basic_block(
         cpu_state_handle &,
@@ -74,11 +82,9 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
-#if 0
-        uint64_t start_pc(reinterpret_cast<uint64_t>(ls.first()->pc()));
+#if 1
         instruction_list_handle in(ls.prepend(granary::label_()));
         ALL_REGS(PUSH_REG, PUSH_LAST_REG);
-        static const char *debug("bb start_pc = %p\n");
         in = ls.insert_after(in, granary::pushf_());
 
         // align the stack.
@@ -86,13 +92,10 @@ namespace granary {
         in = ls.insert_after(in, granary::push_(granary::reg::rsp[0]));
         in = ls.insert_after(in, granary::and_(granary::reg::rsp, granary::int8_(-16)));
 
-        // call printf
+        // call debug_bb
+        in = ls.insert_after(in, granary::lea_(reg::arg1, reg::rsp[-8]));
         in = ls.insert_after(in, granary::mov_imm_(
-            granary::reg::arg1, granary::int64_(reinterpret_cast<uint64_t>(debug))));
-        in = ls.insert_after(in, granary::mov_imm_(
-            granary::reg::arg2, granary::int64_(start_pc)));
-        in = ls.insert_after(in, granary::mov_imm_(
-            granary::reg::rax, int64_(granary::unsafe_cast<uint64_t>(printf))));
+            granary::reg::rax, int64_(granary::unsafe_cast<uint64_t>(debug_bb))));
         in = ls.insert_after(in, granary::call_ind_(granary::reg::rax));
         in->set_mangled();
 
