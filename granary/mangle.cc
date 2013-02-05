@@ -172,6 +172,7 @@ namespace granary {
         // don't have it; go encode it.
         instruction_list ibl;
 
+        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
 
         ibl.append(push_(reg::arg1));
 
@@ -195,12 +196,12 @@ namespace granary {
 
         // save flags / disable interrupts
 #if GRANARY_IN_KERNEL
-            ibl.append(pushf_());
-            ibl.append(cli_());
-#else
         ibl.append(pushf_());
-        //ibl.append(lahf_());
-        //ibl.append(push_(reg::rax)); // because rax == ret
+        ibl.append(cli_());
+#else
+        //ibl.append(pushf_());
+        ibl.append(lahf_());
+        ibl.append(push_(reg::rax)); // because rax == ret
 #endif
 
         // add in the policy to the address to be looked up.
@@ -663,9 +664,16 @@ namespace granary {
             rm.kill_all();
             rm.revive(*in);
             spill_reg = rm.get_zombie();
+
+            IF_USER( ls->insert_before(in,
+                lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+
             ls->insert_before(in, push_(spill_reg));
             ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
             ls->insert_after(in, pop_(spill_reg));
+
+            IF_USER( ls->insert_before(in,
+                lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
 
         operand_base_disp new_op_(*spill_reg);

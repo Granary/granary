@@ -21,8 +21,8 @@ GR_OUTPUT_FORMAT =
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_FLAGS = 
-GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -mno-red-zone
-GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -mno-red-zone -fno-rtti 
+GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
+GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 
@@ -41,8 +41,8 @@ GR_OUTPUT_WRAPPERS =
 # compiles independent of the Linux kernel.
 KERNEL ?= 1
 
-# Enable address sanitizer on Granary? Default is 2, which means it's
-# "unsupported", i.e. llvm wasn't compiled with compiler-rt.
+# Enable address sanitizer on Granary? Default is 2, which means it is
+# "unsupported", i.e. llvm was not compiled with compiler-rt.
 GR_ASAN ?= 2
 
 # Enable libc++? (llvm's c++ standard library)

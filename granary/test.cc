@@ -84,6 +84,8 @@ namespace granary {
     ) throw() {
 #if 1
         instruction_list_handle in(ls.prepend(granary::label_()));
+        IF_USER( in = ls.insert_after(
+            in, lea_(granary::reg::rsp, granary::reg::rsp[-REDZONE_SIZE])); )
         ALL_REGS(PUSH_REG, PUSH_LAST_REG);
         in = ls.insert_after(in, granary::pushf_());
 
@@ -104,6 +106,8 @@ namespace granary {
 
         in = ls.insert_after(in, granary::popf_());
         ALL_REGS(POP_REG, POP_LAST_REG);
+        IF_USER( in = ls.insert_after(
+            in, lea_(granary::reg::rsp, granary::reg::rsp[REDZONE_SIZE])); )
 #endif
         (void) ls;
         return granary::policy_for<test_policy>();

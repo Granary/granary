@@ -31,6 +31,7 @@ namespace granary {
     private:
 
         enum {
+            MISSING_POLICY_ID = 0,
             NUM_PSEUDO_POLICIES = 1,
             NUM_POLICIES = 1 + NUM_PSEUDO_POLICIES,
             INDIRECT_CTI_POLICY_INCREMENT = 1

@@ -22,8 +22,8 @@ namespace granary {
     enum {
 
         BB_PADDING      = 0xEA,
-        BB_MAGIC        = 0xD4D5D6,
-        BB_MAGIC_MASK   = 0xFFFFFF00,
+        BB_PADDING_LONG = 0xEAEAEAEAEAEAEAEA,
+        BB_MAGIC        = 0xD4D5D682,
         BB_ALIGN        = 16,
 
         /// Maximum size in bytes of a decoded basic block. This relates to
@@ -43,24 +43,12 @@ namespace granary {
         BITS_PER_BYTE = 8,
         BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
         BITS_PER_QWORD = BITS_PER_BYTE * 8,
-
-        /// an estimation of the number of bytes in a direct branch slot; each
-        /// slot only requires 10 bytes, but we add 4 extra for any needed
-        /// padding.
-        BRANCH_SLOT_SIZE_ESTIMATE = 14,
-
-        /// Size in bytes of a vtable entry. This is 8 bytes--the size to hold
-        /// an address.
-        VTABLE_ENTRY_SIZE = 8,
-
-        /// Size of a far jmp.
-        CONNECTING_JMP_SIZE = 5
     };
 
 
     /// Get the state of a byte in the basic block.
-    static code_cache_byte_state get_state(uint8_t *pc_byte_states,
-            unsigned i) throw() {
+    inline static code_cache_byte_state
+    get_state(uint8_t *pc_byte_states, unsigned i) throw() {
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
         const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
         return static_cast<code_cache_byte_state>(
@@ -69,20 +57,22 @@ namespace granary {
 
 
     /// Set one of the states into a trit.
-    static void set_state(uint8_t *pc_byte_states,
-            unsigned i,
-            code_cache_byte_state state) throw() {
+    static void set_state(
+        uint8_t *pc_byte_states,
+        unsigned i,
+        code_cache_byte_state state
+    ) throw() {
 
         static uint8_t state_to_mask[] = {
                 0xFF,
-                0,  /* BB_BYTE_NATIVE:          1 << 0 */
-                1,  /* BB_BYTE_MANGLED:         1 << 1 */
+                0,  /* BB_BYTE_NATIVE:      1 << 0 */
+                1,  /* BB_BYTE_DELAY_BEGIN: 1 << 1 */
                 0xFF,
-                2,  /* BB_BYTE_INSTRUMENTED:    1 << 2 */
+                2,  /* BB_BYTE_DELAY_CONT:  1 << 2 */
                 0xFF,
                 0xFF,
                 0xFF,
-                3   /* BB_BYTE_PADDING:         1 << 3 */
+                3   /* BB_BYTE_DELAY_END:   1 << 3 */
         };
 
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
@@ -94,48 +84,111 @@ namespace granary {
 
     /// Get the state of all bytes of an instruction.
     static code_cache_byte_state
-    get_instruction_state(const instruction in) throw() {
+    get_instruction_state(
+        const instruction in,
+        code_cache_byte_state prev_state
+    ) throw() {
 
-        if(nullptr != in.pc()) {
+        uint8_t flags(in.instr.granary_flags);
+
+        enum {
+            SINGLETON = instruction::DELAY_BEGIN | instruction::DELAY_END
+        };
+
+        // single delayed instruction; makes no sense. It is considered native.
+        if(SINGLETON == (flags & SINGLETON)) {
             return code_cache_byte_state::BB_BYTE_NATIVE;
 
-        // here we take over the INSTR_HAS_CUSTOM_STUB to represent a mangled
-        // instruction. Mangling in Granary's case has to do with a jump to a
-        // specific basic block that can resolve what to do.
-        } else if(in.is_mangled()) {
-            return code_cache_byte_state::BB_BYTE_MANGLED;
+        } else if(flags & instruction::DELAY_BEGIN) {
+            ASSERT(!(code_cache_byte_state::BB_BYTE_DELAY_CONT & prev_state));
+            ASSERT(!(code_cache_byte_state::BB_BYTE_DELAY_BEGIN & prev_state));
+
+            return code_cache_byte_state::BB_BYTE_DELAY_BEGIN;
+
+        } else if(flags & instruction::DELAY_END) {
+            ASSERT(!(code_cache_byte_state::BB_BYTE_DELAY_END & prev_state));
+            ASSERT(!(code_cache_byte_state::BB_BYTE_NATIVE & prev_state));
+
+            return code_cache_byte_state::BB_BYTE_DELAY_END;
+
+        } else if(code_cache_byte_state::BB_BYTE_DELAY_BEGIN == prev_state) {
+            return code_cache_byte_state::BB_BYTE_DELAY_CONT;
+
+        } else if(code_cache_byte_state::BB_BYTE_DELAY_CONT == prev_state) {
+            return code_cache_byte_state::BB_BYTE_DELAY_CONT;
 
         } else {
-            return code_cache_byte_state::BB_BYTE_INSTRUMENTED;
+            return code_cache_byte_state::BB_BYTE_NATIVE;
         }
     }
 
 
     /// Set the state of a pair of bits in memory.
-    static unsigned initialise_state_bytes(basic_block_info *info,
-                                              instruction_list &ls,
-                                              app_pc pc) throw() {
+    static unsigned
+    initialise_state_bytes(
+        basic_block_info *info,
+        instruction_list &ls,
+        app_pc pc
+    ) throw() {
 
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
         // initialise all state bytes to have their states as padding bytes
-        memset((void *) pc, static_cast<int>(~0U), num_state_bytes);
+        memset(
+            reinterpret_cast<void *>(pc),
+            static_cast<int>(BB_PADDING_LONG),
+            num_state_bytes);
 
         instruction_list_handle in(ls.first());
         unsigned byte_offset(0);
+        unsigned prev_byte_offset(0);
 
         // for each instruction
+        code_cache_byte_state prev_state(code_cache_byte_state::BB_BYTE_NATIVE);
+        unsigned num_delayed_instructions(0);
+        unsigned prev_num_delayed_instructions(0);
         for(unsigned i = 0, max = ls.length(); i < max; ++i) {
-            code_cache_byte_state state(get_instruction_state(*in));
+            code_cache_byte_state state(get_instruction_state(*in, prev_state));
+            code_cache_byte_state stored_state(state);
             unsigned num_bytes(in->encoded_size());
 
-            // for each byte of each instruction
-            for(unsigned j = i; j < (i + num_bytes); ++j) {
-                set_state(pc, j, state);
+            if(code_cache_byte_state::BB_BYTE_NATIVE != stored_state) {
+                if(num_bytes) {
+                    ++num_delayed_instructions;
+                }
+                stored_state = code_cache_byte_state::BB_BYTE_DELAY_CONT;
+            } else {
+                prev_num_delayed_instructions = num_delayed_instructions;
+                num_delayed_instructions = 0;
             }
 
+            // the last delayed block was only one instruction long; clear its
+            // state bits so that it is not in fact delayed (as that makes
+            // no sense).
+            if(1 == prev_num_delayed_instructions) {
+                for(unsigned j(prev_byte_offset); j < byte_offset; ++j) {
+                    set_state(pc, j, code_cache_byte_state::BB_BYTE_NATIVE);
+                }
+            }
+
+            // for each byte of each instruction
+            for(unsigned j(byte_offset); j < (byte_offset + num_bytes); ++j) {
+                set_state(pc, j, stored_state);
+            }
+
+            // update so that we have byte accuracy on begin/end.
+            if(code_cache_byte_state::BB_BYTE_DELAY_BEGIN == state) {
+                set_state(pc, byte_offset, code_cache_byte_state::BB_BYTE_DELAY_BEGIN);
+            } else if(code_cache_byte_state::BB_BYTE_DELAY_END == state) {
+                set_state(
+                    pc,
+                    byte_offset + num_bytes - 1,
+                    code_cache_byte_state::BB_BYTE_DELAY_END);
+            }
+
+            prev_byte_offset = byte_offset;
             byte_offset += num_bytes;
             in = in.next();
         }
@@ -147,7 +200,11 @@ namespace granary {
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
     basic_block::basic_block(app_pc current_pc_) throw()
-        : cache_pc_current(current_pc_)
+        : info(nullptr)
+        , policy(instrumentation_policy::MISSING_POLICY_ID)
+        , cache_pc_start(nullptr)
+        , cache_pc_current(current_pc_)
+        , cache_pc_end(nullptr)
     {
 
         // round up to the next 8-byte aligned quantity
@@ -172,6 +229,7 @@ namespace granary {
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes;
+        policy = instrumentation_policy(info->policy_id);
 
         IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
             cache_pc_end + sizeof(basic_block_info));)
@@ -179,58 +237,52 @@ namespace granary {
 
 
 #if GRANARY_IN_KERNEL
-    /// Returns the next safe interrupt location. This is used in the event that
-    /// a basic block is interrupted and we need to determine if we have to
-    /// delay the interrupt (e.g. across potentially non-reentrant
-    /// instrumentation code) or if we can take the interrupt immediately.
-    app_pc basic_block::next_safe_interrupt_location(void) const throw() {
-        app_pc next(cache_pc_current);
+    /// Returns true iff this interrupt must be delayed. If the interrupt
+    /// must be delayed then the arguments are updated in place with the
+    /// range of code that must be copied and re-relativised in order to
+    /// safely execute the interruptible code. The range of addresses is
+    /// [begin, end), where the `end` address is the next code cache address
+    /// to execute after the interrupt has been handled.
+    bool basic_block::get_interrupt_delay_range(
+        app_pc &begin,
+        app_pc &end
+    ) const throw() {
+        uint8_t *pc_byte_states(reinterpret_cast<uint8_t *>(info + 1));
 
-        for(;;) {
-            const code_cache_byte_state byte_state(get_state(
-                    pc_byte_states, next - cache_pc_start));
+        const unsigned current_offset(cache_pc_current - cache_pc_start);
+        code_cache_byte_state byte_state(get_state(
+            pc_byte_states, current_offset));
 
-            // we're in front of a native byte, which is fine.
-            if(code_cache_byte_state::BB_BYTE_NATIVE & byte_state) {
-                return next;
+        enum {
+            SAFE_INTERRUPT_STATE = code_cache_byte_state::BB_BYTE_NATIVE
+                                 | code_cache_byte_state::BB_BYTE_DELAY_BEGIN
+        };
 
-            // We assume that all mangled instructions are introduced by
-            // Granary proper and not by client code, and so represent
-            // safe interrupt points.
-            } else if(code_cache_byte_state::BB_BYTE_MANGLED & byte_state) {
-                if(basic_block_kind::BB_TRANSLATED_FRAGMENT == info->kind) {
-                    return next;
-                }
+        if(SAFE_INTERRUPT_STATE & byte_state) {
+            begin = nullptr;
+            end = nullptr;
+            return false;
+        }
 
-                return nullptr;
-
-            // we might need to delay, but only if the previous byte is instrumented
-            // if the previous byte is instrumented, then it likely means we're in
-            // a sequence of instrumented instruction, which might not be re-entrant
-            // and so we need to advance the pc to find a safe interrupt location.
-            } else if(code_cache_byte_state::BB_BYTE_INSTRUMENTED & byte_state) {
-
-                if(next == cache_pc_start) {
-                    return next;
-                }
-
-                const code_cache_byte_state prev_byte_state(get_state(
-                        pc_byte_states, next - cache_pc_start - 1));
-
-                if(code_cache_byte_state::BB_BYTE_NATIVE == prev_byte_state) {
-                    return next;
-                }
-
-                ++next;
-
-            // this is bad; we should never be executing padding instructions
-            // (which are interrupts)
-            } else {
-                return nullptr;
+        // Scan forward. Assumes that the byte states are correctly structured.
+        for(unsigned i(current_offset + 1), j(1); ; ++i, ++j) {
+            byte_state = get_state(pc_byte_states, i);
+            if(code_cache_byte_state::BB_BYTE_DELAY_END == byte_state) {
+                end = cache_pc_current + j + 1;
+                break;
             }
         }
 
-        return nullptr; // shouldn't be reached
+        // scan backward.
+        for(unsigned i(current_offset - 1), j(1); ; --i, ++j) {
+            byte_state = get_state(pc_byte_states, i);
+            if(code_cache_byte_state::BB_BYTE_DELAY_BEGIN == byte_state) {
+                begin = cache_pc_current - j;
+                break;
+            }
+        }
+
+        return true;
     }
 #endif
 
@@ -538,6 +590,9 @@ namespace granary {
 
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
+        // mangling uses `client_policy` as opposed to `policy` so that CTIs
+        // are mangled to transfer control to the (potentially different) client
+        // policy.
         instruction_list_mangler mangler(cpu, thread, client_policy);
         mangler.mangle(ls);
 
@@ -547,10 +602,8 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
 
-        //printf("generated_pc = %p\n", generated_pc);
-
         app_pc emitted_pc = emit(
-            BB_TRANSLATED_FRAGMENT, ls, block_storage, start_pc, generated_pc);
+            policy, ls, block_storage, start_pc, generated_pc);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
@@ -573,7 +626,7 @@ namespace granary {
     ///
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
-    app_pc basic_block::emit(basic_block_kind kind,
+    app_pc basic_block::emit(instrumentation_policy policy,
                              instruction_list &ls,
                              basic_block_state *block_storage,
                              app_pc generating_pc,
@@ -596,10 +649,9 @@ namespace granary {
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
         // fill in the info
-        info->magic = static_cast<uint32_t>(BB_MAGIC);
-        info->kind = kind;
+        info->magic = BB_MAGIC;
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
-        info->hotness = 0;
+        info->policy_id = policy.policy_id;
         info->generating_pc = generating_pc;
         info->state = block_storage;
 

@@ -284,13 +284,14 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         ibl.append(popf_());
 #else
-        ibl.append(popf_());
-        //ibl.append(pop_(reg::rax));
-        //ibl.append(lahf_());
+        //ibl.append(popf_());
+        ibl.append(pop_(reg::rax));
+        ibl.append(lahf_());
 #endif
 
         ibl.append(pop_(reg::rax));
         ibl.append(pop_(reg::arg1));
+        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         ibl.append(jmp_(pc_(pc)));
 
         app_pc encoded(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(

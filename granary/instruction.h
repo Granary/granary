@@ -219,9 +219,8 @@ namespace granary {
 
         enum {
             DONT_MANGLE     = (1 << 0),
-            DELAY           = (1 << 1),
-            DELAY_BEGIN     = (1 << 2),
-            DELAY_END       = (1 << 3)
+            DELAY_BEGIN     = (1 << 1),
+            DELAY_END       = (1 << 2)
         };
 
         typename dynamorio::instr_t instr;

@@ -9,6 +9,7 @@
 #define granary_BB_H_
 
 #include "granary/globals.h"
+#include "granary/policy.h"
 
 namespace granary {
 
@@ -25,31 +26,10 @@ namespace granary {
     /// different states of bytes in the code cache.
     typedef enum {
         BB_BYTE_NATIVE         = (1 << 0),
-        BB_BYTE_MANGLED        = (1 << 1),
-        BB_BYTE_INSTRUMENTED   = (1 << 2),
-        BB_BYTE_PADDING        = (1 << 3)
+        BB_BYTE_DELAY_BEGIN    = (1 << 1),
+        BB_BYTE_DELAY_CONT     = (1 << 2),
+        BB_BYTE_DELAY_END      = (1 << 3)
     } code_cache_byte_state;
-
-
-    /// different kinds of basic blocks in the code cache.
-    typedef enum {
-        BB_TRANSLATED_FRAGMENT,
-        BB_INTERRUPTED_FRAGMENT,
-
-        BB_CALL_LOOKUP,
-        BB_JUMP_LOOKUP,
-
-        BB_ENTER_GRANARY_CALL,
-        BB_EXIT_GRANARY_CALL,
-
-        BB_ENTER_GRANARY_RETURN,
-        BB_EXIT_GRANARY_RETURN,
-
-        BB_ENTER_GRANARY_RETURN_INTERRUPT,
-
-        BB_ENTER_GRANARY,
-        BB_EXIT_GRANARY
-    } basic_block_kind;
 
 
     /// Defines the meta-information block that ends each basic block in the
@@ -59,10 +39,7 @@ namespace granary {
 
         /// magic number (sequence of 4 int3 instructions) which signals the
         /// beginning of a bb_meta block.
-        uint32_t magic:24;
-
-        /// the kind of this basic block.
-        basic_block_kind kind:8;
+        uint32_t magic;
 
         /// the number of bytes in this basic block, *including* the number of
         /// bytes of padding
@@ -71,8 +48,9 @@ namespace granary {
         /// The application/module to which this basic block belongs
         uint8_t app_id;
 
-        /// used to measure some threshold of the "hotness" of this basic block
-        volatile uint8_t hotness;
+        /// Represents the translation policy used to translate this basic
+        /// block.
+        uint8_t policy_id;
 
         /// Pointer to this block's block-local storage.
         basic_block_state *state;
@@ -103,6 +81,9 @@ namespace granary {
 
     public:
 
+        /// the policy of this basic block.
+        instrumentation_policy policy;
+
         /// location information about this basic block
         app_pc cache_pc_start;
         app_pc cache_pc_current;
@@ -111,8 +92,13 @@ namespace granary {
         /// construct a basic block from a pc that points into the code cache.
         basic_block(app_pc current_pc_) throw();
 
-        /// Returns the next safe interrupt location.
-        app_pc next_safe_interrupt_location(void) const throw();
+        /// Returns true iff this interrupt must be delayed. If the interrupt
+        /// must be delayed then the arguments are updated in place with the
+        /// range of code that must be copied and re-relativised in order to
+        /// safely execute the interruptible code. The range of addresses is
+        /// [begin, end), where the `end` address is the next code cache address
+        /// to execute after the interrupt has been handled.
+        bool get_interrupt_delay_range(app_pc &, app_pc &) const throw();
 
         /// Compute the size of a basic block given an instruction list. This
         /// computes the size of each instruction, the amount of padding, meta
@@ -151,7 +137,7 @@ namespace granary {
         ///       boundary.
         ///
         /// Args:
-        ///     kind:           The kind of this basic block.
+        ///     policy:         The policy of this basic block.
         ///     ls:             The instructions to encode.
         ///     generating_pc:  The program PC whose decoding/translation
         ///                     generated the instruction list ls.
@@ -160,7 +146,7 @@ namespace granary {
         ///                     emitted, this pointer is updated to the address
         ///                     of the memory location immediately following
         ///                     the basic block.
-        static app_pc emit(basic_block_kind kind,
+        static app_pc emit(instrumentation_policy kind,
                            instruction_list &ls,
                            basic_block_state *block_storage,
                            app_pc generating_pc,
