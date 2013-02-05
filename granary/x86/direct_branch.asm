@@ -41,10 +41,6 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     POPA
     popf
 
-    // the direct branch stubs push on a relative address offset on the stack;
-    // need to get rid of it without changing the flags
-    lea 0x8(%rsp), %rsp
-
     // return to the now patched instruction
     ret
     END_FUNC(granary_asm_direct_branch_template)

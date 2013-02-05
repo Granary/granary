@@ -37,6 +37,7 @@
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_true
 #   define IF_USER(...)
 #   define IF_USER_(...)
+#   define IF_USER_ELSE(x, y) y
 #else
 #   define IF_KERNEL(...)
 #   define IF_KERNEL_(...)
@@ -44,6 +45,7 @@
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_false
 #   define IF_USER(...) __VA_ARGS__
 #   define IF_USER_(...) , __VA_ARGS__
+#   define IF_USER_ELSE(x, y) x
 #endif
 
 #define FAULT (granary_break_on_fault(), granary_fault())

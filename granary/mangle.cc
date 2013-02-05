@@ -83,12 +83,17 @@ namespace granary {
         /// Saved flags.
         uint64_t flags;
 
+        /// Return address into the patch code located in the tail of the
+        /// basic block being patched. We use this to figure out the instruction
+        /// to patch because the tail code ends with a jmp to that instruction.
+        app_pc return_address_into_patch_tail;
+
         /// The target address of a jump, including the policy to use when
         /// translating the target basic block.
         mangled_address target_address;
 
-        /// The return address *immediately* following the mangled instruction.
-        uint64_t return_address_after_mangled_call;
+        /// Unused, but makes the redzone "explicit".
+        IF_USER( uint8_t redzone[REDZONE_SIZE]; )
     };
 
 
@@ -278,7 +283,7 @@ namespace granary {
     template <
         instruction (*make_opcode)(dynamorio::opnd_t)
     >
-    static direct_cti_patch_mcontext *
+    static void
     find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
         // notify Granary that we're entering!
@@ -294,18 +299,18 @@ namespace granary {
             target_pc = code_cache::find(cpu, thread, context->target_address);
         }
 
-        // determine the address to patch; this changes the return address in
-        // the machine context to point back to the patch address so that we
-        // are guaranteed that we resume in the code cache, we execute the
-        // intended instruction.
-        uint64_t patch_address(context->return_address_after_mangled_call);
-        unsigned offset(patch_address % 8);
-        if(0 == offset) {
-            context->return_address_after_mangled_call -= 8U;
-            patch_address -= 8U;
-        } else {
-            context->return_address_after_mangled_call -= offset;
-            patch_address -= offset;
+        // determine the address to patch; this decodes the *tail* of the patch
+        // code in the basic block and looks for a CTI (assumed jmp) and takes
+        // its target to be the instruction that must be patched.
+        app_pc patch_address(nullptr);
+        for(app_pc ret_pc(context->return_address_into_patch_tail); ;) {
+            instruction maybe_jmp(instruction::decode(&ret_pc));
+            if(maybe_jmp.is_cti()) {
+                ASSERT(dynamorio::OP_jmp == maybe_jmp.op_code());
+                patch_address = maybe_jmp.cti_target().value.pc;
+                ASSERT(0 == (reinterpret_cast<uint64_t>(patch_address) % 8));
+                break;
+            }
         }
 
         // create the patch code
@@ -319,14 +324,12 @@ namespace granary {
         stage_8byte_hot_patch(
             cti,
             staged_code,
-            reinterpret_cast<app_pc>(patch_address));
+            patch_address);
 
         // apply the patch
         granary_atomic_write8(
             staged_code_,
             reinterpret_cast<uint64_t *>(patch_address));
-
-        return context;
     }
 
 
@@ -414,6 +417,8 @@ namespace granary {
         // detach address.
         app_pc detach_target_pc(find_detach_target(target));
         if(nullptr != detach_target_pc) {
+
+            // TODO: won't work in user space
             in->set_cti_target(pc_(detach_target_pc));
             in->set_mangled();
             return;
@@ -429,20 +434,40 @@ namespace granary {
         // set the policy-fied target
         mangled_address am(target, target_policy.base_policy());
 
-        // add in the patch code
-        instruction_list_handle patch(
-            ls->append(lea_(reg::rsp, reg::rsp[-8])));
-            ls->append(push_(reg::rax));
-            ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
-            ls->append(mov_st_(reg::rsp[8], reg::rax));
-            ls->append(pop_(reg::rax));
-            ls->append(mangled(jmp_(pc_(get_direct_cti_patch_func(in->op_code())))));
+        // add in the patch code, change the initial behaviour of the
+        // instruction, and mark it has hot patchable so it is nicely aligned.
+        app_pc patcher_for_opcode(get_direct_cti_patch_func(in->op_code()));
+        instruction_list_handle patch(ls->append(label_()));
+        *in = patchable(mangled(jmp_(instr_(*patch))));
 
-        *in = call_(instr_(*patch));
+        // shift the stack pointer appropriately; in user space, this deals with
+        // the red zone.
+        IF_USER( ls->append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE - 8])); )
+        IF_KERNEL( ls->append(lea_(reg::rsp, reg::rsp[-8])); )
 
-        // change the state of the patched instruction.
-        in->set_mangled();
-        in->set_patchable();
+        ls->append(push_(reg::rax)); // save
+
+        // store the policy-mangled target on the stack
+        ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
+        ls->append(mov_st_(reg::rsp[8], reg::rax));
+
+        ls->append(pop_(reg::rax)); // restore
+
+        // call out to the mangler.
+        ls->append(mangled(call_(pc_(patcher_for_opcode))));
+
+        // deal with the red zone and the policy-mangled  address left on
+        // the stack.
+        IF_USER( ls->append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8])); )
+        IF_KERNEL( ls->append(lea_(reg::rsp, reg::rsp[8])); )
+
+        // the address to be mangled is implicitly encoded in the target of this
+        // jmp instruction, which will later be decoded by the direct cti
+        // patch function. There are two reasons for this approach of jumping
+        // around:
+        //      i)  Doesn't screw around with the return address predictor.
+        //      ii) Works with user space red zones.
+        ls->append(mangled(jmp_(instr_(*in))));
 
         const unsigned new_size(in->encoded_size());
 

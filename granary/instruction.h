@@ -522,8 +522,17 @@ namespace granary {
     };
 
 
+    /// Mark this instruction as already mangled so that it is not mangled
+    /// again.
     inline instruction mangled(instruction in) throw() {
         in.set_mangled();
+        return in;
+    }
+
+
+    /// Mark this instruction as hot patchable.
+    inline instruction patchable(instruction in) throw() {
+        in.set_patchable();
         return in;
     }
 

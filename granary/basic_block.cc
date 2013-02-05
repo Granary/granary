@@ -425,6 +425,16 @@ namespace granary {
         }
 
         for(unsigned byte_len(0); ;) {
+
+            // very big basic block; cut it short and connect it with a tail.
+            // we do this test *before* decoding the next instruction because
+            // `instruction::decode` modifies `pc`, and `pc` is used to
+            // determine the fall-through target.
+            if(byte_len > BB_MAX_SIZE_BYTES) {
+                fall_through_pc = true;
+                break;
+            }
+
             instruction in(instruction::decode(pc));
 
             // TODO: curiosity.
@@ -432,12 +442,7 @@ namespace granary {
                 break;
             }
 
-            // very big basic block; cut it short and connect it with a tail.
             byte_len += in.instr.length;
-            if(byte_len > BB_MAX_SIZE_BYTES) {
-                fall_through_pc = true;
-                break;
-            }
 
             if(in.is_cti()) {
                 operand target(in.cti_target());

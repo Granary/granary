@@ -102,6 +102,9 @@ namespace granary {
         NUM_CPUS = CONFIG_MAX_NUM_CPUS,
 
 
+        /// Size (in bytes) of the x86-64 user space redzone.
+        REDZONE_SIZE = 128,
+
         /// Maximum wrapping depths
         MAX_PRE_WRAP_DEPTH = CONFIG_MAX_PRE_WRAP_DEPTH,
         MAX_POST_WRAP_DEPTH = CONFIG_MAX_POST_WRAP_DEPTH,

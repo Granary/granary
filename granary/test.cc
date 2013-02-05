@@ -71,7 +71,7 @@ namespace granary {
         granary::basic_block bb(*ret_addr);
         printf("bb native_pc = %p instrumented_pc = %p\n",
             bb.info->generating_pc,
-            bb.cache_pc_start);
+            bb.cache_pc_start + 78);
         (void) ret_addr;
     }
 
