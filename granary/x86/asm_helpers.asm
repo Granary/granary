@@ -24,6 +24,22 @@
     POP_LAST_REG(reg)
 
 
+
+#define PUSH_LAST_XMM_REG(off, reg) \
+    movaps %reg, off(%rsp);
+
+#define PUSH_XMM_REG(off, reg, rest) \
+    PUSH_LAST_XMM_REG(off, reg) \
+    rest
+
+#define POP_LAST_XMM_REG(off, reg) \
+    movaps off(%rsp), %reg;
+
+#define POP_XMM_REG(off, reg, rest) \
+    rest \
+    POP_LAST_XMM_REG(off, reg)
+
+
 /// used for counting the space needed to store all registers
 #define PLUS_8_8 16
 #define PLUS_8_16 24
@@ -49,13 +65,24 @@
 #define ADD(x, y) ADD_(x, y)
 #define PLUS_EIGHT(_,rest) ADD(PLUS_8_, rest)
 #define EIGHT(_) 8
+
 /// used to save and restore registers
 #define PUSHA ALL_REGS(PUSH_REG, PUSH_LAST_REG)
 #define POPA ALL_REGS(POP_REG, POP_LAST_REG)
 #define PUSHA_SIZE TO_STRING(ALL_REGS(PLUS_EIGHT, EIGHT))
 
+/// use to save and restore call-clobbered registers
 #define PUSHA_CALL ALL_CALL_REGS(PUSH_REG, PUSH_LAST_REG)
 #define POPA_CALL ALL_CALL_REGS(POP_REG, POP_LAST_REG)
 
+/// used to save and restore xmm registers. Note: we assume that %rsp is
+/// 16-byte aligned.
+#define PUSHA_XMM \
+    lea -256(%rsp), %rsp; \
+    ALL_XMM_REGS(PUSH_XMM_REG, PUSH_LAST_XMM_REG)
+
+#define POPA_XMM \
+    ALL_XMM_REGS(POP_XMM_REG, POP_LAST_XMM_REG) \
+    lea 256(%rsp), %rsp; \
 
 #endif /* Granary_ASM_HELPERS_ASM_ */

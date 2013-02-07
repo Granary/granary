@@ -348,17 +348,27 @@ namespace granary {
         }
 
 
+        /// Return true iff this instruction begins a delay region.
+        inline bool begins_delay_region(void) const throw() {
+            return 0 != (DELAY_BEGIN & instr.granary_flags);
+        }
+
+
+        /// Return true iff this instruction ends a delay region.
+        inline bool ends_delay_region(void) const throw() {
+            return 0 != (DELAY_END & instr.granary_flags);
+        }
+
+
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (dynamorio::INSTR_HAS_CUSTOM_STUB & instr.flags)
-                || 0 != (DONT_MANGLE & instr.granary_flags);
+            return 0 != (DONT_MANGLE & instr.granary_flags);
         }
 
 
         /// Set the state of the instruction to be mangled.
         inline void set_mangled(void) throw() {
             instr.granary_flags |= DONT_MANGLE;
-            instr.flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
         }
 
 

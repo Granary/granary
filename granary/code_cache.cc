@@ -12,13 +12,9 @@
 #include "granary/basic_block.h"
 #include "granary/utils.h"
 #include "granary/register.h"
+#include "granary/emit_utils.h"
 
 namespace granary {
-
-    enum {
-        _4GB = 4294967296ULL
-    };
-
 
     /// Static initialisation of the global IBL lookup routine.
     app_pc code_cache::IBL_COMMON_ENTRY_ROUTINE(nullptr);
@@ -109,7 +105,7 @@ namespace granary {
         // because a concurrent thread "won" when translating the same
         // block). If the latter is the case, implicitly free the block
         // by freeing the last thing used in the fragment allocator.
-        if(!CODE_CACHE.store(base_addr.as_address, target_addr, false)) {
+        if(!CODE_CACHE.store(base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
             cpu->block_allocator.free_last();
 
@@ -128,11 +124,15 @@ namespace granary {
         // to the corresponding IBL exit routine.
         if(policy.is_indirect_cti_policy()) {
             target_addr = ibl_exit_for(target_addr);
-            if(!CODE_CACHE.store(addr.as_address, target_addr)) {
+            if(!CODE_CACHE.store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
                 cpu->fragment_allocator.free_last();
                 CODE_CACHE.load(addr.as_address, target_addr);
             }
+
             cpu->code_cache.store(addr.as_address, target_addr);
+
+        } else if(policy.is_detach_on_return_policy()) {
+
         }
 
         return target_addr;
@@ -153,93 +153,6 @@ namespace granary {
     }
     */
 
-    /// Traverse through the instruction control-flow graph and look for used
-    /// registers.
-    static register_manager find_used_regs_in_func(app_pc func) throw() {
-        register_manager used_regs;
-        list<app_pc> process_bbs;
-        list<app_pc>::handle_type next;
-        hash_set<app_pc> seen;
-
-        used_regs.revive_all();
-        process_bbs.append(func);
-
-        // traverse instructions and find all used registers.
-        for(unsigned i(0); i < process_bbs.length(); ++i) {
-
-            if(!next.is_valid()) {
-                next = process_bbs.first();
-            } else {
-                next = next.next();
-            }
-
-            app_pc bb(*next);
-            if(seen.contains(bb)) {
-                break;
-            }
-
-            seen.add(bb);
-
-            for(; bb; ) {
-                instruction in;
-
-                in = instruction::decode(&bb);
-                used_regs.kill(in);
-
-                // done processing this basic block
-                if(dynamorio::OP_ret == in.op_code()) {
-                    break;
-                }
-
-                // this is a cti; add the destination instruction as
-                if(in.is_cti()) {
-
-                    operand target(in.cti_target());
-                    if(!dynamorio::opnd_is_pc(target)) {
-                        used_regs.kill_all();
-                        return used_regs;
-                    }
-
-                    process_bbs.append(dynamorio::opnd_get_pc(target));
-                }
-            }
-        }
-
-        return used_regs;
-    }
-
-
-    /// Computes the absolute value of a pointer difference.
-    inline static uint64_t pc_diff(ptrdiff_t diff) {
-        if(diff < 0) {
-            return static_cast<uint64_t>(-diff);
-        }
-        return static_cast<uint64_t>(diff);
-    }
-
-
-    /// Save all dead registers within a particular register manager. This is
-    /// useful for saving/restoring only those registers used by a function.
-    instruction_list_handle save_and_restore_registers(
-        register_manager &regs,
-        instruction_list &ls,
-        instruction_list_handle in
-    ) throw() {
-        for(;;) {
-            dynamorio::reg_id_t reg_id(regs.get_zombie());
-            if(!reg_id) {
-                break;
-            }
-
-            operand reg(reg_id);
-
-            in = ls.insert_after(in, push_(reg));
-            ls.insert_after(in, pop_(reg));
-        }
-
-        return in;
-    }
-
 
     /// Add a call to a known function after a particular instruction in the
     /// instruction stream. If the location of the function to be called is
@@ -255,9 +168,8 @@ namespace granary {
         app_pc staged_loc(
             global_state::FRAGMENT_ALLOCATOR.allocate_staged<uint8_t>());
 
-
         // add in the indirect call to the find on CPU function
-        if(_4GB <= pc_diff(staged_loc - target)) {
+        if(is_far_away(staged_loc, target)) {
 
             in = ls.insert_after(in,
                 mov_imm_(clobber_reg,
@@ -284,9 +196,9 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         ibl.append(popf_());
 #else
-        //ibl.append(popf_());
-        ibl.append(pop_(reg::rax));
-        ibl.append(lahf_());
+        ibl.append(popf_());
+        //ibl.append(pop_(reg::rax));
+        //ibl.append(lahf_());
 #endif
 
         ibl.append(pop_(reg::rax));
@@ -323,6 +235,9 @@ namespace granary {
 
         instruction_list_handle in(
             save_and_restore_registers(cpu_regs, ibl, ibl.first()));
+
+        in = save_and_restore_xmm_registers(
+            cpu_regs, ibl, in, XMM_SAVE_UNALIGNED);
 
         // set up the label so that the fast path can target the instructions
         // that restore the registers saved by the cpu-private code cache

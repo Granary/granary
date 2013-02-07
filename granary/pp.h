@@ -101,6 +101,24 @@
     R(r9, R(r10, R(r11, R(r12, \
     R(r13, R(r14, R_last(r15)))))))))))))))
 
+#define ALL_XMM_REGS(R, R_last) \
+    R(240, xmm0, \
+    R(224, xmm1, \
+    R(208, xmm2, \
+    R(192, xmm3, \
+    R(176, xmm4, \
+    R(160, xmm5, \
+    R(144, xmm6, \
+    R(128, xmm7, \
+    R(112, xmm8, \
+    R(96,  xmm9, \
+    R(80,  xmm10, \
+    R(64,  xmm11, \
+    R(48,  xmm12, \
+    R(32,  xmm13, \
+    R(16,  xmm14, \
+    R_last(0, xmm15))))))))))))))))
+
 /// unrolling macros for applying something to all argument registers
 #define ALL_CALL_REGS(R, R_last) \
     R(rdi, R(rsi, R(rdx, R(rcx, R(r8, R(r9, R(rbp, R_last(rax))))))))

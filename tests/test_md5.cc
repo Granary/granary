@@ -437,37 +437,69 @@ namespace test { namespace md5 {
 
 namespace test {
 
-    static void test_md5(void) {
+    enum {
+        NUM_MD5_TRIALS = 10,
+        INPUT_STRING_LEN = 999
+    };
+
+    static void test_md5_digest(void) {
         granary::app_pc func((granary::app_pc) md5::md5_digest);
         granary::basic_block bb_func(granary::code_cache::find(
             func, granary::test_policy()));
 
-        char str[1000] = {0};
-        //char hash_native[33] = {0};
-        //char hash_instrumented[33] = {0};
+        char str[INPUT_STRING_LEN + 1] = {0};
         md5::md5_byte_t digest_native[16];
         md5::md5_byte_t digest_instrumented[16];
 
-        for(int j(0); j < 2; ++j) {
-            for(int i(0); i < 999; ++i) {
+        for(int j(0); j < NUM_MD5_TRIALS; ++j) {
+            for(int i(0); i < INPUT_STRING_LEN; ++i) {
                 str[i] = rand() % 254 + 1;
             }
-            str[999] = '\0';
+            str[INPUT_STRING_LEN] = '\0';
 
             bb_func.call<void, md5::md5_byte_t *, const char *, int>(
                 &(digest_instrumented[0]),
                 &(str[0]),
-                999);
+                INPUT_STRING_LEN);
             PR("\n\n\n\n\n\n\n");
-            md5::md5_digest(&(digest_native[0]), &(str[0]), 999);
+            md5::md5_digest(&(digest_native[0]), &(str[0]), INPUT_STRING_LEN);
 
 
             ASSERT(0 == memcmp(digest_native, digest_instrumented, 16));
         }
     }
 
+    static void test_md5(void) {
+        char str[INPUT_STRING_LEN + 1] = {0};
+        char hash_native[33] = {0};
+        char hash_instrumented[33] = {0};
+
+        granary::app_pc func((granary::app_pc) md5::md5);
+        granary::basic_block bb_func(granary::code_cache::find(
+            func, granary::test_policy()));
+
+        // tests approximately the same thing, but also brings in some
+        // potential dynamic linking with sprintf, etc.
+        for(int j(0); j < NUM_MD5_TRIALS; ++j) {
+            for(int i(0); i < INPUT_STRING_LEN; ++i) {
+                str[i] = rand() % 254 + 1;
+            }
+            str[INPUT_STRING_LEN] = '\0';
+
+            bb_func.call<void, char *, char *>(
+                &(str[0]),
+                &(hash_instrumented[0]));
+            PR("\n\n\n\n\n\n\n");
+            md5::md5(&(str[0]), &(hash_native[0]));
+
+            ASSERT(0 == memcmp(hash_native, hash_instrumented, 32));
+        }
+    }
+
+    ADD_TEST(test_md5_digest,
+        "Test that the `md5` digest implementation behaves correctly.")
 
     ADD_TEST(test_md5,
-        "Test that the `md5` digest implementation behaves correctly.")
+        "Test that the `md5` string hash implementation behaves correctly.")
 
 }

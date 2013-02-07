@@ -329,7 +329,7 @@ struct _instr_list_t {
 
 struct instr_info_t;
 
-enum {
+enum register_type {
     DR_REG_NULL,
     DR_REG_RAX,
     DR_REG_RCX,

@@ -19,7 +19,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 -O3
 GR_LD_FLAGS = 
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
@@ -56,20 +56,20 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CXX_STD = -std=c++11
 	
 	# explicitly enable/disable address sanitizer
-    ifeq ('0','$(GR_ASAN)')
-    	GR_CC_FLAGS += -fno-sanitize=address
-    	GR_CXX_FLAGS += -fno-sanitize=address
+	ifeq ('0','$(GR_ASAN)')
+		GR_CC_FLAGS += -fno-sanitize=address
+		GR_CXX_FLAGS += -fno-sanitize=address
 	else
-    	ifeq ('1','$(GR_ASAN)')
-    		GR_CC_FLAGS += -fsanitize=address
-    		GR_CXX_FLAGS += -fsanitize=address
+		ifeq ('1','$(GR_ASAN)')
+			GR_CC_FLAGS += -fsanitize=address
+			GR_CXX_FLAGS += -fsanitize=address
 		endif
-    endif
-    
-    # enable the newer standard and use it with libc++
-    ifeq ('1','$(GR_LIBCXX)')
+	endif
+	
+	# enable the newer standard and use it with libc++
+	ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_STD = -std=c++11 -stdlib=libc++
-    endif
+	endif
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
@@ -109,6 +109,7 @@ GR_OBJS += bin/granary/detach.o
 GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
 GR_OBJS += bin/granary/code_cache.o
+GR_OBJS += bin/granary/emit_utils.o
 GR_OBJS += bin/granary/hash_table.o
 GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/policy.o
@@ -148,7 +149,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_direct_rec.o
 	GR_OBJS += bin/tests/test_indirect_cti.o
 	GR_OBJS += bin/tests/test_mat_mul.o
-#GR_OBJS += bin/tests/test_md5.o
+	GR_OBJS += bin/tests/test_md5.o
 
 	# figure out how to link in various libraries that might be OS-specific
 	GR_LD_SPECIFIC = -pthread -lrt
@@ -165,14 +166,23 @@ ifneq ($(KERNEL),1)
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
-    define GR_COMPILE_ASM
-    	$$($(GR_CC) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
+	define GR_COMPILE_ASM
+		$$($(GR_CC) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
 endef
 
 # kernel space
 else
+	ifneq (,$(findstring clang,$(GR_CC))) # clang
+		GR_TYPE_CC_FLAGS += -mkernel
+		GR_TYPE_CXX_FLAGS += -mkernel
+	else
+		GR_TYPE_CC_FLAGS += -mcmodel=kernel
+		GR_TYPE_CXX_FLAGS += -mcmodel=kernel
+	endif
 	
-	GR_TYPE_CC_FLAGS += -mcmodel=kernel
+	GR_TYPE_CC_FLAGS += -mno-red-zone
+	GR_TYPE_CXX_FLAGS += -mno-red-zone
+	
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h

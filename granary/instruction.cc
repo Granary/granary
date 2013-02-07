@@ -30,6 +30,7 @@ namespace granary {
     instruction::instruction(void) throw() {
         memset(this, 0, sizeof *this);
         dynamorio::instr_set_x86_mode(&(this->instr), false);
+        instr.flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
     }
 
 
@@ -41,11 +42,14 @@ namespace granary {
 
         // save key info
         //dynamorio::byte *bytes(instr.bytes);
-        app_pc translation(instr.translation);
         //dynamorio::uint eflags(instr.eflags);
+
+        app_pc translation(instr.translation);
         void *note(instr.note);
         dynamorio::instr_t *next(instr.next);
         dynamorio::instr_t *prev(instr.prev);
+        uint8_t granary_flags(instr.granary_flags);
+        uint8_t granary_policy(instr.granary_flags);
 
         memcpy(&instr, &(that.instr), sizeof instr);
 
@@ -57,11 +61,13 @@ namespace granary {
 
         // restore key info
         //instr.bytes = bytes;
-        instr.translation = translation;
         //instr.eflags = eflags;
+        instr.translation = translation;
         instr.note = note;
         instr.next = next;
         instr.prev = prev;
+        instr.granary_flags = granary_flags;
+        instr.granary_policy = granary_policy;
 
         return *this;
     }

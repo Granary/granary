@@ -14,6 +14,8 @@
 #include "granary/basic_block.h"
 #include "granary/state.h"
 #include "granary/x86/asm_defines.asm"
+#include "granary/detach.h"
+#include "granary/emit_utils.h"
 
 namespace granary {
 

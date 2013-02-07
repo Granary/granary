@@ -38,6 +38,11 @@ namespace granary {
 	/// 	detach target.
 	app_pc find_detach_target(app_pc pc) throw();
 
+
+	/// Detach Granary.
+	__attribute__((noinline))
+	void detach(void) throw();
+
 }
 
 #endif /* GRANARY_DETACH_H_ */

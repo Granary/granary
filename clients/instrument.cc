@@ -9,4 +9,22 @@
 
 namespace client {
 
+    /// Instruction a basic block.
+    granary::instrumentation_policy null_policy::visit_basic_block(
+        granary::cpu_state_handle &cpu,
+        granary::thread_state_handle &thread,
+        granary::basic_block_state &bb,
+        granary::instruction_list &ls
+    ) throw() {
+
+        printf("in null_policy");
+
+        (void) cpu;
+        (void) thread;
+        (void) bb;
+        (void) ls;
+
+        return granary::policy_for<null_policy>();
+    }
+
 }

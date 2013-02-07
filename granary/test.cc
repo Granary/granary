@@ -53,25 +53,11 @@ extern "C" {
 
 namespace granary {
 
-#define PUSH_LAST_REG(r) \
-    in = ls.insert_after(in, granary::push_(granary::reg::r));
-
-#define POP_LAST_REG(r) \
-    in = ls.insert_after(in, granary::pop_(granary::reg::r));
-
-#define PUSH_REG(reg, rest) \
-    PUSH_LAST_REG(reg) \
-    rest
-
-#define POP_REG(reg, rest) \
-    rest \
-    POP_LAST_REG(reg)
-
     static void debug_bb(app_pc *ret_addr) throw() {
         granary::basic_block bb(*ret_addr);
         printf("bb native_pc = %p instrumented_pc = %p\n",
             bb.info->generating_pc,
-            bb.cache_pc_start + 78);
+            bb.cache_pc_start + 329);
         (void) ret_addr;
     }
 
@@ -82,32 +68,46 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
-#if 1
+#if 0
+        register_manager all_regs;
+        all_regs.kill_all();
+
         instruction_list_handle in(ls.prepend(granary::label_()));
+
         IF_USER( in = ls.insert_after(
             in, lea_(granary::reg::rsp, granary::reg::rsp[-REDZONE_SIZE])); )
-        ALL_REGS(PUSH_REG, PUSH_LAST_REG);
+
+        // save the flags
         in = ls.insert_after(in, granary::pushf_());
+
+        // restore the flags
+        instruction_list_handle tail_in(ls.insert_after(in, granary::popf_()));
+
+        IF_USER( tail_in = ls.insert_after(
+                tail_in, lea_(granary::reg::rsp, granary::reg::rsp[REDZONE_SIZE])); )
+
+        // save register state
+        in = save_and_restore_registers(all_regs, ls, in);
+        in = save_and_restore_xmm_registers(all_regs, ls, in, XMM_SAVE_UNALIGNED);
 
         // align the stack.
         in = ls.insert_after(in, granary::push_(granary::reg::rsp));
         in = ls.insert_after(in, granary::push_(granary::reg::rsp[0]));
-        in = ls.insert_after(in, granary::and_(granary::reg::rsp, granary::int8_(-16)));
+        in = ls.insert_after(in,
+            granary::and_(granary::reg::rsp, granary::int8_(-16)));
 
         // call debug_bb
         in = ls.insert_after(in, granary::lea_(reg::arg1, reg::rsp[-8]));
         in = ls.insert_after(in, granary::mov_imm_(
             granary::reg::rax, int64_(granary::unsafe_cast<uint64_t>(debug_bb))));
+
         in = ls.insert_after(in, granary::call_ind_(granary::reg::rax));
         in->set_mangled();
 
         // restore previous stack alignment
         in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
 
-        in = ls.insert_after(in, granary::popf_());
-        ALL_REGS(POP_REG, POP_LAST_REG);
-        IF_USER( in = ls.insert_after(
-            in, lea_(granary::reg::rsp, granary::reg::rsp[REDZONE_SIZE])); )
+
 #endif
         (void) ls;
         return granary::policy_for<test_policy>();

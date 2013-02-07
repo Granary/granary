@@ -36,4 +36,9 @@ namespace granary {
 		return nullptr;
 	}
 
+
+	/// Detach Granary.
+	void detach(void) throw() {
+	    ASM("");
+	}
 }

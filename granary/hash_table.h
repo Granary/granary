@@ -15,6 +15,22 @@
 
 namespace granary {
 
+
+    /// Policy for storing a value in a hash table.
+    enum hash_store_policy {
+        HASH_OVERWRITE_PREV_ENTRY,
+        HASH_KEEP_PREV_ENTRY
+    };
+
+
+    /// Store state.
+    enum hash_store_state {
+        HASH_ENTRY_STORED_NEW,
+        HASH_ENTRY_STORED_OVERWRITE,
+        HASH_ENTRY_SKIPPED
+    };
+
+
     /// The maximum sizes of hash tables as different scaling factors.
     extern uint32_t HASH_TABLE_MAX_SIZES[];
 
@@ -147,7 +163,7 @@ namespace granary {
 
         /// Insert an entry into the hash table. Returns true iff an element
         /// with the key didn't previously exist in the hash table.
-        bool insert(
+        hash_store_state insert(
             K key,
             V value,
             bool update
@@ -156,6 +172,8 @@ namespace granary {
             const uint32_t mask(table.entry_slots->mask);
             uint32_t entry_base(meta_type::hash(key));
             unsigned scan(0);
+            hash_store_state state(HASH_ENTRY_SKIPPED);
+
             for(;; ++scan, entry_base += 1) {
                 entry_base &= mask;
                 entry_type &entry(slots[entry_base]);
@@ -164,14 +182,18 @@ namespace granary {
                 if(default_key == entry.key) {
                     entry.value = value;
                     entry.key = key;
+                    state = HASH_ENTRY_STORED_NEW;
                     break;
 
+                }
+
                 // already inserted
-                } if(entry.key == key) {
+                if(entry.key == key) {
                     if(update) {
                         entry.value = value;
+                        state = HASH_ENTRY_STORED_OVERWRITE;
                     }
-                    return false;
+                    break;
                 }
             }
 
@@ -182,7 +204,7 @@ namespace granary {
                 growing = false;
             }
 
-            return true;
+            return state;
         }
 
         /// Grow the hash table. This increases the hash table's size by two.
@@ -281,8 +303,13 @@ namespace granary {
             return false;
         }
 
-        /// Store a value in the hash table.
-        inline bool store(K key, V value, bool update=true) throw() {
+        /// Store a value in the hash table. Returns true iff the entry was
+        /// written to the hash table.
+        bool store(
+            K key,
+            V value,
+            hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
+        ) throw() {
             const uint32_t max_num_entries(
                 HASH_TABLE_MAX_SIZES[table.scaling_factor]);
 
@@ -293,12 +320,15 @@ namespace granary {
                 growing = false;
             }
 
-            if(insert(key, value, update)) {
+            const hash_store_state state(insert(
+                key, value, HASH_OVERWRITE_PREV_ENTRY == update));
+
+            if(HASH_ENTRY_STORED_NEW == state) {
                 table.num_entries += 1;
                 return true;
             }
 
-            return false;
+            return HASH_ENTRY_SKIPPED != state;
         }
     };
 
@@ -312,11 +342,11 @@ namespace granary {
     public:
 
         void add(K key) throw() {
-            table.store(key, true, true);
+            table.store(key, true);
         }
 
         void remove(K key) throw() {
-            table.store(key, false, true);
+            table.store(key, false);
         }
 
         bool contains(K key) throw() {
@@ -415,7 +445,7 @@ namespace granary {
             const K new_key;
             const V new_value;
             const bool overwrite_old_value;
-            bool stored_value;
+            hash_store_state stored_state;
             bool should_grow;
             slots_write_ref_type old_slots;
 
@@ -423,14 +453,14 @@ namespace granary {
                 : new_key(key_)
                 , new_value(value_)
                 , overwrite_old_value(update)
-                , stored_value(false)
+                , stored_state(HASH_ENTRY_SKIPPED)
                 , should_grow(false)
                 , old_slots()
             { }
 
             /// Insert an entry into the hash table. Returns true iff an element
             /// with the key didn't previously exist in the hash table.
-            bool insert(
+            hash_store_state insert(
                 entry_type *slots,
                 uint32_t mask,
                 K key,
@@ -438,25 +468,30 @@ namespace granary {
                 bool update
             ) throw() {
                 uint32_t entry_base(meta_type::hash(key));
-                bool invalid(false);
                 unsigned scan(0);
+                hash_store_state state(HASH_ENTRY_SKIPPED);
 
                 for(;; ++scan, entry_base += 1) {
                     entry_base &= mask;
                     entry_type &entry(slots[entry_base]);
 
-                    // insert position
-                    if(entry.is_valid.compare_exchange_strong(invalid, true)) {
+                    // found the insert position; don't need to CAS because
+                    // insertion is guarded by the RCU mutex.
+                    if(!entry.is_valid.load()) {
                         entry.value.store(value);
                         entry.key.store(key);
+                        entry.is_valid.store(true); // publish
+                        state = HASH_ENTRY_STORED_NEW;
                         break;
+                    }
 
                     // already inserted
-                    } if(entry.key.load() == key) {
+                    if(entry.key.load() == key) {
                         if(update) {
                             entry.value.store(value);
+                            state = HASH_ENTRY_STORED_OVERWRITE;
                         }
-                        return false;
+                        break;
                     }
                 }
 
@@ -465,7 +500,7 @@ namespace granary {
                     should_grow = true;
                 }
 
-                return true;
+                return state;
             }
 
             /// Grow the hash table. This increases the hash table's size by
@@ -524,16 +559,15 @@ namespace granary {
             /// After readers are done looking at the old version of the hash
             /// table (assuming the hash table grew), we will add our entry in.
             virtual void after_readers_done(table_write_ref_type table) throw() {
-                const bool added_element(insert(
+                stored_state = insert(
                     slots_write_ref_type(table.entry_slots).entries,
                     slots_write_ref_type(table.entry_slots).mask,
                     new_key,
                     new_value,
-                    overwrite_old_value));
+                    overwrite_old_value);
 
                 // we added an element.
-                if(added_element) {
-                    stored_value = true;
+                if(HASH_ENTRY_STORED_NEW == stored_state) {
                     table.num_entries = table.num_entries + 1;
                 }
 
@@ -620,11 +654,17 @@ namespace granary {
             return table.read(read_table, key, val);
         }
 
-        /// Store a value in the hash table.
-        inline bool store(K key, V value, bool update=true) throw() {
-            add_entry entry_adder(key, value, update);
+        /// Store a value in the hash table. Returns true iff the entry was
+        /// written to the hash table.
+        inline bool store(
+            K key,
+            V value,
+            hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
+        ) throw() {
+            add_entry entry_adder(
+                key, value, HASH_OVERWRITE_PREV_ENTRY == update);
             table.write(entry_adder);
-            return entry_adder.stored_value;
+            return HASH_ENTRY_SKIPPED != entry_adder.stored_state;
         }
     };
 }

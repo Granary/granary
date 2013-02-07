@@ -32,9 +32,11 @@ namespace granary {
 
         enum {
             MISSING_POLICY_ID = 0,
-            NUM_PSEUDO_POLICIES = 1,
+            NUM_PSEUDO_POLICIES = 2,
             NUM_POLICIES = 1 + NUM_PSEUDO_POLICIES,
-            INDIRECT_CTI_POLICY_INCREMENT = 1
+
+            INDIRECT_CTI_POLICY_INCREMENT = 1,
+            DETACH_ON_RETURN_POLICY_INCREMENT = 2
         };
 
         friend struct basic_block;
@@ -67,6 +69,7 @@ namespace granary {
 
         /// The identifier for this policy.
         uint8_t policy_id;
+        uint8_t policy_increment;
 
 
         static instrumentation_policy missing_policy(
@@ -85,6 +88,7 @@ namespace granary {
         /// Takes in a policy ID directly.
         inline instrumentation_policy(uint16_t policy_id_) throw()
             : policy_id(policy_id_)
+            , policy_increment(policy_id_ % NUM_POLICIES)
         { }
 
 
@@ -121,19 +125,32 @@ namespace granary {
             return !policy_id;
         }
 
+    private:
+
+        /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
+        /// policy is used to help us "leave" the indirect branch lookup
+        /// mechanism and restore any saved state.
         inline bool is_indirect_cti_policy(void) const throw() {
-            return INDIRECT_CTI_POLICY_INCREMENT == (policy_id % NUM_POLICIES);
+            return INDIRECT_CTI_POLICY_INCREMENT == policy_increment;
+        }
+
+        /// Is this a detach-on-return pseudo policy? The detach-on-return
+        /// pseudo policy is used when invoking basic_block::call, with the
+        /// intention that
+        inline bool is_detach_on_return_policy(void) const throw() {
+            return DETACH_ON_RETURN_POLICY_INCREMENT == policy_increment;
         }
 
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
         inline instrumentation_policy indirect_cti_policy(void) throw() {
-            const uint8_t base_policy_id(policy_id - (policy_id % NUM_POLICIES));
+            const uint8_t base_policy_id(policy_id - policy_increment);
             return instrumentation_policy(
                 base_policy_id + INDIRECT_CTI_POLICY_INCREMENT);
         }
 
+    public:
 
         /// Return the "base" policy for this policy. This converts any pseudo
         /// policies back into non-pseudo policies.

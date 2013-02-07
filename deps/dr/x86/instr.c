@@ -4577,7 +4577,9 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
     instr_t *in = instr_build(dcontext, opcode, 1, 1);
 #ifdef GRANARY
     if(src.kind == REG_kind && dst.kind == BASE_DISP_kind) {
-        if(reg_is_32bit(src.value.reg)) {
+        if(reg_is_xmm(src.value.reg)) {
+            dst.size = src.size;
+        } else if(reg_is_32bit(src.value.reg)) {
             dst.size = OPSZ_4;
         } else if(reg_is_16bit(src.value.reg)) {
             dst.size = OPSZ_2;
@@ -4585,7 +4587,9 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
             dst.size = OPSZ_1;
         }
     } else if(dst.kind == REG_kind && src.kind == BASE_DISP_kind) {
-        if(reg_is_32bit(dst.value.reg)) {
+        if(reg_is_xmm(dst.value.reg)) {
+            src.size = dst.size;
+        } if(reg_is_32bit(dst.value.reg)) {
             src.size = OPSZ_4;
         } else if(reg_is_16bit(dst.value.reg)) {
             src.size = OPSZ_2;

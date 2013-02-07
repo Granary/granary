@@ -13,6 +13,7 @@
 #include "granary/detach.h"
 #include "granary/register.h"
 #include "granary/hash_table.h"
+#include "granary/emit_utils.h"
 
 
 /// Used to unroll registers in the opposite order in which they are saved
@@ -60,10 +61,6 @@ namespace granary {
         DECLARE_DIRECT_JUMP_MANGLER(call, 5)
         FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
     }
-
-    enum {
-        _4GB = 4294967296ULL
-    };
 
 
     /// A machine context representation for direct jump/call patches. The
@@ -199,9 +196,9 @@ namespace granary {
         ibl.append(pushf_());
         ibl.append(cli_());
 #else
-        //ibl.append(pushf_());
-        ibl.append(lahf_());
-        ibl.append(push_(reg::rax)); // because rax == ret
+        ibl.append(pushf_());
+        //ibl.append(lahf_());
+        //ibl.append(push_(reg::rax)); // because rax == ret
 #endif
 
         // add in the policy to the address to be looked up.
@@ -211,18 +208,18 @@ namespace granary {
         // go to the common ibl lookup routine
         ibl.append(jmp_(pc_(code_cache::IBL_COMMON_ENTRY_ROUTINE)));
 
-        app_pc ibl_code(cpu->fragment_allocator.allocate_array<uint8_t>(
-            ibl.encoded_size()));
+        routine = cpu->fragment_allocator.allocate_array<uint8_t>(
+            ibl.encoded_size());
 
-        ibl.encode(ibl_code);
+        ibl.encode(routine);
 
         // try to store the entry routine.
-        if(!IBL_ENTRY_ROUTINE.store(op.as_uint, ibl_code)) {
+        if(!IBL_ENTRY_ROUTINE.store(op.as_uint, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
-            IBL_ENTRY_ROUTINE.load(op.as_uint, ibl_code);
+            IBL_ENTRY_ROUTINE.load(op.as_uint, routine);
         }
 
-        return ibl_code;
+        return routine;
     }
 
 
@@ -233,9 +230,6 @@ namespace granary {
         instruction_list_handle in,
         unsigned num_nops
     ) throw() {
-        //printf("num nops = %u\n", num_nops);
-        //instruction nop;
-
         for(; num_nops >= 3; num_nops -= 3) {
             in = ls.insert_after(in, nop3byte_());
         }
@@ -397,15 +391,6 @@ namespace granary {
     }
 
 
-    /// Computes the absolute value of a pointer difference.
-    static uint64_t pc_diff(ptrdiff_t diff) {
-        if(diff < 0) {
-            return static_cast<uint64_t>(-diff);
-        }
-        return static_cast<uint64_t>(diff);
-    }
-
-
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
@@ -494,12 +479,10 @@ namespace granary {
         instrumentation_policy target_policy_ibl(policy.indirect_cti_policy());
 
         if(in->is_call()) {
-            *in = call_(pc_(ibl_entry_for(target, target_policy_ibl)));
+            *in = mangled(call_(pc_(ibl_entry_for(target, target_policy_ibl))));
         } else {
-            *in = jmp_(pc_(ibl_entry_for(target, target_policy_ibl)));
+            *in = mangled(jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
         }
-
-        in->set_mangled();
     }
 
 
@@ -557,10 +540,29 @@ namespace granary {
 
         // it's an LEA to a far address; convert to a 64-bit move.
         app_pc target_pc(in->instr.u.o.src0.value.pc);
-        if(_4GB < pc_diff(estimator_pc - target_pc)) {
+        if(is_far_away(estimator_pc, target_pc)) {
             *in = mov_imm_(
                 in->instr.u.o.dsts[0],
                 int64_(reinterpret_cast<uint64_t>(target_pc)));
+        }
+    }
+
+
+    /// Propagate a delay region across mangling. If we have mangled a single
+    /// instruction that begins/ends a delay region into a sequence of
+    /// instructions then we need to change which instruction logically begins
+    /// the interrupt delay region's begin/end bounds.
+    void instruction_list_mangler::propagate_delay_region(
+        instruction_list_handle in,
+        instruction_list_handle first,
+        instruction_list_handle last
+    ) throw() {
+        if(in->begins_delay_region() && first.is_valid()) {
+            // TODO
+        }
+
+        if(in->ends_delay_region() && last.is_valid()) {
+            // TODO
         }
     }
 
@@ -580,13 +582,12 @@ namespace granary {
             return;
         }
 
-        // if the operand is too far away then we will need to spill some
-        // registers and use the vtable slot allocated for this address.
-        const app_pc addr(reinterpret_cast<app_pc>(op->value.addr));
-        if(_4GB >= pc_diff(estimator_pc - addr)) {
+        if(!is_far_away(estimator_pc, op->value.addr)) {
             return;
         }
 
+        // if the operand is too far away then we will need to indirectly load
+        // the operand through its absolute address.
         has_far_op = true;
         far_op = op;
     }
@@ -600,6 +601,86 @@ namespace granary {
         }
 
         op = new_op; // update the op in place
+    }
+
+
+    /// Mangle a `push addr`, where `addr` is unreachable. A nice convenience
+    /// in user space is that we don't need to worry about the redzone because
+    /// `push` is operating on the stack.
+    void instruction_list_mangler::mangle_far_memory_push(
+        instruction_list_handle in,
+        bool first_reg_is_dead,
+        dynamorio::reg_id_t dead_reg_id,
+        dynamorio::reg_id_t spill_reg_id,
+        uint64_t addr
+    ) throw() {
+        instruction_list_handle first_in;
+        instruction_list_handle last_in;
+
+        if(first_reg_is_dead) {
+            const operand reg_addr(dead_reg_id);
+            first_in = ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            *in = push_(*reg_addr);
+
+        } else {
+            const operand reg_addr(spill_reg_id);
+            const operand reg_value(spill_reg_id);
+            first_in = ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
+            ls->insert_before(in, push_(reg_addr));
+            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            ls->insert_before(in, mov_ld_(reg_value, *reg_addr));
+
+            *in = mov_st_(reg::rsp[8], reg_value);
+
+            last_in = ls->insert_after(in, pop_(reg_addr));
+        }
+
+        propagate_delay_region(in, first_in, last_in);
+    }
+
+
+    /// Mangle a `pop addr`, where `addr` is unreachable. A nice convenience
+    /// in user space is that we don't need to worry about the redzone because
+    /// `pop` is operating on the stack.
+    void instruction_list_mangler::mangle_far_memory_pop(
+        instruction_list_handle in,
+        bool first_reg_is_dead,
+        dynamorio::reg_id_t dead_reg_id,
+        dynamorio::reg_id_t spill_reg_id,
+        uint64_t addr
+    ) throw() {
+        instruction_list_handle first_in;
+        instruction_list_handle last_in;
+
+        if(first_reg_is_dead) {
+            const operand reg_value(dead_reg_id);
+            const operand reg_addr(spill_reg_id);
+
+            first_in = ls->insert_before(in, pop_(reg_value));
+            ls->insert_before(in, push_(reg_addr));
+            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+
+            *in = mov_st_(*reg_addr, reg_value);
+
+            last_in = ls->insert_after(in, pop_(reg_addr));
+
+        } else {
+            const operand reg_value(dead_reg_id);
+            const operand reg_addr(spill_reg_id);
+
+            first_in = ls->insert_before(in, push_(reg_value));
+            ls->insert_before(in, push_(reg_addr));
+            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            ls->insert_before(in, mov_ld_(reg_value, reg::rsp[16]));
+
+            *in = mov_st_(*reg_addr, reg_value);
+
+            ls->insert_after(in, pop_(reg_addr));
+            ls->insert_after(in, pop_(reg_value));
+            last_in = ls->insert_after(in, lea_(reg::rsp, reg::rsp[8]));
+        }
+
+        propagate_delay_region(in, first_in, last_in);
     }
 
 
@@ -627,60 +708,77 @@ namespace granary {
             return;
         }
 
-        // we need to change the instruction; we assume that no instruction
-        // has two memory operands. This is sort of correct, in that
-        // we can have two memory operands, but they have to match (e.g. inc)
-        //
-        // Note: because this is a user space thing only, we don't need to be
-        //       as concerned about the kind of a byte of an instruction, as
-        //       we don't need to deliver precise (or any for that matter)
-        //       interrupts. As such, this code is not interrupt safe.
-
-
         const uint64_t addr(reinterpret_cast<uint64_t>(far_op.value.pc));
 
         register_manager rm;
         rm.revive_all();
 
-        // mini peephole optimisation; ideally will allow us to avoid
-        // spilling a register.
+        // peephole optimisation; ideally will allow us to avoid spilling a
+        // register by finding a dead register.
         instruction_list_handle next_in(in.next());
         if(next_in.is_valid()) {
             rm.visit(*next_in);
         }
 
         rm.revive(*in);
+        dynamorio::reg_id_t dead_reg_id(rm.get_zombie());
 
+        rm.kill_all();
+        rm.revive(*in);
+        rm.kill(dead_reg_id);
         dynamorio::reg_id_t spill_reg_id(rm.get_zombie());
-        operand spill_reg;
+
+        // overload the dead register to be a second spill register; needed for
+        // `pop addr`.
+        bool first_reg_is_dead(!!dead_reg_id);
+        if(!first_reg_is_dead) {
+            dead_reg_id = rm.get_zombie();
+        }
+
+        // push and pop need to be handled specially because they operate on
+        // the stack, so the usual save/restore is not legal.
+        switch(in->op_code()) {
+        case dynamorio::OP_push:
+            return mangle_far_memory_push(
+                in, first_reg_is_dead, dead_reg_id, spill_reg_id, addr);
+        case dynamorio::OP_pop:
+            return mangle_far_memory_pop(
+                in, first_reg_is_dead, dead_reg_id, spill_reg_id, addr);
+        default: break;
+        }
+
+        operand used_reg;
+        instruction_list_handle first_in;
+        instruction_list_handle last_in;
 
         // use a dead register
-        if(spill_reg_id) {
-            spill_reg = spill_reg_id;
-            ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
+        if(dead_reg_id) {
+            used_reg = dead_reg_id;
+            first_in = ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
 
-        // spill a register for use
+        // spill a register, then use that register to load the value from
+        // memory. Note: the ordering of managing `first_in` is intentional and
+        // done for delay propagation.
         } else {
-            rm.kill_all();
-            rm.revive(*in);
-            spill_reg = rm.get_zombie();
 
-            IF_USER( ls->insert_before(in,
+            used_reg = spill_reg_id;
+            first_in = ls->insert_before(in, push_(used_reg));
+            IF_USER( first_in = ls->insert_before(first_in,
                 lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
-
-            ls->insert_before(in, push_(spill_reg));
-            ls->insert_before(in, mov_imm_(spill_reg, int64_(addr)));
-            ls->insert_after(in, pop_(spill_reg));
-
-            IF_USER( ls->insert_before(in,
+            ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
+            last_in = ls->insert_after(in, pop_(used_reg));
+            IF_USER( last_in = ls->insert_after(in,
                 lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
 
-        operand_base_disp new_op_(*spill_reg);
+        operand_base_disp new_op_(*used_reg);
         new_op_.size = far_op.size;
 
         operand new_op(new_op_);
         in->for_each_operand(update_far_operand, new_op);
+
+        // propagate interrupt delaying.
+        propagate_delay_region(in, first_in, last_in);
     }
 #endif
 
@@ -736,16 +834,18 @@ namespace granary {
                 }
                 mangle_sti(in);
 
-            // lea that loads too far.
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
+            // look for cases where an lea loads from a memory address that is
+            // too far away and fix it.
             } else if(dynamorio::OP_lea == (*in)->opcode) {
-                IF_USER(mangle_lea(in, estimator_pc);)
+               mangle_lea(in, estimator_pc);
 
-            // if in user space, look for uses of relative addresses in operands
-            // that are no longer reachable with %rip-relative encoding, and
-            // convert to a use of an absolute address (requires spilling a
-            // register)
+            // look for uses of relative addresses in operands that are no
+            // longer reachable with %rip-relative encoding, and convert to a
+            // use of an absolute address.
             } else {
-                IF_USER(mangle_far_memory_refs(in, estimator_pc);)
+                mangle_far_memory_refs(in, estimator_pc);
+#endif
             }
         }
 

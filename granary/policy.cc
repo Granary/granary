@@ -25,7 +25,7 @@ namespace granary {
 
     /// Policy ID tracker.
     std::atomic<unsigned> instrumentation_policy::NEXT_POLICY_ID(
-        ATOMIC_VAR_INIT(2U));
+        ATOMIC_VAR_INIT(instrumentation_policy::NUM_POLICIES));
 
 
     /// Instrumentation policy for basic blocks where the policy is missing.

@@ -28,8 +28,13 @@ namespace granary {
     struct register_manager {
     private:
 
-        uint32_t live;
-        uint32_t undead;
+        /// Tracks 64-bit registers.
+        uint16_t live;
+        uint16_t undead;
+
+        /// Tracks 128-bit XMM registers.
+        uint16_t live_xmm;
+        uint16_t undead_xmm;
 
     public:
 
@@ -82,6 +87,16 @@ namespace granary {
         void kill(dynamorio::reg_id_t) throw();
         void revive(dynamorio::reg_id_t) throw();
 
+    private:
+
+        void kill_64(dynamorio::reg_id_t) throw();
+        void revive_64(dynamorio::reg_id_t) throw();
+
+        void kill_xmm(dynamorio::reg_id_t) throw();
+        void revive_xmm(dynamorio::reg_id_t) throw();
+
+    public:
+
 
         /// Returns true iff there are any dead registers available.
         bool has_dead(void) const throw();
@@ -89,6 +104,10 @@ namespace granary {
 
         /// Returns the next 64-bit "free" dead register.
         dynamorio::reg_id_t get_zombie(void) throw();
+
+
+        /// Returns the next xmm "free" dead register.
+        dynamorio::reg_id_t get_xmm_zombie(void) throw();
 
 
         /// Returns the next "free" dead register that is at the same scale as
