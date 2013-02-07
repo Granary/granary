@@ -56,6 +56,17 @@ IGNORE = set([
   "pthread_setname_np",
   "pthread_rwlock_longrdlock_np",
   "pthread_rwlock_yieldwrlock_np",
+
+  # 'dangerous' Linux symbols
+  "sigreturn",
+  "tmpnam",
+  "tmpnam_r",
+  "tempnam",
+  "gets", # hrmm
+
+  # non-portable?
+  "pthread_mutexattr_setrobust",
+  "pthread_mutexattr_getrobust",
 ])
 
 
