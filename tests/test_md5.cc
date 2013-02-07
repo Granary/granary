@@ -146,14 +146,6 @@ namespace test { namespace md5 {
     #define T63    0x2ad7d2bb
     #define T64 /* 0xeb86d391 */ (T_MASK ^ 0x14792c6e)
 
-    void memcpy(void *dest, const void *src, int len) throw() {
-        char *dest_c((char *) dest);
-        const char *src_c((char *) src);
-        for(int i(0); i < len; ++i, ++dest_c, ++src_c) {
-            *dest_c = *src_c;
-        }
-    }
-
     static void
     md5_process(md5_state_t *pms, const md5_byte_t *data /*[64]*/)
     {
@@ -421,7 +413,11 @@ namespace test { namespace md5 {
         md5_state_t state;
         md5_byte_t digest[16];
         char hex_output[16*2 + 1];
-        int di;
+        int di(0);
+
+        memset(&state, 0, sizeof state);
+        memset(&(digest[0]), 0, 16);
+        memset(&(hex_output[0]), 0, 16*2 + 1);
 
         md5_init(&state);
         md5_append(&state, (const md5_byte_t *) input, strlen(input));
@@ -447,9 +443,13 @@ namespace test {
         granary::basic_block bb_func(granary::code_cache::find(
             func, granary::test_policy()));
 
-        char str[INPUT_STRING_LEN + 1] = {0};
+        char str[INPUT_STRING_LEN + 1];
         md5::md5_byte_t digest_native[16];
         md5::md5_byte_t digest_instrumented[16];
+
+        memset(&(str[0]), 0, INPUT_STRING_LEN + 1);
+        memset(&(digest_native[0]), 0, 16);
+        memset(&(digest_instrumented[0]), 0, 16);
 
         for(int j(0); j < NUM_MD5_TRIALS; ++j) {
             for(int i(0); i < INPUT_STRING_LEN; ++i) {
@@ -470,9 +470,13 @@ namespace test {
     }
 
     static void test_md5(void) {
-        char str[INPUT_STRING_LEN + 1] = {0};
-        char hash_native[33] = {0};
-        char hash_instrumented[33] = {0};
+        char str[INPUT_STRING_LEN + 1];
+        char hash_native[33];
+        char hash_instrumented[33];
+
+        memset(&(str[0]), 0, INPUT_STRING_LEN + 1);
+        memset(&(hash_native[0]), 0, 33);
+        memset(&(hash_instrumented[0]), 0, 33);
 
         granary::app_pc func((granary::app_pc) md5::md5);
         granary::basic_block bb_func(granary::code_cache::find(
