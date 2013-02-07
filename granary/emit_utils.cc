@@ -127,8 +127,10 @@ namespace granary {
                 mov_xmm(reg_xmm, reg::rsp[disp]));
         }
 
-        ls.insert_before(window_top, lea_(reg::rsp, reg::rsp[-disp]));
-        ls.insert_after(window_bottom, lea_(reg::rsp, reg::rsp[disp]));
+        if(disp) {
+            ls.insert_before(window_top, lea_(reg::rsp, reg::rsp[-disp]));
+            ls.insert_after(window_bottom, lea_(reg::rsp, reg::rsp[disp]));
+        }
 
         return in;
     }
