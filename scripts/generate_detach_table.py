@@ -63,6 +63,7 @@ IGNORE = set([
   "tmpnam_r",
   "tempnam",
   "gets", # hrmm
+  "mktemp",
 
   # non-portable?
   "pthread_mutexattr_setrobust",

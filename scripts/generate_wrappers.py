@@ -333,11 +333,13 @@ if "__main__" == __name__:
     "tmpnam_r",
     "tempnam",
     "gets", # hrmm
+    "mktemp",
 
     # non-portable?
     "pthread_mutexattr_setrobust",
     "pthread_mutexattr_getrobust",
   ])
+  
   with open(sys.argv[1]) as lines_:
     buff = "".join(lines_)
     tokens = CTokenizer(buff)
