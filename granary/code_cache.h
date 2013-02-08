@@ -26,7 +26,10 @@ namespace granary {
     public:
 
         /// Indirect branch lookup routine.
+#if CONFIG_TRACK_XMM_REGS
         static app_pc IBL_COMMON_ENTRY_ROUTINE;
+#endif
+        static app_pc XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE;
 
 
         /// Find fast. This looks in the cpu-private cache first, and failing
@@ -62,7 +65,7 @@ namespace granary {
                            mangled_address addr) throw();
 
         /// Initialise the indirect branch lookup routine.
-        static void init_ibl(void) throw();
+        static void init_ibl(app_pc &, bool) throw();
         static app_pc ibl_exit_for(app_pc) throw();
 
         /*

@@ -246,7 +246,7 @@ namespace granary {
 
         /// Return the code cache policy to be used for the target of this CTI.
         inline instrumentation_policy policy(void) const throw() {
-            return instrumentation_policy(instr.granary_policy);
+            return instrumentation_policy::from_id(instr.granary_policy);
         }
 
 

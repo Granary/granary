@@ -84,50 +84,6 @@ namespace granary {
 
         void mangle(instruction_list &ls);
     };
-
-
-    /// Defines a data type used to de/mangle an address that may or may not
-    /// contain policy-specific bits.
-    union mangled_address {
-
-        enum {
-            POLICY_NUM_BITS = 8U
-        };
-
-        /// The mangled address in terms of the policy and address components.
-        /// Note: order of these fields is significant.
-        struct {
-            uint8_t policy_id:POLICY_NUM_BITS; // low
-            uint64_t _:(64 - POLICY_NUM_BITS);
-        } as_policy_address __attribute__((packed));
-
-        /// Used to extract "address space" high-order bits for recovering a
-        /// native address.
-        struct {
-            uint64_t _:(64 - POLICY_NUM_BITS);
-            uint8_t lost_bits:POLICY_NUM_BITS; // high
-        } as_recovery_address __attribute__((packed));
-
-        /// The mangled address as an actual address.
-        app_pc as_address;
-
-        /// The mangled address as an unsigned int, which is convenient for
-        /// bit masking.
-        int64_t as_int;
-
-        mangled_address(void) throw()
-            : as_int(0L)
-        { }
-
-        mangled_address(app_pc addr_, instrumentation_policy policy_) throw()
-            : as_address(addr_)
-        {
-            as_int <<= POLICY_NUM_BITS;
-            as_policy_address.policy_id = policy_.policy_id;
-        }
-
-    } __attribute__((packed));
-
 }
 
 #undef DPM_DECLARE_REG

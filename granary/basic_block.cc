@@ -201,7 +201,7 @@ namespace granary {
     /// pointer into the instructions of the basic block.
     basic_block::basic_block(app_pc current_pc_) throw()
         : info(nullptr)
-        , policy(instrumentation_policy::MISSING_POLICY_ID)
+        , policy()
         , cache_pc_start(nullptr)
         , cache_pc_current(current_pc_)
         , cache_pc_end(nullptr)
@@ -229,7 +229,7 @@ namespace granary {
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes;
-        policy = instrumentation_policy(info->policy_id);
+        policy = instrumentation_policy::from_extension_bits(info->policy_bits);
 
         IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
             cache_pc_end + sizeof(basic_block_info));)
@@ -476,6 +476,8 @@ namespace granary {
             block_storage = cpu->block_allocator.allocate<basic_block_state>();
         }
 
+        bool uses_xmm(policy.is_in_xmm_context());
+
         for(unsigned byte_len(0); ;) {
 
             // very big basic block; cut it short and connect it with a tail.
@@ -557,6 +559,13 @@ namespace granary {
 
             // some other instruction
             } else {
+
+                // update the policy to be in an xmm context.
+                if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
+                    policy.in_xmm_context();
+                    uses_xmm = true;
+                }
+
                 ls.append(in);
             }
         }
@@ -571,6 +580,8 @@ namespace granary {
             thread,
             *block_storage,
             ls));
+
+        client_policy.inherit_properties(policy);
 
         // add in a trailing jump if the last instruction in the basic
         // block if we need to force a connection between this basic block
@@ -651,7 +662,7 @@ namespace granary {
         // fill in the info
         info->magic = BB_MAGIC;
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
-        info->policy_id = policy.policy_id;
+        info->policy_bits = policy.extension_bits();
         info->generating_pc = generating_pc;
         info->state = block_storage;
 

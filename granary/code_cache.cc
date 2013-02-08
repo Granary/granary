@@ -17,7 +17,10 @@
 namespace granary {
 
     /// Static initialisation of the global IBL lookup routine.
+#if CONFIG_TRACK_XMM_REGS
     app_pc code_cache::IBL_COMMON_ENTRY_ROUTINE(nullptr);
+#endif
+    app_pc code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE(nullptr);
 
 
     namespace {
@@ -26,21 +29,6 @@ namespace granary {
         /// The globally shared code cache. This maps policy-mangled code
         /// code addresses to translated addresses.
         static shared_hash_table<app_pc, app_pc> CODE_CACHE;
-
-
-        /// This is a bit of a hack. The idea here is that we want an example
-        /// of an address within the current address space, so that we can use
-        /// its high-order bits to "fix up" an address that encodes a policy in
-        /// its high-order bits. This should be independent of user/kernel
-        /// space, at least for typical 48-bit address space implementations
-        /// use the high-order bits should be all 0 or all 1.
-        static unsigned char SOME_ADDRESS;
-
-
-        /// This is an "unmangled" mangled version of the address of
-        /// SOME_ADDRESS. It exists only for convenient extraction of the high-
-        /// order bits through the `mangled_address` fields.
-        static mangled_address UNMANGLED_ADDRESS;
     }
 
 
@@ -52,12 +40,6 @@ namespace granary {
     }
 
 
-    /// Initialise the above hack.
-    STATIC_INITIALISE({
-        UNMANGLED_ADDRESS.as_address = &SOME_ADDRESS;
-    });
-
-
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.
     app_pc code_cache::find(cpu_state_handle &cpu,
@@ -65,15 +47,12 @@ namespace granary {
                             mangled_address addr) throw() {
 
         // find the actual targeted address, independent of the policy.
-        mangled_address app_target_addr(addr);
-        app_target_addr.as_int >>= mangled_address::POLICY_NUM_BITS;
-        app_target_addr.as_recovery_address.lost_bits = \
-            UNMANGLED_ADDRESS.as_recovery_address.lost_bits;
+        app_pc app_target_addr(addr.unmangled_address());
 
         // Determine if this is actually a detach point. This is only relevant
         // for indirect calls/jumps because direct calls and jumps will have
         // inlined this check at basic block translation time.
-        app_pc target_addr(find_detach_target(app_target_addr.as_address));
+        app_pc target_addr(find_detach_target(app_target_addr));
         if(nullptr != target_addr) {
             cpu->code_cache.store(addr.as_address, target_addr);
             return target_addr;
@@ -86,17 +65,13 @@ namespace granary {
         }
 
         // figure out the non-policy-mangled target address, and get our policy.
-        app_pc decode_addr(app_target_addr.as_address);
-        instrumentation_policy policy(addr.as_policy_address.policy_id);
-
-        // figure out the base policy for this address.
+        instrumentation_policy policy(addr);
         instrumentation_policy base_policy(policy.base_policy());
-        mangled_address base_addr(addr);
-        base_addr.as_policy_address.policy_id = base_policy.policy_id;
+        mangled_address base_addr(app_target_addr, base_policy);
 
         // translate the basic block according to the policy.
         basic_block bb(basic_block::translate(
-            base_policy, cpu, thread, &decode_addr));
+            base_policy, cpu, thread, &app_target_addr));
 
         target_addr = bb.cache_pc_start;
 
@@ -130,9 +105,6 @@ namespace granary {
             }
 
             cpu->code_cache.store(addr.as_address, target_addr);
-
-        } else if(policy.is_detach_on_return_policy()) {
-
         }
 
         return target_addr;
@@ -196,9 +168,9 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         ibl.append(popf_());
 #else
-        ibl.append(popf_());
-        //ibl.append(pop_(reg::rax));
-        //ibl.append(lahf_());
+        //ibl.append(popf_());
+        ibl.append(pop_(reg::rax));
+        ibl.append(sahf_());
 #endif
 
         ibl.append(pop_(reg::rax));
@@ -218,7 +190,7 @@ namespace granary {
     /// Initialise the indirect branch lookup routine. This method is
     /// complicated because it needs to find all potentially clobbered registers
     /// by a hash table lookup routine.
-    void code_cache::init_ibl(void) throw() {
+    void code_cache::init_ibl(app_pc &routine, bool in_xmm_context) throw() {
         app_pc find_on_cpu_func(unsafe_cast<app_pc>(find_on_cpu));
         app_pc find_in_global(unsafe_cast<app_pc>(
             (app_pc (*)(mangled_address)) find));
@@ -236,8 +208,10 @@ namespace granary {
         instruction_list_handle in(
             save_and_restore_registers(cpu_regs, ibl, ibl.first()));
 
-        in = save_and_restore_xmm_registers(
-            cpu_regs, ibl, in, XMM_SAVE_UNALIGNED);
+        if(in_xmm_context) {
+            in = save_and_restore_xmm_registers(
+                cpu_regs, ibl, in, XMM_SAVE_UNALIGNED);
+        }
 
         // set up the label so that the fast path can target the instructions
         // that restore the registers saved by the cpu-private code cache
@@ -306,10 +280,10 @@ namespace granary {
         // OR: we defaulted to the slow path and just did a global lookup.
         ibl.append(jmp_ind_(reg::arg1));
 
-        IBL_COMMON_ENTRY_ROUTINE = global_state::FRAGMENT_ALLOCATOR.\
+        routine = global_state::FRAGMENT_ALLOCATOR.\
             allocate_array<uint8_t>(ibl.encoded_size());
 
         // encode it
-        ibl.encode(IBL_COMMON_ENTRY_ROUTINE);
+        ibl.encode(routine);
     }
 }

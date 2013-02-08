@@ -13,9 +13,9 @@ with open("scripts/static/asm.S") as lines:
     if "foo" in line:
       if "_foo" in line:
         PREFIX_WITH_UNDERSCORE = True
-    if "globl" in line:
+    if ".globl" in line:
       USE_GLOBL = True
-    if "type" in line:
+    if ".type" in line:
       USE_TYPE = True
       if "@function" in line:
         USE_AT_FUNCTION = True

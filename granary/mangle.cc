@@ -35,20 +35,29 @@
         make_direct_cti_patch_func<opcode ## _ >( \
             granary_asm_direct_branch_template);
 
+#define DEFINE_XMM_SAFE_DIRECT_JUMP_RESOLVER(opcode, size) \
+    direct_branch_ ## opcode ## _xmm = \
+        make_direct_cti_patch_func<opcode ## _ >( \
+            granary_asm_xmm_safe_direct_branch_template);
+
 
 /// Used to forward-declare the assembly function patches. These patch functions
 /// eventually call the templates.
 #define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
     case dynamorio::OP_ ## opcode: return direct_branch_ ## opcode;
-
+#define CASE_XMM_SAFE_DIRECT_JUMP_MANGLER(opcode, size) \
+    case dynamorio::OP_ ## opcode: return direct_branch_ ## opcode ## _xmm;
 
 /// Used to forward-declare the assembly funcion patches. These patch functions
 /// eventually call the templates.
 #define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
     static app_pc direct_branch_ ## opcode;
 
+#define DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER(opcode, size) \
+    static app_pc direct_branch_ ## opcode ## _xmm;
 
 extern "C" {
+    extern void granary_asm_xmm_safe_direct_branch_template(void);
     extern void granary_asm_direct_branch_template(void);
 }
 
@@ -58,8 +67,13 @@ namespace granary {
     namespace {
 
         /// Specific instruction manglers used for branch lookup.
+#if CONFIG_TRACK_XMM_REGS
         DECLARE_DIRECT_JUMP_MANGLER(call, 5)
         FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
+#endif
+
+        DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER(call, 5)
+        FOR_EACH_DIRECT_JUMP(DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER)
     }
 
 
@@ -107,7 +121,7 @@ namespace granary {
             uint8_t base_reg;
             uint8_t index_reg;
             uint8_t scale;
-            uint8_t policy_id;
+            uint8_t policy_bits;
         } as_operand __attribute__((packed));
 
         uint64_t as_uint;
@@ -144,7 +158,7 @@ namespace granary {
                 FAULT;
             }
 
-            as_operand.policy_id = policy.policy_id;
+            as_operand.policy_bits = policy.extension_bits();
         }
     };
 
@@ -196,18 +210,25 @@ namespace granary {
         ibl.append(pushf_());
         ibl.append(cli_());
 #else
-        ibl.append(pushf_());
-        //ibl.append(lahf_());
-        //ibl.append(push_(reg::rax)); // because rax == ret
+        //ibl.append(pushf_());
+        ibl.append(lahf_());
+        ibl.append(push_(reg::rax)); // because rax == ret
 #endif
 
         // add in the policy to the address to be looked up.
-        ibl.append(shl_(reg::arg1, int8_(mangled_address::POLICY_NUM_BITS)));
-        ibl.append(or_(reg::arg1, int8_(op.as_operand.policy_id)));
+        ibl.append(shl_(reg::arg1, int8_(mangled_address::NUM_MANGLED_BITS)));
+        ibl.append(or_(reg::arg1, int8_(op.as_operand.policy_bits)));
 
         // go to the common ibl lookup routine
-        ibl.append(jmp_(pc_(code_cache::IBL_COMMON_ENTRY_ROUTINE)));
-
+#if CONFIG_TRACK_XMM_REGS
+        app_pc ibl_routine(code_cache::IBL_COMMON_ENTRY_ROUTINE);
+        if(policy.is_in_xmm_context()) {
+            ibl_routine = code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE;
+        }
+        ibl.append(jmp_(pc_(ibl_routine)));
+#else
+        ibl.append(jmp_(pc_(code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE)));
+#endif
         routine = cpu->fragment_allocator.allocate_array<uint8_t>(
             ibl.encoded_size());
 
@@ -237,9 +258,7 @@ namespace granary {
         if(2 == num_nops) {
             in = ls.insert_after(in, nop2byte_());
             num_nops -= 2;
-        }
-
-        if(num_nops) {
+        } else if(num_nops) {
             ls.insert_after(in, nop1byte_());
         }
     }
@@ -370,22 +389,32 @@ namespace granary {
 
     STATIC_INITIALISE({
 
-        // initialise the direct jump resolvers in the policy
+#if CONFIG_TRACK_XMM_REGS
         FOR_EACH_DIRECT_JUMP(DEFINE_DIRECT_JUMP_RESOLVER);
+        DEFINE_DIRECT_JUMP_RESOLVER(call, 5)
+#endif
 
-        // initialise the direct call resolver in the policy
-        direct_branch_call = make_direct_cti_patch_func<call_>(
-            granary_asm_direct_branch_template);
+        FOR_EACH_DIRECT_JUMP(DEFINE_XMM_SAFE_DIRECT_JUMP_RESOLVER);
+        DEFINE_XMM_SAFE_DIRECT_JUMP_RESOLVER(call, 5)
     });
 
 
     /// Look up and return the assembly patch (see asm/direct_branch.asm)
     /// function needed to patch an instruction that originally had opcode as
     /// `opcode`.
+#if CONFIG_TRACK_XMM_REGS
     static app_pc get_direct_cti_patch_func(int opcode) throw() {
         switch(opcode) {
         CASE_DIRECT_JUMP_MANGLER(call, 5)
         FOR_EACH_DIRECT_JUMP(CASE_DIRECT_JUMP_MANGLER);
+        default: return nullptr;
+        }
+    }
+#endif
+    static app_pc get_xmm_safe_direct_cti_patch_func(int opcode) throw() {
+        switch(opcode) {
+        CASE_XMM_SAFE_DIRECT_JUMP_MANGLER(call, 5)
+        FOR_EACH_DIRECT_JUMP(CASE_XMM_SAFE_DIRECT_JUMP_MANGLER);
         default: return nullptr;
         }
     }
@@ -416,13 +445,26 @@ namespace granary {
         if(!target_policy) {
             target_policy = policy;
         }
+        target_policy.inherit_properties(policy);
 
         // set the policy-fied target
         mangled_address am(target, target_policy.base_policy());
 
         // add in the patch code, change the initial behaviour of the
         // instruction, and mark it has hot patchable so it is nicely aligned.
-        app_pc patcher_for_opcode(get_direct_cti_patch_func(in->op_code()));
+#if CONFIG_TRACK_XMM_REGS
+        app_pc patcher_for_opcode(nullptr);
+        if(target_policy.is_in_xmm_context()) {
+            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(
+                in->op_code());
+        } else {
+            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
+        }
+#else
+        app_pc patcher_for_opcode(get_xmm_safe_direct_cti_patch_func(
+            in->op_code()));
+#endif
+
         instruction_list_handle patch(ls->append(label_()));
         *in = patchable(mangled(jmp_(instr_(*patch))));
 
@@ -477,6 +519,7 @@ namespace granary {
 
         // convert the policy into an IBL policy.
         instrumentation_policy target_policy_ibl(policy.indirect_cti_policy());
+        target_policy_ibl.inherit_properties(policy);
 
         if(in->is_call()) {
             *in = mangled(call_(pc_(ibl_entry_for(target, target_policy_ibl))));

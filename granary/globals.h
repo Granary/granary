@@ -23,6 +23,11 @@
 #include "granary/pp.h"
 
 
+/// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
+/// restoring those registers.
+#define CONFIG_TRACK_XMM_REGS 1
+
+
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
 /// easier to find misuses of memory when Granary does something wrong (e.g.
 /// buffer overflow within a slab).

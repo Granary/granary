@@ -49,8 +49,8 @@ namespace granary {
         uint8_t app_id;
 
         /// Represents the translation policy used to translate this basic
-        /// block.
-        uint8_t policy_id;
+        /// block. This includes policy properties.
+        uint8_t policy_bits;
 
         /// Pointer to this block's block-local storage.
         basic_block_state *state;
