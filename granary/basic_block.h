@@ -124,10 +124,12 @@ namespace granary {
             instruction_list &ls);
 
         /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(instrumentation_policy policy,
-                                     cpu_state_handle &cpu,
-                                     thread_state_handle &thread,
-                                     app_pc *pc) throw();
+        static basic_block translate(
+            instrumentation_policy policy,
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            app_pc *pc
+        ) throw();
 
 
         /// Emit an instruction list as code into a byte array. This will also
@@ -146,11 +148,13 @@ namespace granary {
         ///                     emitted, this pointer is updated to the address
         ///                     of the memory location immediately following
         ///                     the basic block.
-        static app_pc emit(instrumentation_policy kind,
-                           instruction_list &ls,
-                           basic_block_state *block_storage,
-                           app_pc generating_pc,
-                           app_pc generated_pc) throw();
+        static app_pc emit(
+            instrumentation_policy kind,
+            instruction_list &ls,
+            basic_block_state *block_storage,
+            app_pc generating_pc,
+            app_pc generated_pc
+        ) throw();
     };
 
 }

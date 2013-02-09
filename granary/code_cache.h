@@ -60,9 +60,11 @@ namespace granary {
 
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
-        static app_pc find(cpu_state_handle &cpu,
-                           thread_state_handle &thread,
-                           mangled_address addr) throw();
+        static app_pc find(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            mangled_address addr
+        ) throw();
 
         /// Initialise the indirect branch lookup routine.
         static void init_ibl(app_pc &, bool) throw();

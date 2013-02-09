@@ -5,9 +5,11 @@
  *      Author: pag
  */
 
-#include <cstdlib>
-
 #include "granary/test.h"
+
+#if CONFIG_RUN_TEST_CASES
+
+#include <cstdlib>
 
 namespace test {
 
@@ -76,3 +78,4 @@ namespace test {
 
 }
 
+#endif

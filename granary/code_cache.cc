@@ -42,9 +42,11 @@ namespace granary {
 
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.
-    app_pc code_cache::find(cpu_state_handle &cpu,
-                            thread_state_handle &thread,
-                            mangled_address addr) throw() {
+    app_pc code_cache::find(
+        cpu_state_handle &cpu,
+        thread_state_handle &thread,
+        mangled_address addr
+    ) throw() {
 
         // find the actual targeted address, independent of the policy.
         app_pc app_target_addr(addr.unmangled_address());

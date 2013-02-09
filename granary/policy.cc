@@ -15,11 +15,11 @@ namespace granary {
     /// cache will use this array of function pointers (initialised
     /// partially at compile time and partially at run time) to determine
     /// which client-code basic block visitor functions should be called.
-    instrumentation_policy::basic_block_visitor *
+    instrumentation_policy::basic_block_visitor
     instrumentation_policy::POLICY_FUNCTIONS[
         1 << mangled_address::POLICY_NUM_BITS
     ] = {
-        &(instrumentation_policy::missing_policy)
+        &instrumentation_policy::missing_policy
     };
 
 
@@ -74,11 +74,11 @@ namespace granary {
 
 
     /// Instrumentation policy for basic blocks where the policy is missing.
-    struct missing_policy_policy {
+    struct missing_policy_policy : public instrumentation_policy {
     public:
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_basic_block(
+        instrumentation_policy visit_basic_block(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,

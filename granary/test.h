@@ -9,6 +9,9 @@
 #define granary_TEST_H_
 
 #include "granary/globals.h"
+
+#if CONFIG_RUN_TEST_CASES
+
 #include "granary/policy.h"
 #include "granary/code_cache.h"
 #include "granary/basic_block.h"
@@ -21,11 +24,11 @@ namespace granary {
 
 
     /// Instrumentation policy for basic blocks using tests.
-    struct test_policy {
+    struct test_policy : public instrumentation_policy {
     public:
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_basic_block(
+        instrumentation_policy visit_basic_block(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
@@ -50,5 +53,5 @@ namespace granary {
 
 }
 
-
+#endif /* CONFIG_RUN_TEST_CASES */
 #endif /* granary_TEST_H_ */

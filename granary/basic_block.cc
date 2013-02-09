@@ -29,7 +29,7 @@ namespace granary {
         /// Maximum size in bytes of a decoded basic block. This relates to
         /// *decoding* only and not the resulting size of a basic block after
         /// translation.
-        BB_MAX_SIZE_BYTES = 100, //(PAGE_SIZE / 4) * 3,
+        BB_MAX_SIZE_BYTES = (PAGE_SIZE / 4) * 3,
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
@@ -415,8 +415,9 @@ namespace granary {
             in = in.next();
         }
 #else
-       (void) cpu;
-       (void) ls;
+        (void) policy;
+        (void) cpu;
+        (void) ls;
 #endif
     }
 
@@ -460,10 +461,12 @@ namespace granary {
 
 
     /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(instrumentation_policy policy,
-                                       cpu_state_handle &cpu,
-                                       thread_state_handle &thread,
-                                       app_pc *pc) throw() {
+    basic_block basic_block::translate(
+        instrumentation_policy policy,
+        cpu_state_handle &cpu,
+        thread_state_handle &thread,
+        app_pc *pc
+    ) throw() {
 
         const app_pc start_pc(*pc);
         uint8_t *generated_pc(nullptr);
@@ -637,11 +640,13 @@ namespace granary {
     ///
     /// Note: it is assumed that no field in *state points back to itself
     ///       or any other temporary storage location.
-    app_pc basic_block::emit(instrumentation_policy policy,
-                             instruction_list &ls,
-                             basic_block_state *block_storage,
-                             app_pc generating_pc,
-                             app_pc pc) throw() {
+    app_pc basic_block::emit(
+        instrumentation_policy policy,
+        instruction_list &ls,
+        basic_block_state *block_storage,
+        app_pc generating_pc,
+        app_pc pc
+    ) throw() {
 
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);
 

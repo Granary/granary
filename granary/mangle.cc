@@ -103,9 +103,7 @@ namespace granary {
         /// translating the target basic block.
         mangled_address target_address;
 
-        /// Unused, but makes the redzone "explicit".
-        IF_USER( uint8_t redzone[REDZONE_SIZE]; )
-    };
+    } __attribute__((packed));
 
 
     /// Represents an indirect operand.
@@ -379,7 +377,7 @@ namespace granary {
 
         // free all transiently allocated blocks so that we don't blow up
         // the transient memory requirements when generating code cache
-        // templates/
+        // templates
         cpu_state_handle cpu;
         cpu->transient_allocator.free_all();
 
@@ -420,10 +418,89 @@ namespace granary {
     }
 
 
+    /// Represents a direct branch lookup operand that is specific to a
+    /// mangled target address and to an opcode.
+    union direct_operand {
+        app_pc as_address;
+        struct {
+            uint64_t mangled_address:56; // low
+            uint64_t op_code:8; // high
+        } __attribute__((packed)) as_op;
+    };
+
+
+    /// Hash table for managing direct branch lookup stubs.
+    static shared_hash_table<app_pc, app_pc> DIRECT_BRANCH_PATCH_STUB;
+
+
+    /// Get or build the direct branch lookup (DBL) routine for some jump/call
+    /// target.
+    app_pc instruction_list_mangler::dbl_entry_for(
+        instrumentation_policy target_policy,
+        instruction_list_handle in,
+        mangled_address am
+    ) throw() {
+
+        direct_operand op;
+        op.as_address = am.as_address;
+        op.as_op.op_code = in->op_code();
+
+        app_pc routine(nullptr);
+        if(DIRECT_BRANCH_PATCH_STUB.load(op.as_address, routine)) {
+            return routine;
+        }
+
+        // add in the patch code, change the initial behaviour of the
+        // instruction, and mark it has hot patchable so it is nicely aligned.
+#if CONFIG_TRACK_XMM_REGS
+        app_pc patcher_for_opcode(nullptr);
+        if(target_policy.is_in_xmm_context()) {
+            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(
+                in->op_code());
+        } else {
+            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
+        }
+#else
+        app_pc patcher_for_opcode(get_xmm_safe_direct_cti_patch_func(
+            in->op_code()));
+#endif
+
+        instruction_list ls;
+
+        // TODO: these patch stubs can be reference counted so that they
+        //       can be reclaimed (especially since every patch stub will
+        //       have the same size!).
+
+        // store the policy-mangled target on the stack;
+        //
+        // Note: enough space to hold the mangled address will already have
+        //       been made available below the return address.
+        ls.append(push_(reg::rax));
+        ls.append(mov_imm_(reg::rax, int64_(am.as_int)));
+        ls.append(mov_st_(reg::rsp[16], reg::rax));
+        ls.append(pop_(reg::rax)); // restore
+
+        // tail-call out to the patcher/mangler.
+        ls.append(mangled(jmp_(pc_(patcher_for_opcode))));
+
+        routine = cpu->fragment_allocator.allocate_array<uint8_t>(
+            ls.encoded_size());
+
+        ls.encode(routine);
+
+        if(!DIRECT_BRANCH_PATCH_STUB.store(op.as_address, routine, HASH_KEEP_PREV_ENTRY)) {
+            cpu->fragment_allocator.free_last();
+            DIRECT_BRANCH_PATCH_STUB.load(op.as_address, routine);
+        }
+
+        return routine;
+    }
+
+
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
-    void instruction_list_mangler::add_direct_branch_stub(
+    void instruction_list_mangler::mangle_direct_cti(
         instruction_list_handle in,
         operand target
     ) throw() {
@@ -449,45 +526,29 @@ namespace granary {
 
         // set the policy-fied target
         mangled_address am(target, target_policy.base_policy());
-
-        // add in the patch code, change the initial behaviour of the
-        // instruction, and mark it has hot patchable so it is nicely aligned.
-#if CONFIG_TRACK_XMM_REGS
-        app_pc patcher_for_opcode(nullptr);
-        if(target_policy.is_in_xmm_context()) {
-            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(
-                in->op_code());
-        } else {
-            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
-        }
-#else
-        app_pc patcher_for_opcode(get_xmm_safe_direct_cti_patch_func(
-            in->op_code()));
-#endif
-
         instruction_list_handle patch(ls->append(label_()));
+        app_pc dbl_routine(dbl_entry_for(target_policy, in, am));
+        const bool emit_redzone_buffer(IF_USER_ELSE(!in->is_call(), false));
+
         *in = patchable(mangled(jmp_(instr_(*patch))));
 
         // shift the stack pointer appropriately; in user space, this deals with
         // the red zone.
-        IF_USER( ls->append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE - 8])); )
-        IF_KERNEL( ls->append(lea_(reg::rsp, reg::rsp[-8])); )
+        if(emit_redzone_buffer) {
+            ls->append(lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
+        } else {
+            ls->append(lea_(reg::rsp, reg::rsp[-8]));
+        }
 
-        ls->append(push_(reg::rax)); // save
-
-        // store the policy-mangled target on the stack
-        ls->append(mov_imm_(reg::rax, int64_(am.as_int)));
-        ls->append(mov_st_(reg::rsp[8], reg::rax));
-
-        ls->append(pop_(reg::rax)); // restore
-
-        // call out to the mangler.
-        ls->append(mangled(call_(pc_(patcher_for_opcode))));
+        ls->append(mangled(call_(pc_(dbl_routine))));
 
         // deal with the red zone and the policy-mangled  address left on
         // the stack.
-        IF_USER( ls->append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8])); )
-        IF_KERNEL( ls->append(lea_(reg::rsp, reg::rsp[8])); )
+        if(emit_redzone_buffer) {
+            ls->append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
+        } else {
+            ls->append(lea_(reg::rsp, reg::rsp[8]));
+        }
 
         // the address to be mangled is implicitly encoded in the target of this
         // jmp instruction, which will later be decoded by the direct cti
@@ -529,13 +590,13 @@ namespace granary {
     }
 
 
-    void instruction_list_mangler::mangle_call(
+    void instruction_list_mangler::mangle_cti(
         instruction_list_handle in
     ) throw() {
         operand target(in->cti_target());
 
         if(dynamorio::opnd_is_pc(target)) {
-            add_direct_branch_stub(in, target);
+            mangle_direct_cti(in, target);
         } else if(!dynamorio::opnd_is_instr(target)) {
             mangle_indirect_cti(in, target);
         }
@@ -546,19 +607,6 @@ namespace granary {
         instruction_list_handle in
     ) throw() {
         (void) in;
-    }
-
-
-    void instruction_list_mangler::mangle_jump(
-        instruction_list_handle in
-    ) throw() {
-
-        operand target(in->cti_target());
-        if(dynamorio::opnd_is_pc(target)) {
-            add_direct_branch_stub(in, target);
-        } else if(!dynamorio::opnd_is_instr(target)) {
-            mangle_indirect_cti(in, target);
-        }
     }
 
 
@@ -851,15 +899,12 @@ namespace granary {
 
                 if(!is_mangled) {
 
-                    if(dynamorio::instr_is_call(*in)) {
-                        mangle_call(in);
-
-                    } else if(dynamorio::instr_is_return(*in)) {
+                    if(dynamorio::instr_is_return(*in)) {
                         mangle_return(in);
 
-                    // JMP, Jcc
+                    // call, jump, Jcc
                     } else {
-                        mangle_jump(in);
+                        mangle_cti(in);
                     }
                 }
 

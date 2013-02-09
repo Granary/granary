@@ -1,8 +1,11 @@
 
+#include "granary/test.h"
+
+#if CONFIG_RUN_TEST_CASES
+
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
-#include "granary/test.h"
 
 #define PR(...)
 //printf(__VA_ARGS__)
@@ -507,3 +510,5 @@ namespace test {
         "Test that the `md5` string hash implementation behaves correctly.")
 
 }
+
+#endif

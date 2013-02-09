@@ -17,8 +17,10 @@ extern "C" {
         return 1;
     }
 
-    void granary_break_on_encode(dynamorio::app_pc pc,
-                                 dynamorio::instr_t *instr) {
+    void granary_break_on_encode(
+        dynamorio::app_pc pc,
+        dynamorio::instr_t *instr
+    ) {
         (void) pc;
         (void) instr;
         granary_fault();
@@ -53,11 +55,12 @@ extern "C" {
 
 namespace granary {
 
-    static void debug_bb(app_pc *ret_addr) throw() {
+    static void debug_bb(app_pc *ret_addr, bool in_xmm_context) throw() {
         granary::basic_block bb(*ret_addr);
-        printf("bb native_pc = %p instrumented_pc = %p\n",
+        printf("bb native_pc = %p instrumented_pc = %p in xmm context = %d\n",
             bb.info->generating_pc,
-            bb.cache_pc_start + 329);
+            bb.cache_pc_start + (in_xmm_context ? 329 : 0),
+            in_xmm_context);
         (void) ret_addr;
     }
 
@@ -68,9 +71,13 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
-#if 0
+#if 1
         register_manager all_regs;
         all_regs.kill_all();
+
+        if(!is_in_xmm_context()) {
+            all_regs.revive_all_xmm();
+        }
 
         instruction_list_handle in(ls.prepend(granary::label_()));
 
@@ -98,6 +105,9 @@ namespace granary {
 
         // call debug_bb
         in = ls.insert_after(in, granary::lea_(reg::arg1, reg::rsp[-8]));
+        in = ls.insert_after(in,
+            granary::mov_imm_(reg::arg2, int32_(is_in_xmm_context())));
+
         in = ls.insert_after(in, granary::mov_imm_(
             granary::reg::rax, int64_(granary::unsafe_cast<uint64_t>(debug_bb))));
 

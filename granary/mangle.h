@@ -30,9 +30,9 @@ namespace granary {
         void mangle_sti(instruction_list_handle in) throw();
         void mangle_cli(instruction_list_handle in) throw();
 
-        void mangle_jump(instruction_list_handle in) throw();
         void mangle_return(instruction_list_handle in) throw();
-        void mangle_call(instruction_list_handle in) throw();
+        void mangle_cti(instruction_list_handle in) throw();
+        void mangle_direct_cti(instruction_list_handle in, operand op) throw();
         void mangle_indirect_cti(instruction_list_handle in, operand op) throw();
 
         void propagate_delay_region(
@@ -67,10 +67,16 @@ namespace granary {
         ) throw();
 #endif
 
-        void add_direct_branch_stub(instruction_list_handle in, operand op) throw();
+        /// Get the direct branch lookip (DBL) entry point for a direct operand.
+        app_pc dbl_entry_for(
+            instrumentation_policy target_policy,
+            instruction_list_handle in,
+            mangled_address am
+        ) throw();
 
 
-        /// Get the IBL entry point for an indirect operand and policy.
+        /// Get the indirect branch lookup (IBL) entry point for an indirect
+        /// operand and policy.
         app_pc ibl_entry_for(
             operand target,
             instrumentation_policy policy
@@ -78,9 +84,11 @@ namespace granary {
 
     public:
 
-        instruction_list_mangler(cpu_state_handle &cpu_,
-                                 thread_state_handle &thread_,
-                                 instrumentation_policy &policy_) throw();
+        instruction_list_mangler(
+            cpu_state_handle &cpu_,
+            thread_state_handle &thread_,
+            instrumentation_policy &policy_
+        ) throw();
 
         void mangle(instruction_list &ls);
     };

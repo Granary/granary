@@ -46,7 +46,7 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
     POPA
     popf
 
-    // return to the now patched instruction
+    // return to the patch stub, which will jmp to the now patched function
     ret
     END_FUNC(granary_asm_xmm_safe_direct_branch_template)
 
@@ -82,7 +82,7 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     POPA
     popf
 
-    // return to the now patched instruction
+    // return to the patch stub, which will jmp to the now patched function
     ret
     END_FUNC(granary_asm_direct_branch_template)
 

@@ -47,7 +47,7 @@ namespace granary {
         template <typename> friend struct policy_for;
 
 
-        typedef instrumentation_policy (basic_block_visitor)(
+        typedef instrumentation_policy (instrumentation_policy::* basic_block_visitor)(
             cpu_state_handle &cpu,
             thread_state_handle &thread,
             basic_block_state &bb,
@@ -59,7 +59,7 @@ namespace granary {
         /// cache will use this array of function pointers (initialised
         /// partially at compile time and partially at run time) to determine
         /// which client-code basic block visitor functions should be called.
-        static basic_block_visitor *POLICY_FUNCTIONS[];
+        static basic_block_visitor POLICY_FUNCTIONS[];
 
 
         /// Policy ID tracker.
@@ -88,22 +88,12 @@ namespace granary {
             NUM_PROPERTIES = !NUM_PROPERTIES_ ? 1 : NUM_PROPERTIES_
         };
 
-
-        static instrumentation_policy missing_policy(
+        instrumentation_policy missing_policy(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw();
-
-
-        /// Do not allow default initialisations of policies: require that they
-        /// have IDs through some well-defined means.
-        inline instrumentation_policy(void) throw()
-            : id(instrumentation_policy::MISSING_POLICY_ID)
-            , pseudo_id_increment(0)
-            , properties(0)
-        { }
 
         /// Initialise a policy given a policy id. This policy will be
         /// initialised with no properties.
@@ -147,14 +137,22 @@ namespace granary {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
-            basic_block_visitor *visitor(POLICY_FUNCTIONS[id]);
+            basic_block_visitor visitor(POLICY_FUNCTIONS[id]);
             if(!visitor) {
                 return missing_policy(cpu, thread, bb, ls);
             }
-            return visitor(cpu, thread, bb, ls);
+            return (this->*(visitor))(cpu, thread, bb, ls);
         }
 
     public:
+
+        /// Do not allow default initialisations of policies: require that they
+        /// have IDs through some well-defined means.
+        inline instrumentation_policy(void) throw()
+            : id(instrumentation_policy::MISSING_POLICY_ID)
+            , pseudo_id_increment(0)
+            , properties(0)
+        { }
 
         instrumentation_policy(const instrumentation_policy &) throw() = default;
 
@@ -178,32 +176,6 @@ namespace granary {
 
     private:
 
-        /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
-        /// policy is used to help us "leave" the indirect branch lookup
-        /// mechanism and restore any saved state.
-        inline bool is_indirect_cti_policy(void) const throw() {
-            return INDIRECT_CTI_POLICY_INCREMENT == pseudo_id_increment;
-        }
-
-
-        /// Returns whether or not the policy in the current context is xmm
-        /// safe.
-        inline bool is_in_xmm_context(void) const throw() {
-#if CONFIG_TRACK_XMM_REGS
-            return properties & (1 << IS_XMM_CONTEXT);
-#else
-            return true;
-#endif
-        }
-
-
-        /// Update the properties of this policy to be inside of an xmm context.
-        inline void in_xmm_context(void) throw() {
-#if CONFIG_TRACK_XMM_REGS
-            properties |= (1 << IS_XMM_CONTEXT);
-#endif
-        }
-
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
@@ -214,7 +186,13 @@ namespace granary {
                 properties);
         }
 
-    public:
+        /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
+        /// policy is used to help us "leave" the indirect branch lookup
+        /// mechanism and restore any saved state.
+        inline bool is_indirect_cti_policy(void) const throw() {
+            return INDIRECT_CTI_POLICY_INCREMENT == pseudo_id_increment;
+        }
+
 
         /// Return the "base" policy for this policy. This converts any pseudo
         /// policies back into non-pseudo policies.
@@ -231,6 +209,25 @@ namespace granary {
             return (id << NUM_PROPERTIES) | properties;
         }
 
+
+    public:
+
+        /// Update the properties of this policy to be inside of an xmm context.
+        inline void in_xmm_context(void) throw() {
+#if CONFIG_TRACK_XMM_REGS
+            properties |= (1 << IS_XMM_CONTEXT);
+#endif
+        }
+
+        /// Returns whether or not the policy in the current context is xmm
+        /// safe.
+        inline bool is_in_xmm_context(void) const throw() {
+#if CONFIG_TRACK_XMM_REGS
+            return properties & (1 << IS_XMM_CONTEXT);
+#else
+            return true;
+#endif
+        }
 
         /// Inherit the properties of another policy.
         inline void inherit_properties(instrumentation_policy that) throw() {
@@ -282,7 +279,6 @@ namespace granary {
 
         mangled_address(app_pc addr_, instrumentation_policy policy_) throw();
 
-
         /// Extract the original, unmangled address from this mangled address.
         app_pc unmangled_address(void) const throw();
 
@@ -307,7 +303,8 @@ namespace granary {
                     instrumentation_policy::NUM_POLICIES));
 
             instrumentation_policy::POLICY_FUNCTIONS[policy_id] = \
-                &(T::visit_basic_block);
+                unsafe_cast<instrumentation_policy::basic_block_visitor>( \
+                    &T::visit_basic_block);
 
             return policy_id;
         }

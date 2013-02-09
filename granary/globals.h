@@ -49,12 +49,6 @@
 #define CONFIG_BB_EXTEND_BBS_PAST_CBRS 0
 
 
-/// Upper bound on the number of processor cores.
-#ifndef CONFIG_MAX_NUM_CPUS
-#   define CONFIG_MAX_NUM_CPUS 8
-#endif
-
-
 /// Lower bound on the cache line size.
 #ifndef CONFIG_MIN_CACHE_LINE_SIZE
 #   define CONFIG_MIN_CACHE_LINE_SIZE 64
@@ -101,10 +95,6 @@ namespace granary {
 
         /// Some non-zero positive multiple of the cache line size.
         CACHE_LINE_SIZE = CONFIG_MIN_CACHE_LINE_SIZE,
-
-
-        /// number of processor cores.
-        NUM_CPUS = CONFIG_MAX_NUM_CPUS,
 
 
         /// Size (in bytes) of the x86-64 user space redzone.

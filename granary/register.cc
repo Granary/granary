@@ -58,6 +58,13 @@ namespace granary {
     }
 
 
+    /// Revive all xmm registers.
+    void register_manager::revive_all_xmm(void) throw() {
+        live_xmm = ~0;
+        undead_xmm = 0;
+    }
+
+
     /// Revive all registers used in another register manager.
     void register_manager::revive_all(register_manager that) throw() {
         live |= that.live;

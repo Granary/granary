@@ -64,6 +64,7 @@ namespace granary {
 
         /// Revive all registers.
         void revive_all(void) throw();
+        void revive_all_xmm(void) throw();
 
 
         /// Revive all registers used in another register manager (including
