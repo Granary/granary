@@ -346,55 +346,6 @@ namespace granary { namespace smp {
                 next = nullptr;
             }
         };
-
-        /// Represents the protocol that an RCU reader must follow. This is
-        /// implicitly instantiated when calling write (with a function
-        /// pointer argument).
-        template <typename T, typename R, typename... Args>
-        struct reader {
-        private:
-            typedef rcu_read_reference<T> read_ref_type;
-
-            R (*func)(read_ref_type, Args&...);
-            R ret_value;
-
-        public:
-
-            inline reader(R (*func_)(read_ref_type, Args&...)) throw()
-                : func(func_)
-            { }
-
-            inline void operator()(read_ref_type ref, Args&... args) throw() {
-                ret_value = func(ref, args...);
-            }
-
-            inline R yield(void) throw() {
-                return ret_value;
-            }
-        };
-
-        /// Read-critical section returning nothing.
-        template <typename T, typename... Args>
-        struct reader<T, void, Args...> {
-        private:
-            typedef rcu_read_reference<T> read_ref_type;
-
-            void (*func)(read_ref_type, Args&...);
-
-        public:
-
-            inline reader(void (*func_)(read_ref_type, Args&...)) throw()
-                : func(func_)
-            { }
-
-            inline void operator()(read_ref_type ref, Args&... args) throw() {
-                func(ref, args...);
-            }
-
-            inline void yield(void) throw() {
-                return;
-            }
-        };
     }
 
 
@@ -725,7 +676,7 @@ namespace granary { namespace smp {
             R (*reader_func)(read_ref_type, Args&...),
             Args&... args
         ) const throw() {
-            rcu::reader<T, R, Args...> reader(reader_func);
+            function_call<R, read_ref_type, Args&...> reader(reader_func);
             return read(reader, args...);
         }
 
@@ -733,7 +684,10 @@ namespace granary { namespace smp {
 
         /// Read from the RCU-protected data structure.
         template <typename R, typename... Args>
-        R read(rcu::reader<T, R, Args...> reader, Args&... args) const throw() {
+        R read(
+            function_call<R, read_ref_type, Args&...> reader,
+            Args&... args
+        ) const throw() {
             rcu::reference_counter *read_counter(nullptr);
             hazard_pointer<rcu::reference_counter> &hp(
                 active_counters.acquire());

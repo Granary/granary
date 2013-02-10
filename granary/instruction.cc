@@ -81,7 +81,10 @@ namespace granary {
         // takes advantage of this
         instr.note = pc;
 
-        return dynamorio::instr_encode(DCONTEXT, &instr, pc);
+        app_pc ret(dynamorio::instr_encode(DCONTEXT, &instr, pc));
+
+        instr.translation = pc;
+        return ret;
     }
 
 

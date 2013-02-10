@@ -11,6 +11,8 @@
 #include "granary/state.h"
 #include "granary/policy.h"
 #include "granary/mangle.h"
+#include "granary/emit_utils.h"
+#include "granary/code_cache.h"
 
 #include <cstring>
 #include <new>
@@ -23,7 +25,6 @@ namespace granary {
 
         BB_PADDING      = 0xEA,
         BB_PADDING_LONG = 0xEAEAEAEAEAEAEAEA,
-        BB_MAGIC        = 0xD4D5D682,
         BB_ALIGN        = 16,
 
         /// Maximum size in bytes of a decoded basic block. This relates to
@@ -218,7 +219,7 @@ namespace granary {
             const basic_block_info * const potential_bb(
                     unsafe_cast<basic_block_info *>(ints));
 
-            if(BB_MAGIC == potential_bb->magic) {
+            if(basic_block_info::HEADER == potential_bb->magic) {
                 break;
             }
 
@@ -228,7 +229,7 @@ namespace granary {
         // we've found the basic block info
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
-        cache_pc_start = cache_pc_end - info->num_bytes;
+        cache_pc_start = cache_pc_end - info->num_bytes + info->num_patch_bytes;
         policy = instrumentation_policy::from_extension_bits(info->policy_bits);
 
         IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
@@ -370,7 +371,7 @@ namespace granary {
         unsigned num_direct_branches(0);
         for(unsigned i(0); i < max; ++i) {
             if(in->is_cti()
-            && in->policy() == policy
+            && (!in->policy() || in->policy() == policy)
             && dynamorio::opnd_is_pc(in->cti_target())) {
                 ++num_direct_branches;
             }
@@ -480,6 +481,9 @@ namespace granary {
         }
 
         bool uses_xmm(policy.is_in_xmm_context());
+        bool fall_through_detach(false);
+        bool detach_tail_call(false);
+        app_pc detach_app_pc(reinterpret_cast<app_pc>(detach));
 
         for(unsigned byte_len(0); ;) {
 
@@ -504,10 +508,20 @@ namespace granary {
             if(in.is_cti()) {
                 operand target(in.cti_target());
 
-#if CONFIG_BB_PATCH_LOCAL_BRANCHES
                 // direct branch (e.g. un/conditional branch, jmp, call)
                 if(dynamorio::opnd_is_pc(target)) {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
+
+                    if(detach_app_pc == target_pc) {
+                        fall_through_detach = true;
+                        fall_through_pc = false;
+                        if(in.is_return()) {
+                            detach_tail_call = true;
+                        }
+                        break;
+                    }
+
+#if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
                     // if it is local back edge then keep control within the
                     // same basic block. Note: the policy of this basic block
@@ -523,8 +537,9 @@ namespace granary {
                             in.set_cti_target(target);
                         }
                     }
-                }
+
 #endif
+                }
 
                 instruction_list_handle added_in(ls.append(in));
 
@@ -545,6 +560,15 @@ namespace granary {
                         fall_through_pc = true;
 #endif
                     }
+                    break;
+
+                // we end basic blocks with function calls so that we can detect
+                // when a return targets the code cache by looking for the magic
+                // value that precedes basic block meta info.
+                } else {
+#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
+                    fall_through_pc = true;
+#endif
                     break;
                 }
 
@@ -590,8 +614,30 @@ namespace granary {
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
-            instruction connecting_jmp(jmp_(pc_(*pc)));
-            ls.append(connecting_jmp);
+            ls.append(jmp_(pc_(*pc)));
+
+        /// Add in a trailing (emulated) jmp or ret if we are detaching.
+        } else if(fall_through_detach) {
+            if(detach_tail_call) {
+                ls.append(mangled(ret_()));
+            } else {
+
+                // encode a jump back to native code.
+                //
+                // Note: there is no guarantee that detaching will *really*
+                //       detach. The is, if we have two instrumented function
+                //       calls, and the most recently called function detaches,
+                //       then eventually, execution will return into the code
+                //       cache.
+                if(is_far_away(*pc, code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE)) {
+                    app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
+                    *slot = *pc;
+                    ls.append(mangled(jmp_(mem_pc_(slot))));
+
+                } else {
+                    ls.append(mangled(jmp_(pc_(*pc))));
+                }
+            }
         }
 
         // translate loops and resolve local branches into jmps to instructions.
@@ -601,6 +647,8 @@ namespace granary {
         if(num_direct_branches) {
             resolve_local_branches(policy, cpu, ls);
         }
+
+        instruction_list_handle bb_begin(ls.prepend(label_()));
 
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
@@ -617,19 +665,21 @@ namespace granary {
             allocate_array<uint8_t>(basic_block::size(ls));
 
         app_pc emitted_pc = emit(
-            policy, ls, block_storage, start_pc, generated_pc);
+            policy, ls, *bb_begin, block_storage, start_pc, generated_pc);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
         // executable code on a 16 byte boundary.
         ASSERT(generated_pc == emitted_pc);
 
-        basic_block ret(emitted_pc);
+        // The generated pc is not necessarily the actual basic block beginning
+        // because direct jump patchers will be prepended to the basic block.
+        basic_block ret(bb_begin->pc());
 
         // quick double check to make sure that we can properly resolve the
         // basic block info later. If this isn't the case, then we likely need
         // to choose different magic values, or make them longer.
-        ASSERT(generated_pc == ret.cache_pc_start);
+        ASSERT(bb_begin->pc() == ret.cache_pc_start);
 
         return ret;
     }
@@ -643,6 +693,7 @@ namespace granary {
     app_pc basic_block::emit(
         instrumentation_policy policy,
         instruction_list &ls,
+        instruction &bb_begin,
         basic_block_state *block_storage,
         app_pc generating_pc,
         app_pc pc
@@ -665,11 +716,13 @@ namespace granary {
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
         // fill in the info
-        info->magic = BB_MAGIC;
+        info->magic = basic_block_info::HEADER;
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
+        info->num_patch_bytes = static_cast<unsigned>(bb_begin.pc() - start_pc);
         info->policy_bits = policy.extension_bits();
         info->generating_pc = generating_pc;
-        info->state = block_storage;
+        info->rel_state_addr = reinterpret_cast<int64_t>(info) \
+                             - reinterpret_cast<int64_t>(block_storage);
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);

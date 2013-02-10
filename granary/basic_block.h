@@ -10,6 +10,7 @@
 
 #include "granary/globals.h"
 #include "granary/policy.h"
+#include "granary/detach.h"
 
 namespace granary {
 
@@ -17,6 +18,7 @@ namespace granary {
     struct basic_block;
     struct basic_block_state;
     struct instruction_list;
+    struct instruction;
     struct cpu_state_handle;
     struct thread_state_handle;
     struct instrumentation_policy;
@@ -37,13 +39,20 @@ namespace granary {
     struct basic_block_info {
     public:
 
+        enum {
+            HEADER        = 0xD4D5D682
+        };
+
         /// magic number (sequence of 4 int3 instructions) which signals the
         /// beginning of a bb_meta block.
         uint32_t magic;
 
-        /// the number of bytes in this basic block, *including* the number of
+        /// Number of bytes in this basic block, *including* the number of
         /// bytes of padding
         uint16_t num_bytes;
+
+        /// Number of bytes of patch instructions beginning this basic block.
+        uint16_t num_patch_bytes;
 
         /// The application/module to which this basic block belongs
         uint8_t app_id;
@@ -52,8 +61,10 @@ namespace granary {
         /// block. This includes policy properties.
         uint8_t policy_bits;
 
-        /// Pointer to this block's block-local storage.
-        basic_block_state *state;
+        /// Relative address to this basic block's block-local storage.
+        int32_t rel_state_addr;
+
+        uint16_t unused; // TODO: space for later.
 
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
@@ -112,7 +123,11 @@ namespace granary {
         template <typename R, typename... Args>
         R call(Args... args) throw() {
             typedef R (func_type)(Args...);
-            return unsafe_cast<func_type *>(cache_pc_start)(args...);
+            function_call<R, Args...> func(
+                unsafe_cast<func_type *>(cache_pc_start));
+            func(args...);
+            detach();
+            return func.yield();
         }
 
     protected:
@@ -151,6 +166,7 @@ namespace granary {
         static app_pc emit(
             instrumentation_policy kind,
             instruction_list &ls,
+            instruction &bb_begin,
             basic_block_state *block_storage,
             app_pc generating_pc,
             app_pc generated_pc

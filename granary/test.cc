@@ -59,7 +59,7 @@ namespace granary {
         granary::basic_block bb(*ret_addr);
         printf("bb native_pc = %p instrumented_pc = %p in xmm context = %d\n",
             bb.info->generating_pc,
-            bb.cache_pc_start + (in_xmm_context ? 329 : 0),
+            bb.cache_pc_start + (in_xmm_context ? 329 : 98),
             in_xmm_context);
         (void) ret_addr;
     }

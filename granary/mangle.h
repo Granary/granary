@@ -30,7 +30,6 @@ namespace granary {
         void mangle_sti(instruction_list_handle in) throw();
         void mangle_cli(instruction_list_handle in) throw();
 
-        void mangle_return(instruction_list_handle in) throw();
         void mangle_cti(instruction_list_handle in) throw();
         void mangle_direct_cti(instruction_list_handle in, operand op) throw();
         void mangle_indirect_cti(instruction_list_handle in, operand op) throw();
@@ -81,6 +80,25 @@ namespace granary {
             operand target,
             instrumentation_policy policy
         ) throw();
+
+
+        /// Get the return branch lookup (RBL) entry point for a return address.
+        app_pc rbl_entry_for(
+            instrumentation_policy policy,
+            int num_bytes_to_pop
+        ) throw();
+
+
+        /// Represents the tail of an IBL entry that is common to an IBL and the
+        /// slow path of an RBL.
+        void ibl_entry_tail(
+            instruction_list &ibl,
+            instrumentation_policy target_policy
+        ) throw();
+
+
+        /// Emulate the push of a function call's return address onto the stack.
+        void emulate_call_ret_addr(instruction_list_handle in) throw();
 
     public:
 

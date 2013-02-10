@@ -183,6 +183,52 @@ namespace granary {
             return id_;
         }
     };
+
+
+    /// Represents a way of indirectly calling a function and being able to
+    /// save--or pretend to save--its return value (if any) for later returning
+    /// in a type-safe way.
+    template <typename R, typename... Args>
+    struct function_call {
+    private:
+        R (*func)(Args...);
+        R ret_value;
+
+    public:
+
+        inline function_call(R (*func_)(Args...)) throw()
+            : func(func_)
+        { }
+
+        inline void operator()(Args... args) throw() {
+            ret_value = func(args...);
+        }
+
+        inline R yield(void) throw() {
+            return ret_value;
+        }
+    };
+
+    /// Read-critical section returning nothing.
+    template <typename... Args>
+    struct function_call<void, Args...> {
+    private:
+        void (*func)(Args...);
+
+    public:
+
+        inline function_call(void (*func_)(Args...)) throw()
+            : func(func_)
+        { }
+
+        inline void operator()(Args... args) throw() {
+            func(args...);
+        }
+
+        inline void yield(void) throw() {
+            return;
+        }
+    };
 }
 
 

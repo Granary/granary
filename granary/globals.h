@@ -23,6 +23,16 @@
 #include "granary/pp.h"
 
 
+/// Enable transparent return addresses. This turns every function call into
+/// an emulated function call that first pushes on a native return address and
+/// then jmps to the destination. This configuration option affects the
+/// usefulness of policies, because the return address branch lookup mechanism
+/// will propagate the current policy instead of falling back to the
+/// policy of the caller. This is especially noticeable with policy properties,
+/// such as xmm-safety.
+#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 0
+
+
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.
 #define CONFIG_TRACK_XMM_REGS 1

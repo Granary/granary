@@ -31,6 +31,20 @@ namespace granary {
     }
 
 
+    /// Returns true iff some address can sign-extend from 32 bits to 64 bits.
+    template <typename P>
+    inline bool addr_is_32bit(P addr_) throw() {
+        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
+        const uint64_t addr_sign(addr >> 31);
+        const uint32_t addr_high(addr_sign >> 1);
+        if(1 & addr_sign) {
+            return ~0U == addr_high;
+        } else {
+            return 0U == addr_high;
+        }
+    }
+
+
     /// Traverse through the instruction control-flow graph and look for used
     /// registers.
     register_manager find_used_regs_in_func(app_pc func) throw();
