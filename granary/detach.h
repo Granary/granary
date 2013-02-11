@@ -12,6 +12,7 @@
 
 namespace granary {
 
+#if CONFIG_ENABLE_WRAPPERS
 
     /// Represents an entry in the detach hash table. Entries need to map
     /// original function addresses to wrapped function addresses.
@@ -38,6 +39,7 @@ namespace granary {
 	/// 	detach target.
 	app_pc find_detach_target(app_pc pc) throw();
 
+#endif
 
 	/// Detach Granary.
 	__attribute__((noinline))

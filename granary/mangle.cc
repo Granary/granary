@@ -358,26 +358,37 @@ namespace granary {
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
 
+        printf("RBL = %p\n", routine);
+
         return routine;
     }
 
 
     /// Injects N bytes of NOPs into an instuction list after a specific
     /// instruction.
-    static void inject_mangled_nops(
+    ///
+    /// Note: this will propagate delay regions on NOPs to ensure that an
+    ///       hot-patchable regions are never interrupted.
+    void instruction_list_mangler::inject_mangled_nops(
         instruction_list &ls,
         instruction_list_handle in,
         unsigned num_nops
     ) throw() {
+        instruction_list_handle original(in);
+        instruction_list_handle invalid;
+
         for(; num_nops >= 3; num_nops -= 3) {
             in = ls.insert_after(in, nop3byte_());
+            propagate_delay_region(original, invalid, in);
         }
 
         if(2 == num_nops) {
             in = ls.insert_after(in, nop2byte_());
-            num_nops -= 2;
+            propagate_delay_region(original, invalid, in);
+
         } else if(num_nops) {
             ls.insert_after(in, nop1byte_());
+            propagate_delay_region(original, invalid, in);
         }
     }
 
@@ -386,11 +397,11 @@ namespace granary {
     /// the `stage` location (as if it were going to be placed at the `dest`
     /// location, and then encodes however many NOPs are needed to fill in 8
     /// bytes.
-    static void stage_8byte_hot_patch(
+    void instruction_list_mangler::stage_8byte_hot_patch(
         instruction in,
         app_pc stage,
         app_pc dest
-    ) {
+    ) throw() {
         instruction_list ls;
         ls.append(in);
 
@@ -451,7 +462,7 @@ namespace granary {
         instruction cti(make_opcode(pc_(target_pc)));
         cti.widen_if_cti();
 
-        stage_8byte_hot_patch(
+        instruction_list_mangler::stage_8byte_hot_patch(
             cti,
             staged_code,
             patch_address);
@@ -543,8 +554,9 @@ namespace granary {
     ) throw() {
 
         direct_operand op;
+        const unsigned op_code(in->op_code());
         op.as_address = am.as_address;
-        op.as_op.op_code = in->op_code();
+        op.as_op.op_code = op_code;
 
         app_pc routine(nullptr);
         if(DBL_ENTRY_ROUTINE.load(op.as_address, routine)) {
@@ -556,10 +568,9 @@ namespace granary {
 #if CONFIG_TRACK_XMM_REGS
         app_pc patcher_for_opcode(nullptr);
         if(target_policy.is_in_xmm_context()) {
-            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(
-                in->op_code());
+            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(op_code);
         } else {
-            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
+            patcher_for_opcode = get_direct_cti_patch_func(op_code);
         }
 #else
         (void) target_policy;
@@ -599,18 +610,110 @@ namespace granary {
     }
 
 
-    /// Emulate the push of a function call's return address onto the stack.
-    void instruction_list_mangler::emulate_call_ret_addr(
-        instruction_list_handle in
+    /// Make a direct CTI patch stub. This is used both for mangling direct CTIs
+    /// and for emulating policy inheritance/scope when transparent return
+    /// addresses are used.
+    void instruction_list_mangler::direct_cti_patch_stub(
+        instruction_list &patch_ls,
+        instruction_list_handle patch,
+        instruction_list_handle patched_in,
+        app_pc dbl_routine
     ) throw() {
+        const bool emit_redzone_buffer(
+            IF_USER_ELSE(!patched_in->is_call(), false));
+
+        // shift the stack pointer appropriately; in user space, this deals with
+        // the red zone.
+        if(emit_redzone_buffer) {
+            patch = patch_ls.insert_after(patch,
+                lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
+        } else {
+            patch = patch_ls.insert_after(patch, lea_(reg::rsp, reg::rsp[-8]));
+        }
+
+        patch = patch_ls.insert_after(patch, mangled(call_(pc_(dbl_routine))));
+
+        // deal with the red zone and the policy-mangled  address left on
+        // the stack.
+        if(emit_redzone_buffer) {
+            patch = patch_ls.insert_after(patch,
+                lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
+        } else {
+            patch = patch_ls.insert_after(patch, lea_(reg::rsp, reg::rsp[8]));
+        }
+
+        // the address to be mangled is implicitly encoded in the target of this
+        // jmp instruction, which will later be decoded by the direct cti
+        // patch function. There are two reasons for this approach of jumping
+        // around:
+        //      i)  Doesn't screw around with the return address predictor.
+        //      ii) Works with user space red zones.
+        patch_ls.insert_after(patch, mangled(jmp_(instr_(*patched_in))));
+    }
+
+
+    /// Emulate the push of a function call's return address onto the stack.
+    /// This will also pre-populate the code cache so that correct policy
+    /// resolution is emulated for transparent return addresses.
+    void instruction_list_mangler::emulate_call_ret_addr(
+        instruction_list_handle in,
+        instrumentation_policy target_policy
+    ) throw() {
+        app_pc return_address(in->pc() + in->encoded_size());
         ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
         ls->insert_before(in, push_(reg::rax));
         ls->insert_before(in,
             mov_imm_(reg::rax,
-                int64_(reinterpret_cast<uint64_t>(
-                    in->pc() + in->encoded_size()))));
+                int64_(reinterpret_cast<uint64_t>(return_address))));
         ls->insert_before(in, mov_st_(reg::rsp[8], reg::rax));
         ls->insert_before(in, pop_(reg::rax));
+
+        // pre-fill in the code cache (in a slightly backwards way) to handle
+        // getting back into the proper policy on return from the function.
+        mangled_address am(return_address, policy);
+        instruction_list trampoline;
+        instruction_list_handle conn(trampoline.append(
+            jmp_(pc_(return_address))));
+        app_pc dbl_routine(dbl_entry_for(policy, conn, am));
+        instruction_list_handle patch(trampoline.append(label_()));
+
+        direct_cti_patch_stub(trampoline, patch, conn, dbl_routine);
+
+        // because `conn` is the first instruction in the routine, it will
+        // inherit the 16-byte alignment from the allocator. Thus, we need to
+        // emulate the 8 bytes of padding needed to make `conn` look like a
+        // hot-patchable instruction.
+        inject_mangled_nops(trampoline, conn, 8 - conn->encoded_size());
+
+        conn->set_cti_target(instr_(*patch));
+
+        // encode it
+        app_pc return_routine(global_state::FRAGMENT_ALLOCATOR. \
+            allocate_array<uint8_t>(trampoline.encoded_size()));
+        trampoline.encode(return_routine);
+
+        printf("RET = %p\n", return_routine);
+
+        // add the ibl exit routine for this return address trampoline to the
+        // code cache for each possible property combination for the targeted
+        // policy. This means that when we are in the target policy, we can
+        // force control to return to the source policy, regardless of the
+        // policy properties discovered when translating code targeted by a
+        // call.
+        target_policy = target_policy.indirect_cti_policy();
+        target_policy.clear_properties();
+
+        app_pc ibl_routine(code_cache::ibl_exit_for(return_routine));
+        for(; !!target_policy; target_policy = target_policy.next()) {
+            mangled_address ram(return_address, target_policy);
+            code_cache::add(ram.as_address, ibl_routine);
+
+            printf("%p -> %p\n", ram.as_address, ibl_routine);
+        }
+
+        printf("IBL = %p\n", ibl_routine);
+
+
     }
 
 
@@ -621,6 +724,7 @@ namespace granary {
         instruction_list_handle in,
         operand target
     ) throw() {
+#if CONFIG_ENABLE_WRAPPERS
         app_pc detach_target_pc(target.value.pc);
 
         // if this is a detach point then replace the target address with the
@@ -628,23 +732,22 @@ namespace granary {
         detach_target_pc = find_detach_target(detach_target_pc);
         if(nullptr != detach_target_pc) {
 
-            // TODO: won't work in user space
-            in->set_cti_target(pc_(detach_target_pc));
-            in->set_mangled();
+            if(is_far_away(estimator_pc, detach_target_pc)) {
+                app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
+                *slot = detach_target_pc;
+                if(in->is_call()) {
+                    *in = mangled(call_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+                } else {
+                    *in = mangled(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+                }
+            } else {
+                in->set_cti_target(pc_(detach_target_pc));
+                in->set_mangled();
+            }
+
             return;
         }
-
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-        // when emulating functions (for transparent return addresses), we
-        // convert the call to a jmp here so that the dbl picks up OP_jmp as
-        // the instruction instead of OP_call.
-        if(in->is_call()) {
-            emulate_call_ret_addr(in);
-            *in = jmp_(target);
-        }
 #endif
-
-        const unsigned old_size(in->encoded_size());
 
         // policy inheritance for the target basic block.
         instrumentation_policy target_policy(in->policy());
@@ -653,39 +756,25 @@ namespace granary {
         }
         target_policy.inherit_properties(policy);
 
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
+        // when emulating functions (for transparent return addresses), we
+        // convert the call to a jmp here so that the dbl picks up OP_jmp as
+        // the instruction instead of OP_call.
+        if(in->is_call()) {
+            emulate_call_ret_addr(in, target_policy);
+            *in = jmp_(target);
+        }
+#endif
+
+        const unsigned old_size(in->encoded_size());
+
         // set the policy-fied target
         mangled_address am(target, target_policy.base_policy());
         instruction_list_handle patch(ls->prepend(label_()));
         app_pc dbl_routine(dbl_entry_for(target_policy, in, am));
-        const bool emit_redzone_buffer(IF_USER_ELSE(!in->is_call(), false));
 
+        direct_cti_patch_stub(*ls, patch, in, dbl_routine);
         *in = patchable(mangled(jmp_(instr_(*patch))));
-
-        // shift the stack pointer appropriately; in user space, this deals with
-        // the red zone.
-        if(emit_redzone_buffer) {
-            patch = ls->insert_after(patch, lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
-        } else {
-            patch = ls->insert_after(patch, lea_(reg::rsp, reg::rsp[-8]));
-        }
-
-        patch = ls->insert_after(patch, mangled(call_(pc_(dbl_routine))));
-
-        // deal with the red zone and the policy-mangled  address left on
-        // the stack.
-        if(emit_redzone_buffer) {
-            patch = ls->insert_after(patch, lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
-        } else {
-            patch = ls->insert_after(patch, lea_(reg::rsp, reg::rsp[8]));
-        }
-
-        // the address to be mangled is implicitly encoded in the target of this
-        // jmp instruction, which will later be decoded by the direct cti
-        // patch function. There are two reasons for this approach of jumping
-        // around:
-        //      i)  Doesn't screw around with the return address predictor.
-        //      ii) Works with user space red zones.
-        patch = ls->insert_after(patch, mangled(jmp_(instr_(*in))));
 
         const unsigned new_size(in->encoded_size());
 
@@ -723,7 +812,7 @@ namespace granary {
             *in = patchable(mangled(
                 call_(pc_(ibl_entry_for(target, target_policy_ibl)))));
 #else
-            emulate_call_ret_addr(in);
+            emulate_call_ret_addr(in, target_policy);
             *in = mangled(
                 jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
 #endif
@@ -766,8 +855,7 @@ namespace granary {
 
 
     void instruction_list_mangler::mangle_lea(
-        instruction_list_handle in,
-        app_pc estimator_pc
+        instruction_list_handle in
     ) throw() {
         if(dynamorio::REL_ADDR_kind != in->instr.u.o.src0.kind) {
             return;
@@ -929,8 +1017,7 @@ namespace granary {
     /// We assume it's always legal to convert %rip-relative into a base/disp
     /// type operand (of the same size).
     void instruction_list_mangler::mangle_far_memory_refs(
-        instruction_list_handle in,
-        app_pc estimator_pc
+        instruction_list_handle in
     ) throw() {
 
         bool has_far_op(false);
@@ -1027,11 +1114,6 @@ namespace granary {
         instruction_list_handle in(ls->first());
         instruction_list_handle next_in;
 
-        // used to estimate if an address is too far away from the code cache
-        // to use relative addressing.
-        uint8_t *estimator_pc(
-            cpu->fragment_allocator.allocate_staged<uint8_t>());
-
         // go mangle instructions; note: indirect CTI mangling happens here.
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
             const bool is_mangled(in->is_mangled());
@@ -1062,13 +1144,13 @@ namespace granary {
             // look for cases where an lea loads from a memory address that is
             // too far away and fix it.
             } else if(dynamorio::OP_lea == (*in)->opcode) {
-               mangle_lea(in, estimator_pc);
+               mangle_lea(in);
 
             // look for uses of relative addresses in operands that are no
             // longer reachable with %rip-relative encoding, and convert to a
             // use of an absolute address.
             } else {
-                mangle_far_memory_refs(in, estimator_pc);
+                mangle_far_memory_refs(in);
 #endif
             }
         }
@@ -1121,6 +1203,7 @@ namespace granary {
         , thread(thread_)
         , policy(policy_)
         , ls(nullptr)
+        , estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>())
     { }
 
 }

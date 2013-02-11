@@ -47,6 +47,7 @@ def is_wrappable_type(ctype):
 
 
 WILL_WRAP_CACHE = {}
+VA_LIST_FUNCS = set()
 
 
 def will_pre_wrap_feilds(ctype):
@@ -188,15 +189,27 @@ def wrap_function(ctype, orig_ctype, func):
       return "_arg%d" % num_params[0]
 
   param_names = map(next_param, ctype.param_names)
+  last_arg_name = ""
   for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
     if not arg_name:
       arg_name = ""
+    last_arg_name = arg_name
     arg_list.append(pretty_print_type(arg_ctype, arg_name, lang="C++").strip(" "))
   args = ", ".join(arg_list)
 
   O = OUT
-  O("FUNCTION_WRAPPER", suffix, "(", func, ", (", args, variadic, "), {")
+
+  # get an output string for the return type.
+  ret_type = ""
+  if not is_void:
+    ret_type = pretty_print_type(ctype.ret_type, "", lang="C++").strip(" ")
+    ret_type = " (%s), " % ret_type
+
+  O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
   if ctype.is_variadic:
+
+    O("    va_list args__;")
+    O("    va_start(args__, %s);" % last_arg_name)
     O("    // TODO: variadic arguments")
   
   # assignment of return value; unattributed_type is used in place of base type
@@ -209,7 +222,16 @@ def wrap_function(ctype, orig_ctype, func):
   for (arg_ctype, arg_name) in zip(ctype.param_types, param_names):
     pre_wrap_var(arg_ctype, arg_name, O, indent="    ")
 
-  O("    ", a, func, "(", ", ".join(param_names), ");")
+  global VA_LIST_FUNCS
+  va_func = "v%s" % func
+
+  if va_func in VA_LIST_FUNCS:
+    O("    ", a, va_func, "(", ", ".join(param_names + ["args__"]), ");")
+  else:
+    O("    ", a, func, "(", ", ".join(param_names), ");")
+
+  if ctype.is_variadic:
+    O("    va_end(args__);")
 
   if not is_void:
     O("    RETURN_WRAP(", r_v, ");")
@@ -311,6 +333,20 @@ def visit_var_def(var, ctype):
   if isinstance(ctype, CTypeFunction):
     wrap_function(ctype, orig_ctype, var)
 
+    
+def visit_possible_variadic_def(name, ctype, va_list_ctype):
+  global VA_LIST_FUNCS
+  if not isinstance(ctype, CTypeFunction):
+    return
+
+  if not ctype.param_types:
+    return
+
+  last_param_ctype = ctype.param_types[-1].base_type()
+
+  if last_param_ctype is va_list_ctype:
+    VA_LIST_FUNCS.add(name)
+
 
 if "__main__" == __name__:
   import sys
@@ -345,9 +381,18 @@ if "__main__" == __name__:
     tokens = CTokenizer(buff)
     parser = CParser()
     parser.parse(tokens)
+    va_list = None
+    try:
+      va_list = parser.get_type("va_list", CTypeDefinition)
+      va_list = va_list.base_type()
+    except:
+      pass
 
     OUT("/* Auto-generated wrappers. */")
     for var, ctype in parser.vars():
+      if var not in ignore_set and var.startswith("v"):
+        visit_possible_variadic_def(var, ctype.base_type(), va_list)
+
+    for var, ctype in parser.vars():
       if var not in ignore_set:
         visit_var_def(var, ctype)
-    

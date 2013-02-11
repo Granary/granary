@@ -27,6 +27,17 @@ namespace granary {
         instrumentation_policy policy;
         instruction_list *ls;
 
+        // used to estimate if an address is too far away from the code cache
+        // to use relative addressing.
+        app_pc estimator_pc;
+
+        void direct_cti_patch_stub(
+            instruction_list &patch_ls,
+            instruction_list_handle patch,
+            instruction_list_handle patched_in,
+            app_pc dbl_routine
+        ) throw();
+
         void mangle_sti(instruction_list_handle in) throw();
         void mangle_cli(instruction_list_handle in) throw();
 
@@ -34,20 +45,33 @@ namespace granary {
         void mangle_direct_cti(instruction_list_handle in, operand op) throw();
         void mangle_indirect_cti(instruction_list_handle in, operand op) throw();
 
-        void propagate_delay_region(
+        static void propagate_delay_region(
             instruction_list_handle in,
             instruction_list_handle first,
             instruction_list_handle last
         ) throw();
 
+    public:
+
+        static void inject_mangled_nops(
+            instruction_list &ls,
+            instruction_list_handle in,
+            unsigned num_nops
+        ) throw();
+
+        static void stage_8byte_hot_patch(
+            instruction in,
+            app_pc stage,
+            app_pc dest
+        ) throw();
+
+    private:
+
 #if CONFIG_TRANSLATE_FAR_ADDRESSES
 
-        void mangle_lea(instruction_list_handle in, app_pc) throw();
+        void mangle_lea(instruction_list_handle in) throw();
 
-        void mangle_far_memory_refs(
-            instruction_list_handle in,
-            app_pc estimator_pc
-        ) throw();
+        void mangle_far_memory_refs(instruction_list_handle in) throw();
 
         void mangle_far_memory_push(
             instruction_list_handle in,
@@ -98,7 +122,10 @@ namespace granary {
 
 
         /// Emulate the push of a function call's return address onto the stack.
-        void emulate_call_ret_addr(instruction_list_handle in) throw();
+        void emulate_call_ret_addr(
+            instruction_list_handle in,
+            instrumentation_policy target_policy
+        ) throw();
 
     public:
 

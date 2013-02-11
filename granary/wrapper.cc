@@ -21,26 +21,33 @@
 /// Prototypes of exported symbols.
 #include "granary/detach.h"
 
+#if CONFIG_ENABLE_WRAPPERS
 
 /// Auto-generated file that assigns unique IDs to each function.
-#include "granary/gen/detach.h"
+#   include "granary/gen/detach.h"
 
 
 /// Wrapper templates.
-#include "granary/wrapper.h"
+#   include "granary/wrapper.h"
+
+
+/// Needed for C-style variadic functions.
+#   include <cstdarg>
 
 
 /// Wrappers (potentially auto-generated) that are specialized to specific
 /// functions (by means of IDs) or to types, all contained in types.h.
-#if GRANARY_IN_KERNEL
-#   include "granary/gen/kernel_wrappers.h"
-#else
-#   include "granary/gen/user_wrappers.h"
-#endif
+#   if GRANARY_IN_KERNEL
+#       include "granary/gen/kernel_wrappers.h"
+#   else
+#       include "granary/gen/user_wrappers.h"
+#   endif
 
 
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specializations from
 /// user/kernel_wrappers.h.
-#include "granary/gen/detach.cc"
+#   include "granary/gen/detach.cc"
+
+#endif /* CONFIG_ENABLE_WRAPPERS */
 

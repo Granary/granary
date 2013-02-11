@@ -233,6 +233,34 @@ namespace granary {
         inline void inherit_properties(instrumentation_policy that) throw() {
             properties |= that.properties;
         }
+
+
+        /// Clear all properties.
+        inline void clear_properties(void) throw() {
+            properties = 0;
+        }
+
+
+        /// Return the instrumentation policy with the next possible set of
+        /// properties. This is useful (in conjunction with `clear_properties`
+        /// for iterating over all properties of a specific policy.
+        inline instrumentation_policy next(void) const throw() {
+            uint8_t next_properties(properties + 1);
+            instrumentation_policy policy;
+
+            enum {
+                MAX_PROPERTIES = 1 << (NUM_PROPERTIES)
+            };
+
+            if(MAX_PROPERTIES <= next_properties) {
+                return policy;
+            }
+
+            policy.id = id;
+            policy.pseudo_id_increment = pseudo_id_increment;
+            policy.properties = next_properties;
+            return policy;
+        }
     };
 
 

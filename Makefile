@@ -25,6 +25,7 @@ GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
+GR_CXX_FLAGS += -Wno-format-security
 
 GR_EXTRA_CC_FLAGS ?=
 GR_EXTRA_CXX_FLAGS ?=

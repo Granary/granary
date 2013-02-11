@@ -11,6 +11,8 @@
 #include "granary/globals.h"
 #include "granary/detach.h"
 
+#if CONFIG_ENABLE_WRAPPERS
+
 namespace granary {
 
 
@@ -141,13 +143,16 @@ namespace granary {
         return reinterpret_cast<app_pc>(wrapped_function<id, R, Args...>::apply);
     }
 
+    /// Represents a manual function wrapper.
+    struct custom_wrapped_function { };
+
     /// Return the address of a function wrapper given its id and type, where
     /// the function being wrapped is a C-style variadic function.
     template <enum function_wrapper_id id, typename T>
     inline constexpr app_pc wrapper_of(T *) throw() {
-        return nullptr; // TODO
+        return reinterpret_cast<app_pc>(
+            wrapped_function<id, custom_wrapped_function>::apply);
     }
-
 }
 
 #define TYPE_WRAPPER(type_name, wrap_code) \
@@ -196,11 +201,15 @@ namespace granary {
         struct type_wrapper<type_name> : public type_wrapper<aliased_type_name> { }; \
     }
 
-#define FUNCTION_WRAPPER(function_name, arg_list, wrapper_code) \
+#define FUNCTION_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
-        template <typename R, typename... Args> \
-        struct wrapped_function<DETACH_ID_ ## function_name, R, Args...> { \
+        template <> \
+        struct wrapped_function< \
+            DETACH_ID_ ## function_name, \
+            custom_wrapped_function \
+        > { \
         public: \
+            typedef PARAMS return_type R; \
             static R apply arg_list throw() { \
                 const unsigned depth__(MAX_PRE_WRAP_DEPTH);\
                 wrapper_code \
@@ -210,9 +219,13 @@ namespace granary {
 
 #define FUNCTION_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
     namespace granary { \
-        template <typename... Args> \
-        struct wrapped_function<DETACH_ID_ ## function_name, void, Args...> { \
+        template <> \
+        struct wrapped_function< \
+            DETACH_ID_ ## function_name, \
+            custom_wrapped_function \
+        > { \
         public: \
+            typedef void R; \
             static void apply arg_list throw() { \
                 const unsigned depth__(MAX_PRE_WRAP_DEPTH);\
                 wrapper_code \
@@ -255,4 +268,5 @@ namespace granary {
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
     static inline void kind ## _wrap(wrapped_type__ &, unsigned ) throw() { }
 
+#endif /* CONFIG_ENABLE_WRAPPERS */
 #endif /* granary_WRAPPER_H_ */

@@ -1906,6 +1906,10 @@ class CParser(object):
   def vars(self):
     return self.stab.vars()
 
+  # Get a type.
+  def get_type(self, name, constructor):
+    return self.stab.get_type(name, constructor)
+
 
 # for testing
 if "__main__" == __name__:

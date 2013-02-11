@@ -40,6 +40,12 @@ namespace granary {
     }
 
 
+    /// Add a custom mapping to the code cache.
+    void code_cache::add(app_pc source, app_pc dest) throw() {
+        CODE_CACHE.store(source, dest);
+    }
+
+
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.
     app_pc code_cache::find(
@@ -51,6 +57,7 @@ namespace granary {
         // find the actual targeted address, independent of the policy.
         app_pc app_target_addr(addr.unmangled_address());
 
+#if CONFIG_ENABLE_WRAPPERS
         // Determine if this is actually a detach point. This is only relevant
         // for indirect calls/jumps because direct calls and jumps will have
         // inlined this check at basic block translation time.
@@ -59,6 +66,13 @@ namespace granary {
             cpu->code_cache.store(addr.as_address, target_addr);
             return target_addr;
         }
+#else
+        // jump to granary::detach.
+        app_pc target_addr(reinterpret_cast<app_pc>(detach));
+        if(target_addr == app_target_addr) {
+            return target_addr;
+        }
+#endif
 
         // Try to load the target address from the global code cache.
         if(CODE_CACHE.load(addr.as_address, target_addr)) {

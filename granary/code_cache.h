@@ -70,6 +70,8 @@ namespace granary {
         static void init_ibl(app_pc &, bool) throw();
         static app_pc ibl_exit_for(app_pc) throw();
 
+        static void add(app_pc, app_pc) throw();
+
         /*
         /// Add an entry to the code cache for later prediction.
         static void predict(cpu_state_handle &cpu,

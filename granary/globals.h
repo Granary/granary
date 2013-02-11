@@ -23,6 +23,10 @@
 #include "granary/pp.h"
 
 
+/// Enable wrappers.
+#define CONFIG_ENABLE_WRAPPERS 1
+
+
 /// Enable transparent return addresses. This turns every function call into
 /// an emulated function call that first pushes on a native return address and
 /// then jmps to the destination. This configuration option affects the

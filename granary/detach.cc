@@ -7,20 +7,28 @@
 
 
 #include "granary/detach.h"
-#include "granary/gen/detach.h"
-
-#include "deps/murmurhash/murmurhash.h"
+#if CONFIG_ENABLE_WRAPPERS
+#   include "granary/gen/detach.h"
+#endif
+#include "granary/hash_table.h"
 
 namespace granary {
 
-    namespace detail {
-        int16_t HASH_TABLE_INDICES[LAST_DETACH_ID];
-    }
+#if CONFIG_ENABLE_WRAPPERS
+    static hash_table<app_pc, const function_wrapper *> DETACH_HASH_TABLE;
+
+    static function_wrapper DETACH_WRAPPER = {
+        reinterpret_cast<app_pc>(&detach),
+        reinterpret_cast<app_pc>(&detach)
+    };
 
     STATIC_INITIALISE({
+        DETACH_HASH_TABLE.store(
+            DETACH_WRAPPER.original_address, &DETACH_WRAPPER);
+
         for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
-            (void) wrapper;
+            DETACH_HASH_TABLE.store(wrapper.original_address, &wrapper);
         }
     });
 
@@ -32,10 +40,16 @@ namespace granary {
 	/// Returns:
 	///		A translated target address, or nullptr if this isn't a
 	/// 	detach target.
-	app_pc find_detach_target(app_pc) throw() {
-		return nullptr;
+	app_pc find_detach_target(app_pc target) throw() {
+	    const function_wrapper *wrapper(nullptr);
+	    if(!DETACH_HASH_TABLE.load(target, wrapper)) {
+	        return nullptr;
+	    }
+
+	    return wrapper->wrapper_address;
 	}
 
+#endif /* CONFIG_ENABLE_WRAPPERS */
 
 	/// Detach Granary.
 	void detach(void) throw() {

@@ -537,7 +537,6 @@ namespace granary {
                             in.set_cti_target(target);
                         }
                     }
-
 #endif
                 }
 
