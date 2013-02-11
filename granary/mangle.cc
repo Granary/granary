@@ -115,11 +115,11 @@ namespace granary {
         //       that's the case, then the policy_id will only clobber the high
         //       bits, which is fine.
         struct {
-            int32_t displacement;
+            int32_t displacement; // low
             uint8_t base_reg;
             uint8_t index_reg;
             uint8_t scale;
-            uint8_t policy_bits;
+            uint8_t policy_bits; // high
         } as_operand __attribute__((packed));
 
         uint64_t as_uint;
@@ -194,8 +194,9 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         ibl.append(pushf_());
         ibl.append(cli_());
+#elif CONFIG_IBL_SAVE_ALL_FLAGS
+        ibl.append(pushf_());
 #else
-        //ibl.append(pushf_());
         ibl.append(lahf_());
         ibl.append(push_(reg::rax)); // because rax == ret
 #endif
@@ -361,8 +362,8 @@ namespace granary {
     }
 
 
-    /// Injects N bytes of NOPs into an instuction list after
-    /// a specific instruction.
+    /// Injects N bytes of NOPs into an instuction list after a specific
+    /// instruction.
     static void inject_mangled_nops(
         instruction_list &ls,
         instruction_list_handle in,
@@ -411,9 +412,7 @@ namespace granary {
     ///       when the corresponding assembly patch function returns, it
     ///       will return to the instruction just patched.
     GRANARY_ENTRYPOINT
-    template <
-        instruction (*make_opcode)(dynamorio::opnd_t)
-    >
+    template <instruction (*make_opcode)(dynamorio::opnd_t)>
     static void
     find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
@@ -465,9 +464,7 @@ namespace granary {
 
 
     /// Make a direct patch function that is specific to a particular opcode.
-    template <
-        instruction (*make_opcode)(dynamorio::opnd_t)
-    >
+    template <instruction (*make_opcode)(dynamorio::opnd_t)>
     static app_pc make_direct_cti_patch_func(
         void (*template_func)(void)
     ) throw() {
@@ -602,6 +599,21 @@ namespace granary {
     }
 
 
+    /// Emulate the push of a function call's return address onto the stack.
+    void instruction_list_mangler::emulate_call_ret_addr(
+        instruction_list_handle in
+    ) throw() {
+        ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
+        ls->insert_before(in, push_(reg::rax));
+        ls->insert_before(in,
+            mov_imm_(reg::rax,
+                int64_(reinterpret_cast<uint64_t>(
+                    in->pc() + in->encoded_size()))));
+        ls->insert_before(in, mov_st_(reg::rsp[8], reg::rax));
+        ls->insert_before(in, pop_(reg::rax));
+    }
+
+
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
@@ -681,21 +693,6 @@ namespace granary {
         IF_DEBUG(new_size > 8, FAULT)
 
         (void) new_size;
-    }
-
-
-    /// Emulate the push of a function call's return address onto the stack.
-    void instruction_list_mangler::emulate_call_ret_addr(
-        instruction_list_handle in
-    ) throw() {
-        ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
-        ls->insert_before(in, push_(reg::rax));
-        ls->insert_before(in,
-            mov_imm_(reg::rax,
-                int64_(reinterpret_cast<uint64_t>(
-                    in->pc() + in->encoded_size()))));
-        ls->insert_before(in, mov_st_(reg::rsp[8], reg::rax));
-        ls->insert_before(in, pop_(reg::rax));
     }
 
 

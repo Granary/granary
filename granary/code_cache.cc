@@ -169,8 +169,9 @@ namespace granary {
         // restore the flags / interrupts.
 #if GRANARY_IN_KERNEL
         ibl.append(popf_());
+#elif CONFIG_IBL_SAVE_ALL_FLAGS
+        ibl.append(popf_());
 #else
-        //ibl.append(popf_());
         ibl.append(pop_(reg::rax));
         ibl.append(sahf_());
 #endif

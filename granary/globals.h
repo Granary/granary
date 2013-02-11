@@ -38,6 +38,12 @@
 #define CONFIG_TRACK_XMM_REGS 1
 
 
+/// Save only the arithmetic flags instead of all flags when doing indirect
+/// branch lookup. This only affects user space because in kernel space all
+/// flags will be saved in order to disable interrupts.
+#define CONFIG_IBL_SAVE_ALL_FLAGS 0
+
+
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
 /// easier to find misuses of memory when Granary does something wrong (e.g.
 /// buffer overflow within a slab).

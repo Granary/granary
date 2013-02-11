@@ -632,7 +632,8 @@ namespace granary {
                 if(is_far_away(*pc, code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE)) {
                     app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
                     *slot = *pc;
-                    ls.append(mangled(jmp_(mem_pc_(slot))));
+                    ls.append(mangled(
+                        jmp_ind_(absmem_(slot, dynamorio::OPSZ_8))));
 
                 } else {
                     ls.append(mangled(jmp_(pc_(*pc))));
