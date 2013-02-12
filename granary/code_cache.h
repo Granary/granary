@@ -40,6 +40,7 @@ namespace granary {
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
         GRANARY_ENTRYPOINT
+        __attribute__((hot))
         inline static app_pc find(mangled_address addr) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
@@ -50,6 +51,7 @@ namespace granary {
         /// Perform both lookup and insertion of a raw address for a given
         /// policy.
         template <typename Policy>
+        __attribute__((hot))
         inline static app_pc find(app_pc addr, Policy) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
@@ -60,6 +62,7 @@ namespace granary {
 
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
+        __attribute__((hot))
         static app_pc find(
             cpu_state_handle &cpu,
             thread_state_handle &thread,

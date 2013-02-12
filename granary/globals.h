@@ -33,7 +33,7 @@
 /// ways. First, all return addresses are unconditionally lookup up in the IBL.
 /// Second, extra trampolining mechanisms are used in order to emulate the
 /// expected code cache policy behaviours.
-#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 0
+#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 1
 
 
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and

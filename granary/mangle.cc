@@ -358,8 +358,6 @@ namespace granary {
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
 
-        printf("RBL = %p\n", routine);
-
         return routine;
     }
 
@@ -728,6 +726,10 @@ namespace granary {
             if(is_far_away(estimator_pc, detach_target_pc)) {
                 app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
                 *slot = detach_target_pc;
+
+                // regardless of return address transparency, a direct call to
+                // a detach target *always* needs to be a call so that control
+                // returns to the code cache.
                 if(in->is_call()) {
                     *in = mangled(call_ind_(absmem_(slot, dynamorio::OPSZ_8)));
                 } else {
