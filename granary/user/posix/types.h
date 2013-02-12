@@ -32,7 +32,8 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-
-#undef __GR_HAS_CPP
+#ifdef __GR_HAS_CPP
+#   undef __GR_HAS_CPP
+#endif
 
 #endif /* granary_POSIX_TYPES_H_ */

@@ -93,7 +93,7 @@ def pretty_print_type(ctype, inner="", lang="C"):
   elif isinstance(ctype, CTypeArray):
     s = "%s %s[%s]" % (pretty_print_type(ctype.ctype, lang=lang),
                        inner,
-                       " ".join(ctype.size_expr_toks))
+                       " ".join(str(t) for t in ctype.size_expr_toks))
 
   # struct, union, enum; note: technically function and array as well; but these
   # should be caught elsewhere

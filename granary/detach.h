@@ -19,6 +19,7 @@ namespace granary {
     struct function_wrapper {
         const app_pc original_address;
         const app_pc wrapper_address;
+        const char * const name;
     };
 
 

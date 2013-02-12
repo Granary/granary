@@ -56,11 +56,12 @@ namespace granary {
 /// user/kernel_wrappers.h.
 #   define WRAP_FOR_DETACH(func) \
     {   (app_pc) ::func, \
-        wrapper_of<DETACH_ID_ ## func>(::func)},
+        wrapper_of<DETACH_ID_ ## func>(::func), \
+        #func },
 namespace granary {
     const function_wrapper FUNCTION_WRAPPERS[] = {
 #   include "granary/gen/detach.inc"
-        {nullptr, nullptr}
+        {nullptr, nullptr, nullptr}
     };
 }
 #   undef WRAP_FOR_DETACH

@@ -17,7 +17,8 @@ namespace granary {
 
     static function_wrapper DETACH_WRAPPER = {
         reinterpret_cast<app_pc>(&detach),
-        reinterpret_cast<app_pc>(&detach)
+        reinterpret_cast<app_pc>(&detach),
+        "granary::detach"
     };
 
     STATIC_INITIALISE({

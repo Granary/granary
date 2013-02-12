@@ -358,8 +358,6 @@ namespace granary {
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
 
-        printf("RBL = %p\n", routine);
-
         return routine;
     }
 
@@ -692,8 +690,6 @@ namespace granary {
             allocate_array<uint8_t>(trampoline.encoded_size()));
         trampoline.encode(return_routine);
 
-        printf("RET = %p\n", return_routine);
-
         // add the ibl exit routine for this return address trampoline to the
         // code cache for each possible property combination for the targeted
         // policy. This means that when we are in the target policy, we can
@@ -707,13 +703,7 @@ namespace granary {
         for(; !!target_policy; target_policy = target_policy.next()) {
             mangled_address ram(return_address, target_policy);
             code_cache::add(ram.as_address, ibl_routine);
-
-            printf("%p -> %p\n", ram.as_address, ibl_routine);
         }
-
-        printf("IBL = %p\n", ibl_routine);
-
-
     }
 
 

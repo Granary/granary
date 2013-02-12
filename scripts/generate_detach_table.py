@@ -78,8 +78,7 @@ def visit_function(ctype, name):
 
   SEEN.add(name)
   
-  if has_extension_attribute(ctype, "deprecated") \
-  or has_extension_attribute(ctype, "leaf"):
+  if has_extension_attribute(ctype, "deprecated"):
     return
 
   if name.startswith("__"):

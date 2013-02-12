@@ -148,19 +148,21 @@ def will_wrap_function(ret_type, arg_types):
 def wrap_function(ctype, orig_ctype, func):
 
   # only care about non-variadic functions if they return wrappable types.
-  if not ctype.is_variadic:
+  # otherwise, we always care about manually wrapping variadic functions
+  # and functions that don't return.
+  if not ctype.is_variadic \
+  and not has_extension_attribute(orig_ctype, "noreturn"):
     if not will_wrap_function(ctype.ret_type, []):
       return
 
   # only care about variadic functions if they take wrappable parameters /
   # return values
-  elif ctype.is_variadic:
-    if not will_wrap_function(ctype.ret_type, ctype.param_types):
-      return
+  #elif ctype.is_variadic:
+  #  if not will_wrap_function(ctype.ret_type, ctype.param_types):
+  #    return
 
   # don't wrap deprecated functions; the compiler will complain about them.
-  if has_extension_attribute(orig_ctype, "deprecated") \
-  or has_extension_attribute(orig_ctype, "leaf"):
+  if has_extension_attribute(orig_ctype, "deprecated"):
     return
 
   # internal function

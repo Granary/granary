@@ -61,6 +61,10 @@ namespace granary {
     //template <typename
 
 
+    /// Represents a manual function wrapper.
+    struct custom_wrapped_function { };
+
+
     /// Represents a generic, type-aware function wrapper.
     template <enum function_wrapper_id id, typename R, typename... Args>
     struct wrapped_function;
@@ -88,6 +92,7 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
+            printf("%s\n", FUNCTION_WRAPPERS[id].name);
             return WRAPPED_ADDRESS(args...);
         }
     };
@@ -129,6 +134,15 @@ namespace granary {
     };
 
 
+    /// Represents a "bad" instantiation of the `wrapped_function` template.
+    /// If this is instantiated, then it implies that something is missing,
+    /// e.g. a wrapper in `granary/gen/*_wrappers.h`.
+    template <enum function_wrapper_id id>
+    struct wrapped_function<id, custom_wrapped_function> {
+
+    };
+
+
     /// Static-initialise the wrapper address.
     template <enum function_wrapper_id id, typename... Args>
     typename wrapped_function<id, void, Args...>::func_type *
@@ -143,8 +157,6 @@ namespace granary {
         return reinterpret_cast<app_pc>(wrapped_function<id, R, Args...>::apply);
     }
 
-    /// Represents a manual function wrapper.
-    struct custom_wrapped_function { };
 
     /// Return the address of a function wrapper given its id and type, where
     /// the function being wrapped is a C-style variadic function.
@@ -211,7 +223,8 @@ namespace granary {
         public: \
             typedef std::remove_reference<PARAMS return_type>::type R; \
             static R apply arg_list throw() { \
-                const unsigned depth__(MAX_PRE_WRAP_DEPTH);\
+                const unsigned depth__(MAX_PRE_WRAP_DEPTH); \
+                (void) depth__; \
                 wrapper_code \
             } \
         }; \
@@ -227,7 +240,8 @@ namespace granary {
         public: \
             typedef void R; \
             static void apply arg_list throw() { \
-                const unsigned depth__(MAX_PRE_WRAP_DEPTH);\
+                const unsigned depth__(MAX_PRE_WRAP_DEPTH); \
+                (void) depth__; \
                 wrapper_code \
             } \
         }; \

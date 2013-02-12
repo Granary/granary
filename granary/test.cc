@@ -55,6 +55,11 @@ extern "C" {
 
 namespace granary {
 
+    __attribute__((noinline, optimize("O0")))
+    static void break_in_xmm_context(void) throw() {
+        ASM("");
+    }
+
     static void debug_bb(app_pc *ret_addr, bool in_xmm_context) throw() {
         granary::basic_block bb(*ret_addr);
         printf("bb native_pc = %p instrumented_pc = %p in xmm context = %d\n",
@@ -62,6 +67,9 @@ namespace granary {
             bb.cache_pc_start + (in_xmm_context ? 329 : 98),
             in_xmm_context);
         (void) ret_addr;
+        if(in_xmm_context) {
+            break_in_xmm_context();
+        }
     }
 
     /// Instruction a basic block.
@@ -71,7 +79,7 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
-#if 1
+#if 0
         register_manager all_regs;
         all_regs.kill_all();
 
