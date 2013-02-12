@@ -7,14 +7,12 @@
 
 
 #include "granary/detach.h"
-#if CONFIG_ENABLE_WRAPPERS
-#   include "granary/gen/detach.h"
-#endif
 #include "granary/hash_table.h"
 
 namespace granary {
 
 #if CONFIG_ENABLE_WRAPPERS
+
     static hash_table<app_pc, const function_wrapper *> DETACH_HASH_TABLE;
 
     static function_wrapper DETACH_WRAPPER = {
@@ -26,8 +24,11 @@ namespace granary {
         DETACH_HASH_TABLE.store(
             DETACH_WRAPPER.original_address, &DETACH_WRAPPER);
 
-        for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
+        for(unsigned i(0); ; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
+            if(!wrapper.original_address) {
+                break;
+            }
             DETACH_HASH_TABLE.store(wrapper.original_address, &wrapper);
         }
     });

@@ -209,7 +209,7 @@ namespace granary {
             custom_wrapped_function \
         > { \
         public: \
-            typedef PARAMS return_type R; \
+            typedef std::remove_reference<PARAMS return_type>::type R; \
             static R apply arg_list throw() { \
                 const unsigned depth__(MAX_PRE_WRAP_DEPTH);\
                 wrapper_code \

@@ -24,7 +24,14 @@
 #if CONFIG_ENABLE_WRAPPERS
 
 /// Auto-generated file that assigns unique IDs to each function.
-#   include "granary/gen/detach.h"
+#   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
+namespace granary {
+    enum function_wrapper_id {
+#   include "granary/gen/detach.inc"
+        LAST_DETACH_ID
+    };
+}
+#   undef WRAP_FOR_DETACH
 
 
 /// Wrapper templates.
@@ -47,7 +54,16 @@
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specializations from
 /// user/kernel_wrappers.h.
-#   include "granary/gen/detach.cc"
+#   define WRAP_FOR_DETACH(func) \
+    {   (app_pc) ::func, \
+        wrapper_of<DETACH_ID_ ## func>(::func)},
+namespace granary {
+    const function_wrapper FUNCTION_WRAPPERS[] = {
+#   include "granary/gen/detach.inc"
+        {nullptr, nullptr}
+    };
+}
+#   undef WRAP_FOR_DETACH
 
 #endif /* CONFIG_ENABLE_WRAPPERS */
 

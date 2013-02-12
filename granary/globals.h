@@ -24,7 +24,7 @@
 
 
 /// Enable wrappers.
-#define CONFIG_ENABLE_WRAPPERS 1
+#define CONFIG_ENABLE_WRAPPERS 0
 
 
 /// Enable transparent return addresses. This turns every function call into

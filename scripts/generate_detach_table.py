@@ -7,11 +7,6 @@ from cparser import *
 header, code = None, None
 
 
-def H(*args):
-  global header
-  header.write("".join(map(str, args)) + "\n")
-
-
 def C(*args):
   global code
   code.write("".join(map(str, args)) + "\n")
@@ -90,8 +85,7 @@ def visit_function(ctype, name):
   if name.startswith("__"):
     return
 
-  H("        DETACH_ID_", name, ",")
-  C("        {(app_pc) ::", name,", wrapper_of<DETACH_ID_", name, ">(::", name, ")},")
+  C("WRAP_FOR_DETACH(", name,")")
 
 
 def visit_var_def(var, ctype):
@@ -103,33 +97,15 @@ def visit_var_def(var, ctype):
 
 if "__main__" == __name__:
   import sys
-  header = open(sys.argv[2], "w")
-  code = open(sys.argv[3], "w")
+  code = open(sys.argv[2], "w")
   with open(sys.argv[1]) as lines_:
     buff = "".join(lines_)
     tokens = CTokenizer(buff)
     parser = CParser()
     parser.parse(tokens)
 
-    H("/* Auto-generated detach IDs. */")
-    H("#ifndef GRANARY_DETACH_IDS")
-    H("#define GRANARY_DETACH_IDS")
-    H("namespace granary {")
-    H("    enum function_wrapper_id {")
-
-    C("namespace granary {")
-    C("    const function_wrapper FUNCTION_WRAPPERS[] = {")
-
     for var, ctype in parser.vars():
       visit_var_def(var, ctype)
 
-    C("        {nullptr, nullptr}")
-    C("    }; /* function_wrapper_id */")
-    C("} /* granary:: */ ")
     C()
 
-    H("        LAST_DETACH_ID")
-    H("    };")
-    H("} /* granary:: */")
-    H("#endif /* GRANARY_DETACH_IDS */")
-    H()

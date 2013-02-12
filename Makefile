@@ -275,7 +275,7 @@ wrappers: types
 
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
-	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.h granary/gen/detach.cc 
+	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
 
 
 # make the folders where binaries / generated assemblies are stored

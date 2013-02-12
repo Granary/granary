@@ -27,6 +27,14 @@
 
 #define GRANARY
 
+#ifdef __APPLE__
+#   define IF_APPLE(...) __VA_ARGS__
+#   define _IF_APPLE(...) , __VA_ARGS__
+#else
+#   define IF_APPLE(...)
+#   define _IF_APPLE(...)
+#endif
+
 #define ALIGN_TO(lval, const_align) \
     (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
