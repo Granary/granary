@@ -24,16 +24,15 @@
 
 
 /// Enable wrappers.
-#define CONFIG_ENABLE_WRAPPERS 0
+#define CONFIG_ENABLE_WRAPPERS 1
 
 
 /// Enable transparent return addresses. This turns every function call into
 /// an emulated function call that first pushes on a native return address and
-/// then jmps to the destination. This configuration option affects the
-/// usefulness of policies, because the return address branch lookup mechanism
-/// will propagate the current policy instead of falling back to the
-/// policy of the caller. This is especially noticeable with policy properties,
-/// such as xmm-safety.
+/// then jmps to the destination. This option affects performance in a number of
+/// ways. First, all return addresses are unconditionally lookup up in the IBL.
+/// Second, extra trampolining mechanisms are used in order to emulate the
+/// expected code cache policy behaviours.
 #define CONFIG_TRANSPARENT_RETURN_ADDRESSES 0
 
 

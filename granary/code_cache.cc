@@ -25,7 +25,6 @@ namespace granary {
 
     namespace {
 
-
         /// The globally shared code cache. This maps policy-mangled code
         /// code addresses to translated addresses.
         static shared_hash_table<app_pc, app_pc> CODE_CACHE;
@@ -55,24 +54,9 @@ namespace granary {
     ) throw() {
 
         // find the actual targeted address, independent of the policy.
+        instrumentation_policy policy(addr);
         app_pc app_target_addr(addr.unmangled_address());
-
-#if CONFIG_ENABLE_WRAPPERS
-        // Determine if this is actually a detach point. This is only relevant
-        // for indirect calls/jumps because direct calls and jumps will have
-        // inlined this check at basic block translation time.
-        app_pc target_addr(find_detach_target(app_target_addr));
-        if(nullptr != target_addr) {
-            cpu->code_cache.store(addr.as_address, target_addr);
-            return target_addr;
-        }
-#else
-        // jump to granary::detach.
-        app_pc target_addr(reinterpret_cast<app_pc>(detach));
-        if(target_addr == app_target_addr) {
-            return target_addr;
-        }
-#endif
+        app_pc target_addr(nullptr);
 
         // Try to load the target address from the global code cache.
         if(CODE_CACHE.load(addr.as_address, target_addr)) {
@@ -80,8 +64,31 @@ namespace granary {
             return target_addr;
         }
 
+#if CONFIG_ENABLE_WRAPPERS
+        // Determine if this is actually a detach point. This is only relevant
+        // for indirect calls/jumps because direct calls and jumps will have
+        // inlined this check at basic block translation time.
+        target_addr = find_detach_target(app_target_addr);
+#else
+        // jump to granary::detach.
+        target_addr = reinterpret_cast<app_pc>(detach);
+        if(target_addr != app_target_addr) {
+            target_addr = nullptr;
+        }
+#endif
+
+        // handle detaching, e.g. through a wrapper or through granary::detach.
+        if(nullptr != target_addr) {
+            if(policy.is_indirect_cti_policy()) {
+                target_addr = ibl_exit_for(target_addr);
+            }
+
+            CODE_CACHE.store(addr.as_address, target_addr);
+            cpu->code_cache.store(addr.as_address, target_addr);
+            return target_addr;
+        }
+
         // figure out the non-policy-mangled target address, and get our policy.
-        instrumentation_policy policy(addr);
         instrumentation_policy base_policy(policy.base_policy());
         mangled_address base_addr(app_target_addr, base_policy);
 
@@ -193,7 +200,18 @@ namespace granary {
         ibl.append(pop_(reg::rax));
         ibl.append(pop_(reg::arg1));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
-        ibl.append(jmp_(pc_(pc)));
+
+        const app_pc estimator_pc(
+            global_state::FRAGMENT_ALLOCATOR.allocate_staged<uint8_t>());
+
+        if(is_far_away(estimator_pc, pc)) {
+            app_pc *slot(
+                global_state::FRAGMENT_ALLOCATOR.allocate_staged<app_pc>());
+            *slot = pc;
+            ibl.append(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+        } else {
+            ibl.append(jmp_(pc_(pc)));
+        }
 
         app_pc encoded(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(
             ibl.encoded_size()));
