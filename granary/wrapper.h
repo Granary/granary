@@ -92,7 +92,6 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
-            printf("%s\n", FUNCTION_WRAPPERS[id].name);
             return WRAPPED_ADDRESS(args...);
         }
     };
@@ -139,6 +138,9 @@ namespace granary {
     /// e.g. a wrapper in `granary/gen/*_wrappers.h`.
     template <enum function_wrapper_id id>
     struct wrapped_function<id, custom_wrapped_function> {
+
+        // intentionally missing `apply` function so that a reasonable compiler
+        // error will give us the function id as well as its type signature.
 
     };
 

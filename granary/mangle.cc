@@ -358,6 +358,8 @@ namespace granary {
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
 
+        printf("RBL = %p\n", routine);
+
         return routine;
     }
 
@@ -649,7 +651,7 @@ namespace granary {
         patch_ls.insert_after(patch, mangled(jmp_(instr_(*patched_in))));
     }
 
-
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
     /// Emulate the push of a function call's return address onto the stack.
     /// This will also pre-populate the code cache so that correct policy
     /// resolution is emulated for transparent return addresses.
@@ -705,6 +707,7 @@ namespace granary {
             code_cache::add(ram.as_address, ibl_routine);
         }
     }
+#endif
 
 
     /// Add a direct branch slot; this is a sort of "formula" for direct
@@ -798,13 +801,13 @@ namespace granary {
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
         if(in->is_call()) {
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
-            *in = patchable(mangled(
-                call_(pc_(ibl_entry_for(target, target_policy_ibl)))));
-#else
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
             emulate_call_ret_addr(in, target_policy);
             *in = mangled(
                 jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
+#else
+            *in = patchable(mangled(
+                call_(pc_(ibl_entry_for(target, target_policy_ibl)))));
 #endif
 
         } else if(in->is_return()) {

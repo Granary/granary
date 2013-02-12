@@ -79,7 +79,7 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
-#if 0
+#if 1
         register_manager all_regs;
         all_regs.kill_all();
 
