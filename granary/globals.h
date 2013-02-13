@@ -33,7 +33,19 @@
 /// ways. First, all return addresses are unconditionally lookup up in the IBL.
 /// Second, extra trampolining mechanisms are used in order to emulate the
 /// expected code cache policy behaviours.
-#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 1
+#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 0
+
+
+/// Currently we disallow enabling both wrappers and transparent return addresses,
+/// mainly because it is possible that we could get to a point where we can't
+/// guarantee that we will be able to return into the code cache. The main
+/// problem can be overcome more easily in kernel space, where we have the
+/// expectation of fewer indirect jumps to wrappers (detach points), as well as
+/// the ability to page protect the module against execution and recover when
+/// and exception occurs.
+#if CONFIG_ENABLE_WRAPPERS && CONFIG_TRANSPARENT_RETURN_ADDRESSES && !GRANARY_IN_KERNEL
+#   error "Wrappers and transparent return addresses are not concurrently supported in user space."
+#endif
 
 
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and

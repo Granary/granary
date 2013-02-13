@@ -198,7 +198,7 @@ namespace granary {
         ibl.append(pushf_());
 #else
         ibl.append(lahf_());
-        ibl.append(push_(reg::rax)); // because rax == ret
+        ibl.append(push_(reg::rax));
 #endif
 
         // add in the policy to the address to be looked up.
@@ -298,7 +298,7 @@ namespace granary {
             rbl.append(lea_(reg::rsp, reg::rsp[num_bytes_to_pop]));
         }
 
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
+#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES || CONFIG_ENABLE_WRAPPERS
 
         rbl.append(push_(reg::rax));
         rbl.append(mov_ld_(reg::rax, reg::rsp[8]));
@@ -755,6 +755,10 @@ namespace granary {
         // when emulating functions (for transparent return addresses), we
         // convert the call to a jmp here so that the dbl picks up OP_jmp as
         // the instruction instead of OP_call.
+        //
+        // Note: this isn't a detach point, or else we would have detected it
+        //       above, so regardless of whether or not wrappers are enabled,
+        //       we will push on the return address.
         if(in->is_call()) {
             emulate_call_ret_addr(in, target_policy);
             *in = jmp_(target);
@@ -803,7 +807,7 @@ namespace granary {
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
         if(in->is_call()) {
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES && !CONFIG_ENABLE_WRAPPERS
             emulate_call_ret_addr(in, target_policy);
             *in = mangled(
                 jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
