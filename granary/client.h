@@ -14,5 +14,7 @@
 #include "granary/detach.h"
 #include "granary/emit_utils.h"
 #include "granary/register.h"
+#include "granary/printf.h"
+#include "granary/test.h"
 
 #endif /* GRANARY_CLIENT_H_ */

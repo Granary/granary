@@ -9,19 +9,18 @@
 #define granary_TEST_H_
 
 #include "granary/globals.h"
-
-#if CONFIG_RUN_TEST_CASES
-
 #include "granary/policy.h"
 #include "granary/code_cache.h"
 #include "granary/basic_block.h"
 #include "granary/state.h"
-#include "granary/x86/asm_defines.asm"
-#include "granary/detach.h"
 #include "granary/emit_utils.h"
 
-namespace granary {
+#if CONFIG_RUN_TEST_CASES
+#   include "granary/x86/asm_defines.asm"
+#   include "granary/detach.h"
+#endif
 
+namespace granary {
 
     /// Instrumentation policy for basic blocks using tests.
     struct test_policy : public instrumentation_policy {
@@ -36,7 +35,7 @@ namespace granary {
         ) throw();
     };
 
-
+#if CONFIG_RUN_TEST_CASES
     /// Used for static initialisation of test cases.
     struct static_test_list {
         void (*func)(void);
@@ -48,10 +47,10 @@ namespace granary {
         static void append(static_test_list &) throw();
     };
 
-
     void run_tests(void) throw();
+#endif /* CONFIG_RUN_TEST_CASES */
 
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+
 #endif /* granary_TEST_H_ */

@@ -48,7 +48,7 @@ namespace granary {
         uint32_t magic;
 
         /// Number of bytes in this basic block, *including* the number of
-        /// bytes of padding
+        /// bytes of padding, and the patch bytes.
         uint16_t num_bytes;
 
         /// Number of bytes of patch instructions beginning this basic block.

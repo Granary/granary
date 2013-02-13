@@ -49,6 +49,12 @@ GR_ASAN ?= 2
 # Enable libc++? (llvm's c++ standard library)
 GR_LIBCXX ?= 0
 
+
+# Are we making a DLL for later dynamic linking?
+GR_DLL ?= 0
+GR_OUTPUT_PREFIX =
+GR_OUTPUT_SUFFIX = .out
+
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 
@@ -114,6 +120,7 @@ GR_OBJS += bin/granary/emit_utils.o
 GR_OBJS += bin/granary/hash_table.o
 GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/policy.o
+GR_OBJS += bin/granary/perf.o
 GR_OBJS += bin/granary/init.o
 
 # Granary wrapper dependencies
@@ -140,8 +147,19 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
 	GR_OBJS += bin/granary/user/utils.o
+	GR_OBJS += bin/granary/user/printf.o
 	GR_OBJS += bin/granary/test.o
-	GR_OBJS += bin/main.o
+	
+	ifneq ($(GR_DLL),1)
+		GR_OBJS += bin/main.o
+	else
+		GR_OBJS += bin/dlmain.o
+		GR_CC_FLAGS += -fPIC
+		GR_CXX_FLAGS += -fPIC
+		GR_LD_FLAGS += -shared -ldl
+		GR_OUTPUT_PREFIX = lib
+		GR_OUTPUT_SUFFIX = .so
+	endif
 
 	# Granary tests
 	GR_OBJS += bin/tests/test_direct_cbr.o
@@ -163,7 +181,7 @@ ifneq ($(KERNEL),1)
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_NAME).out
+	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_OUTPUT_PREFIX)$(GR_NAME)$(GR_OUTPUT_SUFFIX)
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
@@ -259,6 +277,10 @@ bin/tests/%.o: tests/%.cc
 # build process, and partial testing of the code generation process.
 bin/main.o: main.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
+
+
+bin/dlmain.o: dlmain.cc
+	$(GR_CXX) $(GR_CXX_FLAGS) -c dlmain.cc -o bin/dlmain.$(GR_OUTPUT_FORMAT)
 
 
 # pre-process then post-process type information; this is used for wrappers,

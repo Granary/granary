@@ -36,6 +36,8 @@ int main(int argc, const char **argv) throw() {
     granary::run_tests();
 #endif
 
+    IF_PERF( granary::perf::report(); )
+
     return 0;
 }
 

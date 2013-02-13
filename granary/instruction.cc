@@ -293,7 +293,9 @@ namespace granary {
 
             prev_pc = pc;
             pc = item->encode(pc);
-            IF_DEBUG(nullptr == pc, granary_break_on_encode(prev_pc, *item));
+            IF_DEBUG(nullptr == pc,
+                granary_break_on_encode(prev_pc, *item));
+            IF_PERF( perf::visit_encoded(*item); )
 
             item = item.next();
         }
@@ -368,6 +370,8 @@ namespace granary {
         // keep these associations around
         self.instr.translation = byte_pc;
         self.instr.bytes = byte_pc;
+
+        IF_PERF( perf::visit_decoded(self); )
 
         self.widen_if_cti();
 

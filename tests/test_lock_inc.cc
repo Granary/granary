@@ -32,7 +32,6 @@ namespace test {
         granary::app_pc func((granary::app_pc) local_lock_inc);
         granary::basic_block bb_func(granary::code_cache::find(
             func, granary::test_policy()));
-        granary_break_on_bb(&bb_func);
         ASSERT(1 == bb_func.call<int>());
         ASSERT(2 == bb_func.call<int>());
         ASSERT(3 == bb_func.call<int>());

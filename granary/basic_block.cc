@@ -681,6 +681,10 @@ namespace granary {
         // to choose different magic values, or make them longer.
         ASSERT(bb_begin->pc() == ret.cache_pc_start);
 
+        //printf("%p -> %p\n", start_pc, bb_begin->pc());
+
+        IF_PERF( perf::visit_encoded(ret); )
+
         return ret;
     }
 

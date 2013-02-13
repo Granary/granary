@@ -7,16 +7,20 @@
  */
 
 #include "granary/test.h"
+#include "granary/register.h"
 
 extern "C" {
 
+    __attribute__((noinline, optimize("O0")))
     void granary_break_on_fault(void) { }
 
+    __attribute__((noinline, optimize("O0")))
     int granary_fault(void) {
         ASM("mov 0, %rax;");
         return 1;
     }
 
+    __attribute__((noinline, optimize("O0")))
     void granary_break_on_encode(
         dynamorio::app_pc pc,
         dynamorio::instr_t *instr
@@ -26,21 +30,27 @@ extern "C" {
         granary_fault();
     }
 
+    __attribute__((noinline, optimize("O0")))
     void granary_break_on_bb(granary::basic_block *bb) {
         (void) bb;
     }
 
+    __attribute__((noinline, optimize("O0")))
     void granary_break_on_allocate(void *ptr) {
         (void) ptr;
     }
 
+#if CONFIG_RUN_TEST_CASES
+    __attribute__((noinline, optimize("O0")))
     int granary_test_return_true(void) {
         return 1;
     }
 
+    __attribute__((noinline, optimize("O0")))
     int granary_test_return_false(void) {
         return 0;
     }
+#endif
 
     /// Hacks so that we don't need to link in libc++.
     int __cxa_guard_acquire(void) {
@@ -51,14 +61,9 @@ extern "C" {
     }
 }
 
-#if CONFIG_RUN_TEST_CASES
+
 
 namespace granary {
-
-    __attribute__((noinline, optimize("O0")))
-    static void break_in_xmm_context(void) throw() {
-        ASM("");
-    }
 
     static void debug_bb(app_pc *ret_addr, bool in_xmm_context) throw() {
         granary::basic_block bb(*ret_addr);
@@ -67,9 +72,6 @@ namespace granary {
             bb.cache_pc_start + (in_xmm_context ? 329 : 98),
             in_xmm_context);
         (void) ret_addr;
-        if(in_xmm_context) {
-            break_in_xmm_context();
-        }
     }
 
     /// Instruction a basic block.
@@ -131,6 +133,7 @@ namespace granary {
         return granary::policy_for<test_policy>();
     }
 
+#if CONFIG_RUN_TEST_CASES
 
     /// List of test cases to run.
     static static_test_list STATIC_TEST_LIST_HEAD;
@@ -159,6 +162,6 @@ namespace granary {
             }
         }
     }
-}
 #endif
+} /* granary */
 

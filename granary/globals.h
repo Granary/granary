@@ -12,18 +12,29 @@
 /// interact with the generated types of user/kernel_types in detach.cc.
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <cstring>
-#   if !GRANARY_IN_KERNEL
-#      include <cstdio> // TODO: for printf-debugging
-#   endif
 #   include <cstddef>
 #   include <stdint.h>
 #endif
 
-#include "granary/types/dynamorio.h"
-#include "granary/pp.h"
+
+/// Enable performance counters and reporting. Performance counters measure
+/// things like number of translated bytes, number of code cache bytes, etc.
+/// These counters allow us to get a sense of how (in)efficient Granary is with
+/// memory, etc.
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
-/// Enable wrappers.
+/// Enable wrappers. If wrappers are enabled, then Granary will automatically
+/// detach when certain functions are called. When Granary detaches, it will
+/// sometimes call a "wrapped" version of the intended function, which may or
+/// may not call the origin function. Because wrappers detach Granary, it is
+/// important that the return address is a code cache address (or code cache
+/// equivalent), so that Granary can regain control.
+///
+/// Note: Currently, Granary does not support wrappers with transparent return
+///       addresses, partly due to its inability to regain control in some
+///       circumstance (which is addressable) and partly because of its inability
+///       to regain control in the proper policy.
 #define CONFIG_ENABLE_WRAPPERS 1
 
 
@@ -66,7 +77,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_RUN_TEST_CASES 1
+#define CONFIG_RUN_TEST_CASES 0
 
 
 /// Set to 1 iff jumps that keep control within the same basic block should be
@@ -111,6 +122,9 @@
 #ifndef CONFIG_TRANSLATE_FAR_ADDRESSES
 #   define CONFIG_TRANSLATE_FAR_ADDRESSES !GRANARY_IN_KERNEL
 #endif
+
+#include "granary/types/dynamorio.h"
+#include "granary/pp.h"
 
 namespace granary {
 
@@ -167,8 +181,10 @@ extern "C" {
                                         dynamorio::instr_t *instr);
     extern void granary_break_on_bb(granary::basic_block *bb);
     extern void granary_break_on_allocate(void *ptr);
+#   if CONFIG_RUN_TEST_CASES
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
+#   endif
 #else
 
     extern flags_t granary_disable_interrupts(void);
@@ -195,5 +211,7 @@ extern "C" {
 #include "granary/type_traits.h"
 #include "granary/bump_allocator.h"
 #include "granary/init.h"
+#include "granary/perf.h"
+#include "granary/printf.h"
 
 #endif /* granary_GLOBALS_H_ */

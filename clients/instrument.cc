@@ -17,7 +17,7 @@ namespace client {
         granary::instruction_list &ls
     ) throw() {
 
-        printf("in null_policy");
+        //granary::printf("pc = %p\n", ls.first()->pc());
 
         (void) cpu;
         (void) thread;

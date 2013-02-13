@@ -56,6 +56,12 @@
 #   define IF_USER_ELSE(x, y) x
 #endif
 
+#if CONFIG_ENABLE_PERF_COUNTS
+#   define IF_PERF(...) __VA_ARGS__
+#else
+#   define IF_PERF(...)
+#endif
+
 #define FAULT (granary_break_on_fault(), granary_fault())
 #define BARRIER ASM("" : : : "memory")
 

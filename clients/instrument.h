@@ -10,6 +10,8 @@
 
 #include "granary/client.h"
 
+//#define GRANARY_INIT_POLICY (client::null_policy())
+#define GRANARY_INIT_POLICY (granary::test_policy())
 namespace client {
 
     struct null_policy : public granary::instrumentation_policy {
