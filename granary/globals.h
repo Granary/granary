@@ -35,7 +35,7 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#define CONFIG_ENABLE_WRAPPERS 1
+#define CONFIG_ENABLE_WRAPPERS 0
 
 
 /// Enable transparent return addresses. This turns every function call into
@@ -77,7 +77,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_RUN_TEST_CASES 0
+#define CONFIG_RUN_TEST_CASES 1
 
 
 /// Set to 1 iff jumps that keep control within the same basic block should be

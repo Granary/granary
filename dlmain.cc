@@ -58,10 +58,6 @@ extern "C" {
 
         granary::init();
 
-#if CONFIG_RUN_TEST_CASES
-        granary::run_tests();
-#endif
-
         granary::basic_block bb(granary::code_cache::find(
             start, GRANARY_INIT_POLICY));
 

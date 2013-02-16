@@ -35,6 +35,26 @@ namespace granary {
     static std::atomic<unsigned> NUM_BB_PATCH_BYTES(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BB_STATE_BYTES(ATOMIC_VAR_INIT(0U));
 
+
+    /// Performance counters for tracking IBL, RBL, and DBL instruction counts.
+    static std::atomic<unsigned> NUM_IBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_IBL_ENTRY_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_IBL_EXIT_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_DBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_DBL_STUB_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_DBL_PATCH_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_RBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+
+
+    /// Performance counters for tracking instructions added in order to mangle
+    /// memory references.
+    static std::atomic<unsigned> NUM_MEM_REF_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+
+
+    /// NOPs added to get specific alignments.
+    static std::atomic<unsigned> NUM_ALIGN_NOP_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+
+
     void perf::visit_decoded(instruction &in) throw() {
         NUM_DECODED_INSTRUCTIONS.fetch_add(1);
         NUM_DECODED_BYTES.fetch_add(in.instr.length);
@@ -53,6 +73,51 @@ namespace granary {
             bb.info->num_bytes - bb.info->num_patch_bytes);
         NUM_BB_PATCH_BYTES.fetch_add(bb.info->num_patch_bytes);
         NUM_BB_STATE_BYTES.fetch_add(sizeof(basic_block_state));
+    }
+
+
+    void perf::visit_ibl(instruction_list &ls) throw() {
+        NUM_IBL_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_ibl_entry(instruction_list &ls) throw() {
+        NUM_IBL_ENTRY_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_ibl_exit(instruction_list &ls) throw() {
+        NUM_IBL_EXIT_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_dbl(instruction_list &ls) throw() {
+        NUM_DBL_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_dbl_patch(instruction_list &ls) throw() {
+        NUM_DBL_PATCH_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_dbl_stub(unsigned num) throw() {
+        NUM_DBL_STUB_INSTRUCTIONS.fetch_add(num);
+    }
+
+
+    void perf::visit_rbl(instruction_list &ls) throw() {
+        NUM_RBL_INSTRUCTIONS.fetch_add(ls.length());
+    }
+
+
+    void perf::visit_mem_ref(unsigned num) throw() {
+        NUM_MEM_REF_INSTRUCTIONS.fetch_add(num);
+    }
+
+
+    void perf::visit_align_nop(void) throw() {
+        NUM_ALIGN_NOP_INSTRUCTIONS.fetch_add(1);
     }
 
 
@@ -76,7 +141,27 @@ namespace granary {
         printf("Number of state bytes: %u\n\n",
             NUM_BB_STATE_BYTES.load());
 
+        printf("Number of IBL entry instructions: %u\n",
+            NUM_IBL_ENTRY_INSTRUCTIONS.load());
+        printf("Number of IBL instructions: %u\n",
+            NUM_IBL_INSTRUCTIONS.load());
+        printf("Number of IBL exit instructions: %u\n\n",
+            NUM_IBL_EXIT_INSTRUCTIONS.load());
 
+        printf("Number of DBL entry instructions: %u\n",
+            NUM_DBL_INSTRUCTIONS.load());
+        printf("Number of DBL patch-stub instructions: %u\n",
+            NUM_DBL_STUB_INSTRUCTIONS.load());
+        printf("Number of DBL patch-setup instructions: %u\n\n",
+            NUM_DBL_PATCH_INSTRUCTIONS.load());
+
+        printf("Number of RBL instructions: %u\n\n",
+            NUM_RBL_INSTRUCTIONS.load());
+
+        printf("Number of extra instructions to mangle memory refs: %u\n\n",
+            NUM_MEM_REF_INSTRUCTIONS.load());
+        printf("Number alignment NOPs: %u\n\n",
+            NUM_ALIGN_NOP_INSTRUCTIONS.load());
     }
 }
 

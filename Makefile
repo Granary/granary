@@ -169,6 +169,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_indirect_cti.o
 	GR_OBJS += bin/tests/test_mat_mul.o
 	GR_OBJS += bin/tests/test_md5.o
+	GR_OBJS += bin/tests/test_sigsetjmp.o
 
 	# figure out how to link in various libraries that might be OS-specific
 	GR_LD_SPECIFIC = -pthread -lrt

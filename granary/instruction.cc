@@ -293,8 +293,10 @@ namespace granary {
 
             prev_pc = pc;
             pc = item->encode(pc);
+
             IF_DEBUG(nullptr == pc,
                 granary_break_on_encode(prev_pc, *item));
+
             IF_PERF( perf::visit_encoded(*item); )
 
             item = item.next();

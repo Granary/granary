@@ -17,6 +17,7 @@ namespace granary {
 
     /// Forward declarations.
     struct instruction;
+    struct instruction_list;
     struct basic_block;
 
     struct perf {
@@ -24,6 +25,20 @@ namespace granary {
         static void visit_decoded(instruction &) throw();
         static void visit_encoded(instruction &) throw();
         static void visit_encoded(basic_block &) throw();
+
+        static void visit_ibl_entry(instruction_list &) throw();
+        static void visit_ibl(instruction_list &) throw();
+        static void visit_ibl_exit(instruction_list &) throw();
+
+        static void visit_dbl(instruction_list &) throw();
+        static void visit_dbl_patch(instruction_list &) throw();
+        static void visit_dbl_stub(unsigned) throw();
+
+        static void visit_rbl(instruction_list &) throw();
+
+        static void visit_mem_ref(unsigned) throw();
+
+        static void visit_align_nop(void) throw();
 
         static void report(void) throw();
     };

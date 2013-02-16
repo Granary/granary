@@ -63,6 +63,15 @@ IGNORE = set([
   # non-portable?
   "pthread_mutexattr_setrobust",
   "pthread_mutexattr_getrobust",
+
+  # things that are wacky to wrap
+  "setjmp",
+  "_setjmp",
+  "__setjmp",
+
+  "sigsetjmp",
+  "_sigsetjmp",
+  "__sigsetjmp",
 ])
 
 

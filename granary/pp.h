@@ -97,7 +97,7 @@
 #else
 #   define IF_TEST(...) __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
-    STATIC_INITIALISE({ \
+    STATIC_INITIALISE___(test_func, { \
         static granary::static_test_list test__; \
         test__.func = test_func; \
         test__.desc = test_desc; \

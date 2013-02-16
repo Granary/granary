@@ -263,6 +263,8 @@ namespace granary {
 
         ibl.encode(routine);
 
+        IF_PERF( perf::visit_ibl_entry(ibl); )
+
         // try to store the entry routine.
         if(!IBL_ENTRY_ROUTINE.store(op.as_uint, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
@@ -352,6 +354,8 @@ namespace granary {
             rbl.encoded_size());
         rbl.encode(routine);
 
+        IF_PERF( perf::visit_rbl(rbl); )
+
         // try to store the entry routine.
         if(!RBL_ENTRY_ROUTINE.store(policy_bits, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
@@ -376,15 +380,18 @@ namespace granary {
         instruction_list_handle invalid;
 
         for(; num_nops >= 3; num_nops -= 3) {
+            IF_PERF( perf::visit_align_nop(); )
             in = ls.insert_after(in, nop3byte_());
             propagate_delay_region(original, invalid, in);
         }
 
         if(2 == num_nops) {
+            IF_PERF( perf::visit_align_nop(); )
             in = ls.insert_after(in, nop2byte_());
             propagate_delay_region(original, invalid, in);
 
         } else if(num_nops) {
+            IF_PERF( perf::visit_align_nop(); )
             ls.insert_after(in, nop1byte_());
             propagate_delay_region(original, invalid, in);
         }
@@ -498,6 +505,8 @@ namespace granary {
         app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(
             ls.encoded_size()));
 
+        IF_PERF( perf::visit_dbl_patch(ls); )
+
         ls.encode(dest_pc);
 
         // free all transiently allocated blocks so that we don't blow up
@@ -599,6 +608,8 @@ namespace granary {
 
         ls.encode(routine);
 
+        IF_PERF( perf::visit_dbl(ls); )
+
         if(!DBL_ENTRY_ROUTINE.store(op.as_address, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
             DBL_ENTRY_ROUTINE.load(op.as_address, routine);
@@ -619,6 +630,8 @@ namespace granary {
     ) throw() {
         const bool emit_redzone_buffer(
             IF_USER_ELSE(!patched_in->is_call(), false));
+
+        IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
 
         // shift the stack pointer appropriately; in user space, this deals with
         // the red zone.
@@ -647,6 +660,8 @@ namespace granary {
         //      i)  Doesn't screw around with the return address predictor.
         //      ii) Works with user space red zones.
         patch_ls.insert_after(patch, mangled(jmp_(instr_(*patched_in))));
+
+        IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
     }
 
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
@@ -1143,13 +1158,18 @@ namespace granary {
             // look for cases where an lea loads from a memory address that is
             // too far away and fix it.
             } else if(dynamorio::OP_lea == (*in)->opcode) {
-               mangle_lea(in);
+
+                IF_PERF( const unsigned old_num_ins(ls->length()); )
+                mangle_lea(in);
+                IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
 
             // look for uses of relative addresses in operands that are no
             // longer reachable with %rip-relative encoding, and convert to a
             // use of an absolute address.
             } else {
+                IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_far_memory_refs(in);
+                IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
 #endif
             }
         }

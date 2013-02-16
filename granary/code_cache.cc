@@ -58,9 +58,12 @@ namespace granary {
         app_pc app_target_addr(addr.unmangled_address());
         app_pc target_addr(nullptr);
 
+        printf("find(%p)\n", app_target_addr);
+
         // Try to load the target address from the global code cache.
         if(CODE_CACHE.load(addr.as_address, target_addr)) {
             cpu->code_cache.store(addr.as_address, target_addr);
+            printf(" -> %p\n", target_addr);
             return target_addr;
         }
 
@@ -85,6 +88,7 @@ namespace granary {
 
             CODE_CACHE.store(addr.as_address, target_addr);
             cpu->code_cache.store(addr.as_address, target_addr);
+            printf(" -> %p\n", target_addr);
             return target_addr;
         }
 
@@ -129,6 +133,8 @@ namespace granary {
 
             cpu->code_cache.store(addr.as_address, target_addr);
         }
+
+        printf(" -> %p\n", target_addr);
 
         return target_addr;
     }
@@ -217,6 +223,8 @@ namespace granary {
             ibl.encoded_size()));
 
         ibl.encode(encoded);
+
+        IF_PERF( perf::visit_ibl_exit(ibl); )
 
         return encoded;
     }
@@ -317,6 +325,8 @@ namespace granary {
 
         routine = global_state::FRAGMENT_ALLOCATOR.\
             allocate_array<uint8_t>(ibl.encoded_size());
+
+        IF_PERF( perf::visit_ibl(ibl); )
 
         // encode it
         ibl.encode(routine);

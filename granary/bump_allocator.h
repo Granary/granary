@@ -97,13 +97,17 @@ namespace granary {
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
-            while(lock.exchange(true)) { }
+            if(IS_SHARED) {
+                while(lock.exchange(true)) { }
+            }
         }
 
 
         /// Release the lock on the allocator.
         inline void release(void) throw() {
-            lock.store(false);
+            if(IS_SHARED) {
+                lock.store(false);
+            }
         }
 
 
@@ -238,7 +242,9 @@ namespace granary {
             , first(nullptr)
             , free(nullptr)
             , last_allocation_size(0)
-        { }
+        {
+            lock.store(false);
+        }
 
         ~bump_pointer_allocator(void) throw() {
             // de-allocate the free list

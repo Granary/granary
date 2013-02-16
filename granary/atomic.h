@@ -9,6 +9,7 @@
 #define GR_ATOMIC_H_
 
 #include <atomic>
+#include <initializer_list>
 
 namespace granary {
 
@@ -18,10 +19,7 @@ namespace granary {
     /// Optionally atomic value.
     template <typename T>
     struct opt_atomic<T, false> {
-    private:
         T val;
-
-    public:
 
         typedef opt_atomic<T, false> self_type;
 
@@ -29,24 +27,23 @@ namespace granary {
             : val()
         { }
 
-        inline opt_atomic(self_type &&val_) throw()
-            : val(val_.val)
+        inline opt_atomic(const self_type &that) throw()
+            : val(that.val)
         { }
 
-        inline opt_atomic(T &&val_) throw()
+
+        inline opt_atomic(T val_) throw()
             : val(val_)
         { }
 
         inline bool compare_exchange_strong(T &expected, T desired) throw() {
-            if(val == expected) {
-                val = desired;
-                return true;
-            }
-            return false;
+            ASSERT(val == expected)
+            val = desired;
+            return true;
         }
 
         inline T exchange(T new_val) throw() {
-            T old_val(val);
+            const T old_val(val);
             val = new_val;
             return old_val;
         }
