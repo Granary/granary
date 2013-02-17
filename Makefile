@@ -21,6 +21,7 @@ GR_OUTPUT_FORMAT =
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_FLAGS = 
+GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
@@ -156,6 +157,7 @@ ifneq ($(KERNEL),1)
 		GR_OBJS += bin/main.o
 	else
 		GR_OBJS += bin/dlmain.o
+		GR_ASM_FLAGS += -fPIC
 		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_OUTPUT_PREFIX = lib
@@ -195,7 +197,7 @@ ifneq ($(KERNEL),1)
 	GR_OUTPUT_FORMAT = o
 
 	define GR_COMPILE_ASM
-		$$($(GR_CC) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
+		$$($(GR_CC) $(GR_ASM_FLAGS) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
 endef
 
 # kernel space
