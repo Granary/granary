@@ -14,8 +14,7 @@
 #include "granary/policy.h"
 #include "granary/code_cache.h"
 #include "granary/basic_block.h"
-#include "granary/emit_utils.h"
-
+#include "granary/attach.h"
 #include "clients/instrument.h"
 
 #include <unistd.h>
@@ -27,6 +26,17 @@ void granary_signal_handler(int) {
 }
 
 extern "C" {
+
+#ifdef __APPLE__
+    __attribute__((noinline, constructor, optimize("O0")))
+    static void begin(void) {
+        auto policy(GRANARY_INIT_POLICY);
+        signal(SIGSEGV, granary_signal_handler);
+        signal(SIGILL, granary_signal_handler);
+        granary::init();
+        granary::attach(granary::policy_for<decltype(policy)>());
+    }
+#else
 
     typedef int (__libc_start_main_type)(
         int (*)(int, char **, char **),
@@ -77,7 +87,7 @@ extern "C" {
             void *
         >(main, argc, ubp_av, init, fini, rtld_fini, stack_end);
     }
-
+#endif
 } /* extern C */
 
 

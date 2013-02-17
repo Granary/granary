@@ -36,3 +36,16 @@ make detach KERNEL=1
 make wrappers KERNEL=1
 make clear KERNEL=1 ; make all KERNEL=1 GR_CC=gcc GR_CXX=g++
 ```
+
+Instrumenting user space programs
+---------------------------------
+
+### Linux
+```basemake
+LD_PRELOAD=./libgranary.so my_program
+```
+
+### Mac OS X
+```basemake
+DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
+```

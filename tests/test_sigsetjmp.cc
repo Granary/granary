@@ -6,11 +6,12 @@
  *     Version: $Id$
  */
 
-extern "C" {
-#include <setjmp.h>
-}
-
 #include "granary/test.h"
+#if CONFIG_RUN_TEST_CASES
+
+extern "C" {
+#   include <setjmp.h>
+}
 
 namespace test {
 
@@ -72,3 +73,6 @@ namespace test {
     ADD_TEST(test_sigsetjmp,
         "Test that sigsetjmp works.");
 }
+
+#endif /* CONFIG_RUN_TEST_CASES */
+

@@ -377,9 +377,6 @@ namespace granary {
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
 
-        printf("RBL = %p\n", routine);
-
-
         return routine;
     }
 

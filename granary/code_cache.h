@@ -52,10 +52,22 @@ namespace granary {
         /// policy.
         template <typename Policy>
         __attribute__((hot))
-        inline static app_pc find(app_pc addr, Policy) throw() {
+        inline static app_pc find(
+            app_pc addr,
+            typename std::enable_if<!std::is_same<Policy, instrumentation_policy>::value, Policy>::type
+        ) throw() {
+            return find(addr, policy_for<Policy>());
+        }
+
+        /// Perform both lookup and insertion of a raw address for a given
+        /// policy.
+        __attribute__((hot))
+        inline static app_pc find(
+            app_pc addr,
+            instrumentation_policy policy
+        ) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
-            instrumentation_policy policy((policy_for<Policy>()));
             mangled_address mangled_addr(addr, policy);
             return find(cpu, thread, mangled_addr);
         }

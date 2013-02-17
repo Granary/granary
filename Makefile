@@ -112,6 +112,7 @@ GR_OBJS += bin/deps/murmurhash/murmurhash.o
 # Granary (C++) dependencies
 GR_OBJS += bin/granary/instruction.o
 GR_OBJS += bin/granary/basic_block.o
+GR_OBJS += bin/granary/attach.o
 GR_OBJS += bin/granary/detach.o
 GR_OBJS += bin/granary/state.o
 GR_OBJS += bin/granary/mangle.o
@@ -129,6 +130,7 @@ GR_OBJS += bin/granary/wrapper.o
 # Granary (x86) dependencies
 GR_OBJS += bin/granary/x86/utils.o
 GR_OBJS += bin/granary/x86/direct_branch.o
+GR_OBJS += bin/granary/x86/attach.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += bin/granary/gen/instruction.o
@@ -156,9 +158,15 @@ ifneq ($(KERNEL),1)
 		GR_OBJS += bin/dlmain.o
 		GR_CC_FLAGS += -fPIC
 		GR_CXX_FLAGS += -fPIC
-		GR_LD_FLAGS += -shared -ldl
 		GR_OUTPUT_PREFIX = lib
-		GR_OUTPUT_SUFFIX = .so
+		
+		ifeq ($(UNAME),Darwin) # Mac OS X
+			GR_OUTPUT_SUFFIX = .dylib
+			GR_LD_FLAGS += -dynamiclib
+		else # Linux
+			GR_OUTPUT_SUFFIX = .so
+			GR_LD_FLAGS += -shared -ldl
+		endif
 	endif
 
 	# Granary tests
@@ -182,7 +190,7 @@ ifneq ($(KERNEL),1)
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_OBJS) $(GR_LD_FLAGS) -o $(GR_OUTPUT_PREFIX)$(GR_NAME)$(GR_OUTPUT_SUFFIX)
+	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_LD_FLAGS) $(GR_OBJS) -o $(GR_OUTPUT_PREFIX)$(GR_NAME)$(GR_OUTPUT_SUFFIX)
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
