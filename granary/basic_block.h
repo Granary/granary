@@ -139,11 +139,15 @@ namespace granary {
             instruction_list &ls);
 
         /// Decode and translate a single basic block of application/module code.
+        ///
+        /// TODO: I don't like that I need to pass in an argument to pass out
+        ///       for pre-populating the code cache with return addresses back
+        ///       into basic blocks.
         static basic_block translate(
             instrumentation_policy policy,
             cpu_state_handle &cpu,
             thread_state_handle &thread,
-            app_pc *pc
+            app_pc start_pc
         ) throw();
 
 

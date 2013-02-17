@@ -240,18 +240,33 @@ namespace granary {
 
         // omit a redundant move if possible; this also handles the case where
         // ret == target.
-        if(dynamorio::REG_kind != target.kind
-        || (reg::arg1.value.reg != target.value.reg)) {
+        if(dynamorio::REG_kind != target.kind) {
 
             if(dynamorio::REL_ADDR_kind == target.kind
             || dynamorio::opnd_is_abs_addr(target)) {
-                ibl.append(mov_imm_(
-                    reg::arg1,
-                    int64_(reinterpret_cast<uint64_t>(target.value.addr))));
-                ibl.append(mov_ld_(reg::arg1, reg::arg1[0]));
+
+                app_pc target_addr(target.value.pc);
+
+                // do an indirect load using abs address
+                if(is_far_away(target_addr, estimator_pc)) {
+                    ibl.append(mov_imm_(
+                        reg::arg1,
+                        int64_(reinterpret_cast<uint64_t>(target_addr))));
+                    ibl.append(mov_ld_(reg::arg1, reg::arg1[0]));
+
+                // directly load the indirect memory address.
+                } else {
+                    ibl.append(mov_ld_(reg::arg1, target));
+                }
+
+            // e.g. base/disp kind
             } else {
                 ibl.append(mov_ld_(reg::arg1, target));
             }
+
+        // target is in a register
+        } else if(reg::arg1.value.reg != target.value.reg) {
+            ibl.append(mov_ld_(reg::arg1, target));
         }
 
         ibl.append(push_(reg::ret));
@@ -361,6 +376,9 @@ namespace granary {
             cpu->fragment_allocator.free_last();
             RBL_ENTRY_ROUTINE.load(policy_bits, routine);
         }
+
+        printf("RBL = %p\n", routine);
+
 
         return routine;
     }

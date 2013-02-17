@@ -67,6 +67,23 @@ namespace granary {
             return target_addr;
         }
 
+#if !CONFIG_ENABLE_TRANSPARENT_RETURN_ADDRESSES
+        // do a return address ibl-like lookup to see if this might be a return
+        // address into the code cache. This issue comes up if a copied return
+        // address is jmp/called to.
+        //
+        // TODO: this isn't a perfect solution: if some code inspects a code
+        //       cache return address and then displaces it then we will have a
+        //       problem.
+        uint64_t addr_uint(reinterpret_cast<uint64_t>(app_target_addr));
+        addr_uint = (addr_uint + 16) & ~7;
+        if(basic_block_info::HEADER == *(reinterpret_cast<uint32_t *>(addr_uint))) {
+            target_addr = ibl_exit_for(app_target_addr);
+            CODE_CACHE.store(app_target_addr, target_addr);
+            return target_addr;
+        }
+#endif
+
 #if CONFIG_ENABLE_WRAPPERS
         // Determine if this is actually a detach point. This is only relevant
         // for indirect calls/jumps because direct calls and jumps will have
@@ -98,7 +115,7 @@ namespace granary {
 
         // translate the basic block according to the policy.
         basic_block bb(basic_block::translate(
-            base_policy, cpu, thread, &app_target_addr));
+            base_policy, cpu, thread, app_target_addr));
 
         target_addr = bb.cache_pc_start;
 

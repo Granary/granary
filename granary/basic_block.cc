@@ -466,10 +466,10 @@ namespace granary {
         instrumentation_policy policy,
         cpu_state_handle &cpu,
         thread_state_handle &thread,
-        app_pc *pc
+        app_pc start_pc
     ) throw() {
 
-        const app_pc start_pc(*pc);
+        app_pc *pc(&start_pc);
         uint8_t *generated_pc(nullptr);
         instruction_list ls;
         unsigned num_direct_branches(0);

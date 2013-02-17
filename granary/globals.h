@@ -35,7 +35,7 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#define CONFIG_ENABLE_WRAPPERS 0
+#define CONFIG_ENABLE_WRAPPERS 1
 
 
 /// Enable transparent return addresses. This turns every function call into
@@ -67,7 +67,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 0
+#define CONFIG_IBL_SAVE_ALL_FLAGS 1
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it

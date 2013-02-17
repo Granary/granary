@@ -50,11 +50,6 @@ namespace test {
         }
 
         ++after_all;
-
-        printf("hi\n");
-        FILE *ff = fopen("./tmp.temp", "w");
-        fprintf(ff, "hello world!");
-        fclose(ff);
     }
 
     static void test_sigsetjmp(void) {
