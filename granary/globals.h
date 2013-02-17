@@ -67,7 +67,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 1
+#define CONFIG_IBL_SAVE_ALL_FLAGS 0
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
@@ -77,8 +77,11 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_RUN_TEST_CASES 1
-
+#ifdef GRANARY_USE_PIC
+#   define CONFIG_RUN_TEST_CASES 0
+#else
+#   define CONFIG_RUN_TEST_CASES 1
+#endif
 
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being

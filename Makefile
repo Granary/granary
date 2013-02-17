@@ -156,8 +156,8 @@ ifneq ($(KERNEL),1)
 		GR_OBJS += bin/main.o
 	else
 		GR_OBJS += bin/dlmain.o
-		GR_CC_FLAGS += -fPIC
-		GR_CXX_FLAGS += -fPIC
+		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC
+		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_OUTPUT_PREFIX = lib
 		
 		ifeq ($(UNAME),Darwin) # Mac OS X

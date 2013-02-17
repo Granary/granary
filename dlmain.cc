@@ -31,8 +31,8 @@ extern "C" {
     __attribute__((noinline, constructor, optimize("O0")))
     static void begin(void) {
         auto policy(GRANARY_INIT_POLICY);
-        signal(SIGSEGV, granary_signal_handler);
-        signal(SIGILL, granary_signal_handler);
+        //signal(SIGSEGV, granary_signal_handler);
+        //signal(SIGILL, granary_signal_handler);
         granary::init();
         granary::attach(granary::policy_for<decltype(policy)>());
     }
