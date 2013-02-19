@@ -208,6 +208,9 @@ def wrap_function(ctype, orig_ctype, func):
     ret_type = " (%s), " % ret_type
 
   O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
+
+  #O("    granary::printf(\"wrapper(%s)\\n\");" % func)
+
   if ctype.is_variadic:
 
     O("    va_list args__;")
@@ -385,6 +388,14 @@ if "__main__" == __name__:
     "sigsetjmp",
     "_sigsetjmp",
     "__sigsetjmp",
+
+    "longjmp",
+    "_longjmp",
+    "__longjmp",
+
+    "siglongjmp",
+    "_siglongjmp",
+    "__siglongjmp"
   ])
   
   with open(sys.argv[1]) as lines_:

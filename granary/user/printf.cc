@@ -13,11 +13,14 @@
 
 namespace granary {
 
+    static FILE *granary_out(fopen("granary.log", "w"));
+
     int printf(const char *format, ...) throw() {
         va_list args;
         va_start(args, format);
-        int ret = vprintf(format, args);
+        int ret = vfprintf(granary_out, format, args);
         va_end(args);
+        fflush(granary_out);
         return ret;
     }
 

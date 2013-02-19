@@ -30,10 +30,13 @@ void granary_signal_handler(int) {
 
 extern "C" {
 
-#ifdef __APPLE__
+//#ifdef __APPLE__
+#if 1
     __attribute__((noinline, constructor, optimize("O0")))
     static void begin_program(void) {
         auto policy(GRANARY_INIT_POLICY);
+        signal(SIGSEGV, granary_signal_handler);
+        signal(SIGILL, granary_signal_handler);
         granary::init();
         granary::attach(granary::policy_for<decltype(policy)>());
     }
@@ -58,11 +61,12 @@ extern "C" {
         void (*rtld_fini)(void),
         void *stack_end
     ) {
+        auto policy(GRANARY_INIT_POLICY);
         //void *handle(dlopen("/lib/libc.so.6", RTLD_LAZY | RTLD_GLOBAL));
         granary::app_pc start(reinterpret_cast<granary::app_pc>(dlsym(
             RTLD_NEXT, "__libc_start_main")));
 
-        printf("their __libc_start_main = %p\n", start);
+        //printf("their __libc_start_main = %p\n", start);
 
         signal(SIGSEGV, granary_signal_handler);
         signal(SIGILL, granary_signal_handler);
@@ -70,9 +74,9 @@ extern "C" {
         granary::init();
 
         granary::basic_block bb(granary::code_cache::find(
-            start, GRANARY_INIT_POLICY));
+            start, granary::policy_for<decltype(policy)>()));
 
-        granary::printf("in __libc_start_main\n");
+        //granary::printf("in __libc_start_main\n");
 
         //return ((__libc_start_main_type *) start)(
         //    main, argc, ubp_av, init, fini, rtld_fini, stack_end);

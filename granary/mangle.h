@@ -98,11 +98,19 @@ namespace granary {
         ) throw();
 
 
+        enum ibl_entry_kind {
+            IBL_ENTRY_CALL,
+            IBL_ENTRY_RETURN,
+            IBL_ENTRY_JMP
+        };
+
+
         /// Get the indirect branch lookup (IBL) entry point for an indirect
         /// operand and policy.
         app_pc ibl_entry_for(
             operand target,
-            instrumentation_policy policy
+            instrumentation_policy policy,
+            ibl_entry_kind kind
         ) throw();
 
 

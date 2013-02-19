@@ -56,6 +56,7 @@
 #define DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER(opcode, size) \
     static app_pc direct_branch_ ## opcode ## _xmm;
 
+
 extern "C" {
     extern void granary_asm_xmm_safe_direct_branch_template(void);
     extern void granary_asm_direct_branch_template(void);
@@ -230,7 +231,8 @@ namespace granary {
     /// Find or make an IBL entry routine.
     app_pc instruction_list_mangler::ibl_entry_for(
         operand target,
-        instrumentation_policy policy
+        instrumentation_policy policy,
+        ibl_entry_kind kind
     ) throw() {
         app_pc routine(nullptr);
         const indirect_operand op(target, policy);
@@ -268,9 +270,28 @@ namespace granary {
                     ibl.append(mov_ld_(reg::arg1, target));
                 }
 
-            // e.g. base/disp kind
-            } else {
+            // base/disp kind
+            } else if(dynamorio::BASE_DISP_kind == target.kind) {
+
+                // if it's a base/disp call, and if the offset is relative to
+                // the stack pointer, then we need to mangle the relative offset
+                // to account for the pushed return address.
+                if(IBL_ENTRY_CALL == kind
+                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
+
+                    // TODO: we will have an issue if there's a call (%rsp).
+                    FAULT_IF(0 == target.value.base_disp.disp);
+
+                    // push of 16 because of the pushed return address plus the
+                    // `push %rdi` above.
+                    target.value.base_disp.disp += \
+                        IF_USER_ELSE(REDZONE_SIZE + 16, 16);
+                }
+
                 ibl.append(mov_ld_(reg::arg1, target));
+
+            } else {
+                FAULT;
             }
 
         // target is in a register
@@ -849,10 +870,12 @@ namespace granary {
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES && !CONFIG_ENABLE_WRAPPERS
             emulate_call_ret_addr(in, target_policy);
             *in = mangled(
-                jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
+                jmp_(pc_(ibl_entry_for(
+                    target, target_policy_ibl, IBL_ENTRY_CALL))));
 #else
             *in = patchable(mangled(
-                call_(pc_(ibl_entry_for(target, target_policy_ibl)))));
+                call_(pc_(ibl_entry_for(
+                    target, target_policy_ibl, IBL_ENTRY_CALL)))));
 #endif
 
         } else if(in->is_return()) {
@@ -860,7 +883,8 @@ namespace granary {
             *in = mangled(jmp_(pc_(rbl_entry_for(target_policy_ibl, 0))));
 
         } else {
-            *in = mangled(jmp_(pc_(ibl_entry_for(target, target_policy_ibl))));
+            *in = mangled(jmp_(pc_(ibl_entry_for(
+                target, target_policy_ibl, IBL_ENTRY_JMP))));
         }
     }
 
@@ -1080,7 +1104,7 @@ namespace granary {
             rm.visit(*next_in);
         }
 
-        rm.revive(*in);
+        rm.visit(*in);
         dynamorio::reg_id_t dead_reg_id(rm.get_zombie());
 
         rm.kill_all();
@@ -1112,7 +1136,7 @@ namespace granary {
         instruction_list_handle last_in;
 
         // use a dead register
-        if(dead_reg_id) {
+        if(first_reg_is_dead) {
             used_reg = dead_reg_id;
             first_in = ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
 

@@ -72,6 +72,14 @@ IGNORE = set([
   "sigsetjmp",
   "_sigsetjmp",
   "__sigsetjmp",
+
+  "longjmp",
+  "_longjmp",
+  "__longjmp",
+
+  "siglongjmp",
+  "_siglongjmp",
+  "__siglongjmp"
 ])
 
 

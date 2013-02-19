@@ -14,8 +14,7 @@ START_FILE
 DECLARE_FUNC(_ZN7granary6attachENS_22instrumentation_policyE)
 GLOBAL_LABEL(_ZN7granary6attachENS_22instrumentation_policyE:)
     lea (%rsp), %ARG2;
-    lea SYMBOL(_ZN7granary9do_attachENS_22instrumentation_policyEPPh)(%rip), %rax;
-    jmp *%rax;
+    jmp SHARED_SYMBOL(_ZN7granary9do_attachENS_22instrumentation_policyEPPh);
 END_FUNC(ZN7granary6attachEv)
 
 END_FILE

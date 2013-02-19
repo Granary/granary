@@ -14,6 +14,8 @@
 #include "granary/register.h"
 #include "granary/emit_utils.h"
 
+#define D(...) __VA_ARGS__
+
 namespace granary {
 
     /// Static initialisation of the global IBL lookup routine.
@@ -34,7 +36,6 @@ namespace granary {
             CODE_CACHE.construct();
         })
 #endif
-
     }
 
 
@@ -48,10 +49,10 @@ namespace granary {
 
     /// Add a custom mapping to the code cache.
     void code_cache::add(app_pc source, app_pc dest) throw() {
+        D( printf("add(%p, %p)\n", source, dest); )
         CODE_CACHE->store(source, dest);
     }
 
-#define D(...)
 
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.

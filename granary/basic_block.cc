@@ -469,7 +469,8 @@ namespace granary {
         app_pc start_pc
     ) throw() {
 
-        app_pc *pc(&start_pc);
+        app_pc local_pc(start_pc);
+        app_pc *pc(&local_pc);
         uint8_t *generated_pc(nullptr);
         instruction_list ls;
         unsigned num_direct_branches(0);

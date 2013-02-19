@@ -35,7 +35,7 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#define CONFIG_ENABLE_WRAPPERS 0
+#define CONFIG_ENABLE_WRAPPERS 1
 
 
 /// Enable transparent return addresses. This turns every function call into
