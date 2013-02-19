@@ -1,5 +1,5 @@
 /*
- * code_cache.cc
+ * CODE_CACHE->cc
  *
  *  Created on: 2012-11-28
  *      Author: pag
@@ -27,7 +27,14 @@ namespace granary {
 
         /// The globally shared code cache. This maps policy-mangled code
         /// code addresses to translated addresses.
-        static shared_hash_table<app_pc, app_pc> CODE_CACHE;
+        static static_data<shared_hash_table<app_pc, app_pc>> CODE_CACHE;
+
+#if !GRANARY_IN_KERNEL
+        STATIC_INITIALISE({
+            CODE_CACHE.construct();
+        })
+#endif
+
     }
 
 
@@ -41,7 +48,7 @@ namespace granary {
 
     /// Add a custom mapping to the code cache.
     void code_cache::add(app_pc source, app_pc dest) throw() {
-        CODE_CACHE.store(source, dest);
+        CODE_CACHE->store(source, dest);
     }
 
 #define D(...)
@@ -62,7 +69,7 @@ namespace granary {
         D( printf("find(%p)\n", app_target_addr); )
 
         // Try to load the target address from the global code cache.
-        if(CODE_CACHE.load(addr.as_address, target_addr)) {
+        if(CODE_CACHE->load(addr.as_address, target_addr)) {
             cpu->code_cache.store(addr.as_address, target_addr);
             D( printf(" -> %p\n", target_addr); )
             return target_addr;
@@ -80,7 +87,7 @@ namespace granary {
         addr_uint = (addr_uint + 16) & ~7;
         if(basic_block_info::HEADER == *(reinterpret_cast<uint32_t *>(addr_uint))) {
             target_addr = ibl_exit_for(app_target_addr);
-            CODE_CACHE.store(app_target_addr, target_addr);
+            CODE_CACHE->store(app_target_addr, target_addr);
             return target_addr;
         }
 #endif
@@ -104,7 +111,7 @@ namespace granary {
                 target_addr = ibl_exit_for(target_addr);
             }
 
-            CODE_CACHE.store(addr.as_address, target_addr);
+            CODE_CACHE->store(addr.as_address, target_addr);
             cpu->code_cache.store(addr.as_address, target_addr);
             D( printf(" -> %p\n", target_addr); )
             return target_addr;
@@ -125,13 +132,13 @@ namespace granary {
         // because a concurrent thread "won" when translating the same
         // block). If the latter is the case, implicitly free the block
         // by freeing the last thing used in the fragment allocator.
-        if(!CODE_CACHE.store(base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
+        if(!CODE_CACHE->store(base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
             cpu->block_allocator.free_last();
 
             // TODO: minor memory leak with basic block state and vtables.
             //       consider switching to a "transactional" allocator.
-            CODE_CACHE.load(base_addr.as_address, target_addr);
+            CODE_CACHE->load(base_addr.as_address, target_addr);
         }
 
         // TODO: try to pre-load the cache with internal jump targets of the
@@ -144,9 +151,9 @@ namespace granary {
         // to the corresponding IBL exit routine.
         if(policy.is_indirect_cti_policy()) {
             target_addr = ibl_exit_for(target_addr);
-            if(!CODE_CACHE.store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
+            if(!CODE_CACHE->store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
                 cpu->fragment_allocator.free_last();
-                CODE_CACHE.load(addr.as_address, target_addr);
+                CODE_CACHE->load(addr.as_address, target_addr);
             }
 
             cpu->code_cache.store(addr.as_address, target_addr);
@@ -164,8 +171,8 @@ namespace granary {
                              app_pc app_code,
                              app_pc cache_code) throw() {
 
-        CODE_CACHE.store(app_code, cache_code);
-        //CODE_CACHE.store(cache_code, cache_code);
+        CODE_CACHE->store(app_code, cache_code);
+        //CODE_CACHE->store(cache_code, cache_code);
 
         (void) cpu;
         (void) thread;
@@ -185,7 +192,7 @@ namespace granary {
     ) throw() {
         // start with a staged allocation that should be close enough
         app_pc staged_loc(
-            global_state::FRAGMENT_ALLOCATOR.allocate_staged<uint8_t>());
+            global_state::FRAGMENT_ALLOCATOR->allocate_staged<uint8_t>());
 
         // add in the indirect call to the find on CPU function
         if(is_far_away(staged_loc, target)) {
@@ -226,18 +233,18 @@ namespace granary {
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
 
         const app_pc estimator_pc(
-            global_state::FRAGMENT_ALLOCATOR.allocate_staged<uint8_t>());
+            global_state::FRAGMENT_ALLOCATOR->allocate_staged<uint8_t>());
 
         if(is_far_away(estimator_pc, pc)) {
             app_pc *slot(
-                global_state::FRAGMENT_ALLOCATOR.allocate_staged<app_pc>());
+                global_state::FRAGMENT_ALLOCATOR->allocate_staged<app_pc>());
             *slot = pc;
             ibl.append(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
         } else {
             ibl.append(jmp_(pc_(pc)));
         }
 
-        app_pc encoded(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(
+        app_pc encoded(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
             ibl.encoded_size()));
 
         ibl.encode(encoded);
@@ -341,7 +348,7 @@ namespace granary {
         // OR: we defaulted to the slow path and just did a global lookup.
         ibl.append(jmp_ind_(reg::arg1));
 
-        routine = global_state::FRAGMENT_ALLOCATOR.\
+        routine = global_state::FRAGMENT_ALLOCATOR->\
             allocate_array<uint8_t>(ibl.encoded_size());
 
         IF_PERF( perf::visit_ibl(ibl); )

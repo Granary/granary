@@ -50,17 +50,6 @@ namespace granary {
 
         /// Perform both lookup and insertion of a raw address for a given
         /// policy.
-        template <typename Policy>
-        __attribute__((hot))
-        inline static app_pc find(
-            app_pc addr,
-            typename std::enable_if<!std::is_same<Policy, instrumentation_policy>::value, Policy>::type
-        ) throw() {
-            return find(addr, policy_for<Policy>());
-        }
-
-        /// Perform both lookup and insertion of a raw address for a given
-        /// policy.
         __attribute__((hot))
         inline static app_pc find(
             app_pc addr,

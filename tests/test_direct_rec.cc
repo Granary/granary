@@ -31,7 +31,7 @@ namespace test {
 
         granary::app_pc fib((granary::app_pc) test_fibonacci);
         granary::basic_block bb_fib(granary::code_cache::find(
-            fib, granary::test_policy()));
+            fib, granary::policy_for<granary::test_policy>()));
 
         native_result = test_fibonacci(5);
         inst_result = bb_fib.call<int, int>(5);

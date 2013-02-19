@@ -208,7 +208,7 @@ namespace granary {
     public:
 
         /// The fragment allocator for global gencode.
-        static bump_pointer_allocator<detail::global_fragment_allocator_config>
+        static static_data<bump_pointer_allocator<detail::global_fragment_allocator_config>>
             FRAGMENT_ALLOCATOR;
     };
 

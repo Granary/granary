@@ -62,6 +62,34 @@ namespace granary {
     { } __attribute__((aligned (CONFIG_MIN_CACHE_LINE_SIZE)));
 
 
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+    /// Represents some statically allocated data, with delayed construction.
+    /// This exists to prevent static (Granary) destructors from being
+    /// instrumented in user space.
+    template <typename T>
+    struct static_data {
+
+#if GRANARY_IN_KERNEL
+        T self;
+        inline T *operator->(void) throw() {
+            return &self;
+        }
+#else
+        char memory[sizeof(T)];
+        T *self;
+
+        template <typename... Args>
+        void construct(Args... args) throw() {
+            self = new (&(memory[0])) T(args...);
+        }
+
+        inline T *operator->(void) throw() {
+            return self;
+        }
+#endif
+    } __attribute__((aligned (16)));
+#endif
+
     /// Returns an offset of some application code from the beginning of
     /// application code.
     int32_t to_application_offset(uint64_t addr) throw();

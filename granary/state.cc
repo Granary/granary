@@ -18,6 +18,13 @@ namespace granary {
     }
 
     /// Static initialisation of global fragment allocator
-    bump_pointer_allocator<detail::global_fragment_allocator_config> \
-        global_state::FRAGMENT_ALLOCATOR;
+    static_data<
+        bump_pointer_allocator<detail::global_fragment_allocator_config>
+    > global_state::FRAGMENT_ALLOCATOR;
+
+#if !GRANARY_IN_KERNEL
+    STATIC_INITIALISE({
+        global_state::FRAGMENT_ALLOCATOR.construct();
+    })
+#endif
 }

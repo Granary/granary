@@ -173,15 +173,24 @@ namespace granary {
 
 
     /// The operand-specific IBL entry routines.
-    static shared_hash_table<uint64_t, app_pc> IBL_ENTRY_ROUTINE;
+    static static_data<shared_hash_table<uint64_t, app_pc>> IBL_ENTRY_ROUTINE;
 
 
     /// Hash table for managing direct branch lookup stubs.
-    static shared_hash_table<app_pc, app_pc> DBL_ENTRY_ROUTINE;
+    static static_data<shared_hash_table<app_pc, app_pc>> DBL_ENTRY_ROUTINE;
 
 
     /// Policy+property-specific RBL entry routines.
-    static shared_hash_table<uint8_t, app_pc> RBL_ENTRY_ROUTINE;
+    static static_data<shared_hash_table<uint8_t, app_pc>> RBL_ENTRY_ROUTINE;
+
+
+#if !GRANARY_IN_KERNEL
+    STATIC_INITIALISE({
+        IBL_ENTRY_ROUTINE.construct();
+        DBL_ENTRY_ROUTINE.construct();
+        RBL_ENTRY_ROUTINE.construct();
+    })
+#endif
 
 
     /// Generate the tail of an IBL/RBL entry point.
@@ -227,7 +236,7 @@ namespace granary {
         const indirect_operand op(target, policy);
 
         // got it; we've previously created it.
-        if(IBL_ENTRY_ROUTINE.load(op.as_uint, routine)) {
+        if(IBL_ENTRY_ROUTINE->load(op.as_uint, routine)) {
             return routine;
         }
 
@@ -281,9 +290,9 @@ namespace granary {
         IF_PERF( perf::visit_ibl_entry(ibl); )
 
         // try to store the entry routine.
-        if(!IBL_ENTRY_ROUTINE.store(op.as_uint, routine, HASH_KEEP_PREV_ENTRY)) {
+        if(!IBL_ENTRY_ROUTINE->store(op.as_uint, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
-            IBL_ENTRY_ROUTINE.load(op.as_uint, routine);
+            IBL_ENTRY_ROUTINE->load(op.as_uint, routine);
         }
 
         return routine;
@@ -304,7 +313,7 @@ namespace granary {
 
 
         // got it; we've previously created it.
-        if(RBL_ENTRY_ROUTINE.load(policy_bits, routine)) {
+        if(RBL_ENTRY_ROUTINE->load(policy_bits, routine)) {
             return routine;
         }
 
@@ -372,9 +381,9 @@ namespace granary {
         IF_PERF( perf::visit_rbl(rbl); )
 
         // try to store the entry routine.
-        if(!RBL_ENTRY_ROUTINE.store(policy_bits, routine, HASH_KEEP_PREV_ENTRY)) {
+        if(!RBL_ENTRY_ROUTINE->store(policy_bits, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
-            RBL_ENTRY_ROUTINE.load(policy_bits, routine);
+            RBL_ENTRY_ROUTINE->load(policy_bits, routine);
         }
 
         return routine;
@@ -517,7 +526,7 @@ namespace granary {
             }
         }
 
-        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR.allocate_array<uint8_t>(
+        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
             ls.encoded_size()));
 
         IF_PERF( perf::visit_dbl_patch(ls); )
@@ -581,7 +590,7 @@ namespace granary {
         op.as_op.op_code = op_code;
 
         app_pc routine(nullptr);
-        if(DBL_ENTRY_ROUTINE.load(op.as_address, routine)) {
+        if(DBL_ENTRY_ROUTINE->load(op.as_address, routine)) {
             return routine;
         }
 
@@ -625,9 +634,9 @@ namespace granary {
 
         IF_PERF( perf::visit_dbl(ls); )
 
-        if(!DBL_ENTRY_ROUTINE.store(op.as_address, routine, HASH_KEEP_PREV_ENTRY)) {
+        if(!DBL_ENTRY_ROUTINE->store(op.as_address, routine, HASH_KEEP_PREV_ENTRY)) {
             cpu->fragment_allocator.free_last();
-            DBL_ENTRY_ROUTINE.load(op.as_address, routine);
+            DBL_ENTRY_ROUTINE->load(op.as_address, routine);
         }
 
         return routine;

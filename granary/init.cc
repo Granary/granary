@@ -21,12 +21,17 @@ namespace granary {
     /// bugs that can't usefully be caught *before* any signal handlers can be
     /// attached, and that don't show up in debuggers.
     static static_init_list STATIC_INIT_LIST_HEAD;
-
+    static static_init_list *STATIC_INIT_LIST_TAIL(nullptr);
 
     /// Add an entry onto the static initialiser list.
     void static_init_list::append(static_init_list &entry) throw() {
-        entry.next = STATIC_INIT_LIST_HEAD.next;
-        STATIC_INIT_LIST_HEAD.next = &entry;
+        if(!STATIC_INIT_LIST_TAIL) {
+            STATIC_INIT_LIST_HEAD.next = &entry;
+        } else {
+            STATIC_INIT_LIST_TAIL->next = &entry;
+        }
+
+        STATIC_INIT_LIST_TAIL = &entry;
     }
 
 

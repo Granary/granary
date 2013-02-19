@@ -35,7 +35,7 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#define CONFIG_ENABLE_WRAPPERS 1
+#define CONFIG_ENABLE_WRAPPERS 0
 
 
 /// Enable transparent return addresses. This turns every function call into
@@ -86,7 +86,7 @@
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 1
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
 
 
 /// Set to 1 iff basic blocks should contain the instructions immediately

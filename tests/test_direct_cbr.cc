@@ -134,22 +134,22 @@
         granary::app_pc short_cbr_true( \
             (granary::app_pc) direct_cti_ ## opcode ## _short_true); \
         granary::basic_block bb_short_true( \
-            granary::code_cache::find(short_cbr_true, granary::test_policy())); \
+            granary::code_cache::find(short_cbr_true, granary::policy_for<granary::test_policy>())); \
         \
         granary::app_pc short_cbr_false( \
             (granary::app_pc) direct_cti_ ## opcode ## _short_false); \
         granary::basic_block bb_short_false( \
-            granary::code_cache::find(short_cbr_false, granary::test_policy())); \
+            granary::code_cache::find(short_cbr_false, granary::policy_for<granary::test_policy>())); \
         \
         granary::app_pc long_cbr_true( \
             (granary::app_pc) direct_cti_ ## opcode ## _long_true); \
         granary::basic_block bb_long_true( \
-            granary::code_cache::find(long_cbr_true, granary::test_policy())); \
+            granary::code_cache::find(long_cbr_true, granary::policy_for<granary::test_policy>())); \
         \
         granary::app_pc long_cbr_false( \
             (granary::app_pc) direct_cti_ ## opcode ## _long_false); \
         granary::basic_block bb_long_false( \
-            granary::code_cache::find(long_cbr_false, granary::test_policy())); \
+            granary::code_cache::find(long_cbr_false, granary::policy_for<granary::test_policy>())); \
         \
         code \
     }
@@ -227,11 +227,11 @@ namespace test {
     static void direct_jexcz_patched_correctly(void) {
         granary::app_pc jecxz_short_true((granary::app_pc) direct_jecxz_short_true);
         granary::basic_block bb_jecxz_short_true(granary::code_cache::find(
-            jecxz_short_true, granary::test_policy()));
+            jecxz_short_true, granary::policy_for<granary::test_policy>()));
 
         granary::app_pc jecxz_short_false((granary::app_pc) direct_jecxz_short_false);
         granary::basic_block bb_jecxz_short_false(granary::code_cache::find(
-            jecxz_short_false, granary::test_policy()));
+            jecxz_short_false, granary::policy_for<granary::test_policy>()));
 
         ASSERT(bb_jecxz_short_true.call<bool>());
         ASSERT(bb_jecxz_short_false.call<bool>());
@@ -265,7 +265,7 @@ namespace test {
     static void direct_loop_patched_correctly(void) {
         granary::app_pc loop_short_5((granary::app_pc) direct_loop_return_5);
         granary::basic_block bb_loop_short_5(granary::code_cache::find(
-            loop_short_5, granary::test_policy()));
+            loop_short_5, granary::policy_for<granary::test_policy>()));
         ASSERT(5 == bb_loop_short_5.call<int>());
     }
 

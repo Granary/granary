@@ -5,6 +5,9 @@
  *      Author: pag
  *     Version: $Id$
  */
+
+#include <cstdio>
+
 #ifndef _GNU_SOURCE
 #   define _GNU_SOURCE
 #endif
@@ -29,10 +32,8 @@ extern "C" {
 
 #ifdef __APPLE__
     __attribute__((noinline, constructor, optimize("O0")))
-    static void begin(void) {
+    static void begin_program(void) {
         auto policy(GRANARY_INIT_POLICY);
-        //signal(SIGSEGV, granary_signal_handler);
-        //signal(SIGILL, granary_signal_handler);
         granary::init();
         granary::attach(granary::policy_for<decltype(policy)>());
     }

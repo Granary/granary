@@ -158,6 +158,7 @@ ifneq ($(KERNEL),1)
 	else
 		GR_OBJS += bin/dlmain.o
 		GR_ASM_FLAGS += -fPIC
+		GR_LD_FLAGS += -fPIC
 		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_OUTPUT_PREFIX = lib
@@ -180,6 +181,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_mat_mul.o
 	GR_OBJS += bin/tests/test_md5.o
 	GR_OBJS += bin/tests/test_sigsetjmp.o
+	GR_OBJS += bin/tests/test_pthreads.o
 
 	# figure out how to link in various libraries that might be OS-specific
 	GR_LD_SPECIFIC = -pthread -lrt
