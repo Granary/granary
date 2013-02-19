@@ -5,6 +5,7 @@
 *.ko
 *.pyc
 *.out
+*.log
 
 # Generated files
 *.S

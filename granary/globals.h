@@ -86,7 +86,7 @@
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 1
 
 
 /// Set to 1 iff basic blocks should contain the instructions immediately
