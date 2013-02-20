@@ -146,7 +146,7 @@ namespace granary {
 
 
         /// Size (in bytes) of the x86-64 user space redzone.
-        REDZONE_SIZE = 128,
+        REDZONE_SIZE = IF_USER_ELSE(128, 0),
 
         /// Maximum wrapping depths
         MAX_PRE_WRAP_DEPTH = CONFIG_MAX_PRE_WRAP_DEPTH,

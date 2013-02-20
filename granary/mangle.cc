@@ -288,6 +288,10 @@ namespace granary {
                     // `push %rdi` above.
                     target.value.base_disp.disp += \
                         IF_USER_ELSE(REDZONE_SIZE + 16, 16);
+
+                } else if(IBL_ENTRY_CALL == kind
+                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
+                    FAULT; // TODO
                 }
 
                 ibl.append(mov_ld_(reg::arg1, target));
@@ -675,30 +679,15 @@ namespace granary {
         instruction_list_handle patched_in,
         app_pc dbl_routine
     ) throw() {
-        const bool emit_redzone_buffer(
-            IF_USER_ELSE(!patched_in->is_call(), false));
-
         IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
 
-        // shift the stack pointer appropriately; in user space, this deals with
-        // the red zone.
-        if(emit_redzone_buffer) {
-            patch = patch_ls.insert_after(patch,
-                lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
-        } else {
-            patch = patch_ls.insert_after(patch, lea_(reg::rsp, reg::rsp[-8]));
-        }
-
-        patch = patch_ls.insert_after(patch, mangled(call_(pc_(dbl_routine))));
-
-        // deal with the red zone and the policy-mangled  address left on
+        // deal with the red zone and the policy-mangled address left on
         // the stack.
-        if(emit_redzone_buffer) {
-            patch = patch_ls.insert_after(patch,
-                lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
-        } else {
-            patch = patch_ls.insert_after(patch, lea_(reg::rsp, reg::rsp[8]));
-        }
+        patch = patch_ls.insert_after(patch,
+            lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
+        patch = patch_ls.insert_after(patch, mangled(call_(pc_(dbl_routine))));
+        patch = patch_ls.insert_after(patch,
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
 
         // the address to be mangled is implicitly encoded in the target of this
         // jmp instruction, which will later be decoded by the direct cti

@@ -57,10 +57,6 @@ namespace granary {
     };
 
 
-    /// Apply a function to each type of an argument pack.
-    //template <typename
-
-
     /// Represents a manual function wrapper.
     struct custom_wrapped_function { };
 
@@ -92,7 +88,7 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
-            //printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name);
+            printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name);
             return WRAPPED_ADDRESS(args...);
         }
     };
@@ -129,7 +125,7 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static void apply(Args... args) throw() {
-            //printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name);
+            printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name);
             WRAPPED_ADDRESS(args...);
         }
     };

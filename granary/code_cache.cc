@@ -68,7 +68,7 @@ namespace granary {
         app_pc app_target_addr(addr.unmangled_address());
         app_pc target_addr(nullptr);
 
-        D( printf("find(%p)\n", app_target_addr); )
+        D( printf("find(%p, %x)\n", app_target_addr, policy.extension_bits()); )
 
         // Try to load the target address from the global code cache.
         if(CODE_CACHE->load(addr.as_address, target_addr)) {
