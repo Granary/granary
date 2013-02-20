@@ -328,8 +328,6 @@ namespace granary {
 
     /// Get the return address branch lookup entry for a particular policy
     /// and its properties.
-    ///
-    /// Note: we assume that flags are dead on return from a function.
     app_pc instruction_list_mangler::rbl_entry_for(
         instrumentation_policy target_policy,
         int num_bytes_to_pop
@@ -354,7 +352,11 @@ namespace granary {
 #if !CONFIG_TRANSPARENT_RETURN_ADDRESSES || CONFIG_ENABLE_WRAPPERS
 
         rbl.append(push_(reg::rax));
-        rbl.append(mov_ld_(reg::rax, reg::rsp[8]));
+        rbl.append(lahf_());
+        rbl.append(push_(reg::rax)); // push on the flag clobbered rax
+        rbl.append(push_(reg::rbx));
+
+        rbl.append(mov_ld_(reg::rax, reg::rsp[3 * 8]));
 
         // the call instruction will be 8 byte aligned, and will occupy ~5bytes.
         // the subsequent jmp needed to link the basic block (which ends with
@@ -364,22 +366,29 @@ namespace granary {
         // move the return address forward, then align it back to 8 bytes and
         // expect to find the magic value which begins the basic block meta
         // info.
-        rbl.append(lea_(reg::rax, reg::ret[16]));
+        rbl.append(add_(reg::rax, int8_(16)));
         rbl.append(and_(reg::rax, int32_(-8)));
 
         // now compare for the magic value
         rbl.append(mov_ld_(reg::eax, *reg::rax));
-        rbl.append(sub_(reg::rax, int32_(basic_block_info::HEADER / 2)));
-        instruction_list_handle fast(rbl.append(
-            sub_(reg::rax, int32_(basic_block_info::HEADER / 2))));
+        rbl.append(mov_imm_(reg::rbx, int64_(basic_block_info::HEADER)));
+        instruction_list_handle fast(rbl.append(sub_(reg::eax, reg::ebx)));
         instruction_list_handle slow(rbl.append(label_()));
 
         // fast path: we're returning to the code cache
         fast = rbl.insert_after(fast, jnz_(instr_(*slow)));
+        fast = rbl.insert_after(fast, pop_(reg::rbx));
+        fast = rbl.insert_after(fast, pop_(reg::rax)); // clobbered with flags
+        fast = rbl.insert_after(fast, sahf_());
         fast = rbl.insert_after(fast, pop_(reg::rax));
         fast = rbl.insert_after(fast, ret_());
 
         // slow path: emulate an indirect branch lookup.
+        slow = rbl.insert_after(slow, pop_(reg::rbx));
+        slow = rbl.insert_after(slow, pop_(reg::rax)); // clobbered with flags
+        slow = rbl.insert_after(slow, sahf_());
+
+
 #   if !GRANARY_IN_KERNEL
         slow = rbl.insert_after(slow, pop_(reg::rax));
         slow = rbl.insert_after(slow, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
@@ -737,7 +746,7 @@ namespace granary {
         conn->set_cti_target(instr_(*patch));
 
         // encode it
-        app_pc return_routine(global_state::FRAGMENT_ALLOCATOR. \
+        app_pc return_routine(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>(trampoline.encoded_size()));
         trampoline.encode(return_routine);
 

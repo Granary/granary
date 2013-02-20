@@ -67,7 +67,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 0
+#define CONFIG_IBL_SAVE_ALL_FLAGS 1
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
