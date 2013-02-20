@@ -637,8 +637,6 @@ namespace granary {
 
         ~shared_hash_table(void) throw() {
 
-            printf("destroying\n");
-
             // make it so that the RCU protected class won't try to free the
             // internal table.
             initialise table_initialiser(nullptr);

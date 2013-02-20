@@ -15,6 +15,7 @@
 #include "granary/state.h"
 #include "granary/atomic.h"
 #include "granary/printf.h"
+#include "granary/detach.h"
 
 namespace granary {
 
@@ -122,6 +123,7 @@ namespace granary {
 
 
     void perf::report(void) throw() {
+
         printf("Number of decoded instructions: %u\n",
             NUM_DECODED_INSTRUCTIONS.load());
         printf("Number of decoded instruction bytes: %u\n\n",

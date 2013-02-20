@@ -277,10 +277,12 @@ namespace granary {
                 // the stack pointer, then we need to mangle the relative offset
                 // to account for the pushed return address.
                 if(IBL_ENTRY_CALL == kind
-                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
+                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg
+                && 1 >= target.value.base_disp.scale
+                && dynamorio::DR_REG_NULL == target.value.base_disp.index_reg) {
 
-                    // TODO: we will have an issue if there's a call (%rsp).
-                    FAULT_IF(0 == target.value.base_disp.disp);
+                    // TODO: we will have an issue if there's a call -8(%rsp).
+                    FAULT_IF(0 > target.value.base_disp.disp);
 
                     // push of 16 because of the pushed return address plus the
                     // `push %rdi` above.
@@ -1151,7 +1153,7 @@ namespace granary {
                 lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
             ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
             last_in = ls->insert_after(in, pop_(used_reg));
-            IF_USER( last_in = ls->insert_after(in,
+            IF_USER( last_in = ls->insert_after(last_in,
                 lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
 

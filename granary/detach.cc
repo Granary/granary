@@ -7,32 +7,36 @@
 
 
 #include "granary/detach.h"
+#include "granary/utils.h"
 #include "granary/hash_table.h"
 
 namespace granary {
 
-#if CONFIG_ENABLE_WRAPPERS
-
-    static hash_table<app_pc, const function_wrapper *> DETACH_HASH_TABLE;
-
-    static function_wrapper DETACH_WRAPPER = {
-        reinterpret_cast<app_pc>(&detach),
-        reinterpret_cast<app_pc>(&detach),
-        "granary::detach"
-    };
+    static static_data<
+        hash_table<app_pc, const function_wrapper *>
+    > DETACH_HASH_TABLE;
 
     STATIC_INITIALISE({
-        DETACH_HASH_TABLE.store(
-            DETACH_WRAPPER.original_address, &DETACH_WRAPPER);
 
+        DETACH_HASH_TABLE.construct();
+
+#if CONFIG_ENABLE_WRAPPERS
         for(unsigned i(0); ; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
             if(!wrapper.original_address) {
                 break;
             }
-            DETACH_HASH_TABLE.store(wrapper.original_address, &wrapper);
+            DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
         }
+#endif /* CONFIG_ENABLE_WRAPPERS */
     });
+
+
+    /// Add a detach target to the hash table.
+    void add_detach_target(function_wrapper &wrapper) throw() {
+        DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+    }
+
 
 	/// Returns the address of a detach point. For example, in the
 	/// kernel, if pc == &printk is a detach point then this will
@@ -44,17 +48,19 @@ namespace granary {
 	/// 	detach target.
 	app_pc find_detach_target(app_pc target) throw() {
 	    const function_wrapper *wrapper(nullptr);
-	    if(!DETACH_HASH_TABLE.load(target, wrapper)) {
+	    if(!DETACH_HASH_TABLE->load(target, wrapper)) {
 	        return nullptr;
 	    }
 
 	    return wrapper->wrapper_address;
 	}
 
-#endif /* CONFIG_ENABLE_WRAPPERS */
 
 	/// Detach Granary.
 	void detach(void) throw() {
 	    ASM("");
 	}
+
+
+	GRANARY_DETACH_POINT(detach)
 }

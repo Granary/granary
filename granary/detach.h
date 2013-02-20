@@ -10,9 +10,17 @@
 
 #include "granary/globals.h"
 
-namespace granary {
+#define GRANARY_DETACH_POINT(func_name) \
+    STATIC_INITIALISE({ \
+        static granary::function_wrapper wrapper = { \
+            reinterpret_cast<granary::app_pc>(&func_name), \
+            reinterpret_cast<granary::app_pc>(&func_name), \
+            #func_name \
+        }; \
+        granary::add_detach_target(wrapper); \
+    })
 
-#if CONFIG_ENABLE_WRAPPERS
+namespace granary {
 
     /// Represents an entry in the detach hash table. Entries need to map
     /// original function addresses to wrapped function addresses.
@@ -23,11 +31,17 @@ namespace granary {
     };
 
 
+#if CONFIG_ENABLE_WRAPPERS
     /// Represents the entries of the detach hash table. The indexes of each
     /// function in this array are found in `granary/gen/detach.h`. The actual
     /// entries of this array are statically populated in
     /// `granary/gen/detach.cc`.
     extern const function_wrapper FUNCTION_WRAPPERS[];
+#endif
+
+
+    /// Add a detach target to the hash table.
+    void add_detach_target(function_wrapper &wrapper) throw();
 
 
 	/// Returns the address of a detach point. For example, in the
@@ -40,10 +54,9 @@ namespace granary {
 	/// 	detach target.
 	app_pc find_detach_target(app_pc pc) throw();
 
-#endif
 
 	/// Detach Granary.
-	__attribute__((noinline))
+	__attribute__((noinline, optimize("O0")))
 	void detach(void) throw();
 
 }

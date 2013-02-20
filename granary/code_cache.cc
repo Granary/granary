@@ -13,6 +13,7 @@
 #include "granary/utils.h"
 #include "granary/register.h"
 #include "granary/emit_utils.h"
+#include "granary/detach.h"
 
 #define D(...) __VA_ARGS__
 
@@ -93,18 +94,10 @@ namespace granary {
         }
 #endif
 
-#if CONFIG_ENABLE_WRAPPERS
         // Determine if this is actually a detach point. This is only relevant
         // for indirect calls/jumps because direct calls and jumps will have
         // inlined this check at basic block translation time.
         target_addr = find_detach_target(app_target_addr);
-#else
-        // jump to granary::detach.
-        target_addr = reinterpret_cast<app_pc>(detach);
-        if(target_addr != app_target_addr) {
-            target_addr = nullptr;
-        }
-#endif
 
         // handle detaching, e.g. through a wrapper or through granary::detach.
         if(nullptr != target_addr) {
