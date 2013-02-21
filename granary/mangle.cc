@@ -388,7 +388,6 @@ namespace granary {
         slow = rbl.insert_after(slow, pop_(reg::rax)); // clobbered with flags
         slow = rbl.insert_after(slow, sahf_());
 
-
 #   if !GRANARY_IN_KERNEL
         slow = rbl.insert_after(slow, pop_(reg::rax));
         slow = rbl.insert_after(slow, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
@@ -1082,6 +1081,7 @@ namespace granary {
         instruction_list_handle in
     ) throw() {
 
+        const bool was_atomic(in->is_atomic());
         bool has_far_op(false);
         operand far_op;
 
@@ -1160,6 +1160,8 @@ namespace granary {
 
         operand new_op(new_op_);
         in->for_each_operand(update_far_operand, new_op);
+
+        ASSERT(was_atomic == in->is_atomic());
 
         // propagate interrupt delaying.
         propagate_delay_region(in, first_in, last_in);

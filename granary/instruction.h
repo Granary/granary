@@ -311,6 +311,12 @@ namespace granary {
 		}
 
 
+		/// Return true iff this instruction is atomic.
+		inline bool is_atomic(void) throw() {
+		    return instr.prefixes & PREFIX_LOCK;
+		}
+
+
         /// Invalidate the raw bits of this instruction.
         inline void invalidate_raw_bits(void) throw() {
             dynamorio::instr_set_raw_bits_valid(&instr, false);

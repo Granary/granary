@@ -45,6 +45,11 @@
 #   define X64 1
 #endif
 
+#define PREFIX_LOCK           0x1 /**< Makes the instruction's memory accesses atomic. */
+#define PREFIX_JCC_NOT_TAKEN  0x2 /**< Branch hint: conditional branch is taken. */
+#define PREFIX_JCC_TAKEN      0x4 /**< Branch hint: conditional branch is not taken. */
+
+
 #ifdef __cplusplus
 namespace dynamorio {
 extern "C" {

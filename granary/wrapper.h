@@ -57,6 +57,14 @@ namespace granary {
     };
 
 
+    template <enum function_wrapper_id>
+    struct is_function_wrapped {
+        enum {
+            VALUE = 0
+        };
+    };
+
+
     /// Represents a manual function wrapper.
     struct custom_wrapped_function { };
 
@@ -65,17 +73,15 @@ namespace granary {
     template <enum function_wrapper_id id, typename R, typename... Args>
     struct wrapped_function;
 
+    template <enum function_wrapper_id id, bool inherit, typename R, typename... Args>
+    struct wrapped_function_impl;
+
 
     /// Represents a generic, type-aware function wrapper, where the wrapped
     /// function returns a non-void type.
     template <enum function_wrapper_id id, typename R, typename... Args>
-    struct wrapped_function {
+    struct wrapped_function_impl<id, false, R, Args...> {
     public:
-
-        /// Distinguish default wrappers from function wrappers
-        enum {
-            IS_DEFAULT_WRAPPER = 1
-        };
 
         typedef R func_type(Args...);
 
@@ -94,24 +100,26 @@ namespace granary {
     };
 
 
+    /// Choose the correct custom implementation of this function.
+    template <enum function_wrapper_id id, typename R, typename... Args>
+    struct wrapped_function_impl<id, true, R, Args...>
+        : public wrapped_function_impl<id, false, custom_wrapped_function>
+    { };
+
+
     /// Static-initialise the wrapper address.
     template <enum function_wrapper_id id, typename R, typename... Args>
-    typename wrapped_function<id, R, Args...>::func_type *
-    wrapped_function<id, R, Args...>::WRAPPED_ADDRESS = \
-    (typename wrapped_function<id, R, Args...>::func_type *) \
+    typename wrapped_function_impl<id, false, R, Args...>::func_type *
+    wrapped_function_impl<id, false, R, Args...>::WRAPPED_ADDRESS = \
+    (typename wrapped_function_impl<id, false, R, Args...>::func_type *) \
     FUNCTION_WRAPPERS[id].original_address;
 
 
     /// Represents a generic, type-aware function wrapper, where the wrapped
     /// function returns void.
     template <enum function_wrapper_id id, typename... Args>
-    struct wrapped_function<id, void, Args...> {
+    struct wrapped_function_impl<id, false, void, Args...> {
     public:
-
-        /// Distinguish default wrappers from function wrappers
-        enum {
-            IS_DEFAULT_WRAPPER = 1
-        };
 
         typedef void R;
         typedef void func_type(Args...);
@@ -135,7 +143,7 @@ namespace granary {
     /// If this is instantiated, then it implies that something is missing,
     /// e.g. a wrapper in `granary/gen/*_wrappers.h`.
     template <enum function_wrapper_id id>
-    struct wrapped_function<id, custom_wrapped_function> {
+    struct wrapped_function_impl<id, false, custom_wrapped_function> {
 
         // intentionally missing `apply` function so that a reasonable compiler
         // error will give us the function id as well as its type signature.
@@ -145,10 +153,20 @@ namespace granary {
 
     /// Static-initialise the wrapper address.
     template <enum function_wrapper_id id, typename... Args>
-    typename wrapped_function<id, void, Args...>::func_type *
-    wrapped_function<id, void, Args...>::WRAPPED_ADDRESS = \
-    (typename wrapped_function<id, R, Args...>::func_type *) \
+    typename wrapped_function_impl<id, false, void, Args...>::func_type *
+    wrapped_function_impl<id, false, void, Args...>::WRAPPED_ADDRESS = \
+    (typename wrapped_function_impl<id, false, R, Args...>::func_type *) \
     FUNCTION_WRAPPERS[id].original_address;
+
+
+    /// Choose between a specific wrapped function implementation.
+    template <enum function_wrapper_id id, typename R, typename... Args>
+    struct wrapped_function : public wrapped_function_impl<
+        id,
+        is_function_wrapped<id>::VALUE,
+        R,
+        Args...
+    > { };
 
 
     /// Return the address of a function wrapper given its id and type.
@@ -216,8 +234,15 @@ namespace granary {
 #define FUNCTION_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
-        struct wrapped_function< \
+        struct is_function_wrapped< DETACH_ID_ ## function_name > { \
+            enum { \
+                VALUE = 1 \
+            }; \
+        }; \
+        template <> \
+        struct wrapped_function_impl< \
             DETACH_ID_ ## function_name, \
+            false, \
             custom_wrapped_function \
         > { \
         public: \
@@ -233,8 +258,15 @@ namespace granary {
 #define FUNCTION_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
-        struct wrapped_function< \
+        struct is_function_wrapped< DETACH_ID_ ## function_name > { \
+            enum { \
+                VALUE = 1 \
+            }; \
+        }; \
+        template <> \
+        struct wrapped_function_impl< \
             DETACH_ID_ ## function_name, \
+            false, \
             custom_wrapped_function \
         > { \
         public: \
