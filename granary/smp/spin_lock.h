@@ -10,6 +10,8 @@
 
 #include <atomic>
 
+#if GRANARY_IN_KERNEL
+
 namespace granary { namespace smp {
 
     /// Simple implementation of a spin lock.
@@ -47,5 +49,40 @@ namespace granary { namespace smp {
     };
 
 }}
+
+#else
+#   include <pthread.h>
+
+namespace granary { namespace smp {
+/// Simple implementation of a spin lock.
+    struct spin_lock {
+    private:
+
+        pthread_mutex_t mutex;
+
+    public:
+
+        ~spin_lock(void) throw() {
+            pthread_mutex_destroy(&mutex);
+        }
+
+        spin_lock(const spin_lock &) throw() = delete;
+        spin_lock &operator=(const spin_lock &) throw() = delete;
+
+        spin_lock(void) throw() {
+            pthread_mutex_init(&mutex, nullptr);
+        }
+
+        inline void acquire(void) throw() {
+            pthread_mutex_lock(&mutex);
+        }
+
+        inline void release(void) throw() {
+            pthread_mutex_unlock(&mutex);
+        }
+    };
+}}
+
+#endif
 
 #endif /* SPIN_LOCK_H_ */

@@ -101,7 +101,9 @@ def visit_function(ctype, name):
   if name.startswith("__"):
     return
 
-  C("#define WRAP_EXISTS_", name)
+  C("#ifndef CAN_WRAP_", name)
+  C("#   define CAN_WRAP_", name)
+  C("#endif")
   C("WRAP_FOR_DETACH(", name,")")
 
 

@@ -6,21 +6,25 @@
  *     Version: $Id$
  */
 
-#include <cstdio>
+//#include <cstdio>
 #include <cstdarg>
 
 #include "granary/printf.h"
 
 namespace granary {
-    static FILE *granary_out(fopen("granary.log", "w"));
+    //static FILE *granary_out(fopen("granary.log", "w"));
 
     int printf(const char *format, ...) throw() {
+        (void) format;
+        return 0;
+#if 0
         va_list args;
         va_start(args, format);
         int ret = vfprintf(granary_out, format, args);
         va_end(args);
         fflush(granary_out);
         return ret;
+#endif
     }
 }
 

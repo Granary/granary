@@ -204,8 +204,6 @@ def wrap_function(ctype, orig_ctype, func):
   O("#ifndef WRAPPER_FOR_", func)
   O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
 
-  #O("    granary::printf(\"function_wrapper(%s)\\n\");" % func)
-
   if ctype.is_variadic:
     O("    va_list args__;")
     O("    va_start(args__, %s);" % last_arg_name)
@@ -224,14 +222,19 @@ def wrap_function(ctype, orig_ctype, func):
   global VA_LIST_FUNCS
   va_func = "v%s" % func
 
-  if va_func in VA_LIST_FUNCS:
+  special = False
+  if ctype.is_variadic and va_func in VA_LIST_FUNCS:
     O("    ", a, va_func, "(", ", ".join(param_names + ["args__"]), ");")
   else:
-    O("    // TODO: variadic arguments")
+    if ctype.is_variadic:
+      special = True
+      O("    // TODO: variadic arguments")
     O("    ", a, func, "(", ", ".join(param_names), ");")
 
   if ctype.is_variadic:
     O("    va_end(args__);")
+
+  #O("    granary::printf(\"function_wrapper(%s) %s\\n\");" % (func, special and "*" or ""))
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_WRAP(", r_v, ");")

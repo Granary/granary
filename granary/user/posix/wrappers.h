@@ -8,12 +8,12 @@
 #ifndef granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 #define granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 
-#ifdef WRAP_EXISTS_pread
-#define WRAPPER_FOR_pread
-FUNCTION_WRAPPER(pread, (ssize_t), (int fd, void *buf, size_t count, off_t offset), {
-    granary::printf("function_wrapper(pread, %d, %p, %lu, %lu)\n", fd, buf, count, offset);
-    return pread(fd, buf, count, offset);
-})
+#ifdef CAN_WRAP_pread
+#   define WRAPPER_FOR_pread
+    FUNCTION_WRAPPER(pread, (ssize_t), (int fd, void *buf, size_t count, off_t offset), {
+        granary::printf("function_wrapper(pread, %d, %p, %lu, %lu)\n", fd, buf, count, offset);
+        return pread(fd, buf, count, offset);
+    })
 #endif
 
 #define EXECL_ARG(num, last_arg, seen_null, args_arr, args_list) \
@@ -27,54 +27,118 @@ FUNCTION_WRAPPER(pread, (ssize_t), (int fd, void *buf, size_t count, off_t offse
         (args_arr)[num] = nullptr; \
     }
 
-#ifdef WRAP_EXISTS_execl
-#define WRAPPER_FOR_execl
-FUNCTION_WRAPPER(execl, (int), (char *__path, char *__arg, ...), {
-    va_list args__;
-    char *args[12] = {nullptr};
-    int last_arg(0);
-    args[0] = __arg;
-    bool seen_null(false);
-    va_start(args__, __arg);
-    EXECL_ARG(1, last_arg, seen_null, args, args__)
-    EXECL_ARG(2, last_arg, seen_null, args, args__)
-    EXECL_ARG(3, last_arg, seen_null, args, args__)
-    EXECL_ARG(4, last_arg, seen_null, args, args__)
-    EXECL_ARG(5, last_arg, seen_null, args, args__)
-    EXECL_ARG(6, last_arg, seen_null, args, args__)
-    EXECL_ARG(7, last_arg, seen_null, args, args__)
-    EXECL_ARG(8, last_arg, seen_null, args, args__)
-    EXECL_ARG(9, last_arg, seen_null, args, args__)
-    EXECL_ARG(10, last_arg, seen_null, args, args__)
-    va_end(args__);
-    return execv(__path, args);
-})
+#if defined(CAN_WRAP_execl) && defined(CAN_WRAP_execv)
+#   define WRAPPER_FOR_execl
+    FUNCTION_WRAPPER(execl, (int), (char *__path, char *__arg, ...), {
+        va_list args__;
+        char *args[12] = {nullptr};
+        int last_arg(0);
+        args[0] = __arg;
+        bool seen_null(false);
+        va_start(args__, __arg);
+        EXECL_ARG(1, last_arg, seen_null, args, args__)
+        EXECL_ARG(2, last_arg, seen_null, args, args__)
+        EXECL_ARG(3, last_arg, seen_null, args, args__)
+        EXECL_ARG(4, last_arg, seen_null, args, args__)
+        EXECL_ARG(5, last_arg, seen_null, args, args__)
+        EXECL_ARG(6, last_arg, seen_null, args, args__)
+        EXECL_ARG(7, last_arg, seen_null, args, args__)
+        EXECL_ARG(8, last_arg, seen_null, args, args__)
+        EXECL_ARG(9, last_arg, seen_null, args, args__)
+        EXECL_ARG(10, last_arg, seen_null, args, args__)
+        va_end(args__);
+        return execv(__path, args);
+    })
 #endif
 
-#ifdef WRAP_EXISTS_execlp
-#define WRAPPER_FOR_execlp
-FUNCTION_WRAPPER(execlp, (int), (char *__file, char *__arg, ...), {
-    va_list args__;
-    char *args[12] = {nullptr};
-    int last_arg(0);
-    args[0] = __arg;
-    bool seen_null(false);
-    va_start(args__, __arg);
-    EXECL_ARG(1, last_arg, seen_null, args, args__)
-    EXECL_ARG(2, last_arg, seen_null, args, args__)
-    EXECL_ARG(3, last_arg, seen_null, args, args__)
-    EXECL_ARG(4, last_arg, seen_null, args, args__)
-    EXECL_ARG(5, last_arg, seen_null, args, args__)
-    EXECL_ARG(6, last_arg, seen_null, args, args__)
-    EXECL_ARG(7, last_arg, seen_null, args, args__)
-    EXECL_ARG(8, last_arg, seen_null, args, args__)
-    EXECL_ARG(9, last_arg, seen_null, args, args__)
-    EXECL_ARG(10, last_arg, seen_null, args, args__)
-    va_end(args__);
-    return execvp(__file, args);
-})
+#if defined(CAN_WRAP_execlp) && defined(CAN_WRAP_execvp)
+#   define WRAPPER_FOR_execlp
+    FUNCTION_WRAPPER(execlp, (int), (char *__file, char *__arg, ...), {
+        va_list args__;
+        char *args[12] = {nullptr};
+        int last_arg(0);
+        args[0] = __arg;
+        bool seen_null(false);
+        va_start(args__, __arg);
+        EXECL_ARG(1, last_arg, seen_null, args, args__)
+        EXECL_ARG(2, last_arg, seen_null, args, args__)
+        EXECL_ARG(3, last_arg, seen_null, args, args__)
+        EXECL_ARG(4, last_arg, seen_null, args, args__)
+        EXECL_ARG(5, last_arg, seen_null, args, args__)
+        EXECL_ARG(6, last_arg, seen_null, args, args__)
+        EXECL_ARG(7, last_arg, seen_null, args, args__)
+        EXECL_ARG(8, last_arg, seen_null, args, args__)
+        EXECL_ARG(9, last_arg, seen_null, args, args__)
+        EXECL_ARG(10, last_arg, seen_null, args, args__)
+        va_end(args__);
+        return execvp(__file, args);
+    })
 #endif
 
+#if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe)
+#   define WRAPPER_FOR_execle
+    FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
+        va_list args__;
+        char *args[12] = {nullptr};
+        int last_arg(0);
+        args[0] = __arg;
+        bool seen_null(false);
+        va_start(args__, __arg);
+        EXECL_ARG(1, last_arg, seen_null, args, args__)
+        EXECL_ARG(2, last_arg, seen_null, args, args__)
+        EXECL_ARG(3, last_arg, seen_null, args, args__)
+        EXECL_ARG(4, last_arg, seen_null, args, args__)
+        EXECL_ARG(5, last_arg, seen_null, args, args__)
+        EXECL_ARG(6, last_arg, seen_null, args, args__)
+        EXECL_ARG(7, last_arg, seen_null, args, args__)
+        EXECL_ARG(8, last_arg, seen_null, args, args__)
+        EXECL_ARG(9, last_arg, seen_null, args, args__)
+        EXECL_ARG(10, last_arg, seen_null, args, args__)
+        va_end(args__);
+        char **env = reinterpret_cast<char **>(args[last_arg]);
+        args[last_arg] = nullptr;
+        return execvpe(__path, args, env);
+    })
+#elif defined(CAN_WRAP_execle)
+#   define WRAPPER_FOR_execle
+    FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
+        va_list args__;
+        char *args[12] = {nullptr};
+        int last_arg(0);
+        args[0] = __arg;
+        bool seen_null(false);
+        va_start(args__, __arg);
+        EXECL_ARG(1, last_arg, seen_null, args, args__)
+        EXECL_ARG(2, last_arg, seen_null, args, args__)
+        EXECL_ARG(3, last_arg, seen_null, args, args__)
+        EXECL_ARG(4, last_arg, seen_null, args, args__)
+        EXECL_ARG(5, last_arg, seen_null, args, args__)
+        EXECL_ARG(6, last_arg, seen_null, args, args__)
+        EXECL_ARG(7, last_arg, seen_null, args, args__)
+        EXECL_ARG(8, last_arg, seen_null, args, args__)
+        EXECL_ARG(9, last_arg, seen_null, args, args__)
+        EXECL_ARG(10, last_arg, seen_null, args, args__)
+        va_end(args__);
+        return execle(
+            __path, args[0], args[1], args[2], args[3], args[4],
+            args[5], args[6], args[7], args[8], args[9], args[10]
+        );
+    })
+#endif
+
+#ifdef CAN_WRAP_semctl
+#   define WRAPPER_FOR_semctl
+    FUNCTION_WRAPPER(semctl, (int), (int _arg1, int _arg2, int _arg3, ...), {
+        va_list args__;
+        va_start(args__, _arg3);
+        union semun _arg4 = va_arg(args__, union semun);
+        va_end(args__);
+        int ret = semctl(_arg1, _arg2, _arg3, _arg4);
+        return ret;
+    })
+#endif
+
+#if 0
 #define WRAPPER_FOR_lseek
 FUNCTION_WRAPPER(lseek, (off_t), (int fildes, off_t offset, int whence), {
     granary::printf("function_wrapper(lseek, %d, %lu, %d)\n", fildes, offset, whence);
@@ -125,12 +189,12 @@ FUNCTION_WRAPPER(getenv, (char *), (const char *arg1), {
 FUNCTION_WRAPPER(open, (int), (const char *_arg1, int _arg2, ...), {
     va_list args__;
     va_start(args__, _arg2);
-    // TODO: variadic arguments
-    int ret = open(_arg1, _arg2);
+    mode_t _arg3 = va_arg(args__, int);
     va_end(args__);
+    int ret = open(_arg1, _arg2, _arg3);
     granary::printf("function_wrapper(open, %s, %d) -> %d\n", _arg1, _arg2, ret);
     return ret;
 })
-
+#endif
 
 #endif /* granary_USER_POSIX_OVERRIDE_WRAPPERS_H_ */

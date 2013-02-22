@@ -12,7 +12,6 @@
 #include "granary/atomic.h"
 #include "granary/type_traits.h"
 #include "granary/utils.h"
-#include "granary/printf.h"
 
 namespace granary {
 
@@ -99,7 +98,7 @@ namespace granary {
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
             if(IS_SHARED) {
-                while(lock.exchange(true)) { }
+                while(lock.load() || lock.exchange(true)) { }
             }
         }
 
