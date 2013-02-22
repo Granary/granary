@@ -17,7 +17,9 @@ namespace granary { namespace types {
 
 extern "C" {
 
-#define restrict __restrict__
+#define restrict
+#define __restrict
+#define _Bool bool
 
 #if GRANARY_IN_KERNEL
 #   include "granary/gen/kernel_types.h"
@@ -26,7 +28,6 @@ extern "C" {
 #   ifdef __APPLE__
 typedef wchar_t __darwin_wchar_t;
 #   endif
-#   define _Bool bool
 #   include "granary/gen/user_types.h"
 #endif
 #undef restrict

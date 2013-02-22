@@ -26,7 +26,7 @@
 #include <glob.h>
 //#include <grp.h>
 //#include <iconv.h>
-#include <inttypes.h>
+//#include <inttypes.h>
 //#include <iso646.h>
 #include <langinfo.h>
 #include <libgen.h>
@@ -43,7 +43,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <pwd.h>
-#include <regex.h>
+//#include <regex.h>
 #include <sched.h>
 #include <search.h>
 #include <semaphore.h>
