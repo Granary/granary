@@ -602,6 +602,9 @@ namespace granary { namespace smp {
 
         /// Destructor.
         ~rcu_protected(void) throw() {
+
+            writer_lock.acquire();
+
             if(data) {
                 delete data;
                 data = nullptr;
@@ -626,6 +629,8 @@ namespace granary { namespace smp {
                 c = hazard_counters->next;
                 delete hazard_counters;
             }
+
+            writer_lock.release();
         }
 
         /// Write to the RCU-protected data structure.

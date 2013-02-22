@@ -581,6 +581,7 @@ namespace granary {
             /// version of the table.
             virtual void teardown(collector_type &collector) throw() {
                 if(old_slots) {
+                    (void) collector;
                     delete collector.demote(old_slots);
                 }
             }

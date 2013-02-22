@@ -8,9 +8,6 @@
 #ifndef granary_STATE_H_
 #define granary_STATE_H_
 
-
-#include <bitset>
-
 #include "granary/globals.h"
 #include "granary/hash_table.h"
 

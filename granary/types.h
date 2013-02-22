@@ -26,6 +26,7 @@ extern "C" {
 #   ifdef __APPLE__
 typedef wchar_t __darwin_wchar_t;
 #   endif
+#   define _Bool bool
 #   include "granary/gen/user_types.h"
 #endif
 #undef restrict

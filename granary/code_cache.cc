@@ -350,4 +350,19 @@ namespace granary {
         // encode it
         ibl.encode(routine);
     }
+
+    /// Add some illegal detach points.
+    GRANARY_DETACH_POINT_ERROR(
+        (app_pc (*)(app_pc, instrumentation_policy)) code_cache::find)
+
+    GRANARY_DETACH_POINT_ERROR(
+        (app_pc (*)(cpu_state_handle &, thread_state_handle &, mangled_address))
+            code_cache::find)
+
+    GRANARY_DETACH_POINT_ERROR(
+        (app_pc (*)(mangled_address)) code_cache::find)
+
+    GRANARY_DETACH_POINT_ERROR(
+        (app_pc (*)(mangled_address)) code_cache::find_on_cpu)
 }
+

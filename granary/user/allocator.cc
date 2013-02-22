@@ -7,6 +7,7 @@
 
 #include "granary/globals.h"
 #include "granary/state.h"
+#include "granary/detach.h"
 
 #include <cstdlib>
 #include <stdint.h>
@@ -87,11 +88,23 @@ namespace granary { namespace detail {
         return calloc(1, size);
     }
 
-
     void global_free(void *addr) throw() {
-        FAULT_IF(nullptr == addr);
-        printf("freeing(%p)\n", addr);
+        //FAULT_IF(nullptr == addr);
         return free(addr);
     }
 }}
 
+extern "C" {
+    extern void _Znwm(void) throw();
+    extern void _ZdlPv(void) throw();
+}
+
+/// Make sure that the global operator new/delete are detach points.
+GRANARY_DETACH_POINT(_Znwm) // operator new
+GRANARY_DETACH_POINT(_ZdlPv) // operator delete
+
+/// Add some illegal detach points.
+GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate)
+GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate_executable)
+GRANARY_DETACH_POINT_ERROR(granary::detail::global_free)
+GRANARY_DETACH_POINT_ERROR(granary::detail::global_free_executable)

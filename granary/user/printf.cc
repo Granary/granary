@@ -12,7 +12,6 @@
 #include "granary/printf.h"
 
 namespace granary {
-
     static FILE *granary_out(fopen("granary.log", "w"));
 
     int printf(const char *format, ...) throw() {
@@ -23,6 +22,5 @@ namespace granary {
         fflush(granary_out);
         return ret;
     }
-
 }
 

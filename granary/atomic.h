@@ -9,7 +9,6 @@
 #define GR_ATOMIC_H_
 
 #include <atomic>
-#include <initializer_list>
 
 namespace granary {
 

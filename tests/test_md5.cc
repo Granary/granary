@@ -5,10 +5,8 @@
 
 #include <cstring>
 #include <cstdlib>
-#include <cstdio>
 
 #define PR(...)
-//printf(__VA_ARGS__)
 
 namespace test { namespace md5 {
     /*

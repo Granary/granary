@@ -155,12 +155,6 @@ def wrap_function(ctype, orig_ctype, func):
     if not will_wrap_function(ctype.ret_type, []):
       return
 
-  # only care about variadic functions if they take wrappable parameters /
-  # return values
-  #elif ctype.is_variadic:
-  #  if not will_wrap_function(ctype.ret_type, ctype.param_types):
-  #    return
-
   # don't wrap deprecated functions; the compiler will complain about them.
   if has_extension_attribute(orig_ctype, "deprecated"):
     return
@@ -207,15 +201,15 @@ def wrap_function(ctype, orig_ctype, func):
     ret_type = pretty_print_type(ctype.ret_type, "", lang="C++").strip(" ")
     ret_type = " (%s), " % ret_type
 
+  O("#ifndef WRAPPER_FOR_", func)
   O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
 
-  #O("    granary::printf(\"wrapper(%s)\\n\");" % func)
+  #O("    granary::printf(\"function_wrapper(%s)\\n\");" % func)
 
   if ctype.is_variadic:
-
     O("    va_list args__;")
     O("    va_start(args__, %s);" % last_arg_name)
-    O("    // TODO: variadic arguments")
+    
   
   # assignment of return value; unattributed_type is used in place of base type
   # so that we don't end up with anonymous structs/unions/enums.
@@ -233,16 +227,20 @@ def wrap_function(ctype, orig_ctype, func):
   if va_func in VA_LIST_FUNCS:
     O("    ", a, va_func, "(", ", ".join(param_names + ["args__"]), ");")
   else:
+    O("    // TODO: variadic arguments")
     O("    ", a, func, "(", ", ".join(param_names), ");")
 
   if ctype.is_variadic:
     O("    va_end(args__);")
 
-  if not is_void:
+  if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_WRAP(", r_v, ");")
+
+  if not is_void:
     O("    return ", r_v, ";")
 
   O("})")
+  O("#endif")
   O()
 
 

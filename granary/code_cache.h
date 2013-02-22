@@ -74,15 +74,8 @@ namespace granary {
         static void init_ibl(app_pc &, bool) throw();
         static app_pc ibl_exit_for(app_pc) throw();
 
+        /// Force add an entry into the code cache.
         static void add(app_pc, app_pc) throw();
-
-        /*
-        /// Add an entry to the code cache for later prediction.
-        static void predict(cpu_state_handle &cpu,
-                            thread_state_handle &thread,
-                            mangled_address app_code,
-                            app_pc cache_code) throw();
-        */
     };
 
 }

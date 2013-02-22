@@ -45,8 +45,10 @@ namespace granary {
 /// Wrappers (potentially auto-generated) that are specialized to specific
 /// functions (by means of IDs) or to types, all contained in types.h.
 #   if GRANARY_IN_KERNEL
+#       include "granary/kernel/linux/wrappers.h"
 #       include "granary/gen/kernel_wrappers.h"
 #   else
+#       include "granary/user/posix/wrappers.h"
 #       include "granary/gen/user_wrappers.h"
 #   endif
 

@@ -6,7 +6,7 @@
  *     Version: $Id$
  */
 
-#include <cstdio>
+//#include <cstdio>
 
 #ifndef _GNU_SOURCE
 #   define _GNU_SOURCE
@@ -26,7 +26,7 @@
 #include <signal.h>
 
 void granary_signal_handler(int) {
-    std::printf("Run `sudo gdb attach %d`\n", getpid());
+    //std::printf("Run `sudo gdb attach %d`\n", getpid());
     for(;;) { /* loop until we manually attach gdb */ }
 }
 

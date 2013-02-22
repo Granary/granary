@@ -1059,6 +1059,12 @@ class CParser(object):
 
   VA_LIST = CTypeBuiltIn("__builtin_va_list")
 
+  T_FC = CTypeBuiltIn("float _Complex")
+  T_DC = CTypeBuiltIn("double _Complex")
+  T_LDC = CTypeBuiltIn("long double _Complex")
+
+  T_B = CTypeBuiltIn("_Bool")
+
   # Mapping of (sorted) token string sequences to built-in type objects.
   BUILT_IN_TYPES = {
     ("__builtin_va_list",):           VA_LIST,
@@ -1108,6 +1114,12 @@ class CParser(object):
     ("double", "long"):               T_DL,
 
     ("wchar_t",):                     T_WC,
+
+    ("_Complex", "float"):            T_FC,
+    ("_Complex", "double"):           T_DC,
+    ("_Complex", "double", "long"):   T_LDC,
+
+    ("_Bool",):                       T_B,
   }
 
   # Mapping of opening brace/bracket/paren chars to their closing chars.

@@ -12,6 +12,7 @@
 #include "granary/atomic.h"
 #include "granary/type_traits.h"
 #include "granary/utils.h"
+#include "granary/printf.h"
 
 namespace granary {
 
@@ -231,6 +232,7 @@ namespace granary {
                     list->data_ptr = nullptr;
                     list->bump_ptr = nullptr;
                 }
+
                 detail::global_free(list);
             }
         }
