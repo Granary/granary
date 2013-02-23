@@ -15,7 +15,8 @@
 #include "granary/emit_utils.h"
 #include "granary/detach.h"
 
-#define D(...) __VA_ARGS__
+#define D(...)
+//__VA_ARGS__
 
 namespace granary {
 
@@ -44,7 +45,9 @@ namespace granary {
     /// that, defaults to the global code cache.
     app_pc code_cache::find_on_cpu(mangled_address addr) throw() {
         cpu_state_handle cpu;
-        return cpu->code_cache.find(addr.as_address);
+        app_pc ret(cpu->code_cache.find(addr.as_address));
+        IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
+        return ret;
     }
 
 
@@ -63,6 +66,8 @@ namespace granary {
         mangled_address addr
     ) throw() {
 
+        IF_PERF( perf::visit_address_lookup(); )
+
         // find the actual targeted address, independent of the policy.
         instrumentation_policy policy(addr);
         app_pc app_target_addr(addr.unmangled_address());
@@ -74,6 +79,7 @@ namespace granary {
         if(CODE_CACHE->load(addr.as_address, target_addr)) {
             cpu->code_cache.store(addr.as_address, target_addr);
             D( printf(" -> %p\n", target_addr); )
+            IF_PERF( perf::visit_address_lookup_hit(); )
             return target_addr;
         }
 

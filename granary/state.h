@@ -10,6 +10,7 @@
 
 #include "granary/globals.h"
 #include "granary/hash_table.h"
+#include "granary/cpu_code_cache.h"
 
 #include "clients/state.h"
 
@@ -168,8 +169,8 @@ namespace granary {
         /// The CPU-private "mirror" of the global code cache. This code cache
         /// mirrors the global one insofar as entries move from the global one
         /// into local ones over the course of execution.
-        hash_table<app_pc, app_pc, detail::cpu_code_cache_meta> code_cache;
-
+        //hash_table<app_pc, app_pc, detail::cpu_code_cache_meta> code_cache;
+        cpu_private_code_cache code_cache;
 
         /// Are interrupts currently enabled on this CPU?
         bool interrupts_enabled;

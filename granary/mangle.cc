@@ -858,6 +858,9 @@ namespace granary {
         instrumentation_policy target_policy_ibl(policy.indirect_cti_policy());
         target_policy_ibl.inherit_properties(policy);
 
+        // start by looking for the target in a slot.
+        //ls->append(label_());
+
         // mark indirect calls as hot-patchable (even though they won't be
         // patched) so that they are automatically aligned to an 8-byte boundary
         // with associated alignment nops after them. This is so that the RBL

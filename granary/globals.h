@@ -67,7 +67,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 1
+#define CONFIG_IBL_SAVE_ALL_FLAGS 0
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
@@ -159,6 +159,21 @@ namespace granary {
         /// Bounds on where kernel module code is placed
         KERNEL_MODULE_START = 0xffffffffa0000000ULL,
         KERNEL_MODULE_END = 0xfffffffffff00000ULL
+    };
+
+
+    /// Policy for storing a value in a hash table.
+    enum hash_store_policy {
+        HASH_OVERWRITE_PREV_ENTRY,
+        HASH_KEEP_PREV_ENTRY
+    };
+
+
+    /// Store state.
+    enum hash_store_state {
+        HASH_ENTRY_STORED_NEW,
+        HASH_ENTRY_STORED_OVERWRITE,
+        HASH_ENTRY_SKIPPED
     };
 
 

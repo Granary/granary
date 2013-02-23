@@ -54,7 +54,8 @@ namespace granary { namespace smp {
 #   include <pthread.h>
 
 namespace granary { namespace smp {
-/// Simple implementation of a spin lock.
+
+    /// Simple implementation of lock using pthread mutexes.
     struct spin_lock {
     private:
 

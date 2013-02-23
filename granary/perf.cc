@@ -56,6 +56,29 @@ namespace granary {
     static std::atomic<unsigned> NUM_ALIGN_NOP_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
 
 
+    /// Tracking the number if code cache address lookups.
+    static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_ADDRESS_LOOKUP_HITS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_HIT(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_MISS(ATOMIC_VAR_INIT(0U));
+
+
+    void perf::visit_address_lookup(void) throw() {
+        NUM_ADDRESS_LOOKUPS.fetch_add(1);
+    }
+
+    void perf::visit_address_lookup_cpu(bool hit) throw() {
+        if(hit) {
+            NUM_ADDRESS_LOOKUPS_CPU_HIT.fetch_add(1);
+        } else {
+            NUM_ADDRESS_LOOKUPS_CPU_MISS.fetch_add(1);
+        }
+    }
+
+    void perf::visit_address_lookup_hit(void) throw() {
+        NUM_ADDRESS_LOOKUP_HITS.fetch_add(1);
+    }
+
     void perf::visit_decoded(instruction &in) throw() {
         NUM_DECODED_INSTRUCTIONS.fetch_add(1);
         NUM_DECODED_BYTES.fetch_add(in.instr.length);
@@ -162,8 +185,17 @@ namespace granary {
 
         printf("Number of extra instructions to mangle memory refs: %u\n\n",
             NUM_MEM_REF_INSTRUCTIONS.load());
-        printf("Number alignment NOPs: %u\n\n",
+        printf("Number of alignment NOPs: %u\n\n",
             NUM_ALIGN_NOP_INSTRUCTIONS.load());
+
+        printf("Number of global code cache address lookups: %u\n",
+            NUM_ADDRESS_LOOKUPS.load());
+        printf("Number hits in the global code cache: %u\n",
+            NUM_ADDRESS_LOOKUP_HITS.load());
+        printf("Number hits in the cpu private code cache(s): %u\n",
+            NUM_ADDRESS_LOOKUPS_CPU_HIT.load());
+        printf("Number misses in the cpu code cache(s): %u\n\n",
+            NUM_ADDRESS_LOOKUPS_CPU_MISS.load());
     }
 }
 

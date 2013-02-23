@@ -6,13 +6,6 @@
  *     Version: $Id$
  */
 
-//#include <cstdio>
-
-#ifndef _GNU_SOURCE
-#   define _GNU_SOURCE
-#endif
-#include <dlfcn.h>
-
 #include "granary/globals.h"
 #include "granary/policy.h"
 #include "granary/code_cache.h"

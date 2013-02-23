@@ -11,13 +11,18 @@
 
 #include "granary/printf.h"
 
+#define LOG 1
+
 namespace granary {
-    //static FILE *granary_out(fopen("granary.log", "w"));
+#if LOG
+    static FILE *granary_out(stdout); //fopen("granary.log", "w"));
+#endif
 
     int printf(const char *format, ...) throw() {
+#if !LOG
         (void) format;
         return 0;
-#if 0
+#else
         va_list args;
         va_start(args, format);
         int ret = vfprintf(granary_out, format, args);

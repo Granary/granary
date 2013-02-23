@@ -16,21 +16,6 @@
 namespace granary {
 
 
-    /// Policy for storing a value in a hash table.
-    enum hash_store_policy {
-        HASH_OVERWRITE_PREV_ENTRY,
-        HASH_KEEP_PREV_ENTRY
-    };
-
-
-    /// Store state.
-    enum hash_store_state {
-        HASH_ENTRY_STORED_NEW,
-        HASH_ENTRY_STORED_OVERWRITE,
-        HASH_ENTRY_SKIPPED
-    };
-
-
     /// The maximum sizes of hash tables as different scaling factors.
     extern uint32_t HASH_TABLE_MAX_SIZES[];
 
@@ -268,6 +253,7 @@ namespace granary {
             }
         }
 
+        /// Find the value associated with a key in the hash table.
         V find(const K key) const throw() {
             const slots_type * const slots(table.entry_slots);
             const uint32_t mask(slots->mask);
@@ -297,10 +283,7 @@ namespace granary {
         /// Search for an entry in the hash table.
         inline bool load(const K key, V &value) const throw() {
             value = find(key);
-            if(V() != value) {
-                return true;
-            }
-            return false;
+            return (V() != value);
         }
 
         /// Store a value in the hash table. Returns true iff the entry was

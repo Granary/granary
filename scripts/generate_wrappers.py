@@ -234,7 +234,7 @@ def wrap_function(ctype, orig_ctype, func):
   if ctype.is_variadic:
     O("    va_end(args__);")
 
-  #O("    granary::printf(\"function_wrapper(%s) %s\\n\");" % (func, special and "*" or ""))
+  O("    granary::printf(\"function_wrapper(%s) %s\\n\");" % (func, special and "*" or ""))
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_WRAP(", r_v, ");")

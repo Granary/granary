@@ -40,6 +40,10 @@ namespace granary {
 
         static void visit_align_nop(void) throw();
 
+        static void visit_address_lookup(void) throw();
+        static void visit_address_lookup_hit(void) throw();
+        static void visit_address_lookup_cpu(bool) throw();
+
         static void report(void) throw();
     };
 

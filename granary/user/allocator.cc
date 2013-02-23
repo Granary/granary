@@ -94,14 +94,58 @@ namespace granary { namespace detail {
     }
 }}
 
-extern "C" {
-    extern void _Znwm(void) throw();
-    extern void _ZdlPv(void) throw();
-}
-
+#if 0
 /// Make sure that the global operator new/delete are detach points.
-GRANARY_DETACH_POINT(_Znwm) // operator new
-GRANARY_DETACH_POINT(_ZdlPv) // operator delete
+#ifdef GRANARY_USE_PIC
+extern "C" {
+    extern void _Znwm(void) throw(); // operator new
+    extern void _ZdlPv(void) throw(); // operator delete
+}
+#   ifndef _GNU_SOURCE
+#      define _GNU_SOURCE
+#   endif
+#   include <dlfcn.h>
+#include <cstdio>
+
+    STATIC_INITIALISE({
+
+        // preserve the operator new/delete in the instrumented program
+
+        static void *op_new(dlsym(RTLD_NEXT, "_Znwm"));
+        static void *op_delete(dlsym(RTLD_NEXT, "_ZdlPv"));
+
+        if(op_new) {
+            fprintf(stderr, "%p vs. %p\n", (void *) _Znwm, op_new);
+            static granary::function_wrapper wrapper = { \
+                reinterpret_cast<granary::app_pc>(_Znwm), \
+                reinterpret_cast<granary::app_pc>(op_new), \
+                "_Znwm" \
+            }; \
+            granary::add_detach_target(wrapper); \
+        }
+
+        if(op_delete) {
+            static granary::function_wrapper wrapper = { \
+                reinterpret_cast<granary::app_pc>(_ZdlPv), \
+                reinterpret_cast<granary::app_pc>(op_delete), \
+                "_ZdlPv" \
+            }; \
+            granary::add_detach_target(wrapper); \
+        }
+    })
+#endif
+#endif
+
+#ifdef GRANARY_USE_PIC
+    extern "C" {
+        extern void _Znwm(void) throw();
+        extern void _ZdlPv(void) throw();
+    }
+
+    /// Make sure that the global operator new/delete are detach points.
+    GRANARY_DETACH_POINT(_Znwm) // operator new
+    GRANARY_DETACH_POINT(_ZdlPv) // operator delete
+#endif
 
 /// Add some illegal detach points.
 GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate)
