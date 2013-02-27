@@ -169,8 +169,12 @@ ifneq ($(KERNEL),1)
 			GR_LD_FLAGS += -dynamiclib
 		else # Linux
 			GR_OUTPUT_SUFFIX = .so
-			GR_LD_FLAGS += -shared -ldl
+			GR_LD_FLAGS += -shared 
 		endif
+	endif
+	
+	ifeq ($(UNAME),Linux) # Linux
+		GR_LD_FLAGS += -ldl
 	endif
 
 	# Granary tests
