@@ -130,32 +130,32 @@
 
         switch(last_arg) {
         case 0: FAULT;
-        case 1: return execle(__path, args[0], NULL, envp);
-        case 2: return execle(__path, args[0], args[1], NULL, envp);
-        case 3: return execle(__path, args[0], args[1], args[2], NULL, envp);
+        case 1: return execle(__path, args[0], nullptr, envp);
+        case 2: return execle(__path, args[0], args[1], nullptr, envp);
+        case 3: return execle(__path, args[0], args[1], args[2], nullptr, envp);
         case 4:
             return execle(
-                __path, args[0], args[1], args[2], args[3], NULL, envp);
+                __path, args[0], args[1], args[2], args[3], nullptr, envp);
         case 5:
             return execle(
                 __path, args[0], args[1], args[2], args[3],
-                args[4], NULL, envp);
+                args[4], nullptr, envp);
         case 6:
             return execle(
                 __path, args[0], args[1], args[2], args[3],
-                args[4], args[5], NULL, envp);
+                args[4], args[5], nullptr, envp);
         case 7:
             return execle(
                 __path, args[0], args[1], args[2], args[3],
-                args[4], args[5], args[6], NULL, envp);
+                args[4], args[5], args[6], nullptr, envp);
         case 8:
             return execle(
                 __path, args[0], args[1], args[2], args[3],
-                args[4], args[5], args[6], args[7], NULL, envp);
+                args[4], args[5], args[6], args[7], nullptr, envp);
         case 9:
             return execle(
                 __path, args[0], args[1], args[2], args[3],
-                args[4], args[5], args[6], args[7], args[8], NULL, envp);
+                args[4], args[5], args[6], args[7], args[8], nullptr, envp);
         default:
             FAULT;
         }
