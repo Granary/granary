@@ -10,12 +10,10 @@
 
 
 #define EXECL_ARG(num, last_arg, seen_null, args_arr, args_list) \
+    (args_arr)[num] = va_arg((args_list), char *); \
     if(!(seen_null)) { \
-        (args_arr)[num] = va_arg((args_list), char *); \
+        (last_arg) = (num); \
         (seen_null) = (nullptr == (args_arr)[num]); \
-        if(!(seen_null)) { \
-            (last_arg) = (num); \
-        } \
     } else { \
         (args_arr)[num] = nullptr; \
     }
@@ -127,12 +125,42 @@
         EXECL_ARG(9, last_arg, seen_null, args, args__)
         EXECL_ARG(10, last_arg, seen_null, args, args__)
         va_end(args__);
-        (void) last_arg;
-        return execle(
-            __path, args[0], args[1], args[2], args[3], args[4],
-            args[5], args[6], args[7], args[8], args[9], args[10],
-            nullptr
-        );
+
+        const char **envp(unsafe_cast<const char **>(args[last_arg + 1]));
+
+        switch(last_arg) {
+        case 0: FAULT;
+        case 1: return execle(__path, args[0], NULL, envp);
+        case 2: return execle(__path, args[0], args[1], NULL, envp);
+        case 3: return execle(__path, args[0], args[1], args[2], NULL, envp);
+        case 4:
+            return execle(
+                __path, args[0], args[1], args[2], args[3], NULL, envp);
+        case 5:
+            return execle(
+                __path, args[0], args[1], args[2], args[3],
+                args[4], NULL, envp);
+        case 6:
+            return execle(
+                __path, args[0], args[1], args[2], args[3],
+                args[4], args[5], NULL, envp);
+        case 7:
+            return execle(
+                __path, args[0], args[1], args[2], args[3],
+                args[4], args[5], args[6], NULL, envp);
+        case 8:
+            return execle(
+                __path, args[0], args[1], args[2], args[3],
+                args[4], args[5], args[6], args[7], NULL, envp);
+        case 9:
+            return execle(
+                __path, args[0], args[1], args[2], args[3],
+                args[4], args[5], args[6], args[7], args[8], NULL, envp);
+        default:
+            FAULT;
+        }
+
+        return -1;
     })
 #endif
 
