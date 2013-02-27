@@ -26,7 +26,7 @@ namespace granary {
     /// is overwritten each time it is not matched.
     struct single_overwrite_prediction_table {
         prediction_table_kind kind;
-        std::atomic<unsigned> num_overwrites;
+        volatile unsigned num_overwrites;
         prediction_entry entry __attribute__((aligned (16)));
         prediction_entry ibl_entry __attribute__((aligned (16)));
     } __attribute__((packed));
@@ -81,7 +81,7 @@ namespace granary {
     ) throw() {
         single_overwrite_prediction_table *table(
             unsafe_cast<single_overwrite_prediction_table *>(table_));
-        table->num_overwrites.fetch_add(1);
+        __sync_fetch_and_add(&(table->num_overwrites), 1);
         table->entry.source = source;
         table->entry.dest = dest;
         // TODO
