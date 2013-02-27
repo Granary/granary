@@ -141,7 +141,7 @@
     FUNCTION_WRAPPER(semctl, (int), (int _arg1, int _arg2, int _arg3, ...), {
         va_list args__;
         va_start(args__, _arg3);
-        union semun _arg4 = va_arg(args__, union semun);
+        uint64_t _arg4 = va_arg(args__, uint64_t); // union semun
         va_end(args__);
         int ret = semctl(_arg1, _arg2, _arg3, _arg4);
         return ret;
