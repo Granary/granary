@@ -44,10 +44,10 @@ namespace granary {
         prediction_entry entry __attribute__((aligned (16)));
 
         /// Instrument this prediction table.
-        __attribute__((hot, noinline))
+        __attribute__((hot))
         static void instrument(
             prediction_table **table,
-            cpu_state_handle cpu,
+            cpu_state_handle &cpu,
             app_pc source,
             app_pc dest
         ) throw();

@@ -33,6 +33,14 @@ extern "C" {
         (void) addr;
     }
 
+
+    /// Return temporarily allocated space for an instruction.
+    void *heap_alloc_temp_instr(void) {
+        granary::cpu_state_handle cpu;
+        return cpu->instruction_allocator.allocate_array<uint8_t>(32);
+    }
+
+
     /// (un)protect up to two pages
     static int make_page_executable(void *page_start) {
 

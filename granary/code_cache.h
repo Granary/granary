@@ -25,16 +25,10 @@ namespace granary {
     struct code_cache {
     public:
 
-        /// Indirect branch lookup routine.
-#if CONFIG_TRACK_XMM_REGS
-        static app_pc IBL_COMMON_ENTRY_ROUTINE;
-#endif
-        static app_pc XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE;
-
 
         /// Find fast. This looks in the cpu-private cache first, and failing
         /// that, defaults to the global code cache.
-        __attribute__((hot, flatten))
+        __attribute__((hot))
         static app_pc find_on_cpu(
             mangled_address addr,
             prediction_table **IF_IBL_PREDICT(predict_table)

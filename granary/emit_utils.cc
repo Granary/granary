@@ -177,7 +177,7 @@ namespace granary {
             } else {
                 app_pc *slot(global_state::FRAGMENT_ALLOCATOR->allocate<app_pc>());
                 *slot = target;
-                in = ls.insert_after(in, cti_ind_(mem_pc_(slot)));
+                in = ls.insert_after(in, cti_ind_(absmem_(slot, dynamorio::OPSZ_8)));
             }
 
         // add in a direct, pc relative call.

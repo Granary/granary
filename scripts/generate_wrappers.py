@@ -8,12 +8,13 @@ attach/detach requirements."""
 
 from cparser import *
 from cprinter import pretty_print_type
+from ignore import IGNORE
 
 def OUT(*args):
   print "".join(map(str, args))
 
 
-def IGNORE(*args):
+def NULL(*args):
   pass
 
 
@@ -114,7 +115,7 @@ def wrap_struct(ctype):
 
   name = scoped_name(ctype)
 
-  O = ctype.has_name and OUT or IGNORE
+  O = ctype.has_name and OUT or NULL
   O("TYPE_WRAPPER(", name, ", ", "{")
   O("    PRE {")
   pre_wrap_fields(ctype, O)
@@ -356,48 +357,6 @@ def visit_possible_variadic_def(name, ctype, va_list_ctype):
 
 if "__main__" == __name__:
   import sys
-  ignore_set = set([
-    "zopen",
-    "pthread_rwlock_downgrade_np",
-    "pthread_rwlock_upgrade_np",
-    "pthread_rwlock_tryupgrade_np",
-    "pthread_rwlock_held_np",
-    "pthread_rwlock_rdheld_np",
-    "pthread_rwlock_wrheld_np",
-    "pthread_getname_np",
-    "pthread_setname_np",
-    "pthread_rwlock_longrdlock_np",
-    "pthread_rwlock_yieldwrlock_np",
-
-    # 'dangerous' Linux symbols
-    "sigreturn",
-    "tmpnam",
-    "tmpnam_r",
-    "tempnam",
-    "gets", # hrmm
-    "mktemp",
-
-    # non-portable?
-    "pthread_mutexattr_setrobust",
-    "pthread_mutexattr_getrobust",
-
-    # things that are wacky to wrap
-    "setjmp",
-    "_setjmp",
-    "__setjmp",
-
-    "sigsetjmp",
-    "_sigsetjmp",
-    "__sigsetjmp",
-
-    "longjmp",
-    "_longjmp",
-    "__longjmp",
-
-    "siglongjmp",
-    "_siglongjmp",
-    "__siglongjmp"
-  ])
   
   with open(sys.argv[1]) as lines_:
     buff = "".join(lines_)
@@ -414,9 +373,9 @@ if "__main__" == __name__:
     OUT("/* Auto-generated wrappers. */")
     OUT("#define D(...) ")
     for var, ctype in parser.vars():
-      if var not in ignore_set and var.startswith("v"):
+      if var not in IGNORE and var.startswith("v"):
         visit_possible_variadic_def(var, ctype.base_type(), va_list)
 
     for var, ctype in parser.vars():
-      if var not in ignore_set:
+      if var not in IGNORE:
         visit_var_def(var, ctype)

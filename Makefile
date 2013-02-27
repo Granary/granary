@@ -19,8 +19,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g0 -O3
-#-g3 -O0
+GR_DEBUG_LEVEL = -g3 -O4
 GR_LD_FLAGS = 
 GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)

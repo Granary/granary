@@ -11,9 +11,10 @@
 
 #define GRANARY
 #define FAULT (granary_break_on_fault(), granary_fault())
-#define IF_GRANARY(x) x
+#define IF_GRANARY(...) __VA_ARGS__
+#define _IF_GRANARY(...) , __VA_ARGS__
 #define IF_GRANARY_ELSE(x,y) x
-#define IF_NOT_GRANARY(x)
+#define IF_NOT_GRANARY(...)
 #define LINUX 1
 #define X64 1
 #define CLIENT_INTERFACE 1
@@ -345,6 +346,7 @@ extern "C" {
 #include "deps/dr/link.h"
 
 extern void *heap_alloc(void *, unsigned long long);
+extern void *heap_alloc_temp_instr(void);
 extern void heap_free(void *, void *, unsigned long long);
 extern dcontext_t *get_thread_private_dcontext(void);
 

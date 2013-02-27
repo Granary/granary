@@ -116,16 +116,19 @@ namespace granary {
     static operand reg_target_addr(reg::arg1);
     static operand reg_compare_addr(reg::rcx);
     static operand reg_compare_addr_32(reg::ecx);
-    IF_IBL_PREDICT( static operand reg_predict_table_ptr(reg::arg2); )
-    IF_IBL_PREDICT( static operand reg_predict_ptr(reg::rax); )
 
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+
+
+    static operand reg_predict_table_ptr(reg::arg2);
+    static operand reg_predict_ptr(reg::rax);
     static prediction_table PREDICT_TABLES[MAX_NUM_POLICIES];
+
+
     STATIC_INITIALISE({
         memset(&(PREDICT_TABLES), 0, MAX_NUM_POLICIES * sizeof(prediction_table));
     })
-
 
 
     /// Represents a table of "empty" IBL predictors. All IBL prediction tables
@@ -246,8 +249,15 @@ namespace granary {
             prediction_table **predict_table(cpu->block_allocator. \
                 allocate<prediction_table *>());
             *predict_table = ibl_empty_predict_table(target_policy);
-            in = ibl.insert_after(in, mov_imm_(reg_predict_table_ptr,
-                int64_(reinterpret_cast<uint64_t>(predict_table))));
+
+            if(is_far_away(predict_table, estimator_pc)) {
+                in = ibl.insert_after(in, mov_imm_(reg_predict_table_ptr,
+                    int64_(reinterpret_cast<uint64_t>(predict_table))));
+            } else {
+                in = ibl.insert_after(in, lea_(
+                    reg_predict_table_ptr,
+                    absmem_(predict_table, dynamorio::OPSZ_8)));
+            }
 
             ibl.insert_after(in,
                 mangled(jmp_(pc_(ibl_predict_entry_routine()))));

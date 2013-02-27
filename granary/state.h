@@ -83,6 +83,15 @@ namespace granary {
             };
         };
 
+        struct instruction_allocator_config {
+            enum {
+                SLAB_SIZE = PAGE_SIZE,
+                EXECUTABLE = true,
+                TRANSIENT = true,
+                SHARED = false
+            };
+        };
+
 
         /// CPU-private block-local storage allocators.
         struct block_allocator_config {
@@ -156,6 +165,10 @@ namespace granary {
         bump_pointer_allocator<detail::fragment_allocator_config>
             fragment_allocator;
 
+        /// Allocator for instructions in process.
+        bump_pointer_allocator<detail::instruction_allocator_config>
+            instruction_allocator;
+
         /// The block-local storage allocator for this CPU.
         bump_pointer_allocator<detail::block_allocator_config>
             block_allocator;
@@ -169,11 +182,11 @@ namespace granary {
         /// The CPU-private "mirror" of the global code cache. This code cache
         /// mirrors the global one insofar as entries move from the global one
         /// into local ones over the course of execution.
-        //hash_table<app_pc, app_pc, detail::cpu_code_cache_meta> code_cache;
         cpu_private_code_cache code_cache;
 
-        /// Are interrupts currently enabled on this CPU?
-        bool interrupts_enabled;
+        /// A buffer, allocated from the global fragment allocator, that
+        /// is used by DynamoRIO for privately encoding instructions.
+        app_pc temp_instr_buffer;
     };
 
 

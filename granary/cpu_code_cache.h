@@ -41,6 +41,7 @@ namespace granary {
         app_pc find(const app_pc key) const throw();
 
         /// Search for an entry in the hash table.
+        __attribute__((hot))
         inline bool load(const app_pc key, app_pc &value) const throw() {
             value = find(key);
             return nullptr != value;

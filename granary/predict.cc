@@ -38,8 +38,9 @@ namespace granary {
 
     /// Allocate a generic prediction table.
     template <typename T>
+    __attribute__((hot))
     static T *make_table(
-        cpu_state_handle cpu,
+        cpu_state_handle &cpu,
         prediction_entry *fall_through,
         prediction_table_kind kind,
         unsigned num_extra_entries,
@@ -57,8 +58,9 @@ namespace granary {
 
 
     /// Create a single overwrite entry prediction table.
+    __attribute__((hot))
     static prediction_table *make_single_overwrite_table(
-        cpu_state_handle cpu,
+        cpu_state_handle &cpu,
         prediction_entry *fall_through,
         app_pc source,
         app_pc dest
@@ -73,6 +75,7 @@ namespace granary {
 
 
     /// Update a single overwrite entry prediction table.
+    __attribute__((hot))
     static void update_single_overwrite_table(
         prediction_table **table_ptr,
         prediction_table *table_,
@@ -91,6 +94,8 @@ namespace granary {
     }
 
 
+    /// Replace one prediction table with another.
+    __attribute__((hot))
     static void replace_table(
         prediction_table **loc,
         prediction_table *old,
@@ -101,13 +106,14 @@ namespace granary {
         old->kind = PREDICT_DEAD;
     }
 
+
     /// Instrument an indirect branch lookup that failed to match `source` to
     /// a known destination address in its current table.
     ///
     /// Here we define the policies on how to manage a prediction table.
     void prediction_table::instrument(
         prediction_table **table_ptr,
-        cpu_state_handle cpu,
+        cpu_state_handle &cpu,
         app_pc source,
         app_pc dest
     ) throw() {

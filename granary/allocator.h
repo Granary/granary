@@ -22,6 +22,7 @@ extern "C" {
 
 void *heap_alloc(void *, unsigned long long);
 void heap_free(void *, void *, unsigned long long);
+void *heap_alloc_temp_instr(void);
 
 #ifdef __cplusplus
 }

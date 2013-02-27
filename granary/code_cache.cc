@@ -22,13 +22,6 @@
 
 namespace granary {
 
-    /// Static initialisation of the global IBL lookup routine.
-#if CONFIG_TRACK_XMM_REGS
-    app_pc code_cache::IBL_COMMON_ENTRY_ROUTINE(nullptr);
-#endif
-    app_pc code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE(nullptr);
-
-
     namespace {
 
         /// The globally shared code cache. This maps policy-mangled code

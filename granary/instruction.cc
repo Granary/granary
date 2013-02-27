@@ -17,6 +17,7 @@ namespace granary {
         op.kind = dynamorio::BASE_DISP_kind;
         op.value.addr = pc;
         op.size = dynamorio::OPSZ_8;
+        op.seg.segment = dynamorio::DR_REG_NULL;
         return op;
     }
 
@@ -80,7 +81,6 @@ namespace granary {
         // field; second-pass encoding for hot patchable instructions
         // takes advantage of this
         instr.note = pc;
-
         app_pc ret(dynamorio::instr_encode(DCONTEXT, &instr, pc));
 
         instr.translation = pc;

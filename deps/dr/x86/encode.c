@@ -2211,7 +2211,9 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                  byte *dst_pc, byte *final_pc)
 {
     byte *orig_dst_pc = dst_pc;
+
     ASSERT(instr_raw_bits_valid(instr));
+
     /* FIXME i#731: if want to support ctis as well, need
      * instr->rip_rel_disp_sz and need to set both for non-x64 as well
      * in decode_sizeof(): or only in decode_cti()?

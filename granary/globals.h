@@ -98,12 +98,12 @@
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 1
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
 
 
 /// Set to 1 iff basic blocks should contain the instructions immediately
 /// following a conditional branch. If enabled, basic blocks will be bigger.
-#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 0
+#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 1
 
 
 /// Lower bound on the cache line size.

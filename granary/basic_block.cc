@@ -621,23 +621,9 @@ namespace granary {
             if(detach_tail_call) {
                 ls.append(mangled(ret_()));
             } else {
-
-                // encode a jump back to native code.
-                //
-                // Note: there is no guarantee that detaching will *really*
-                //       detach. The is, if we have two instrumented function
-                //       calls, and the most recently called function detaches,
-                //       then eventually, execution will return into the code
-                //       cache.
-                if(is_far_away(*pc, code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE)) {
-                    app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
-                    *slot = *pc;
-                    ls.append(mangled(
-                        jmp_ind_(absmem_(slot, dynamorio::OPSZ_8))));
-
-                } else {
-                    ls.append(mangled(jmp_(pc_(*pc))));
-                }
+                insert_cti_after(
+                    ls, ls.last(), *pc, false, operand(), CTI_JMP
+                )->set_mangled();
             }
         }
 

@@ -1904,8 +1904,10 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     /* we cannot use a stack buffer for encoding since our stack on x64 linux
      * can be too far to reach from our heap
      */
-    byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
-                           HEAPACCT(ACCT_IR));
+    byte *buf = IF_GRANARY_ELSE(
+        heap_alloc_temp_instr(),
+        (heap_alloc(dcontext, 32 /* max instr length is 17 bytes */ HEAPACCT(ACCT_IR))));
+
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -1953,7 +1955,9 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         byte *tmp;
         CLIENT_ASSERT(!instr_raw_bits_valid(instr),
                       "encode instr: bit validity error"); /* else shouldn't get here */
+
         instr_allocate_raw_bits(dcontext, instr, len);
+
         /* we use a hack in order to take advantage of
          * copy_and_re_relativize_raw_instr(), which copies from instr->bytes
          * using rip-rel-calculating routines that also use instr->bytes.
@@ -2565,7 +2569,9 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
         original_bits = instr->bytes;
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 ||
         instr->length != num_bytes) {
-        byte * new_bits = (byte *) heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR));
+        byte * new_bits = (byte *) IF_GRANARY_ELSE(
+            heap_alloc_temp_instr(),
+            (heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR))));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify
              * a few and still have all info in one place

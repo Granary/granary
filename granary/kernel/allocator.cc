@@ -43,6 +43,7 @@ extern "C" {
     void *(**kernel_vmalloc)(unsigned long) = &(granary::detail::__vmalloc);
     void (**kernel_vfree)(void *) = &(granary::detail::__vfree);
 
+
     void *heap_alloc(void *, unsigned long long size) {
         granary::cpu_state_handle cpu;
         return cpu->transient_allocator.allocate_untyped(16, size);
@@ -54,5 +55,12 @@ extern "C" {
         granary::detail::global_free(addr);
 #endif
         (void) addr;
+    }
+
+
+    /// Return temporarily allocated space for an instruction.
+    void *heap_alloc_temp_instr(void) {
+        granary::cpu_state_handle cpu;
+        return cpu->instruction_allocator.allocate_array<uint8_t>(32);
     }
 }
