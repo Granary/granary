@@ -163,14 +163,6 @@ namespace granary {
         );
 
 
-#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        /// Represents a table of "empty" IBL predictors.
-        static prediction_table *ibl_empty_predict_table(
-            instrumentation_policy policy
-        ) throw();
-#endif
-
-
         /// Checks to see if a return address is in the code cache. If so, it
         /// RETs to the address, otherwise it JMPs to the IBL entry routine.
         static app_pc rbl_entry_routine(

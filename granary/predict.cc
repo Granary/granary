@@ -15,6 +15,14 @@
 #define SANTIY_CHECK_PREDICT(T) \
     struct sanity_check ## T { \
         static_assert( \
+            offsetof(T, kind) == offsetof(prediction_table, kind), \
+            "The `kind` field of `" #T "` must be at the same offset of the " \
+            "`kind` field of `prediction_table`."); \
+        static_assert( \
+            offsetof(T, num_reads) == offsetof(prediction_table, num_reads), \
+            "The `num_reads` field of `" #T "` must be at the same offset of the " \
+            "`num_reads` field of `prediction_table`."); \
+        static_assert( \
             offsetof(T, entry) == sizeof(prediction_entry), \
             "The first slot of a prediction table must be at offset 16 (bytes)."); \
     };
@@ -25,8 +33,15 @@ namespace granary {
     /// Represents a prediction table that contains a single normal entry that
     /// is overwritten each time it is not matched.
     struct single_overwrite_prediction_table {
+        uint32_t num_reads;
+        uint32_t num_overwrites;
+
+        char filler[
+            sizeof(prediction_entry) - 2 * sizeof(uint32_t) - 1
+        ];
+
         prediction_table_kind kind;
-        volatile unsigned num_overwrites;
+
         prediction_entry entry __attribute__((aligned (16)));
         prediction_entry ibl_entry __attribute__((aligned (16)));
     } __attribute__((packed));
@@ -84,7 +99,12 @@ namespace granary {
     ) throw() {
         single_overwrite_prediction_table *table(
             unsafe_cast<single_overwrite_prediction_table *>(table_));
-        __sync_fetch_and_add(&(table->num_overwrites), 1);
+
+        // beware racy code below!
+        table->num_overwrites += 1;
+        table->num_reads = 0;
+
+        // TODO: race condition
         table->entry.source = source;
         table->entry.dest = dest;
         // TODO
@@ -107,6 +127,17 @@ namespace granary {
     }
 
 
+    /// Returns the default table for some IBL.
+    prediction_table *prediction_table::get_default(
+        cpu_state_handle &cpu,
+        app_pc ibl
+    ) throw() {
+        prediction_entry null_entry = {nullptr, ibl};
+        return make_single_overwrite_table(
+            cpu, &null_entry, nullptr, ibl);
+    }
+
+
     /// Instrument an indirect branch lookup that failed to match `source` to
     /// a known destination address in its current table.
     ///
@@ -117,16 +148,9 @@ namespace granary {
         app_pc source,
         app_pc dest
     ) throw() {
+        (void) cpu;
         prediction_table *table(*table_ptr);
         switch(table->kind) {
-
-        // This is a new prediction entry. We will upgrade it to a prediction
-        // table with single overwrite capabilities.
-        case PREDICT_NULL:
-            replace_table(table_ptr, table,
-                make_single_overwrite_table(
-                    cpu, &(table->entry), source, dest));
-            break;
 
         case PREDICT_SINGLE_OVERWRITE:
             update_single_overwrite_table(table_ptr, table, source, dest);

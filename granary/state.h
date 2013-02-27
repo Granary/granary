@@ -38,8 +38,10 @@ namespace granary {
 
     public:
 
+        __attribute__((hot))
         thread_state_handle(void) throw();
 
+        __attribute__((hot, always_inline))
         inline thread_state *operator->(void) throw() {
             return state;
         }
@@ -63,8 +65,10 @@ namespace granary {
 
     public:
 
+        __attribute__((hot))
         cpu_state_handle(void) throw();
 
+        __attribute__((hot, always_inline))
         inline cpu_state *operator->(void) throw() {
             return state;
         }
@@ -137,6 +141,7 @@ namespace granary {
                 MAX_SCAN_SCALE_FACTOR = 8U
             };
 
+            __attribute__((hot))
             FORCE_INLINE static uint32_t hash(const app_pc target_) throw() {
                 const uint64_t target(reinterpret_cast<uint64_t>(target_));
                 uint32_t h(target);
@@ -224,8 +229,9 @@ namespace granary {
     public:
 
         /// The fragment allocator for global gencode.
-        static static_data<bump_pointer_allocator<detail::global_fragment_allocator_config>>
-            FRAGMENT_ALLOCATOR;
+        static static_data<
+            bump_pointer_allocator<detail::global_fragment_allocator_config>
+        > FRAGMENT_ALLOCATOR;
     };
 
 

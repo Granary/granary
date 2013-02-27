@@ -51,7 +51,9 @@ namespace granary {
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        if(predict_table && ret) {
+        if(ret
+        && predict_table
+        && (*predict_table)->num_reads < prediction_table::COLD_READ_COUNT) {
             prediction_table::instrument(
                 predict_table, cpu, addr.unmangled_address(), ret);
         }

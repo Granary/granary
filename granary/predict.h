@@ -16,8 +16,7 @@ namespace granary {
 
     /// The kind of a prediction table.
     enum prediction_table_kind : uint8_t {
-        PREDICT_NULL                = 0,
-        PREDICT_SINGLE_OVERWRITE    = 1,
+        PREDICT_SINGLE_OVERWRITE,
 
         // must be reclaimed.
         PREDICT_DEAD
@@ -36,9 +35,23 @@ namespace granary {
     /// table structure
     struct prediction_table {
 
-        /// Meta information.
-        prediction_table_kind kind;
-        char meta_data[sizeof(prediction_entry) - 1];
+        /// The approximate number of reads of this prediction table by the
+        /// code.
+        uint32_t num_reads;
+
+        enum {
+            COLD_READ_COUNT = 10
+        };
+
+        /// Meta-data for
+        char meta_data[
+            sizeof(prediction_entry) - sizeof(num_reads) - 1
+        ];
+
+        /// The kind of this prediction table. (actually of type
+        /// `prediction_table_kind`).
+        uint8_t kind;
+
 
         /// The first slots in this prediction table.
         prediction_entry entry __attribute__((aligned (16)));
@@ -52,8 +65,14 @@ namespace granary {
             app_pc dest
         ) throw();
 
-    } __attribute__((packed, aligned(16)));
 
+        /// Returns the default table for some IBL.
+        static prediction_table *get_default(
+            cpu_state_handle &cpu,
+            app_pc ibl
+        ) throw();
+
+    } __attribute__((packed, aligned(16)));
 }
 
 

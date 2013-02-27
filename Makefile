@@ -19,14 +19,14 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O4
+GR_DEBUG_LEVEL = -g3 -O3
 GR_LD_FLAGS = 
 GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
-GR_CXX_FLAGS += -Wno-format-security
+GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time
 
 GR_EXTRA_CC_FLAGS ?=
 GR_EXTRA_CXX_FLAGS ?=

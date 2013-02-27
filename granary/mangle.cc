@@ -119,35 +119,8 @@ namespace granary {
 
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-
-
     static operand reg_predict_table_ptr(reg::arg2);
     static operand reg_predict_ptr(reg::rax);
-    static prediction_table PREDICT_TABLES[MAX_NUM_POLICIES];
-
-
-    STATIC_INITIALISE({
-        memset(&(PREDICT_TABLES), 0, MAX_NUM_POLICIES * sizeof(prediction_table));
-    })
-
-
-    /// Represents a table of "empty" IBL predictors. All IBL prediction tables
-    /// end with a centinel, whose `source` field is NULL. The destination
-    /// field of the centinel is the address of the handler to `jmp` to when
-    /// all entries in the table do not match. Thus, an empty prediction table
-    /// has its `dest` field as an IBL entry routine.
-    prediction_table *
-    instruction_list_mangler::ibl_empty_predict_table(
-        instrumentation_policy policy
-    ) throw() {
-
-        const unsigned policy_bits(policy.extension_bits());
-        prediction_table *table(&(PREDICT_TABLES[policy_bits]));
-        if(!table->entry.dest) {
-            table->entry.dest = ibl_entry_routine(policy);
-        }
-        return table;
-    }
 #endif
 
 
@@ -244,11 +217,14 @@ namespace granary {
         case IBL_ENTRY_JMP: {
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+
             // allocate a table pointer for this basic block. This value of this
             // table pointer can be changed at runtime by the code_cache.
             prediction_table **predict_table(cpu->block_allocator. \
                 allocate<prediction_table *>());
-            *predict_table = ibl_empty_predict_table(target_policy);
+
+            *predict_table = prediction_table::get_default(
+                cpu, ibl_entry_routine(target_policy));
 
             if(is_far_away(predict_table, estimator_pc)) {
                 in = ibl.insert_after(in, mov_imm_(reg_predict_table_ptr,
@@ -503,9 +479,12 @@ namespace granary {
         }
 
         instruction_list ibl;
+        operand access_count_field(*reg_predict_ptr);
+        access_count_field.size = dynamorio::OPSZ_4;
 
         ibl.append(push_(reg_predict_ptr));
         ibl.append(mov_ld_(reg_predict_ptr, *reg_predict_table_ptr));
+        ibl.append(inc_(access_count_field));
 
         instruction_list_handle test(ibl.append(label_()));
         instruction_list_handle miss(ibl.append(label_()));
