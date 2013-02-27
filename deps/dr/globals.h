@@ -23,7 +23,9 @@
 #define INOUT
 #define OUT
 #define INSTR_INLINE
+#define NOINLINE
 #define STANDALONE_DECODER 1
+#define AVOID_API_EXPORT
 #define LOG(a, b, c, ...)
 //printf("%s on %s:%d\n", #__VA_ARGS__, __FILE__, __LINE__)
 #define DODEBUG(...)
@@ -341,7 +343,6 @@ extern "C" {
 #include "deps/dr/types.h"
 #include "deps/dr/x86/proc.h"
 #include "deps/dr/link.h"
-#include "deps/dr/instrlist.h"
 
 extern void *heap_alloc(void *, unsigned long long);
 extern void heap_free(void *, void *, unsigned long long);

@@ -14,7 +14,7 @@
 #include "granary/register.h"
 #include "granary/hash_table.h"
 #include "granary/emit_utils.h"
-
+#include "granary/predict.h"
 
 /// Used to unroll registers in the opposite order in which they are saved
 /// by PUSHA in x86/asm_helpers.asm. This is so that we can operate on the
@@ -78,6 +78,11 @@ namespace granary {
     }
 
 
+    enum {
+        MAX_NUM_POLICIES = 1 << mangled_address::NUM_MANGLED_BITS
+    };
+
+
     /// A machine context representation for direct jump/call patches. The
     /// structure contains as much state as is saved by the direct assembly
     /// direct jump patch functions.
@@ -107,256 +112,182 @@ namespace granary {
     } __attribute__((packed));
 
 
-    /// Represents an indirect operand.
-    union indirect_operand {
-
-        // Note: order of these fields is significant. The policy_id needs to
-        //       align with the high-order bits in case the target of an
-        //       indirect CTI is loaded through an absolute memory location. If
-        //       that's the case, then the policy_id will only clobber the high
-        //       bits, which is fine.
-        struct {
-            int32_t displacement; // low
-            uint8_t base_reg;
-            uint8_t index_reg;
-            uint8_t scale;
-            uint8_t policy_bits; // high
-        } as_operand __attribute__((packed));
-
-        uint64_t as_uint;
-
-        indirect_operand(void) throw()
-            : as_uint(0UL)
-        { }
+    /// Nice names for registers used by the IBL and RBL.
+    static operand reg_target_addr(reg::arg1);
+    static operand reg_compare_addr(reg::rcx);
+    static operand reg_compare_addr_32(reg::ecx);
+    IF_IBL_PREDICT( static operand reg_predict_table_ptr(reg::arg2); )
+    IF_IBL_PREDICT( static operand reg_predict_ptr(reg::rax); )
 
 
-        /// Initialise an indirect operand (for use in operand-specific IBL
-        /// lookup) from an operand and from a policy. Care is taken to make
-        /// sure different kinds of indirect operands are distinguishable.
-        indirect_operand(operand op, instrumentation_policy policy) throw()
-            : as_uint(0UL)
-        {
-            if(dynamorio::opnd_is_abs_addr(op)
-            || dynamorio::REL_ADDR_kind == op.kind) {
-                as_uint = reinterpret_cast<uint64_t>(op.value.addr);
-
-            } else if(dynamorio::BASE_DISP_kind == op.kind) {
-                as_operand.base_reg = op.value.base_disp.base_reg;
-                as_operand.index_reg = op.value.base_disp.index_reg;
-                as_operand.scale = op.value.base_disp.scale;
-                as_operand.displacement = op.value.base_disp.disp;
-
-            } else if(dynamorio::REG_kind == op.kind) {
-                as_operand.base_reg = op.value.reg;
-                as_operand.scale = ~0; // bigger than any possible valid scale.
-                as_operand.index_reg = ~0;
-
-                // should make it unlikely to conflict with abs address kinds
-                as_operand.displacement = ~0;
-            } else {
-                FAULT;
-            }
-
-            as_operand.policy_bits = policy.extension_bits();
-        }
-    };
-
-
-    /// Represents a direct branch lookup operand that is specific to a
-    /// mangled target address and to an opcode.
-    union direct_operand {
-        app_pc as_address;
-        struct {
-            uint64_t mangled_address:56; // low
-            uint64_t op_code:8; // high
-        } __attribute__((packed)) as_op;
-    };
-
-
-    /// The operand-specific IBL entry routines.
-    static static_data<shared_hash_table<uint64_t, app_pc>> IBL_ENTRY_ROUTINE;
-
-
-    /// Hash table for managing direct branch lookup stubs.
-    static static_data<shared_hash_table<app_pc, app_pc>> DBL_ENTRY_ROUTINE;
-
-
-    /// Policy+property-specific RBL entry routines.
-    static static_data<shared_hash_table<uint8_t, app_pc>> RBL_ENTRY_ROUTINE;
-
-
-#if !GRANARY_IN_KERNEL
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+    static prediction_table PREDICT_TABLES[MAX_NUM_POLICIES];
     STATIC_INITIALISE({
-        IBL_ENTRY_ROUTINE.construct();
-        DBL_ENTRY_ROUTINE.construct();
-        RBL_ENTRY_ROUTINE.construct();
+        memset(&(PREDICT_TABLES), 0, MAX_NUM_POLICIES * sizeof(prediction_table));
     })
-#endif
 
 
-    /// Generate the tail of an IBL/RBL entry point.
-    void instruction_list_mangler::ibl_entry_tail(
-        instruction_list &ibl,
-        instrumentation_policy target_policy
+
+    /// Represents a table of "empty" IBL predictors. All IBL prediction tables
+    /// end with a centinel, whose `source` field is NULL. The destination
+    /// field of the centinel is the address of the handler to `jmp` to when
+    /// all entries in the table do not match. Thus, an empty prediction table
+    /// has its `dest` field as an IBL entry routine.
+    prediction_table *
+    instruction_list_mangler::ibl_empty_predict_table(
+        instrumentation_policy policy
     ) throw() {
 
-        // save flags / disable interrupts
-#if GRANARY_IN_KERNEL
-        ibl.append(pushf_());
-        ibl.append(cli_());
-#elif CONFIG_IBL_SAVE_ALL_FLAGS
-        ibl.append(pushf_());
-#else
-        ibl.append(lahf_());
-        ibl.append(push_(reg::rax));
-#endif
-
-        // add in the policy to the address to be looked up.
-        ibl.append(shl_(reg::arg1, int8_(mangled_address::NUM_MANGLED_BITS)));
-        ibl.append(or_(reg::arg1, int8_(target_policy.extension_bits())));
-
-        // go to the common ibl lookup routine
-#if CONFIG_TRACK_XMM_REGS
-        app_pc ibl_routine(code_cache::IBL_COMMON_ENTRY_ROUTINE);
-        if(target_policy.is_in_xmm_context()) {
-            ibl_routine = code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE;
+        const unsigned policy_bits(policy.extension_bits());
+        prediction_table *table(&(PREDICT_TABLES[policy_bits]));
+        if(!table->entry.dest) {
+            table->entry.dest = ibl_entry_routine(policy);
         }
-        ibl.append(jmp_(pc_(ibl_routine)));
-#else
-        ibl.append(jmp_(pc_(code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE)));
-#endif
+        return table;
     }
+#endif
 
 
-    /// Find or make an IBL entry routine.
-    app_pc instruction_list_mangler::ibl_entry_for(
+    /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
+    /// The purpose of the stub is to set up the registers and stack in a
+    /// canonical way for entry into the indirect branch lookup table.
+    instruction_list_handle instruction_list_mangler::ibl_entry_stub(
+        instruction_list &ibl,
+        instruction_list_handle in,
+        instrumentation_policy target_policy,
         operand target,
-        instrumentation_policy policy,
-        ibl_entry_kind kind
+        ibl_entry_kind ibl_kind
     ) throw() {
-        app_pc routine(nullptr);
-        const indirect_operand op(target, policy);
 
-        // got it; we've previously created it.
-        if(IBL_ENTRY_ROUTINE->load(op.as_uint, routine)) {
-            return routine;
-        }
+        instruction_list_handle in_ret(in);
 
-        // don't have it; go encode it.
-        instruction_list ibl;
+        bool handled_target(false);
+        int stack_offset(0);
 
-        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+        if(IBL_ENTRY_RETURN == ibl_kind) {
 
-        ibl.append(push_(reg::arg1));
+            // kernel space: exchange the return address with the target
+            if(!REDZONE_SIZE) {
+                in = ibl.insert_after(in, xchg_(*reg::rsp, reg_target_addr));
+                handled_target = true;
 
-        // omit a redundant move if possible; this also handles the case where
-        // ret == target.
-        if(dynamorio::REG_kind != target.kind) {
-
-            if(dynamorio::REL_ADDR_kind == target.kind
-            || dynamorio::opnd_is_abs_addr(target)) {
-
-                app_pc target_addr(target.value.pc);
-
-                // do an indirect load using abs address
-                if(is_far_away(target_addr, estimator_pc)) {
-                    ibl.append(mov_imm_(
-                        reg::arg1,
-                        int64_(reinterpret_cast<uint64_t>(target_addr))));
-                    ibl.append(mov_ld_(reg::arg1, reg::arg1[0]));
-
-                // directly load the indirect memory address.
-                } else {
-                    ibl.append(mov_ld_(reg::arg1, target));
-                }
-
-            // base/disp kind
-            } else if(dynamorio::BASE_DISP_kind == target.kind) {
-
-                // if it's a base/disp call, and if the offset is relative to
-                // the stack pointer, then we need to mangle the relative offset
-                // to account for the pushed return address.
-                if(IBL_ENTRY_CALL == kind
-                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg
-                && 1 >= target.value.base_disp.scale
-                && dynamorio::DR_REG_NULL == target.value.base_disp.index_reg) {
-
-                    // TODO: we will have an issue if there's a call -8(%rsp).
-                    FAULT_IF(0 > target.value.base_disp.disp);
-
-                    // push of 16 because of the pushed return address plus the
-                    // `push %rdi` above.
-                    target.value.base_disp.disp += \
-                        IF_USER_ELSE(REDZONE_SIZE + 16, 16);
-
-                } else if(IBL_ENTRY_CALL == kind
-                && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
-                    FAULT; // TODO
-                }
-
-                ibl.append(mov_ld_(reg::arg1, target));
-
+            // user space: overlay the redzone on top of the return address,
+            // and default over to our usual mechanism.
             } else {
-                FAULT;
+                stack_offset = REDZONE_SIZE - 8;
             }
 
-        // target is in a register
-        } else if(reg::arg1.value.reg != target.value.reg) {
-            ibl.append(mov_ld_(reg::arg1, target));
+        // normal user space call and jmp.
+        } else {
+            stack_offset = REDZONE_SIZE;
         }
 
-        ibl.append(push_(reg::ret));
-
-        ibl_entry_tail(ibl, policy);
-
-        routine = cpu->fragment_allocator.allocate_array<uint8_t>(
-            ibl.encoded_size());
-
-        ibl.encode(routine);
-
-        IF_PERF( perf::visit_ibl_entry(ibl); )
-
-        // try to store the entry routine.
-        if(!IBL_ENTRY_ROUTINE->store(op.as_uint, routine, HASH_KEEP_PREV_ENTRY)) {
-            cpu->fragment_allocator.free_last();
-            IBL_ENTRY_ROUTINE->load(op.as_uint, routine);
+        // Shift the stack. If this is a return in user space then we shift if
+        // by 8 bytes less than the rezone size, so that the return address
+        // itself "extends" the redzone by those 8 bytes.
+        if(!handled_target) {
+            in = ibl.insert_after(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
+            in = ibl.insert_after(in, push_(reg_target_addr));
+            stack_offset += 8;
         }
 
-        return routine;
+        in = insert_save_flags_after(ibl, in);
+        in = ibl.insert_after(in, push_(reg_compare_addr));
+        IF_IBL_PREDICT( in = ibl.insert_after(in, push_(reg_predict_table_ptr)); )
+
+        if(!handled_target) {
+            stack_offset += IF_IBL_PREDICT_ELSE(24, 16);
+
+            // if this was a call, then the stack offset was also shifted by
+            // the push of the return address
+            if(IBL_ENTRY_CALL == ibl_kind) {
+                stack_offset += 8;
+            }
+
+            // adjust the target operand if it's on the stack
+            if(dynamorio::BASE_DISP_kind == target.kind
+            && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
+                target.value.base_disp.disp += stack_offset;
+            }
+
+            // load the target address into `reg_target_addr`. This might be a
+            // normal base/disp kind, or a relative address, or an absolute
+            // address.
+            if(dynamorio::REG_kind != target.kind) {
+                if(dynamorio::REL_ADDR_kind == target.kind
+                || dynamorio::opnd_is_abs_addr(target)) {
+
+                    app_pc target_addr(target.value.pc);
+
+                    // do an indirect load using abs address
+                    if(is_far_away(target_addr, estimator_pc)) {
+                        in = ibl.insert_after(in, mov_imm_(
+                            reg_target_addr,
+                            int64_(reinterpret_cast<uint64_t>(target_addr))));
+                        target = *reg_target_addr;
+                    }
+                }
+
+                in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
+
+            // target is in a register
+            } else if(reg_target_addr.value.reg != target.value.reg) {
+                in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
+            }
+        }
+
+        switch(ibl_kind) {
+        case IBL_ENTRY_CALL:
+        case IBL_ENTRY_JMP: {
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+            // allocate a table pointer for this basic block. This value of this
+            // table pointer can be changed at runtime by the code_cache.
+            prediction_table **predict_table(cpu->block_allocator. \
+                allocate<prediction_table *>());
+            *predict_table = ibl_empty_predict_table(target_policy);
+            in = ibl.insert_after(in, mov_imm_(reg_predict_table_ptr,
+                int64_(reinterpret_cast<uint64_t>(predict_table))));
+
+            ibl.insert_after(in,
+                mangled(jmp_(pc_(ibl_predict_entry_routine()))));
+#else
+            ibl.insert_after(in,
+                mangled(jmp_(pc_(ibl_entry_routine(target_policy)))));
+#endif
+
+            break;
+        }
+        case IBL_ENTRY_RETURN:
+            ibl.insert_after(in,
+                mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
+            break;
+        }
+
+        return in_ret;
     }
 
 
-    /// Get the return address branch lookup entry for a particular policy
-    /// and its properties.
-    app_pc instruction_list_mangler::rbl_entry_for(
-        instrumentation_policy target_policy,
-        int num_bytes_to_pop
+    /// Checks to see if a return address is in the code cache. If so, it
+    /// RETs to the address, otherwise it JMPs to the IBL entry routine.
+    app_pc instruction_list_mangler::rbl_entry_routine(
+        instrumentation_policy policy
     ) throw() {
-
-        app_pc routine(nullptr);
-        const uint8_t policy_bits(target_policy.extension_bits());
-
-
-        // got it; we've previously created it.
-        if(RBL_ENTRY_ROUTINE->load(policy_bits, routine)) {
-            return routine;
+        static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
+        const uint8_t policy_bits(policy.extension_bits());
+        if(routine[policy_bits]) {
+            return routine[policy_bits];
         }
 
-        // TODO: retf (far returns)
+        // on the stack:
+        //      return address
+        //      redzone - 8             (cond. user space)
+        //      reg_target_addr         (saved: arg1)
+        //      flags
+        //      reg_compare_addr        (saved: rcx)
+        //      reg_predict_table_ptr   (cond. saved: arg2)
 
-        instruction_list rbl;
-        if(num_bytes_to_pop) {
-            rbl.append(lea_(reg::rsp, reg::rsp[num_bytes_to_pop]));
-        }
-
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES || CONFIG_ENABLE_WRAPPERS
-
-        rbl.append(push_(reg::rax));
-        rbl.append(lahf_());
-        rbl.append(push_(reg::rax)); // push on the flag clobbered rax
-        rbl.append(push_(reg::rbx));
-
-        rbl.append(mov_ld_(reg::rax, reg::rsp[3 * 8]));
+        instruction_list ibl;
 
         // the call instruction will be 8 byte aligned, and will occupy ~5bytes.
         // the subsequent jmp needed to link the basic block (which ends with
@@ -366,63 +297,238 @@ namespace granary {
         // move the return address forward, then align it back to 8 bytes and
         // expect to find the magic value which begins the basic block meta
         // info.
-        rbl.append(add_(reg::rax, int8_(16)));
-        rbl.append(and_(reg::rax, int32_(-8)));
+        ibl.append(mov_ld_(reg_compare_addr, reg_target_addr));
+        ibl.append(shr_(reg_compare_addr, int8_(4)));
+        ibl.append(shl_(reg_compare_addr, int8_(4)));
+        ibl.append(add_(reg_compare_addr, int8_(16)));
 
         // now compare for the magic value
-        rbl.append(mov_ld_(reg::eax, *reg::rax));
-        rbl.append(mov_imm_(reg::rbx, int64_(basic_block_info::HEADER)));
-        instruction_list_handle fast(rbl.append(sub_(reg::eax, reg::ebx)));
-        instruction_list_handle slow(rbl.append(label_()));
+        ibl.append(mov_ld_(reg_compare_addr, *reg_compare_addr));
 
-        // fast path: we're returning to the code cache
-        fast = rbl.insert_after(fast, jnz_(instr_(*slow)));
-        fast = rbl.insert_after(fast, pop_(reg::rbx));
-        fast = rbl.insert_after(fast, pop_(reg::rax)); // clobbered with flags
-        fast = rbl.insert_after(fast, sahf_());
-        fast = rbl.insert_after(fast, pop_(reg::rax));
-        fast = rbl.insert_after(fast, ret_());
+        ibl.append(push_(reg::rax));
+        ibl.append(mov_imm_(reg::rax, int64_(basic_block_info::HEADER)));
+        ibl.append(sub_(reg_compare_addr_32, reg::eax));
+        ibl.append(pop_(reg::rax));
 
-        // slow path: emulate an indirect branch lookup.
-        slow = rbl.insert_after(slow, pop_(reg::rbx));
-        slow = rbl.insert_after(slow, pop_(reg::rax)); // clobbered with flags
-        slow = rbl.insert_after(slow, sahf_());
+        instruction_list_handle slow(ibl.append(label_()));
+        instruction_list_handle fast(slow);
+        ibl.insert_before(fast, jnz_(instr_(*slow)));
 
-#   if !GRANARY_IN_KERNEL
-        slow = rbl.insert_after(slow, pop_(reg::rax));
-        slow = rbl.insert_after(slow, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
-        slow = rbl.insert_after(slow, push_(reg::rax));
-#   endif
-#else
-#   if !GRANARY_IN_KERNEL
-        instruction_list_handle slow(rbl.append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])));
-        slow = rbl.insert_after(slow, push_(reg::rax));
-#   else
-        instruction_list_handle slow(rbl.append(push_(reg::rax)));
-#   endif
-#endif
+        // fast path: they are equal
+        IF_IBL_PREDICT( ibl.insert_before(fast, pop_(reg_predict_table_ptr)); )
+        ibl.insert_before(fast, pop_(reg_compare_addr));
+        insert_restore_flags_after(ibl, fast.prev());
+        ibl.insert_before(fast, pop_(reg_target_addr));
 
-        slow = rbl.insert_after(slow,
-            mov_ld_(reg::rax, reg::rsp[IF_USER_ELSE(REDZONE_SIZE + 8, 8)]));
-        slow = rbl.insert_after(slow, mov_st_(reg::rsp[8], reg::rdi));
-        slow = rbl.insert_after(slow, mov_st_(reg::rdi, reg::rax));
+        // restore redzone
+        IF_USER( ibl.insert_before(fast,
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
 
-        ibl_entry_tail(rbl, target_policy);
+        ibl.insert_before(fast, ret_());
 
-        routine = cpu->fragment_allocator.allocate_array<uint8_t>(
-            rbl.encoded_size());
-        rbl.encode(routine);
+        // slow path: return address is not in code cache; go off to the IBL.
+        IF_IBL_PREDICT( ibl.append(
+            xor_(reg_predict_table_ptr, reg_predict_table_ptr)); )
+        ibl.append(jmp_(pc_(ibl_entry_routine(policy))));
 
-        IF_PERF( perf::visit_rbl(rbl); )
-
-        // try to store the entry routine.
-        if(!RBL_ENTRY_ROUTINE->store(policy_bits, routine, HASH_KEEP_PREV_ENTRY)) {
-            cpu->fragment_allocator.free_last();
-            RBL_ENTRY_ROUTINE->load(policy_bits, routine);
+        // quick double check ;-)
+        if(routine[policy_bits]) {
+            return routine[policy_bits];
         }
 
+        // encode
+        app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>( ibl.encoded_size()));
+        ibl.encode(temp);
+        routine[policy_bits] = temp;
+        return temp;
+    }
+
+
+    /// Address of the CPU-private code cache lookup function.
+    static app_pc cpu_private_code_cache_find(unsafe_cast<app_pc>(
+        (app_pc (*)(
+            mangled_address,
+            prediction_table **
+        )) code_cache::find_on_cpu
+    ));
+
+
+    /// Address of the global code cache lookup function.
+    static app_pc global_code_cache_find(unsafe_cast<app_pc>(
+        (app_pc (*)(mangled_address)) code_cache::find));
+
+
+    /// Return the IBL entry routine. The IBL entry routine is responsible
+    /// for looking to see if an address (stored in reg::arg1) is located
+    /// in the CPU-private code cache or in the global code cache. If the
+    /// address is in the CPU-private code cache, and if IBL prediction is
+    /// enabled, then the CPU-private lookup function might add a prediction
+    /// entry to the CTI.
+    app_pc instruction_list_mangler::ibl_entry_routine(
+        instrumentation_policy policy
+    ) throw() {
+        static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
+        const uint8_t policy_bits(policy.extension_bits());
+        if(routine[policy_bits]) {
+            return routine[policy_bits];
+        }
+
+        // on the stack:
+        //      redzone
+        //      reg_target_addr         (saved: arg1)
+        //      flags
+        //      reg_compare_addr        (saved: rcx)
+        //      reg_predict_table_ptr   (cond. saved: arg2)
+
+        instruction_list ibl;
+
+        // mangle the target address with the policy. This corresponds to the
+        // `mangled_address` argument to the `code_cache::find*` functions.
+        ibl.append(shl_(reg_target_addr, int8_(8)));
+        ibl.append(add_(reg_target_addr, int8_(policy_bits)));
+
+        // save all registers for the IBL.
+        register_manager all_regs;
+        all_regs.kill_all();
+        all_regs.revive(reg_target_addr);
+        all_regs.revive(reg_compare_addr);
+        IF_IBL_PREDICT( all_regs.revive(reg_predict_table_ptr); )
+
+        // create a "safe" region of code around which all registers are saved
+        // and restored.
+        instruction_list_handle safe(
+            save_and_restore_registers(all_regs, ibl, ibl.last()));
+        if(policy.is_in_xmm_context()) {
+            safe = save_and_restore_xmm_registers(
+                all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
+        }
+
+        // save the target on the stack so that if the register is clobbered by
+        // the CPU-private lookup function then we can recall it for the global
+        // lookup.
+        safe = ibl.insert_after(safe, push_(reg_target_addr));
+
+        // align the stack to a 16 byte boundary before the call.
+        safe = insert_align_stack_after(ibl, safe);
+
+        // fast path: try to find the address in the CPU-private code cache.
+        safe = insert_cti_after(
+            ibl, safe, cpu_private_code_cache_find, true, reg::rax, CTI_CALL);
+        safe = insert_restore_old_stack_alignment_after(ibl, safe);
+        safe = ibl.insert_after(safe, pop_(reg_target_addr));
+        safe = ibl.insert_after(safe, test_(reg::ret, reg::ret));
+
+        instruction_list_handle safe_fast(ibl.insert_after(safe, label_()));
+
+        safe = ibl.insert_after(safe, jnz_(instr_(*safe_fast)));
+
+        // slow path: do a global code cache lookup
+        safe = insert_align_stack_after(ibl, safe);
+        safe = insert_cti_after(
+            ibl, safe, global_code_cache_find, true, reg::rax, CTI_CALL);
+        safe = insert_restore_old_stack_alignment_after(ibl, safe);
+
+        // fast path, and fall-through of slow path: move the returned target
+        // address into `reg_target_addr` (`reg::arg1`)
+        ibl.insert_after(safe_fast, mov_ld_(reg_target_addr, reg::ret));
+
+        // jump to the target. The target in this case is an IBL exit routine,
+        // which is responsible for cleaning up the stack.
+        ibl.append(jmp_ind_(reg_target_addr));
+
+        // encode
+        app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>( ibl.encoded_size()));
+        ibl.encode(temp);
+        routine[policy_bits] = temp;
+        return temp;
+    }
+
+
+    /// Return or generate the IBL exit routine for a particular jump target.
+    /// The target can either be code cache or native code.
+    app_pc instruction_list_mangler::ibl_exit_routine(
+        app_pc target_pc
+    ) {
+        // on the stack:
+        //      redzone
+        //      reg_target_addr         (saved: arg1)
+        //      flags
+        //      reg_compare_addr        (saved: rcx)
+        //      reg_predict_table_ptr   (cond. saved: arg2)
+
+        instruction_list ibl;
+        IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
+        ibl.append(pop_(reg_compare_addr));
+        insert_restore_flags_after(ibl, ibl.last());
+        ibl.append(pop_(reg_target_addr));
+        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+        insert_cti_after(ibl, ibl.last(), target_pc, false, operand(), CTI_JMP);
+
+        app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
+            ibl.encoded_size()));
+        ibl.encode(routine);
         return routine;
     }
+
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+    /// Return the IBL entry routine that first looks in a prediction table
+    /// for its target address. On failing this, it falls over to the last
+    /// entry in the table, whose destination (`dest`) field is the address
+    /// of the corresponding IBL entry routine, or a specialized entry
+    /// routine.
+    app_pc instruction_list_mangler::ibl_predict_entry_routine(void) throw() {
+        // on the stack:
+        //      redzone
+        //      reg_target_addr         (saved: arg1)
+        //      flags
+        //      reg_compare_addr        (saved: rcx)
+        //      reg_predict_table_ptr   (saved: arg2)
+
+        static app_pc routine(nullptr);
+        if(routine) {
+            return routine;
+        }
+
+        instruction_list ibl;
+
+        ibl.append(push_(reg_predict_ptr));
+        ibl.append(mov_ld_(reg_predict_ptr, *reg_predict_table_ptr));
+
+        instruction_list_handle test(ibl.append(label_()));
+        instruction_list_handle miss(ibl.append(label_()));
+        instruction_list_handle hit_or_fail(ibl.append(label_()));
+
+        // on the first iteration, the LEA will skip the prediction table
+        // header and go right for the first slot; subsequent iterations
+        // will skip over individual slots.
+        ibl.insert_before(miss, lea_(reg_predict_ptr, reg_predict_ptr[16]));
+        ibl.insert_before(miss, mov_ld_(reg_compare_addr, *reg_predict_ptr));
+        ibl.insert_before(miss, jecxz_(instr_(*miss)));
+        ibl.insert_before(miss, xor_(reg_compare_addr, reg_target_addr));
+        ibl.insert_before(miss, jnz_(instr_(*test)));
+
+        // Note: in both the hit and fail cases, we want to maintain the values
+        //       of `reg_target_addr` and `reg_predict_table_ptr` so that we
+        //       can do race-prone modifications of the lookup table that still
+        //       maintain semantic correctness.
+
+        // fall through: found a match. This will jmp to the IBL exit routine,
+        // leaving the stack as the IBL predict routine received it.
+        ibl.insert_before(hit_or_fail, mov_ld_(reg_compare_addr, reg_predict_ptr[8]));
+        ibl.insert_before(hit_or_fail, pop_(reg_predict_ptr));
+        ibl.insert_before(hit_or_fail, jmp_ind_(reg_compare_addr));
+
+        // encode
+        app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>( ibl.encoded_size()));
+        ibl.encode(temp);
+        routine = temp;
+        return temp;
+    }
+#endif
 
 
     /// Injects N bytes of NOPs into an instuction list after a specific
@@ -555,7 +661,6 @@ namespace granary {
             }
 
             ls.append(in);
-
             if(dynamorio::OP_ret == in.op_code()) {
                 break;
             }
@@ -611,32 +716,26 @@ namespace granary {
     }
 
 
+    /// Nice names for registers used by the DBL.
+    static operand reg_mangled_addr(reg::rax);
+
+
     /// Get or build the direct branch lookup (DBL) routine for some jump/call
     /// target.
-    app_pc instruction_list_mangler::dbl_entry_for(
+    app_pc instruction_list_mangler::dbl_entry_routine(
         instrumentation_policy target_policy,
         instruction_list_handle in,
         mangled_address am
     ) throw() {
-
-        direct_operand op;
-        const unsigned op_code(in->op_code());
-        op.as_address = am.as_address;
-        op.as_op.op_code = op_code;
-
-        app_pc routine(nullptr);
-        if(DBL_ENTRY_ROUTINE->load(op.as_address, routine)) {
-            return routine;
-        }
 
         // add in the patch code, change the initial behaviour of the
         // instruction, and mark it has hot patchable so it is nicely aligned.
 #if CONFIG_TRACK_XMM_REGS
         app_pc patcher_for_opcode(nullptr);
         if(target_policy.is_in_xmm_context()) {
-            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(op_code);
+            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(in->op_code());
         } else {
-            patcher_for_opcode = get_direct_cti_patch_func(op_code);
+            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
         }
 #else
         (void) target_policy;
@@ -650,29 +749,26 @@ namespace granary {
         //       can be reclaimed (especially since every patch stub will
         //       have the same size!).
 
+        // TODO: these patch stubs represent a big memory leak!
+
         // store the policy-mangled target on the stack;
         //
         // Note: enough space to hold the mangled address will already have
         //       been made available below the return address.
-        ls.append(push_(reg::rax));
-        ls.append(mov_imm_(reg::rax, int64_(am.as_int)));
-        ls.append(mov_st_(reg::rsp[16], reg::rax));
-        ls.append(pop_(reg::rax)); // restore
+        ls.append(push_(reg_mangled_addr));
+        ls.append(mov_imm_(reg_mangled_addr, int64_(am.as_int)));
+        ls.append(mov_st_(reg::rsp[16], reg_mangled_addr));
+        ls.append(pop_(reg_mangled_addr)); // restore
 
         // tail-call out to the patcher/mangler.
         ls.append(mangled(jmp_(pc_(patcher_for_opcode))));
 
-        routine = cpu->fragment_allocator.allocate_array<uint8_t>(
-            ls.encoded_size());
+        app_pc routine(cpu->fragment_allocator.allocate_array<uint8_t>(
+            ls.encoded_size()));
 
         ls.encode(routine);
 
         IF_PERF( perf::visit_dbl(ls); )
-
-        if(!DBL_ENTRY_ROUTINE->store(op.as_address, routine, HASH_KEEP_PREV_ENTRY)) {
-            cpu->fragment_allocator.free_last();
-            DBL_ENTRY_ROUTINE->load(op.as_address, routine);
-        }
 
         return routine;
     }
@@ -681,19 +777,22 @@ namespace granary {
     /// Make a direct CTI patch stub. This is used both for mangling direct CTIs
     /// and for emulating policy inheritance/scope when transparent return
     /// addresses are used.
-    void instruction_list_mangler::direct_cti_patch_stub(
+    instruction_list_handle instruction_list_mangler::dbl_entry_stub(
         instruction_list &patch_ls,
         instruction_list_handle patch,
         instruction_list_handle patched_in,
         app_pc dbl_routine
     ) throw() {
+        instruction_list_handle ret_patch(patch);
+
         IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
 
-        // deal with the red zone and the policy-mangled address left on
-        // the stack.
+        // We add REDZONE_SIZE + 8 because we make space for the policy-mangled
+        // address. The
         patch = patch_ls.insert_after(patch,
             lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
-        patch = patch_ls.insert_after(patch, mangled(call_(pc_(dbl_routine))));
+        patch = patch_ls.insert_after(patch,
+            mangled(call_(pc_(dbl_routine))));
         patch = patch_ls.insert_after(patch,
             lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
 
@@ -706,12 +805,16 @@ namespace granary {
         patch_ls.insert_after(patch, mangled(jmp_(instr_(*patched_in))));
 
         IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
+
+        return ret_patch;
     }
 
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
     /// Emulate the push of a function call's return address onto the stack.
     /// This will also pre-populate the code cache so that correct policy
     /// resolution is emulated for transparent return addresses.
+    ///
+    /// TODO: doesn't handle case of `call -8(%rsp)`.
     void instruction_list_mangler::emulate_call_ret_addr(
         instruction_list_handle in,
         instrumentation_policy target_policy
@@ -731,10 +834,10 @@ namespace granary {
         instruction_list trampoline;
         instruction_list_handle conn(trampoline.append(
             jmp_(pc_(return_address))));
-        app_pc dbl_routine(dbl_entry_for(policy, conn, am));
+        app_pc dbl_routine(dbl_entry_routine(policy, conn, am));
         instruction_list_handle patch(trampoline.append(label_()));
 
-        direct_cti_patch_stub(trampoline, patch, conn, dbl_routine);
+        dbl_entry_stub(trampoline, patch, conn, dbl_routine);
 
         // because `conn` is the first instruction in the routine, it will
         // inherit the 16-byte alignment from the allocator. Thus, we need to
@@ -772,8 +875,10 @@ namespace granary {
     /// direct branch handler.
     void instruction_list_mangler::mangle_direct_cti(
         instruction_list_handle in,
-        operand target
+        operand target,
+        instrumentation_policy target_policy
     ) throw() {
+
 #if CONFIG_ENABLE_WRAPPERS
         app_pc detach_target_pc(target.value.pc);
 
@@ -801,16 +906,8 @@ namespace granary {
 
             return;
         }
-#endif
 
-        // policy inheritance for the target basic block.
-        instrumentation_policy target_policy(in->policy());
-        if(!target_policy) {
-            target_policy = policy;
-        }
-        target_policy.inherit_properties(policy);
-
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
+#elif CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // when emulating functions (for transparent return addresses), we
         // convert the call to a jmp here so that the dbl picks up OP_jmp as
         // the instruction instead of OP_call.
@@ -828,11 +925,14 @@ namespace granary {
 
         // set the policy-fied target
         mangled_address am(target, target_policy.base_policy());
-        instruction_list_handle patch(ls->prepend(label_()));
-        app_pc dbl_routine(dbl_entry_for(target_policy, in, am));
 
-        direct_cti_patch_stub(*ls, patch, in, dbl_routine);
-        *in = patchable(mangled(jmp_(instr_(*patch))));
+        *in = patchable(mangled(
+            jmp_(instr_(*dbl_entry_stub(
+                *ls,                                     // list to patch
+                ls->prepend(label_()),                   // patch label
+                in,                                      // patched instruction
+                dbl_entry_routine(target_policy, in, am) // target of stub
+            )))));
 
         const unsigned new_size(in->encoded_size());
 
@@ -846,20 +946,9 @@ namespace granary {
     /// Mangle an indirect control transfer instruction.
     void instruction_list_mangler::mangle_indirect_cti(
         instruction_list_handle in,
-        operand target
+        operand target,
+        instrumentation_policy target_policy
     ) throw() {
-
-        instrumentation_policy target_policy(in->policy());
-        if(!target_policy) {
-            target_policy = policy;
-        }
-
-        // convert the policy into an IBL policy.
-        instrumentation_policy target_policy_ibl(policy.indirect_cti_policy());
-        target_policy_ibl.inherit_properties(policy);
-
-        // start by looking for the target in a slot.
-        //ls->append(label_());
 
         // mark indirect calls as hot-patchable (even though they won't be
         // patched) so that they are automatically aligned to an 8-byte boundary
@@ -869,39 +958,78 @@ namespace granary {
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
         if(in->is_call()) {
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES && !CONFIG_ENABLE_WRAPPERS
+            instruction (*cti_)(dynamorio::opnd_t) = call_;
+
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
             emulate_call_ret_addr(in, target_policy);
-            *in = mangled(
-                jmp_(pc_(ibl_entry_for(
-                    target, target_policy_ibl, IBL_ENTRY_CALL))));
-#else
-            *in = patchable(mangled(
-                call_(pc_(ibl_entry_for(
-                    target, target_policy_ibl, IBL_ENTRY_CALL)))));
+            cti_ = jmp_;
 #endif
+
+            *in = patchable(mangled(cti_(instr_(*ibl_entry_stub(
+                *ls,
+                ls->prepend(label_()),
+                target_policy,
+                target,
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
+                IBL_ENTRY_JMP
+#else
+                IBL_ENTRY_CALL
+#endif
+            )))));
 
         } else if(in->is_return()) {
             // TODO: handle RETn/RETf with a byte count.
-            *in = mangled(jmp_(pc_(rbl_entry_for(target_policy_ibl, 0))));
+            *in = mangled(jmp_(instr_(*ibl_entry_stub(
+                *ls,
+                ls->prepend(label_()),
+                target_policy,
+                target,
+                IBL_ENTRY_RETURN
+            ))));
 
         } else {
-            *in = mangled(jmp_(pc_(ibl_entry_for(
-                target, target_policy_ibl, IBL_ENTRY_JMP))));
+            *in = mangled(jmp_(instr_(*ibl_entry_stub(
+                *ls,
+                ls->prepend(label_()),
+                target_policy,
+                target,
+                IBL_ENTRY_JMP
+            ))));
         }
     }
 
 
+    /// Mangle a control-transfer instruction. This handles both direct and
+    /// indirect CTIs.
     void instruction_list_mangler::mangle_cti(
         instruction_list_handle in
     ) throw() {
+
+        instrumentation_policy target_policy(in->policy());
+        if(!target_policy) {
+            target_policy = policy;
+        }
+
+        // convert the policy into an IBL policy.
+        instrumentation_policy target_policy_ibl(policy);
+        target_policy_ibl.inherit_properties(policy);
+
         if(in->is_return()) {
-            mangle_indirect_cti(in, operand());
+            mangle_indirect_cti(
+                in,
+                operand(*reg::rsp),
+                target_policy.indirect_cti_policy()
+            );
         } else {
             operand target(in->cti_target());
             if(dynamorio::opnd_is_pc(target)) {
-                mangle_direct_cti(in, target);
+                mangle_direct_cti(in, target, target_policy);
             } else if(!dynamorio::opnd_is_instr(target)) {
-                mangle_indirect_cti(in, target);
+                mangle_indirect_cti(
+                    in,
+                    target,
+                    target_policy.indirect_cti_policy()
+                );
             }
         }
     }
@@ -1269,10 +1397,12 @@ namespace granary {
     instruction_list_mangler::instruction_list_mangler(
         cpu_state_handle &cpu_,
         thread_state_handle &thread_,
+        basic_block_state *bb_,
         instrumentation_policy &policy_
     ) throw()
         : cpu(cpu_)
         , thread(thread_)
+        , bb(bb_)
         , policy(policy_)
         , ls(nullptr)
         , estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>())

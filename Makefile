@@ -19,8 +19,8 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -O3 -g3
-# -g3 -O0
+GR_DEBUG_LEVEL = -g0 -O3
+#-g3 -O0
 GR_LD_FLAGS = 
 GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
@@ -96,7 +96,6 @@ GR_CXX_FLAGS += $(GR_CXX_STD)
 GR_OBJS = 
 
 # DynamoRIO dependencies
-GR_OBJS += bin/deps/dr/instrlist.o
 GR_OBJS += bin/deps/dr/dcontext.o
 GR_OBJS += bin/deps/dr/x86/instr.o
 GR_OBJS += bin/deps/dr/x86/decode.o
@@ -105,7 +104,6 @@ GR_OBJS += bin/deps/dr/x86/decode_table.o
 GR_OBJS += bin/deps/dr/x86/encode.o
 GR_OBJS += bin/deps/dr/x86/mangle.o
 GR_OBJS += bin/deps/dr/x86/proc.o
-GR_OBJS += bin/deps/dr/x86/instrument.o
 GR_OBJS += bin/deps/dr/x86/x86.o
 
 # MurmurHash3 dependencies
@@ -124,6 +122,7 @@ GR_OBJS += bin/granary/hash_table.o
 GR_OBJS += bin/granary/cpu_code_cache.o
 GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/policy.o
+GR_OBJS += bin/granary/predict.o
 GR_OBJS += bin/granary/perf.o
 GR_OBJS += bin/granary/init.o
 
@@ -183,7 +182,7 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/tests/test_mat_mul.o
 	GR_OBJS += bin/tests/test_md5.o
 	GR_OBJS += bin/tests/test_sigsetjmp.o
-	GR_OBJS += bin/tests/test_pthreads.o
+	#GR_OBJS += bin/tests/test_pthreads.o
 
 	# figure out how to link in various libraries that might be OS-specific
 	GR_LD_SPECIFIC = -pthread -lrt

@@ -66,13 +66,95 @@ extern "C" {
 namespace granary {
 
     static void debug_bb(app_pc *ret_addr, bool in_xmm_context) throw() {
-        granary::basic_block bb(*ret_addr);
+        basic_block bb(*ret_addr);
         printf("bb native_pc = %p instrumented_pc = %p in xmm context = %d\n",
             bb.info->generating_pc,
             bb.cache_pc_start + (in_xmm_context ? 329 : 98),
             in_xmm_context);
         (void) ret_addr;
     }
+
+#if 0
+    static const char *reg_names[] = {
+        "NULL",
+        "RAX",
+        "RCX",
+        "RDX",
+        "RBX",
+        "RSP",
+        "RBP",
+        "RSI",
+        "RDI",
+        "R8",
+        "R9",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15"
+    };
+
+
+    template <dynamorio::reg_id_t reg_of_interest>
+    static void print_reg_value(uint64_t new_val) throw() {
+        printf("new value of %s is 0x%lx\n", reg_names[reg_of_interest], new_val);
+    }
+
+
+    template <dynamorio::reg_id_t reg_of_interest>
+    static void track_register(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw() {
+        register_manager all_regs;
+        all_regs.revive_all();
+        all_regs.visit(*in);
+
+        bool reg_is_dead(false);
+        for(;;) {
+            dynamorio::reg_id_t dead_reg(all_regs.get_zombie());
+            if(!dead_reg) {
+                break;
+            }
+
+            if(dead_reg == reg_of_interest) {
+                reg_is_dead = true;
+                break;
+            }
+        }
+
+        if(!reg_is_dead) {
+            return;
+        }
+
+        all_regs.kill_all();
+
+        IF_USER( in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+        in = insert_save_flags_after(ls, in);
+
+        instruction_list_handle after_regs(ls.insert_after(in, label_()));
+
+        // save register state
+        in = save_and_restore_registers(all_regs, ls, in);
+        in = save_and_restore_xmm_registers(all_regs, ls, in, XMM_SAVE_UNALIGNED);
+        in = ls.insert_after(in, mov_ld_(reg::arg1, operand(reg_of_interest)));
+        in = insert_align_stack_after(ls, in);
+        in = insert_cti_after(
+            ls,
+            in,
+            (app_pc) print_reg_value<reg_of_interest>,
+            false,
+            operand(),
+            CTI_CALL
+        );
+
+        in = insert_restore_old_stack_alignment_after(ls, in);
+
+        in = insert_restore_flags_after(ls, after_regs);
+        IF_USER( in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+    }
+#endif
 
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_basic_block(
@@ -81,6 +163,14 @@ namespace granary {
         basic_block_state &,
         instruction_list &ls
     ) throw() {
+#if 0
+        instruction_list_handle in(ls.first());
+        instruction_list_handle next;
+        for(; in.is_valid(); in = next) {
+            next = in.next();
+            track_register<dynamorio::DR_REG_RDI>(ls, in);
+        }
+#endif
 #if 0
         register_manager all_regs;
         all_regs.kill_all();

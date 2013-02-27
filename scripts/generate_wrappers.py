@@ -234,7 +234,7 @@ def wrap_function(ctype, orig_ctype, func):
   if ctype.is_variadic:
     O("    va_end(args__);")
 
-  O("    granary::printf(\"function_wrapper(%s) %s\\n\");" % (func, special and "*" or ""))
+  O("    D( granary::printf(\"function_wrapper(%s) %s\\n\"); )" % (func, special and "*" or ""))
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_WRAP(", r_v, ");")
@@ -412,6 +412,7 @@ if "__main__" == __name__:
       pass
 
     OUT("/* Auto-generated wrappers. */")
+    OUT("#define D(...) ")
     for var, ctype in parser.vars():
       if var not in ignore_set and var.startswith("v"):
         visit_possible_variadic_def(var, ctype.base_type(), va_list)

@@ -17,11 +17,23 @@
 #endif
 
 
+#ifndef GRANARY_IN_KERNEL
+#   define GRANARY_IN_KERNEL 0
+#endif
+
+
+/// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch
+/// prediction" to try to reduce the cost of looking things up in the CPU
+/// private hash table. If IBL entry stubs are not used, then generic IBL
+/// entries are used.
+#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
+
+
 /// Enable performance counters and reporting. Performance counters measure
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -67,7 +79,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 0
+#define CONFIG_IBL_SAVE_ALL_FLAGS 1
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
@@ -151,7 +163,13 @@ namespace granary {
         /// Maximum wrapping depths
         MAX_PRE_WRAP_DEPTH = CONFIG_MAX_PRE_WRAP_DEPTH,
         MAX_POST_WRAP_DEPTH = CONFIG_MAX_POST_WRAP_DEPTH,
-        MAX_RETURN_WRAP_DEPTH = CONFIG_MAX_RETURN_WRAP_DEPTH
+        MAX_RETURN_WRAP_DEPTH = CONFIG_MAX_RETURN_WRAP_DEPTH,
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+        MAX_IBL_PREDICT_SLOTS = 4,
+#endif
+
+        __end_globals
     };
 
     enum {

@@ -34,14 +34,20 @@ namespace granary {
 
         /// Find fast. This looks in the cpu-private cache first, and failing
         /// that, defaults to the global code cache.
-        static app_pc find_on_cpu(mangled_address addr) throw()
-            __attribute__((hot, flatten));
+        __attribute__((hot, flatten))
+        static app_pc find_on_cpu(
+            mangled_address addr,
+            prediction_table **IF_IBL_PREDICT(predict_table)
+        ) throw();
+
 
         /// Perform both lookup and insertion (basic block translation) into
         /// the code cache.
         GRANARY_ENTRYPOINT
         __attribute__((hot))
-        inline static app_pc find(mangled_address addr) throw() {
+        inline static app_pc find(
+            mangled_address addr
+        ) throw() {
             cpu_state_handle cpu;
             thread_state_handle thread;
             enter(cpu, thread);
@@ -71,8 +77,8 @@ namespace granary {
         ) throw();
 
         /// Initialise the indirect branch lookup routine.
-        static void init_ibl(app_pc &, bool) throw();
-        static app_pc ibl_exit_for(app_pc) throw();
+        //static void init_ibl(app_pc &, bool) throw();
+        //static app_pc ibl_exit_for(app_pc) throw();
 
         /// Force add an entry into the code cache.
         static void add(app_pc, app_pc) throw();

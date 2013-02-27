@@ -8,6 +8,7 @@
 #include "granary/emit_utils.h"
 #include "granary/hash_table.h"
 #include "granary/list.h"
+#include "granary/state.h"
 
 namespace granary {
 
@@ -132,6 +133,118 @@ namespace granary {
             ls.insert_after(window_bottom, lea_(reg::rsp, reg::rsp[disp]));
         }
 
+        return in;
+    }
+
+
+    /// Add a call to a known function after a particular instruction in the
+    /// instruction stream. If the location of the function to be called is
+    /// too far away then a specified register is clobbered with the target pc,
+    /// and an indirect jump is performed. If no clobber register is available
+    /// then an indirect jump slot is allocated and used.
+    instruction_list_handle insert_cti_after(
+        instruction_list &ls,
+        instruction_list_handle in,
+        app_pc target,
+        bool has_clobber_reg,
+        operand clobber_reg,
+        cti_kind kind
+    ) throw() {
+
+        instruction (*cti_)(dynamorio::opnd_t);
+        instruction (*cti_ind_)(dynamorio::opnd_t);
+
+        if(CTI_CALL == kind) {
+            cti_ = call_;
+            cti_ind_ = call_ind_;
+        } else {
+            cti_ = jmp_;
+            cti_ind_ = jmp_ind_;
+        }
+
+        // start with a staged allocation that should be close enough
+        app_pc staged_loc(
+            global_state::FRAGMENT_ALLOCATOR->allocate_staged<uint8_t>());
+
+        // add in the indirect call to the find on CPU function
+        if(is_far_away(staged_loc, target)) {
+
+            if(has_clobber_reg) {
+                in = ls.insert_after(in,
+                    mov_imm_(clobber_reg,
+                        int64_(unsafe_cast<int64_t>(target))));
+                in = ls.insert_after(in, cti_ind_(clobber_reg));
+            } else {
+                app_pc *slot(global_state::FRAGMENT_ALLOCATOR->allocate<app_pc>());
+                *slot = target;
+                in = ls.insert_after(in, cti_ind_(mem_pc_(slot)));
+            }
+
+        // add in a direct, pc relative call.
+        } else {
+            in = ls.insert_after(in, cti_(pc_(target)));
+        }
+
+        return in;
+    }
+
+
+    /// Add the instructions to save the flags onto the top of the stack.
+    instruction_list_handle insert_save_flags_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw() {
+#if GRANARY_IN_KERNEL
+        in = ls.insert_after(in, pushf_());
+        in = ls.insert_after(in, cli_());
+#elif CONFIG_IBL_SAVE_ALL_FLAGS
+        in = ls.insert_after(in, pushf_());
+#else
+        in = ls.insert_after(in, push_(reg::rax));
+        in = ls.insert_after(in, lahf_());
+        in = ls.insert_after(in, xchg_(*reg::rsp, reg::rax));
+#endif
+        return in;
+    }
+
+
+    /// Add the instructions to restore the flags from the top of the stack.
+    instruction_list_handle insert_restore_flags_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw() {
+#if GRANARY_IN_KERNEL
+        in = ls.insert_after(in, popf_());
+#elif CONFIG_IBL_SAVE_ALL_FLAGS
+        in = ls.insert_after(in, popf_());
+#else
+        in = ls.insert_after(in, xchg_(*reg::rsp, reg::rax));
+        in = ls.insert_after(in, sahf_());
+        in = ls.insert_after(in, pop_(reg::rax));
+#endif
+        return in;
+    }
+
+
+    /// Add instructions to align the stack (to the top of the stack) to a 16
+    /// byte boundary.
+    instruction_list_handle insert_align_stack_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw() {
+        in = ls.insert_after(in, push_(reg::rsp));
+        in = ls.insert_after(in, push_(reg::rsp[0]));
+        in = ls.insert_after(in, and_(reg::rsp, int8_(-16)));
+        return in;
+    }
+
+
+    /// Add instructions to restore the stack's previous alignment.
+    instruction_list_handle insert_restore_old_stack_alignment_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw() {
+        in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
         return in;
     }
 }

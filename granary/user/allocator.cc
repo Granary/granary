@@ -139,11 +139,13 @@ extern "C" {
 #ifdef GRANARY_USE_PIC
     extern "C" {
         extern void _Znwm(void) throw();
+        extern void _Znam(void) throw();
         extern void _ZdlPv(void) throw();
     }
 
     /// Make sure that the global operator new/delete are detach points.
     GRANARY_DETACH_POINT(_Znwm) // operator new
+    GRANARY_DETACH_POINT(_Znam) // operator new[]
     GRANARY_DETACH_POINT(_ZdlPv) // operator delete
 #endif
 

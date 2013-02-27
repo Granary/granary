@@ -288,7 +288,7 @@ namespace granary {
         struct {
             uint8_t policy_properties:PROPERTY_NUM_BITS; // low
             uint8_t policy_id:POLICY_NUM_BITS;
-            uint64_t _:(64 - POLICY_NUM_BITS); // high
+            uint64_t _:(64 - (POLICY_NUM_BITS + PROPERTY_NUM_BITS)); // high
         } as_policy_address __attribute__((packed));
 
     public:
@@ -311,6 +311,10 @@ namespace granary {
         app_pc unmangled_address(void) const throw();
 
     } __attribute__((packed));
+
+
+    static_assert(8 == sizeof(mangled_address),
+        "`granary::mangled_address` is too big.");
 
 
     /// Gets us the policy for some client policy type.

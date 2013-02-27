@@ -30,7 +30,6 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
     // either 8 or 16-byte aligned.
     push %rsp
     push (%rsp)
-
     and $-0x10, %rsp
 
     PUSHA_XMM
@@ -70,7 +69,6 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     // either 8 or 16-byte aligned.
     push %rsp
     push (%rsp)
-
     and $-0x10, %rsp
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`

@@ -46,14 +46,6 @@ namespace granary {
             }
         }
 
-        // initialise the ibl entry routines.
-#if CONFIG_TRACK_XMM_REGS
-        code_cache::init_ibl(
-            code_cache::IBL_COMMON_ENTRY_ROUTINE, false);
-#endif
-        code_cache::init_ibl(
-            code_cache::XMM_SAFE_IBL_COMMON_ENTRY_ROUTINE, true);
-
         // initialise for kernel or user space.
         IF_KERNEL(init_kernel());
         IF_USER(init_user());

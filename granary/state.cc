@@ -27,4 +27,5 @@ namespace granary {
         global_state::FRAGMENT_ALLOCATOR.construct();
     })
 #endif
+
 }

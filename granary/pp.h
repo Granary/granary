@@ -56,6 +56,16 @@
 #   define IF_USER_ELSE(x, y) x
 #endif
 
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+#   define IF_IBL_PREDICT(...) __VA_ARGS__
+#   define IF_IBL_PREDICT_ELSE(a, b) a
+#   define _IF_IBL_PREDICT(...) , __VA_ARGS__
+#else
+#   define IF_IBL_PREDICT(...)
+#   define IF_IBL_PREDICT_ELSE(a, b) b
+#   define _IF_IBL_PREDICT(...)
+#endif
+
 #if CONFIG_ENABLE_PERF_COUNTS
 #   define IF_PERF(...) __VA_ARGS__
 #else

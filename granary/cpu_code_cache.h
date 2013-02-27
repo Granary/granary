@@ -18,7 +18,7 @@ namespace granary {
     public:
         app_pc source;
         app_pc dest;
-    };
+    } __attribute__((packed));
 
 
     /// Represents a simple hash table for a CPU-private code cache. This hash

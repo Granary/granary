@@ -337,6 +337,7 @@ indir_var_reg_size(decode_info_t *di, int optype)
         return OPSZ_12_rex40_short6;
 
     default: CLIENT_ASSERT(false, "internal error: invalid indir reg type");
+    break;
     }
     return OPSZ_0;
 }
@@ -1102,6 +1103,7 @@ decode_reg(decode_reg_t which_reg, decode_info_t *di, byte optype, opnd_size_t o
         reg = di->rm;    extend = X64_MODE(di) && TEST(PREFIX_REX_B, di->prefixes); break;
     default:
         CLIENT_ASSERT(false, "internal unknown reg error");
+        break;
     }
 
     switch (optype) {
@@ -1392,7 +1394,7 @@ resolve_var_reg(decode_info_t *di/*IN: x86_mode, prefixes*/,
             return reg_32_to_64(reg32);
         else
 #endif
-            if (can_shrink && (TEST(PREFIX_DATA, di->prefixes) )) /* IF_GRANARY(|| TEST(PREFIX_REX_W, di->prefixes)) */
+            if (can_shrink && TEST(PREFIX_DATA, di->prefixes))
                 return reg_32_to_16(reg32);
     }
     return reg32;
@@ -1681,6 +1683,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     default:
         /* ok to assert, types coming only from instr_info_t */
         CLIENT_ASSERT(false, "decode error: unknown operand type");
+        break;
     }
     return false;
 }

@@ -74,6 +74,13 @@
     })
 #endif
 
+#if defined(CAN_WRAP_execvp)
+#   define WRAPPER_FOR_execvp
+    FUNCTION_WRAPPER(execvp, (int), (const char *file, char * const *argv), {
+        return execvp(file, argv);
+    })
+#endif
+
 
 #if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe)
 #   define WRAPPER_FOR_execle
@@ -152,9 +159,6 @@ FUNCTION_WRAPPER(open, (int), (const char *_arg1, int _arg2, ...), {
 })
 
 
-int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
-                          void *(*start_routine) (void *), void *arg);
-
 #if 0
 #define WRAPPER_FOR_pthread_create
 FUNCTION_WRAPPER(pthread_create, (int), (pthread_t *thread, const pthread_attr_t *attr,
@@ -192,10 +196,7 @@ FUNCTION_WRAPPER(write, (size_t), (int fildes, const void *buf, size_t nbytes), 
     return write(fildes, buf, nbytes);
 })
 
-#define WRAPPER_FOR_sigaction
-FUNCTION_WRAPPER(sigaction, (int), (int, const struct sigaction * , struct sigaction * ), {
-    return 0;
-})
+
 
 #define WRAPPER_FOR_fopen
 FUNCTION_WRAPPER(fopen, (FILE *), (const char *_arg1, const char *_arg2), {
@@ -218,6 +219,11 @@ FUNCTION_WRAPPER(getenv, (char *), (const char *arg1), {
     granary::printf("function_wrapper(getenv, %s) -> %s\n", arg1, ret);
     return ret;
 })
-#endif
 
+
+#define WRAPPER_FOR_sigaction
+FUNCTION_WRAPPER(sigaction, (int), (int, const struct sigaction * , struct sigaction * ), {
+    return 0;
+})
+#endif
 #endif /* granary_USER_POSIX_OVERRIDE_WRAPPERS_H_ */

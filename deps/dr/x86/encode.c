@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2001-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -41,7 +41,6 @@
 #include "arch.h"
 #include "instr.h"
 #include "decode.h"
-#include "disassemble.h"
 #include "decode_fast.h"
 
 #include <string.h> /* memcpy, memset */
@@ -839,6 +838,7 @@ static bool
 mem_size_ok(decode_info_t *di/*prefixes field is IN/OUT; x86_mode is IN*/,
             opnd_t opnd, int optype, opnd_size_t opsize)
 {
+    opsize = resolve_var_reg_size(opsize, false);
     if (!opnd_is_memory_reference(opnd))
         return false;
     if (opnd_is_base_disp(opnd) && opnd_is_disp_short_addr(opnd))
@@ -1488,6 +1488,7 @@ encode_immed(decode_info_t * di, byte *pc)
     default:
         LOG(THREAD_GET, LOG_EMIT, 1, "ERROR: encode_immed: unhandled size: %d\n", size);
         CLIENT_ASSERT(false, "encode error: immediate has unknown size");
+        break;
     }
     return pc;
 }
@@ -1670,6 +1671,7 @@ encode_base_disp(decode_info_t * di, opnd_t opnd)
                 case 4: di->scale = 2; break;
                 case 8: di->scale = 3; break;
                 default: CLIENT_ASSERT(false, "encode error: invalid scale");
+                    break;
                 }
             }
             if (base == REG_NULL) {
@@ -2021,6 +2023,7 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
 
     default:
         CLIENT_ASSERT(false, "encode error: unknown operand type");
+        break;
     }
 }
 
@@ -2445,6 +2448,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         case SEG_FS: *field_ptr = 0x64; break;
         case SEG_GS: *field_ptr = 0x65; break;
         default: CLIENT_ASSERT(false, "instr_encode error: unknown segment prefix");
+            break;
         }
         field_ptr++;
     }
@@ -2699,6 +2703,7 @@ instr_encode(dcontext_t *dcontext, instr_t *instr, byte *pc)
     return instr_encode_to_copy(dcontext, instr, pc, pc);
 }
 
+#ifndef GRANARY
 /* If has_instr_jmp_targets is true, this routine trashes the note field
  * of each instr_t to store the offset in order to properly encode
  * the relative pc for an instr_t jump target
@@ -2736,3 +2741,5 @@ instrlist_encode(dcontext_t *dcontext, instrlist_t *ilist, byte *pc,
 {
     return instrlist_encode_to_copy(dcontext, ilist, pc, pc, NULL, has_instr_jmp_targets);
 }
+#endif
+

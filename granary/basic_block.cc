@@ -656,7 +656,8 @@ namespace granary {
         // mangling uses `client_policy` as opposed to `policy` so that CTIs
         // are mangled to transfer control to the (potentially different) client
         // policy.
-        instruction_list_mangler mangler(cpu, thread, client_policy);
+        instruction_list_mangler mangler(
+            cpu, thread, block_storage, client_policy);
         mangler.mangle(ls);
 
         // re-calculate the size and re-allocate; if our earlier

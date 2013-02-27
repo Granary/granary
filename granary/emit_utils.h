@@ -75,6 +75,56 @@ namespace granary {
         instruction_list_handle in,
         xmm_save_constraint
     ) throw();
+
+
+    enum cti_kind {
+        CTI_CALL,
+        CTI_JMP
+    };
+
+
+    /// Add a call to a known function after a particular instruction in the
+    /// instruction stream. If the location of the function to be called is
+    /// too far away then a specified register is clobbered with the target pc,
+    /// and an indirect jump is performed. If no clobber register is available
+    /// then an indirect jump slot is allocated and used.
+    instruction_list_handle insert_cti_after(
+        instruction_list &ls,
+        instruction_list_handle in,
+        app_pc target,
+        bool has_clobber_reg,
+        operand clobber_reg,
+        cti_kind kind
+    ) throw();
+
+
+    /// Add the instructions to save the flags onto the top of the stack.
+    instruction_list_handle insert_save_flags_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw();
+
+
+    /// Add the instructions to restore the flags from the top of the stack.
+    instruction_list_handle insert_restore_flags_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw();
+
+
+    /// Add instructions to align the stack (to the top of the stack) to a 16
+    /// byte boundary.
+    instruction_list_handle insert_align_stack_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw();
+
+
+    /// Add instructions to restore the stack's previous alignment.
+    instruction_list_handle insert_restore_old_stack_alignment_after(
+        instruction_list &ls,
+        instruction_list_handle in
+    ) throw();
 }
 
 

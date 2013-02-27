@@ -40,10 +40,12 @@
 
 #ifdef DR_FAST_IR
 
+#ifndef GRANARY
 #ifdef AVOID_API_EXPORT
 # define MAKE_OPNDS_VALID(instr) \
     (void)(TEST(INSTR_OPERANDS_VALID, (instr)->flags) ? \
            (instr) : instr_decode_with_current_dcontext(instr))
+#endif
 #endif
 
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
@@ -242,6 +244,34 @@ instr_ok_to_mangle(instr_t *instr)
 
 #ifdef AVOID_API_EXPORT
 /* This is hot internally, but unlikely to be used by clients. */
+INSTR_INLINE
+bool
+instr_operands_valid(instr_t *instr)
+{
+    return TEST(INSTR_OPERANDS_VALID, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_raw_bits_valid(instr_t *instr)
+{
+    return TEST(INSTR_RAW_BITS_VALID, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_has_allocated_bits(instr_t *instr)
+{
+    return TEST(INSTR_RAW_BITS_ALLOCATED, instr->flags);
+}
+
+INSTR_INLINE
+bool
+instr_needs_encoding(instr_t *instr)
+{
+    return !TEST(INSTR_RAW_BITS_VALID, instr->flags);
+}
+
 INSTR_INLINE
 bool
 instr_ok_to_emit(instr_t *instr)

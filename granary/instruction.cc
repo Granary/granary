@@ -284,9 +284,13 @@ namespace granary {
 
         for(unsigned i = 0, max = length(); i < max; ++i) {
 
+            dynamorio::instr_t *target_instr(nullptr);
+
             if(item->is_cti()) {
                 operand target(item->cti_target());
                 if(dynamorio::opnd_is_instr(target)) {
+                    target_instr = target.value.instr;
+                    item->instr.u.o.src0.value.instr = *item;
                     has_local_jump = true;
                 }
             }
@@ -296,6 +300,11 @@ namespace granary {
 
             IF_DEBUG(nullptr == pc,
                 granary_break_on_encode(prev_pc, *item));
+
+            // restore its correct target for later jump resolution.
+            if(target_instr) {
+                item->instr.u.o.src0.value.instr = target_instr;
+            }
 
             IF_PERF( perf::visit_encoded(*item); )
 

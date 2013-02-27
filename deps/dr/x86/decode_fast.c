@@ -42,7 +42,7 @@
 #include "deps/dr/link.h"
 #include "arch.h"
 #include "instr.h"
-#include "instr_create.h"
+//#include "instr_create.h"
 #include "decode.h"
 
 #ifdef DEBUG
@@ -516,7 +516,6 @@ decode_sizeof(dcontext_t *dcontext, byte *start_pc, int *num_prefixes
             }
             default:
                 found_prefix = false;
-                break;
             }
         }
     }

@@ -15,6 +15,11 @@
 namespace granary {
 
 
+    /// Forward declarations.
+    struct code_cache;
+    struct prediction_table;
+
+
     /// Defines an instruction list mangler. This is responsible for
     /// re-structuring instruction lists to make them safe to emit. Making them
     /// safe to emit involves changing branches/jumps, making sure things are
@@ -22,8 +27,11 @@ namespace granary {
     struct instruction_list_mangler {
     private:
 
+        friend struct code_cache;
+
         cpu_state_handle cpu;
         thread_state_handle thread;
+        basic_block_state *bb;
         instrumentation_policy policy;
         instruction_list *ls;
 
@@ -31,7 +39,7 @@ namespace granary {
         // to use relative addressing.
         app_pc estimator_pc;
 
-        void direct_cti_patch_stub(
+        instruction_list_handle dbl_entry_stub(
             instruction_list &patch_ls,
             instruction_list_handle patch,
             instruction_list_handle patched_in,
@@ -42,8 +50,18 @@ namespace granary {
         void mangle_cli(instruction_list_handle in) throw();
 
         void mangle_cti(instruction_list_handle in) throw();
-        void mangle_direct_cti(instruction_list_handle in, operand op) throw();
-        void mangle_indirect_cti(instruction_list_handle in, operand op) throw();
+
+        void mangle_direct_cti(
+            instruction_list_handle in,
+            operand target,
+            instrumentation_policy target_policy
+        ) throw();
+
+        void mangle_indirect_cti(
+            instruction_list_handle in,
+            operand op,
+            instrumentation_policy target_policy
+        ) throw();
 
         static void propagate_delay_region(
             instruction_list_handle in,
@@ -91,7 +109,7 @@ namespace granary {
 #endif
 
         /// Get the direct branch lookip (DBL) entry point for a direct operand.
-        app_pc dbl_entry_for(
+        app_pc dbl_entry_routine(
             instrumentation_policy target_policy,
             instruction_list_handle in,
             mangled_address am
@@ -105,27 +123,58 @@ namespace granary {
         };
 
 
-        /// Get the indirect branch lookup (IBL) entry point for an indirect
-        /// operand and policy.
-        app_pc ibl_entry_for(
-            operand target,
-            instrumentation_policy policy,
-            ibl_entry_kind kind
-        ) throw();
-
-
-        /// Get the return branch lookup (RBL) entry point for a return address.
-        app_pc rbl_entry_for(
-            instrumentation_policy policy,
-            int num_bytes_to_pop
-        ) throw();
-
-
-        /// Represents the tail of an IBL entry that is common to an IBL and the
-        /// slow path of an RBL.
-        void ibl_entry_tail(
+        /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
+        /// The purpose of the stub is to set up the registers and stack in a
+        /// canonical way for entry into the indirect branch lookup table.
+        instruction_list_handle ibl_entry_stub(
             instruction_list &ibl,
-            instrumentation_policy target_policy
+            instruction_list_handle in,
+            instrumentation_policy target_policy,
+            operand target,
+            ibl_entry_kind ibl_kind
+        ) throw();
+
+
+        /// Return the IBL entry routine. The IBL entry routine is responsible
+        /// for looking to see if an address (stored in reg::arg1) is located
+        /// in the CPU-private code cache or in the global code cache. If the
+        /// address is in the CPU-private code cache, and if IBL prediction is
+        /// enabled, then the CPU-private lookup function might add a prediction
+        /// entry to the CTI.
+        static app_pc ibl_entry_routine(
+            instrumentation_policy policy
+        ) throw();
+
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+        /// Return the IBL entry routine that first looks in a prediction table
+        /// for its target address. On failing this, it falls over to the last
+        /// entry in the table, whose destination (`dest`) field is the address
+        /// of the corresponding IBL entry routine, or a specialized entry
+        /// routine.
+        static app_pc ibl_predict_entry_routine(void) throw();
+#endif
+
+
+        /// Return or generate the IBL exit routine for a particular jump target.
+        /// The target can either be code cache or native code.
+        static app_pc ibl_exit_routine(
+            app_pc target_pc
+        );
+
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+        /// Represents a table of "empty" IBL predictors.
+        static prediction_table *ibl_empty_predict_table(
+            instrumentation_policy policy
+        ) throw();
+#endif
+
+
+        /// Checks to see if a return address is in the code cache. If so, it
+        /// RETs to the address, otherwise it JMPs to the IBL entry routine.
+        static app_pc rbl_entry_routine(
+            instrumentation_policy policy
         ) throw();
 
 
@@ -142,6 +191,7 @@ namespace granary {
         instruction_list_mangler(
             cpu_state_handle &cpu_,
             thread_state_handle &thread_,
+            basic_block_state *bb_,
             instrumentation_policy &policy_
         ) throw();
 

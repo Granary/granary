@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -82,6 +82,14 @@
 # define ASSERT_BITFIELD_TRUNCATE DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 # define ASSERT_NOT_REACHED DO_NOT_USE_ASSERT_USE_CLIENT_ASSERT_INSTEAD
 #endif
+
+/* forward decls */
+
+static bool
+opcode_is_ubr(int opc);
+
+static bool
+opcode_is_cbr(int opc);
 
 /*************************
  ***       opnd_t        ***
@@ -254,6 +262,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
         return;
     default:
         CLIENT_ASSERT(false, "opnd_set_size: unknown opnd type");
+        break;
     }
 }
 
@@ -1207,6 +1216,28 @@ opnd_size_in_bytes(opnd_size_t size)
     }
 }
 
+DR_API
+opnd_size_t
+opnd_size_from_bytes(uint bytes)
+{
+    switch (bytes) {
+    case 0: return OPSZ_0;
+    case 1: return OPSZ_1;
+    case 2: return OPSZ_2;
+    case 4: return OPSZ_4;
+    case 6: return OPSZ_6;
+    case 8: return OPSZ_8;
+    case 10: return OPSZ_10;
+    case 16: return OPSZ_16;
+    case 14: return OPSZ_14;
+    case 28: return OPSZ_28;
+    case 94: return OPSZ_94;
+    case 108: return OPSZ_108;
+    case 512: return OPSZ_512;
+    default: return OPSZ_NA;
+    }
+}
+
 /* shrinks all 32-bit registers in opnd to 16 bits.  also shrinks the size of
  * immed ints and mem refs from OPSZ_4 to OPSZ_2.
  */
@@ -1873,12 +1904,8 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
     /* we cannot use a stack buffer for encoding since our stack on x64 linux
      * can be too far to reach from our heap
      */
-
     byte *buf = heap_alloc(dcontext, 32 /* max instr length is 17 bytes */
                            HEAPACCT(ACCT_IR));
-
-    //IF_GRANARY( byte buf[32] = {0}; )
-
     uint len;
     /* Do not cache instr opnds as they are pc-relative to final encoding location.
      * Rather than us walking all of the operands separately here, we have
@@ -2516,30 +2543,6 @@ instr_set_raw_bits_valid(instr_t *instr, bool valid)
     }
 }
 
-bool
-instr_operands_valid(instr_t *instr)
-{
-    return ((instr->flags & INSTR_OPERANDS_VALID) != 0);
-}
-
-bool
-instr_raw_bits_valid(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_VALID) != 0);
-}
-
-bool
-instr_has_allocated_bits(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_ALLOCATED) != 0);
-}
-
-bool
-instr_needs_encoding(instr_t *instr)
-{
-    return ((instr->flags & INSTR_RAW_BITS_VALID) == 0);
-}
-
 void
 instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 {
@@ -2739,7 +2742,7 @@ instr_length(dcontext_t *dcontext, instr_t *instr)
 
 /***********************************************************************/
 /* decoding routines */
-
+#ifndef GRANARY
 /* If instr is at Level 0 (i.e., a bundled group of instrs as raw bits),
  * expands instr into a sequence of Level 1 instrs using decode_raw() which
  * are added in place to ilist.
@@ -2847,6 +2850,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     IF_X64(set_x86_mode(dcontext, old_mode));
     return firstinstr;
 }
+#endif
 
 bool
 instr_is_level_0(instr_t *instr) 
@@ -2875,6 +2879,7 @@ instr_is_level_0(instr_t *instr)
     return true;
 }
 
+#ifndef GRANARY
 /* If the next instr is at Level 0 (i.e., a bundled group of instrs as raw bits),
  * expands it into a sequence of Level 1 instrs using decode_raw() which
  * are added in place to ilist.  Then returns the new next instr.
@@ -2919,6 +2924,7 @@ instrlist_last_expanded(dcontext_t *dcontext, instrlist_t *ilist)
     instr_expand(dcontext, ilist, instrlist_last(ilist));
     return instrlist_last(ilist);
 }
+#endif
 
 /* If instr is not already at the level of decode_cti, decodes enough
  * from the raw bits pointed to by instr to bring it to that level.
@@ -3024,13 +3030,14 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
 /* Calls instr_decode() with the current dcontext.  Mostly useful as the slow
  * path for IR routines that get inlined.
  */
+NOINLINE  /* rarely called */
 instr_t *
 instr_decode_with_current_dcontext(instr_t *instr)
 {
     instr_decode(get_thread_private_dcontext(), instr);
     return instr;
 }
-
+#ifndef GRANARY
 /* Brings all instrs in ilist up to the decode_cti level, and
  * hooks up intra-ilist cti targets to use instr_t targets, by
  * matching pc targets to each instruction's raw bits.
@@ -3118,12 +3125,12 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
     });
     LOG(THREAD, LOG_ALL, 4, "done with instrlist_decode_cti\n");
 }
-
+#endif
 /****************************************************************************/
 /* utility routines */
 
 void 
-loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string)
+loginst(dcontext_t *dcontext, uint level, instr_t *instr, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -3133,7 +3140,7 @@ loginst(dcontext_t *dcontext, uint level, instr_t *instr, char *string)
 }
 
 void 
-logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string) 
+logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, const char *string) 
 {
     DOLOG(level, LOG_ALL, {
         LOG(THREAD, LOG_ALL, level, "%s: ", string);
@@ -3144,7 +3151,7 @@ logopnd(dcontext_t *dcontext, uint level, opnd_t opnd, char *string)
 
 
 void
-logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, char *string)
+logtrace(dcontext_t *dcontext, uint level, instrlist_t *trace, const char *string)
 {
     DOLOG(level, LOG_ALL, {
         instr_t *inst;
@@ -3735,15 +3742,17 @@ instr_set_branch_target_pc(instr_t *cti_instr, app_pc pc)
 bool
 instr_is_exit_cti(instr_t *instr)
 {
+    int opc;
     if (!instr_operands_valid(instr) || /* implies !opcode_valid */
-        !instr_ok_to_mangle(instr) ||
-        !instr_is_cti(instr) ||
-        instr_is_call(instr) ||
-        instr_is_return(instr))
+        !instr_ok_to_mangle(instr))
         return false;
-    return (instr_num_srcs(instr) > 0 &&
-             /* far pc should only happen for mangle's call to here */
-            opnd_is_pc(instr_get_src(instr, 0)));
+    /* XXX: avoid conditional decode in instr_get_opcode() for speed. */
+    opc = instr->opcode;
+    if (opcode_is_ubr(opc) || opcode_is_cbr(opc)) {
+        /* far pc should only happen for mangle's call to here */
+        return opnd_is_pc(instr_get_target(instr));
+    }
+    return false;
 }
 
 bool 
@@ -3757,27 +3766,21 @@ instr_is_mov(instr_t *instr)
             opc == OP_mov_priv);
 }
 
-bool 
-instr_is_call(instr_t *instr)
+static bool
+opcode_is_call(int opc)
 {
-    int opc = instr_get_opcode(instr);
     return (opc == OP_call ||
             opc == OP_call_far ||
             opc == OP_call_ind ||
             opc == OP_call_far_ind);
 }
 
-
-bool
-instr_is_jump(instr_t *instr)
+bool 
+instr_is_call(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jmp ||
-            opc == OP_jmp_far ||
-            opc == OP_jmp_ind ||
-            opc == OP_jmp_far_ind);
+    return opcode_is_call(opc);
 }
-
 
 bool 
 instr_is_call_direct(instr_t *instr)
@@ -3809,19 +3812,24 @@ instr_is_return(instr_t *instr)
 
 /*** WARNING!  The following rely on ordering of opcodes! ***/
 
-bool
-instr_is_cbr(instr_t *instr)      /* conditional branch */
+static bool
+opcode_is_cbr(int opc)
 {
-    int opc = instr_get_opcode(instr);
     return ((opc >= OP_jo && opc <= OP_jnle) ||
             (opc >= OP_jo_short && opc <= OP_jnle_short) ||
             (opc >= OP_loopne && opc <= OP_jecxz));
 }
 
 bool
-instr_is_mbr(instr_t *instr)      /* multi-way branch */
+instr_is_cbr(instr_t *instr)      /* conditional branch */
 {
     int opc = instr_get_opcode(instr);
+    return opcode_is_cbr(opc);
+}
+
+static bool
+opcode_is_mbr(int opc)
+{
     return (opc == OP_jmp_ind ||
             opc == OP_call_ind ||
             opc == OP_ret ||
@@ -3829,6 +3837,13 @@ instr_is_mbr(instr_t *instr)      /* multi-way branch */
             opc == OP_call_far_ind ||
             opc == OP_ret_far ||
             opc == OP_iret);
+}
+
+bool
+instr_is_mbr(instr_t *instr)      /* multi-way branch */
+{
+    int opc = instr_get_opcode(instr);
+    return opcode_is_mbr(opc);
 }
 
 bool
@@ -3850,13 +3865,19 @@ instr_is_far_abs_cti(instr_t *instr)
     return (opc == OP_jmp_far || opc == OP_call_far);
 }
 
+static bool
+opcode_is_ubr(int opc)
+{
+    return (opc == OP_jmp ||
+            opc == OP_jmp_short ||
+            opc == OP_jmp_far);
+}
+
 bool
 instr_is_ubr(instr_t *instr)      /* unconditional branch */
 {
     int opc = instr_get_opcode(instr);
-    return (opc == OP_jmp ||
-            opc == OP_jmp_short ||
-            opc == OP_jmp_far);
+    return opcode_is_ubr(opc);
 }
 
 bool
@@ -3870,8 +3891,9 @@ instr_is_near_ubr(instr_t *instr)      /* unconditional branch */
 bool 
 instr_is_cti(instr_t *instr)      /* any control-transfer instruction */
 {
-    return (instr_is_cbr(instr) || instr_is_mbr(instr) || instr_is_ubr(instr) ||
-            instr_is_call(instr));
+    int opc = instr_get_opcode(instr);
+    return (opcode_is_cbr(opc) || opcode_is_ubr(opc) || opcode_is_mbr(opc) ||
+            opcode_is_call(opc));
 }
 
 /* This routine does NOT decode the cti of instr if the raw bits are valid,
@@ -4090,14 +4112,247 @@ bool instr_is_prefetch(instr_t *instr)
     return false;
 }
 
+bool
+instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
+{
+    int opc = instr_get_opcode(instr);
+
+    switch (opc) {
+    case OP_fxsave:          case OP_fxrstor:
+    case OP_ldmxcsr:         case OP_stmxcsr:
+    case OP_fldenv:          case OP_fldcw:
+    case OP_fnstenv:         case OP_fnstcw:
+    case OP_frstor:          case OP_fnsave:
+    case OP_fnstsw:          case OP_xsave:
+    case OP_xrstor:          case OP_xsaveopt:
+    case OP_vldmxcsr:        case OP_vstmxcsr:
+    {
+        if (type != NULL)
+            *type = DR_FP_STATE;
+        return true;
+    }
+
+    case OP_fld:             case OP_fst:
+    case OP_fstp:            case OP_fild:
+    case OP_movntps:         case OP_movntpd:
+    case OP_movups:          case OP_movss:
+    case OP_movupd:          case OP_movsd:
+    case OP_movlps:          case OP_movlpd:
+    case OP_movhps:          case OP_movhpd:
+    case OP_movaps:          case OP_movapd:
+    case OP_movsldup:        case OP_movshdup:
+    case OP_movddup:         case OP_vmovss:
+    case OP_vmovsd:          case OP_vmovups:
+    case OP_vmovupd:         case OP_vmovlps:
+    case OP_vmovsldup:       case OP_vmovlpd:
+    case OP_vmovddup:        case OP_vmovhps:
+    case OP_vmovshdup:       case OP_vmovhpd:
+    case OP_vmovaps:         case OP_vmovapd:
+    case OP_vmovntps:        case OP_vmovntpd:
+    case OP_unpcklps:        case OP_unpcklpd:
+    case OP_unpckhps:        case OP_unpckhpd:
+    case OP_vunpcklps:       case OP_vunpcklpd:
+    case OP_vunpckhps:       case OP_vunpckhpd:
+    case OP_extractps:       case OP_insertps:
+    case OP_vextractps:      case OP_vinsertps:
+    case OP_vinsertf128:     case OP_vextractf128:
+    case OP_vbroadcastss:    case OP_vbroadcastsd:
+    case OP_vbroadcastf128:  case OP_vperm2f128:
+    case OP_vpermilpd:       case OP_vpermilps:
+    case OP_vmaskmovps:      case OP_vmaskmovpd:
+    case OP_shufps:          case OP_shufpd:
+    case OP_vshufps:         case OP_vshufpd:
+    {
+        if (type != NULL)
+            *type = DR_FP_MOVE;
+        return true;
+    }
+
+    case OP_fist:            case OP_fistp:
+    case OP_fbld:            case OP_fbstp:
+    case OP_fisttp:
+    case OP_cvtpi2ps:        case OP_cvtsi2ss:
+    case OP_cvtpi2pd:        case OP_cvtsi2sd:
+    case OP_cvttps2pi:       case OP_cvttss2si:
+    case OP_cvttpd2pi:       case OP_cvttsd2si:
+    case OP_cvtps2pi:        case OP_cvtss2si:
+    case OP_cvtpd2pi:        case OP_cvtsd2si:
+    case OP_cvtps2pd:        case OP_cvtss2sd:
+    case OP_cvtpd2ps:        case OP_cvtsd2ss:
+    case OP_cvtdq2ps:        case OP_cvttps2dq:
+    case OP_cvtps2dq:        case OP_cvtdq2pd:
+    case OP_cvttpd2dq:       case OP_cvtpd2dq:
+    case OP_vcvtsi2ss:       case OP_vcvtsi2sd:
+    case OP_vcvttss2si:      case OP_vcvttsd2si:
+    case OP_vcvtss2si:       case OP_vcvtsd2si:
+    case OP_vcvtps2pd:       case OP_vcvtss2sd:
+    case OP_vcvtpd2ps:       case OP_vcvtsd2ss:
+    case OP_vcvtdq2ps:       case OP_vcvttps2dq:
+    case OP_vcvtps2dq:       case OP_vcvtdq2pd:
+    case OP_vcvttpd2dq:      case OP_vcvtpd2dq:
+    case OP_vcvtph2ps:       case OP_vcvtps2ph:
+    {
+        if (type != NULL)
+            *type = DR_FP_CONVERT;
+        return true;
+    }
+
+    case OP_ucomiss:         case OP_ucomisd:
+    case OP_comiss:          case OP_comisd:
+    case OP_movmskps:        case OP_movmskpd:
+    case OP_sqrtps:          case OP_sqrtss:
+    case OP_sqrtpd:          case OP_sqrtsd:
+    case OP_rsqrtps:         case OP_rsqrtss:
+    case OP_rcpps:           case OP_rcpss:
+    case OP_andps:           case OP_andpd:
+    case OP_andnps:          case OP_andnpd:
+    case OP_orps:            case OP_orpd:
+    case OP_xorps:           case OP_xorpd:
+    case OP_addps:           case OP_addss:
+    case OP_addpd:           case OP_addsd:
+    case OP_mulps:           case OP_mulss:
+    case OP_mulpd:           case OP_mulsd:
+    case OP_subps:           case OP_subss:
+    case OP_subpd:           case OP_subsd:
+    case OP_minps:           case OP_minss:
+    case OP_minpd:           case OP_minsd:
+    case OP_divps:           case OP_divss:
+    case OP_divpd:           case OP_divsd:
+    case OP_maxps:           case OP_maxss:
+    case OP_maxpd:           case OP_maxsd:
+    case OP_cmpps:           case OP_cmpss:
+    case OP_cmppd:           case OP_cmpsd:
+
+    case OP_fadd:            case OP_fmul:
+    case OP_fcom:            case OP_fcomp:
+    case OP_fsub:            case OP_fsubr:
+    case OP_fdiv:            case OP_fdivr:
+    case OP_fiadd:           case OP_fimul:
+    case OP_ficom:           case OP_ficomp:
+    case OP_fisub:           case OP_fisubr:
+    case OP_fidiv:           case OP_fidivr:
+    case OP_fxch:            case OP_fnop:
+    case OP_fchs:            case OP_fabs:
+    case OP_ftst:            case OP_fxam:
+    case OP_fld1:            case OP_fldl2t:
+    case OP_fldl2e:          case OP_fldpi:
+    case OP_fldlg2:          case OP_fldln2:
+    case OP_fldz:            case OP_f2xm1:
+    case OP_fyl2x:           case OP_fptan:
+    case OP_fpatan:          case OP_fxtract:
+    case OP_fprem1:          case OP_fdecstp:
+    case OP_fincstp:         case OP_fprem:
+    case OP_fyl2xp1:         case OP_fsqrt:
+    case OP_fsincos:         case OP_frndint:
+    case OP_fscale:          case OP_fsin:
+    case OP_fcos:            case OP_fcmovb:
+    case OP_fcmove:          case OP_fcmovbe:
+    case OP_fcmovu:          case OP_fucompp:
+    case OP_fcmovnb:         case OP_fcmovne:
+    case OP_fcmovnbe:        case OP_fcmovnu:
+    case OP_fnclex:          case OP_fninit:
+    case OP_fucomi:          case OP_fcomi:
+    case OP_ffree:           case OP_fucom:
+    case OP_fucomp:          case OP_faddp:
+    case OP_fmulp:           case OP_fcompp:
+    case OP_fsubrp:          case OP_fsubp:
+    case OP_fdivrp:          case OP_fdivp:
+    case OP_fucomip:         case OP_fcomip:
+    case OP_ffreep:
+
+    /* SSE3/3D-Now!/SSE4 */
+    case OP_haddpd:          case OP_haddps:
+    case OP_hsubpd:          case OP_hsubps:
+    case OP_addsubpd:        case OP_addsubps:
+    case OP_femms:           case OP_movntss:
+    case OP_movntsd:         case OP_blendvps:
+    case OP_blendvpd:        case OP_roundps:
+    case OP_roundpd:         case OP_roundss:
+    case OP_roundsd:         case OP_blendps:
+    case OP_blendpd:         case OP_dpps:
+    case OP_dppd:
+
+    /* AVX */
+    case OP_vucomiss:        case OP_vucomisd:
+    case OP_vcomiss:         case OP_vcomisd:
+    case OP_vmovmskps:       case OP_vmovmskpd:
+    case OP_vsqrtps:         case OP_vsqrtss:
+    case OP_vsqrtpd:         case OP_vsqrtsd:
+    case OP_vrsqrtps:        case OP_vrsqrtss:
+    case OP_vrcpps:          case OP_vrcpss:
+    case OP_vandps:          case OP_vandpd:
+    case OP_vandnps:         case OP_vandnpd:
+    case OP_vorps:           case OP_vorpd:
+    case OP_vxorps:          case OP_vxorpd:
+    case OP_vaddps:          case OP_vaddss:
+    case OP_vaddpd:          case OP_vaddsd:
+    case OP_vmulps:          case OP_vmulss:
+    case OP_vmulpd:          case OP_vmulsd:
+    case OP_vsubps:          case OP_vsubss:
+    case OP_vsubpd:          case OP_vsubsd:
+    case OP_vminps:          case OP_vminss:
+    case OP_vminpd:          case OP_vminsd:
+    case OP_vdivps:          case OP_vdivss:
+    case OP_vdivpd:          case OP_vdivsd:
+    case OP_vmaxps:          case OP_vmaxss:
+    case OP_vmaxpd:          case OP_vmaxsd:
+    case OP_vcmpps:          case OP_vcmpss:
+    case OP_vcmppd:          case OP_vcmpsd:
+    case OP_vhaddpd:         case OP_vhaddps:
+    case OP_vhsubpd:         case OP_vhsubps:
+    case OP_vaddsubpd:       case OP_vaddsubps:
+    case OP_vblendvps:       case OP_vblendvpd:
+    case OP_vroundps:        case OP_vroundpd:
+    case OP_vroundss:        case OP_vroundsd:
+    case OP_vblendps:        case OP_vblendpd:
+    case OP_vdpps:           case OP_vdppd:
+    case OP_vtestps:         case OP_vtestpd:
+
+    /* FMA */
+    case OP_vfmadd132ps:     case OP_vfmadd132pd:
+    case OP_vfmadd213ps:     case OP_vfmadd213pd:
+    case OP_vfmadd231ps:     case OP_vfmadd231pd:
+    case OP_vfmadd132ss:     case OP_vfmadd132sd:
+    case OP_vfmadd213ss:     case OP_vfmadd213sd:
+    case OP_vfmadd231ss:     case OP_vfmadd231sd:
+    case OP_vfmaddsub132ps:  case OP_vfmaddsub132pd:
+    case OP_vfmaddsub213ps:  case OP_vfmaddsub213pd:
+    case OP_vfmaddsub231ps:  case OP_vfmaddsub231pd:
+    case OP_vfmsubadd132ps:  case OP_vfmsubadd132pd:
+    case OP_vfmsubadd213ps:  case OP_vfmsubadd213pd:
+    case OP_vfmsubadd231ps:  case OP_vfmsubadd231pd:
+    case OP_vfmsub132ps:     case OP_vfmsub132pd:
+    case OP_vfmsub213ps:     case OP_vfmsub213pd:
+    case OP_vfmsub231ps:     case OP_vfmsub231pd:
+    case OP_vfmsub132ss:     case OP_vfmsub132sd:
+    case OP_vfmsub213ss:     case OP_vfmsub213sd:
+    case OP_vfmsub231ss:     case OP_vfmsub231sd:
+    case OP_vfnmadd132ps:    case OP_vfnmadd132pd:
+    case OP_vfnmadd213ps:    case OP_vfnmadd213pd:
+    case OP_vfnmadd231ps:    case OP_vfnmadd231pd:
+    case OP_vfnmadd132ss:    case OP_vfnmadd132sd:
+    case OP_vfnmadd213ss:    case OP_vfnmadd213sd:
+    case OP_vfnmadd231ss:    case OP_vfnmadd231sd:
+    case OP_vfnmsub132ps:    case OP_vfnmsub132pd:
+    case OP_vfnmsub213ps:    case OP_vfnmsub213pd:
+    case OP_vfnmsub231ps:    case OP_vfnmsub231pd:
+    case OP_vfnmsub132ss:    case OP_vfnmsub132sd:
+    case OP_vfnmsub213ss:    case OP_vfnmsub213sd:
+    case OP_vfnmsub231ss:    case OP_vfnmsub231sd:
+    {
+        if (type != NULL)
+            *type = DR_FP_MATH;
+        return true;
+    }
+
+    default: return false;
+    }
+}
+
 bool 
 instr_is_floating(instr_t *instr)
 {
-    int op = instr_get_opcode(instr);
-    /* WARNING -- assumes things about order of OP_ constants */
-    if (op >= OP_fadd && op <= OP_fcomip)
-        return true;
-    return false;
+    return instr_is_floating_ex(instr, NULL);
 }
 
 bool
@@ -5306,6 +5561,20 @@ instr_is_tls_spill(instr_t *instr, reg_id_t reg, ushort offs)
     bool spill;
     return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
             spill && check_reg == reg && check_disp == os_tls_offset(offs));
+}
+
+/* if instr is level 1, does not upgrade it and instead looks at raw bits,
+ * to support identification w/o ruining level 0 in decode_fragment, etc.
+ */
+bool
+instr_is_tls_restore(instr_t *instr, reg_id_t reg, ushort offs)
+{
+    reg_id_t check_reg;
+    int check_disp;
+    bool spill;
+    return (instr_check_tls_spill_restore(instr, &spill, &check_reg, &check_disp) &&
+            !spill && (reg == REG_NULL || check_reg == reg) &&
+            check_disp == os_tls_offset(offs));
 }
 
 /* if instr is level 1, does not upgrade it and instead looks at raw bits,

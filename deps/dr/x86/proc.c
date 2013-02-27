@@ -42,8 +42,7 @@
 #include "deps/dr/globals.h"
 #include "proc.h"
 #include "instr.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instrument.h" /* for dr_insert_{save,restore}_fpstate */
-#include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
+//#include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
 #include "decode.h" /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
@@ -657,6 +656,7 @@ proc_restore_fpstate(byte *buf)
     }
 }
 
+#ifndef GRANARY
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                        opnd_t buf)
@@ -696,3 +696,4 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_frstor(dcontext, buf));
     }
 }
+#endif

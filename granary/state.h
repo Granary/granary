@@ -187,6 +187,11 @@ namespace granary {
     /// Information maintained within each emitted basic block of
     /// translated application/module code.
     struct basic_block_state : public client::basic_block_state {
+    private:
+
+        friend struct instruction_list_mangler;
+        friend struct code_cache;
+
     public:
 
         /// Returns the size of the basic block state. Because every struct has

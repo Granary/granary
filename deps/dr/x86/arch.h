@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2010-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2010-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -133,6 +133,8 @@ mixed_mode_enabled(void)
 #  define PRIV_FLS_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_fls_data))
 #  define APP_RPC_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, app_nt_rpc))
 #  define PRIV_RPC_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_nt_rpc))
+#  define APP_NLS_CACHE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_nls_cache))
+#  define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, priv_nls_cache))
 # endif
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
@@ -738,6 +740,13 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 #define USE_SHARED_GENCODE()                                         \
     (USE_SHARED_GENCODE_ALWAYS() || IF_LINUX(IF_HAVE_TLS_ELSE(true, false) ||) \
      SHARED_FRAGMENTS_ENABLED() || DYNAMO_OPTION(shared_trace_ibl_routine))
+
+#define USE_SHARED_BB_IBL() \
+    (USE_SHARED_GENCODE_ALWAYS() || DYNAMO_OPTION(shared_bbs))
+
+#define USE_SHARED_TRACE_IBL() \
+    (USE_SHARED_GENCODE_ALWAYS() || DYNAMO_OPTION(shared_traces) || \
+     DYNAMO_OPTION(shared_trace_ibl_routine))
 
 /* returns the thread private code or GLOBAL thread shared code */
 static inline generated_code_t*
