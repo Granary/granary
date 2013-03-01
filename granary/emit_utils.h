@@ -98,17 +98,25 @@ namespace granary {
     ) throw();
 
 
+    enum flag_save_constraint {
+        REG_AH_IS_DEAD,
+        REG_AH_IS_LIVE
+    };
+
+
     /// Add the instructions to save the flags onto the top of the stack.
     instruction_list_handle insert_save_flags_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction_list_handle in,
+        flag_save_constraint constraint=REG_AH_IS_LIVE
     ) throw();
 
 
     /// Add the instructions to restore the flags from the top of the stack.
     instruction_list_handle insert_restore_flags_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction_list_handle in,
+        flag_save_constraint constraint=REG_AH_IS_LIVE
     ) throw();
 
 

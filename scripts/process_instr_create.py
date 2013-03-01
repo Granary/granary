@@ -96,9 +96,14 @@ def emit_instr_function(lines, i, instr, args):
   arg_list = build_typed_arg_list(typed_arg, args[1:])
   copied_code = "\n    ".join(sub_lines)
   
+  func_name = instr + "_"
+  if "jecxz" == instr:
+    H("    instruction ", func_name, "(", arg_list, ");")
+    func_name = "jrcxz_"
+
   # emit the new function
-  H("    instruction ", instr, "_(", arg_list, ");")
-  C("instruction ", instr, "_(", arg_list, ") {")
+  H("    instruction ", func_name, "(", arg_list, ");")
+  C("instruction ", func_name, "(", arg_list, ") {")
   C("    instruction in__; // need to make sure granary policy is 0")
   if 1 <= len(args):
     C("    dynamorio::dcontext_t dc__ = {")

@@ -220,19 +220,18 @@ namespace granary {
             if(nullptr != cache_) {
                 ptr = cache_;
                 cache_ = ptr->get_next();
+                memset(ptr, 0, sizeof(item_type));
             } else {
                 ptr = (item_type *) meta_type::allocate(sizeof(item_type));
             }
 
             ptr->get_value() = val;
-            ptr->get_next() = nullptr;
-            ptr->get_prev() = nullptr;
-
             return ptr;
         }
 
         /// cache an item for later use/allocation
         void cache(item_type *item) throw() {
+            item->get_prev() = nullptr;
             item->get_next() = cache_;
             cache_ = item;
         }
@@ -354,50 +353,38 @@ namespace granary {
 
         /// Adds an element on to the end of the list.
         handle_type append(item_type *item) throw() {
-            item_type *prev_last = last_;
 
-            if(nullptr == first_) {
-                first_ = item;
-                last_ = item;
-            } else {
-                last_ = item;
-            }
+            item_type *before_item(last_);
 
-            // next
+            last_ = item;
+            item->get_prev() = before_item;
             item->get_next() = nullptr;
-            if(prev_last) {
-                prev_last->get_next() = item;
+            if(before_item) {
+                before_item->get_next() = item;
             }
 
-            // prev
-            item->get_prev() = prev_last;
-
-            ++length_;
+            if(1 == ++length_) {
+                first_ = item;
+            }
 
             return handle_type(item);
         }
 
         /// Adds an element on to the beginning of the list.
         handle_type prepend(item_type *item) throw() {
-            item_type *prev_first = first_;
+            item_type *after_item(first_);
 
-            if(nullptr == first_) {
-                first_ = item;
-                last_ = item;
-            } else {
-                first_ = item;
-            }
-
-            // next
-            item->get_next() = prev_first;
-
-            // prev
+            first_ = item;
+            item->get_next() = after_item;
             item->get_prev() = nullptr;
-            if(prev_first) {
-                prev_first->get_prev() = item;
+
+            if(after_item) {
+                after_item->get_prev() = item;
             }
 
-            ++length_;
+            if(1 == ++length_) {
+                last_ = item;
+            }
 
             return handle_type(item);
         }
@@ -407,32 +394,22 @@ namespace granary {
         }
 
         /// Insert an element before another object in the list.
-        handle_type insert_before(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_ || nullptr == at_pos) {
+        handle_type insert_before(item_type *after_item, item_type *item) throw() {
+
+            if(1 >= length_ || !after_item) {
                 return prepend(item);
             }
 
-            item_type *before_pos(at_pos->get_prev());
-            if(at_pos) {
+            //         <----    <----
+            // <before_item> <item> <after_item>
+            //           ---->  ---->
 
-                ++length_;
-
-                at_pos->get_prev() = item;
-                item->get_next() = at_pos;
-                item->get_prev() = before_pos;
-
-                if(before_pos) {
-                    before_pos->get_next() = item;
-                }
-
-                if(at_pos == first_) {
-                    first_ = item;
-                }
-
-                return handle_type(item);
-            } else {
+            item_type *before_item(after_item->get_prev());
+            if(!before_item) {
                 return prepend(item);
             }
+
+            return chain(before_item, item, after_item);
         }
 
         inline handle_type insert_after(item_type *at_pos, T val) throw() {
@@ -440,34 +417,37 @@ namespace granary {
         }
 
         /// Insert an element after another object in the list
-        handle_type insert_after(item_type *at_pos, item_type *item) throw() {
-            if(1 >= length_ || nullptr == at_pos) {
+        handle_type insert_after(item_type *before_item, item_type *item) throw() {
+
+            if(1 >= length_ || !before_item) {
                 return append(item);
             }
 
-            item_type *after_pos(at_pos->get_next());
-
-            if(at_pos) {
-
-                ++length_;
-
-                at_pos->get_next() = item;
-                item->get_prev() = at_pos;
-                item->get_next() = after_pos;
-
-                if(after_pos) {
-                    after_pos->get_prev() = item;
-                }
-
-                if(at_pos == last_) {
-                    last_ = item;
-                }
-
-                return handle_type(item);
-            } else {
+            item_type *after_item(before_item->get_next());
+            if(!after_item) {
                 return append(item);
             }
+
+            return chain(before_item, item, after_item);
         }
+
+        /// Chain an element into the list.
+        handle_type chain(
+            item_type *before_item,
+            item_type *item,
+            item_type *after_item
+        ) throw() {
+            ++length_;
+
+            item->get_prev() = before_item;
+            before_item->get_next() = item;
+
+            item->get_next() = after_item;
+            after_item->get_prev() = item;
+
+            return handle_type(item);
+        }
+
 
         inline item_type *get_item(handle_type handle) {
             return handle.handle;

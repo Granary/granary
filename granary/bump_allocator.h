@@ -112,7 +112,7 @@ namespace granary {
 
 
         /// Allocate a slab and a corresponding memory arena.
-        void allocate_slab(void) throw() {
+        slab *allocate_slab(void) throw() {
             slab *next_slab(free);
 
             // take from the free list
@@ -134,9 +134,10 @@ namespace granary {
             }
 
             next_slab->next = curr;
-            curr = next_slab;
-            curr->bump_ptr = curr->data_ptr;
-            curr->remaining = SLAB_SIZE;
+            next_slab->bump_ptr = next_slab->data_ptr;
+            next_slab->remaining = SLAB_SIZE;
+
+            return next_slab;
         }
 
 
@@ -190,11 +191,11 @@ namespace granary {
             last_allocation_size = size;
 
             if(nullptr == curr) {
-                allocate_slab();
-                first = curr;
+                first = curr = allocate_slab();
 
             } else if(curr->remaining < size) {
-                allocate_slab();
+                curr = allocate_slab();
+
             } else {
                 uint64_t next_address(
                     reinterpret_cast<uint64_t>(curr->bump_ptr));
@@ -202,7 +203,8 @@ namespace granary {
                 unsigned aligned_size(size + align_offset);
 
                 if(curr->remaining < aligned_size) {
-                    allocate_slab();
+                    curr = allocate_slab();
+
                 } else {
                     curr->bump_ptr += align_offset;
                     last_allocation_size += align_offset;
@@ -316,8 +318,10 @@ namespace granary {
             }
 
             if(curr && last_allocation_size) {
+                ASSERT(last_allocation_size < SLAB_SIZE);
                 curr->bump_ptr -= last_allocation_size;
                 curr->remaining += last_allocation_size;
+                ASSERT(curr->bump_ptr >= curr->data_ptr);
             }
 
             last_allocation_size = 0;

@@ -25,6 +25,12 @@
         static_assert( \
             offsetof(T, entry) == sizeof(prediction_entry), \
             "The first slot of a prediction table must be at offset 16 (bytes)."); \
+        static_assert( \
+            offsetof(T, num_reads) == 0, \
+            "The `num_reads` field of `" #T "` must be at offset 0."); \
+        static_assert( \
+            sizeof(T().num_reads) == 4, \
+            "The `num_reads` field of `" #T "` must be 4 bytes wide."); \
     };
 
 namespace granary {

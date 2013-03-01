@@ -22,7 +22,6 @@ namespace granary {
     struct operand_base_disp;
     struct operand_ref;
     struct instruction;
-    struct instruction_label;
     struct instruction_list;
 
 
@@ -475,32 +474,6 @@ namespace granary {
     };
 
 
-    /// Represents an instruction label.
-    struct instruction_label {
-    private:
-
-        friend struct instruction_list;
-        typedef list<instruction>::item_type item_type;
-        typedef list<instruction>::handle_type handle_type;
-
-        item_type *instr;
-        bool is_used;
-
-        instruction_label(item_type *instr_) throw();
-
-    public:
-
-        instruction_label(instruction_label &&that) throw();
-        ~instruction_label(void) throw();
-
-        instruction_label &operator=(instruction_label &&that) throw();
-
-        /// Get a pointer to the internal dynamorio::instr_t for use by
-        /// control-flow instructions.
-        operator instruction *(void) throw();
-    };
-
-
     /// Represents a list of Level 3 instructions.
     struct instruction_list : public list<instruction> {
     public:
@@ -511,17 +484,6 @@ namespace granary {
         using list<instruction>::prepend;
         using list<instruction>::insert_before;
         using list<instruction>::insert_after;
-
-        /// allocate a label for use by this instruction list; NOTE:
-        instruction_label label(void) throw();
-
-        handle_type append(instruction_label &label) throw();
-
-        handle_type prepend(instruction_label &label) throw();
-
-        handle_type insert_before(handle_type pos, instruction_label &label) throw();
-
-        handle_type insert_after(handle_type pos, instruction_label &label) throw();
 
         /// The encoded size of the instruction list.
         unsigned encoded_size(void) throw();

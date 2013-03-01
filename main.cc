@@ -41,7 +41,7 @@ struct clock
 };
 
 enum {
-    ITERATIONS = 1000000
+    ITERATIONS = 10000000
 };
 
 __attribute__((noinline, optimize("O0")))
@@ -54,8 +54,14 @@ void (*func)(void) = indirect_call_target;
 __attribute__((noinline, optimize("O0")))
 void make_indirect_call(void) throw() {
     for(int i = 0; i < ITERATIONS; ++i) {
-        //ASM("");
         func();
+    }
+}
+
+__attribute__((noinline, optimize("O0")))
+void make_direct_call(void) throw() {
+    for(int i = 0; i < ITERATIONS; ++i) {
+        indirect_call_target();
     }
 }
 
@@ -70,33 +76,51 @@ int main(int argc, const char **argv) throw() {
     granary::init();
 
 #if CONFIG_RUN_TEST_CASES
-    //granary::run_tests();
+    granary::run_tests();
 #endif
 
-
-
-    granary::basic_block bb(granary::code_cache::find(
+    granary::basic_block in_bb(granary::code_cache::find(
         (granary::app_pc) make_indirect_call,
         granary::policy_for<granary::test_policy>()));
 
+    granary::basic_block dir_bb(granary::code_cache::find(
+        (granary::app_pc) make_direct_call,
+        granary::policy_for<granary::test_policy>()));
+
     // warm up the code cache
-    //bb.call<void>();
+    in_bb.call<void>();
+    dir_bb.call<void>();
+
+    printf("\n\n\n\n");
 
     clock::time_point in_start = clock::now();
-    bb.call<void>();
+    in_bb.call<void>();
     clock::time_point in_end = clock::now();
     make_indirect_call();
-    clock::time_point native_end = clock::now();
+    clock::time_point in_native_end = clock::now();
+    dir_bb.call<void>();
+    clock::time_point dir_end = clock::now();
+    make_direct_call();
+    clock::time_point dir_native_end = clock::now();
 
     typedef std::chrono::duration<double, typename clock::period> Cycle;
     auto ticks_per_iter = Cycle(in_end-in_start)/ITERATIONS;
 
-    printf("%lf clock ticks per instrumented iteration\n",
+    printf("%lf clock ticks per instrumented iteration (indirect)\n",
         ticks_per_iter.count());
 
-    ticks_per_iter = Cycle(native_end - in_end)/ITERATIONS;
+    ticks_per_iter = Cycle(in_native_end - in_end)/ITERATIONS;
 
-    printf("%lf clock ticks per native iteration\n",
+    printf("%lf clock ticks per native iteration (indirect)\n",
+        ticks_per_iter.count());
+
+    ticks_per_iter = Cycle(dir_end - in_native_end)/ITERATIONS;
+    printf("%lf clock ticks per instrumented iteration (direct)\n",
+        ticks_per_iter.count());
+
+    ticks_per_iter = Cycle(dir_native_end - dir_end)/ITERATIONS;
+
+    printf("%lf clock ticks per native iteration (direct)\n",
         ticks_per_iter.count());
 
     IF_PERF( granary::perf::report(); )

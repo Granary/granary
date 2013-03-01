@@ -23,10 +23,36 @@ namespace granary {
     };
 
 
+    /// Represents a source prediction entry. Source entries are negated
+    /// addresses, so that they can be compared with addresses by using the
+    /// LEA and JRCXZ instructions, which do not modify flags.
+    struct prediction_entry_source {
+        int64_t addr;
+
+        inline prediction_entry_source(void) throw()
+            : addr(0)
+        { }
+
+        inline prediction_entry_source(app_pc addr_) throw()
+            : addr(-reinterpret_cast<int64_t>(addr_))
+        { }
+
+        inline prediction_entry_source &
+        operator=(app_pc addr_) throw() {
+            addr = -reinterpret_cast<int64_t>(addr_);
+            return *this;
+        }
+
+        inline operator app_pc(void) const throw() {
+            return reinterpret_cast<app_pc>(-addr);
+        }
+    };
+
+
     /// Represents a prediction entry.
     struct prediction_entry {
     public:
-        app_pc source;
+        prediction_entry_source source;
         app_pc dest;
     } __attribute__((packed));
 

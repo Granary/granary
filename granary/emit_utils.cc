@@ -192,17 +192,26 @@ namespace granary {
     /// Add the instructions to save the flags onto the top of the stack.
     instruction_list_handle insert_save_flags_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction_list_handle in,
+        flag_save_constraint constraint
     ) throw() {
+        (void) constraint;
 #if GRANARY_IN_KERNEL
         in = ls.insert_after(in, pushf_());
         in = ls.insert_after(in, cli_());
 #elif CONFIG_IBL_SAVE_ALL_FLAGS
         in = ls.insert_after(in, pushf_());
 #else
-        in = ls.insert_after(in, push_(reg::rax));
-        in = ls.insert_after(in, lahf_());
-        in = ls.insert_after(in, xchg_(*reg::rsp, reg::rax));
+        if(REG_AH_IS_LIVE == constraint) {
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, lahf_());
+            in = ls.insert_after(in, mov_st_(reg::rsp[8], reg::rax));
+            in = ls.insert_after(in, pop_(reg::rax));
+        } else {
+            in = ls.insert_after(in, lahf_());
+            in = ls.insert_after(in, push_(reg::rax));
+        }
 #endif
         return in;
     }
@@ -211,16 +220,25 @@ namespace granary {
     /// Add the instructions to restore the flags from the top of the stack.
     instruction_list_handle insert_restore_flags_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction_list_handle in,
+        flag_save_constraint constraint
     ) throw() {
+        (void) constraint;
 #if GRANARY_IN_KERNEL
         in = ls.insert_after(in, popf_());
 #elif CONFIG_IBL_SAVE_ALL_FLAGS
         in = ls.insert_after(in, popf_());
 #else
-        in = ls.insert_after(in, xchg_(*reg::rsp, reg::rax));
-        in = ls.insert_after(in, sahf_());
-        in = ls.insert_after(in, pop_(reg::rax));
+        if(REG_AH_IS_LIVE == constraint) {
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, mov_ld_(reg::rax, reg::rsp[8]));
+            in = ls.insert_after(in, sahf_());
+            in = ls.insert_after(in, pop_(reg::rax));
+            in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
+        } else {
+            in = ls.insert_after(in, pop_(reg::rax));
+            in = ls.insert_after(in, sahf_());
+        }
 #endif
         return in;
     }

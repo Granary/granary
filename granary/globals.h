@@ -26,7 +26,7 @@
 /// prediction" to try to reduce the cost of looking things up in the CPU
 /// private hash table. If IBL entry stubs are not used, then generic IBL
 /// entries are used.
-#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
+#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 0
 
 
 /// Enable performance counters and reporting. Performance counters measure
@@ -79,7 +79,7 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 1
+#define CONFIG_IBL_SAVE_ALL_FLAGS 0
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it

@@ -39,7 +39,7 @@ namespace granary {
         // to use relative addressing.
         app_pc estimator_pc;
 
-        instruction_list_handle dbl_entry_stub(
+        void dbl_entry_stub(
             instruction_list &patch_ls,
             instruction_list_handle patch,
             instruction_list_handle patched_in,
@@ -165,7 +165,7 @@ namespace granary {
 
         /// Checks to see if a return address is in the code cache. If so, it
         /// RETs to the address, otherwise it JMPs to the IBL entry routine.
-        static app_pc rbl_entry_routine(
+        app_pc rbl_entry_routine(
             instrumentation_policy policy
         ) throw();
 

@@ -22,6 +22,24 @@ namespace granary {
     }
 
 
+    instruction jecxz_(dynamorio::opnd_t t) {
+        instruction in__; // need to make sure granary policy is 0
+        dynamorio::dcontext_t dc__ = {
+            false, /* x86_mode */
+            0, /* private code */
+            &(in__.instr) /* allocated_instr */
+        };
+        dynamorio::dcontext_t *dc = &dc__;
+        dynamorio::instr_create_0dst_2src(
+            (dc),
+            dynamorio::OP_jecxz,
+            (t),
+            dynamorio::opnd_create_reg(dynamorio::DR_REG_ECX)
+        );
+        return in__;
+    }
+
+
     /// used frequently in instruction functions
     typename dynamorio::dcontext_t *instruction::DCONTEXT = \
         dynamorio::get_thread_private_dcontext();
@@ -182,92 +200,6 @@ namespace granary {
         *op = operand(that);
         instr->invalidate_raw_bits();
         return *this;
-    }
-
-
-    /// Private instruction label constructor. Stores the raw pointer to the
-    /// list item. This is a leaky abstraction :-P
-    instruction_label::instruction_label(item_type *instr_) throw()
-        : instr(instr_)
-        , is_used(false)
-    { }
-
-
-    /// Move constructor.
-    instruction_label::instruction_label(instruction_label &&that) throw()
-        : instr(that.instr)
-        , is_used(that.is_used)
-    { }
-
-
-    /// Destroy the instruction label; the item associated with the label is
-    /// destroyed iff the label was not used in any list.
-    instruction_label::~instruction_label(void) throw() {
-        if(!is_used && instr) {
-            list_meta<instruction>::free(instr, sizeof *instr);
-        }
-        instr = nullptr;
-    }
-
-
-    /// Move assignment operator.
-    instruction_label &
-    instruction_label::operator=(instruction_label &&that) throw() {
-        if(this != &that) {
-            instr = that.instr;
-            is_used = that.is_used;
-
-            that.instr = nullptr;
-            that.is_used = false;
-        }
-        return *this;
-    }
-
-
-    /// Get a pointer to the internal dynamorio::instr_t for use by
-    /// control-flow instructions.
-    instruction_label::operator instruction *(void) throw() {
-        return &(instr->get_value());
-    }
-
-
-    /// allocate a label for use by this instruction list; NOTE:
-    instruction_label
-    instruction_list::label(void) throw() {
-        item_type *item = allocate(label_());
-        return instruction_label(item);
-    }
-
-
-    /// Insert a label at the end of an instruction list.
-    instruction_list::handle_type
-    instruction_list::append(instruction_label &label) throw() {
-        label.is_used = true;
-        return this->list<instruction>::append(label.instr);
-    }
-
-
-    /// Insert a label at the beginning of an instruction list.
-    instruction_list::handle_type
-    instruction_list::prepend(instruction_label &label) throw() {
-        label.is_used = true;
-        return this->list<instruction>::prepend(label.instr);
-    }
-
-
-    /// Insert a label before another instruction in an instruction list.
-    instruction_list::handle_type
-    instruction_list::insert_before(handle_type pos, instruction_label &label) throw() {
-        label.is_used = true;
-        return this->list<instruction>::insert_before(get_item(pos), label.instr);
-    }
-
-
-    /// Insert a label after another instruction in an instruction list.
-    instruction_list::handle_type
-    instruction_list::insert_after(handle_type pos, instruction_label &label) throw() {
-        label.is_used = true;
-        return this->list<instruction>::insert_after(get_item(pos), label.instr);
     }
 
 
