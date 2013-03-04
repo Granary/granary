@@ -171,10 +171,6 @@ ifneq ($(KERNEL),1)
 			GR_LD_FLAGS += -shared 
 		endif
 	endif
-	
-	ifeq ($(UNAME),Linux) # Linux
-		GR_LD_FLAGS += -ldl
-	endif
 
 	# Granary tests
 	GR_OBJS += bin/tests/test_direct_cbr.o
@@ -188,17 +184,25 @@ ifneq ($(KERNEL),1)
 	#GR_OBJS += bin/tests/test_pthreads.o
 
 	# figure out how to link in various libraries that might be OS-specific
-	GR_LD_SPECIFIC = -pthread -lrt
+	GR_LD_SPECIFIC =
+	GR_LD_SPECIFIC_SUFFIX =
+
 	ifeq ($(UNAME), Darwin)
 		GR_LD_SPECIFIC = -lpthread
 	endif
 	
-	GR_LD_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_SPECIFIC) -lm
+	ifeq ($(UNAME), Linux)
+		GR_LD_SPECIFIC = -pthread
+		GR_LD_SPECIFIC_SUFFIX = -lrt -ldl
+	endif
+	
+	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_SPECIFIC)
+	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SPECIFIC_SUFFIX)
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
-	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_LD_FLAGS) $(GR_OBJS) -o $(GR_OUTPUT_PREFIX)$(GR_NAME)$(GR_OUTPUT_SUFFIX)
+	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_LD_PREFIX_FLAGS) $(GR_OBJS) $(GR_LD_SUFFIX_FLAGS) -o $(GR_OUTPUT_PREFIX)$(GR_NAME)$(GR_OUTPUT_SUFFIX)
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
