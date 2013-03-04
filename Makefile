@@ -19,11 +19,11 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O3
+GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_FLAGS = 
 GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
-GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti 
+GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time
@@ -60,7 +60,7 @@ GR_OUTPUT_SUFFIX = .out
 ifneq (,$(findstring clang,$(GR_CC))) # clang
 
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
-	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes
+	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes 
 	GR_CXX_STD = -std=c++11
 	
 	# explicitly enable/disable address sanitizer

@@ -105,8 +105,8 @@ namespace granary {
     }
 
 
-    void perf::visit_ibl_entry(instruction_list &ls) throw() {
-        NUM_IBL_ENTRY_INSTRUCTIONS.fetch_add(ls.length());
+    void perf::visit_ibl_stub(unsigned num_instructions) throw() {
+        NUM_IBL_ENTRY_INSTRUCTIONS.fetch_add(num_instructions);
     }
 
 

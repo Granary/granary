@@ -17,8 +17,7 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...)
-//__VA_ARGS__
+#define D(...) __VA_ARGS__
 
 namespace granary {
 
@@ -153,6 +152,8 @@ namespace granary {
             CODE_CACHE->load(base_addr.as_address, target_addr);
         }
 
+        D( printf(" -> %p (translated)\n", target_addr); )
+
         // TODO: try to pre-load the cache with internal jump targets of the
         //       just-stored basic block (if config option permits).
 
@@ -169,9 +170,9 @@ namespace granary {
             }
 
             cpu->code_cache.store(addr.as_address, target_addr);
-        }
 
-        D( printf(" -> %p\n", target_addr); )
+            D( printf(" -> %p (indirect)\n", target_addr); )
+        }
 
         return target_addr;
     }

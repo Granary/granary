@@ -8,7 +8,6 @@
 #ifndef granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 #define granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 
-
 #define EXECL_ARG(num, last_arg, seen_null, args_arr, args_list) \
     (args_arr)[num] = va_arg((args_list), char *); \
     if(!(seen_null)) { \

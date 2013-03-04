@@ -26,7 +26,7 @@ namespace granary {
         static void visit_encoded(instruction &) throw();
         static void visit_encoded(basic_block &) throw();
 
-        static void visit_ibl_entry(instruction_list &) throw();
+        static void visit_ibl_stub(unsigned) throw();
         static void visit_ibl(instruction_list &) throw();
         static void visit_ibl_exit(instruction_list &) throw();
 

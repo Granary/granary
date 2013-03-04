@@ -11,11 +11,11 @@
 
 #include "granary/printf.h"
 
-#define LOG 0
+#define LOG 1
 
 namespace granary {
 #if LOG
-    static FILE *granary_out(stdout); //fopen("granary.log", "w"));
+    static FILE *granary_out(stderr); //fopen("granary.log", "w"));
 #endif
 
     int printf(const char *format, ...) throw() {

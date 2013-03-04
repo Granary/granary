@@ -148,6 +148,7 @@ namespace granary {
 
         bool handled_target(false);
         int stack_offset(0);
+        IF_PERF( const unsigned num_instruction(ibl.length()); )
 
         if(IBL_ENTRY_RETURN == ibl_kind) {
 
@@ -246,11 +247,14 @@ namespace granary {
 
             ibl.insert_after(in,
                 mangled(jmp_(pc_(ibl_predict_entry_routine()))));
+
 #else
             in = ibl.insert_after(in, push_(reg_compare_addr));
             ibl.insert_after(in,
                 mangled(jmp_(pc_(ibl_entry_routine(target_policy)))));
 #endif
+
+            IF_PERF( perf::visit_ibl_stub(ibl.length() - num_instruction); )
 
             break;
         }
@@ -333,6 +337,8 @@ namespace granary {
         if(routine[policy_bits]) {
             return routine[policy_bits];
         }
+
+        IF_PERF( perf::visit_rbl(ibl); )
 
         // encode
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
@@ -445,6 +451,9 @@ namespace granary {
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>( ibl.encoded_size()));
         ibl.encode(temp);
+
+        IF_PERF( perf::visit_ibl(ibl); )
+
         routine[policy_bits] = temp;
         return temp;
     }
@@ -470,6 +479,9 @@ namespace granary {
 
         app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
             ibl.encoded_size()));
+
+        IF_PERF( perf::visit_ibl_exit(ibl); )
+
         ibl.encode(routine);
         return routine;
     }

@@ -54,8 +54,19 @@ namespace granary {
     public:
         prediction_entry_source source;
         app_pc dest;
-    } __attribute__((packed));
+    } __attribute__((aligned(16)));
 
+
+    /// Sanity check the packing, as we can't pack it because
+    /// prediction_entry_source is not a POD.
+    static_assert(0 == offsetof(prediction_entry, source),
+        "`source` field of `struct prediction_entry` was not placed correctly.");
+
+    static_assert(8 == offsetof(prediction_entry, dest),
+        "`dest` field of `struct prediction_entry` was not placed correctly.");
+
+    static_assert(16 == sizeof(prediction_entry),
+        "`struct prediction_entry` must be 16 bytes.");
 
     /// Represents a code cache prediction table header. The default prediction
     /// table structure
@@ -78,9 +89,8 @@ namespace granary {
         /// `prediction_table_kind`).
         uint8_t kind;
 
-
         /// The first slots in this prediction table.
-        prediction_entry entry __attribute__((aligned (16)));
+        prediction_entry entry;
 
         /// Instrument this prediction table.
         __attribute__((hot))
@@ -98,7 +108,7 @@ namespace granary {
             app_pc ibl
         ) throw();
 
-    } __attribute__((packed, aligned(16)));
+    } __attribute__((aligned(16)));
 }
 
 

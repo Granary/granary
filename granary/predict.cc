@@ -42,15 +42,14 @@ namespace granary {
         uint32_t num_reads;
         uint32_t num_overwrites;
 
-        char filler[
-            sizeof(prediction_entry) - 2 * sizeof(uint32_t) - 1
-        ];
+        char filler[sizeof(uint64_t) - sizeof(prediction_table_kind)];
 
         prediction_table_kind kind;
 
-        prediction_entry entry __attribute__((aligned (16)));
-        prediction_entry ibl_entry __attribute__((aligned (16)));
-    } __attribute__((packed));
+        prediction_entry entry;
+        prediction_entry ibl_entry;
+
+    } __attribute__((aligned(16)));
 
 
     SANTIY_CHECK_PREDICT(prediction_table)
@@ -62,18 +61,21 @@ namespace granary {
     __attribute__((hot))
     static T *make_table(
         cpu_state_handle &cpu,
-        prediction_entry *fall_through,
+        prediction_entry *ibl_fall_through_entry,
         prediction_table_kind kind,
         unsigned num_extra_entries,
-        unsigned last_entry
+        unsigned last_entry_index
     ) throw() {
         T *table(unsafe_cast<T *>(
             cpu->block_allocator.allocate_untyped(16,
-                sizeof(T) + sizeof(prediction_entry) * (num_extra_entries))));
+                sizeof(T) + sizeof(prediction_entry) * num_extra_entries)));
 
         table->kind = kind;
         prediction_entry *entries(&(table->entry));
-        memcpy(&(entries[last_entry]), fall_through, sizeof *fall_through);
+        memcpy(
+            &(entries[last_entry_index]),
+            ibl_fall_through_entry,
+            sizeof *ibl_fall_through_entry);
         return table;
     }
 
