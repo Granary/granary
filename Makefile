@@ -20,7 +20,8 @@ GR_OUTPUT_FORMAT =
 
 # Compilation options
 GR_DEBUG_LEVEL = -g3 -O0
-GR_LD_FLAGS = 
+GR_LD_PREFIX_FLAGS = 
+GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS =
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti
@@ -158,7 +159,7 @@ ifneq ($(KERNEL),1)
 	else
 		GR_OBJS += bin/dlmain.o
 		GR_ASM_FLAGS += -fPIC
-		GR_LD_FLAGS += -fPIC
+		GR_LD_PREFIX_FLAGS += -fPIC
 		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC
 		GR_OUTPUT_PREFIX = lib
@@ -168,7 +169,7 @@ ifneq ($(KERNEL),1)
 			GR_LD_FLAGS += -dynamiclib
 		else # Linux
 			GR_OUTPUT_SUFFIX = .so
-			GR_LD_FLAGS += -shared 
+			GR_LD_PREFIX_FLAGS += -shared 
 		endif
 	endif
 
