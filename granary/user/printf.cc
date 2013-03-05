@@ -11,7 +11,7 @@
 
 #include "granary/printf.h"
 
-#define LOG 0
+#define LOG 1
 
 namespace granary {
 #if LOG

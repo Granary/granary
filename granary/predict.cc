@@ -67,7 +67,7 @@ namespace granary {
         unsigned last_entry_index
     ) throw() {
         T *table(unsafe_cast<T *>(
-            cpu->block_allocator.allocate_untyped(16,
+            cpu->small_allocator.allocate_untyped(16,
                 sizeof(T) + sizeof(prediction_entry) * num_extra_entries)));
 
         table->kind = kind;
@@ -134,6 +134,10 @@ namespace granary {
         old->kind = PREDICT_DEAD;
     }
 
+#define DEBUG_PREDICT_TABLE_CORRUPTION 0
+#if DEBUG_PREDICT_TABLE_CORRUPTION
+    static hash_table<app_pc, prediction_table *> pt;
+#endif
 
     /// Returns the default table for some IBL.
     prediction_table *prediction_table::get_default(
@@ -141,6 +145,15 @@ namespace granary {
         app_pc ibl
     ) throw() {
         prediction_entry null_entry = {nullptr, ibl};
+#if DEBUG_PREDICT_TABLE_CORRUPTION
+        if(!pt.find(ibl)) {
+            prediction_table *e(make_single_overwrite_table(
+                cpu, &null_entry, nullptr, ibl));
+
+            pt.store(ibl, e);
+        }
+        return pt.find(ibl);
+#endif
         return make_single_overwrite_table(
             cpu, &null_entry, nullptr, ibl);
     }

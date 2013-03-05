@@ -77,6 +77,17 @@ namespace granary {
 
     namespace detail {
 
+
+        /// For small allocations.
+        struct small_allocator_config {
+            enum {
+                SLAB_SIZE = sizeof(uint64_t) * 256,
+                EXECUTABLE = false,
+                TRANSIENT = false,
+                SHARED = false
+            };
+        };
+
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
@@ -165,6 +176,9 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
+        /// The code cache allocator for this CPU.
+        bump_pointer_allocator<detail::small_allocator_config>
+            small_allocator;
 
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::fragment_allocator_config>

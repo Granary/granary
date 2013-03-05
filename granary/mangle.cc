@@ -230,7 +230,7 @@ namespace granary {
 
             // allocate a table pointer for this basic block. This value of this
             // table pointer can be changed at runtime by the code_cache.
-            prediction_table **predict_table(cpu->block_allocator. \
+            prediction_table **predict_table(cpu->small_allocator. \
                 allocate<prediction_table *>());
 
             *predict_table = prediction_table::get_default(
