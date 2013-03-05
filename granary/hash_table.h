@@ -142,9 +142,9 @@ namespace granary {
         typedef detail::hash_table_entry_slots<K, V, false> slots_type;
         typedef detail::hash_table_entry<K, V, false> entry_type;
 
-        table_type table;
-        K default_key;
-        bool growing;
+        table_type table_;
+        K default_key_;
+        bool growing_;
 
         /// Insert an entry into the hash table. Returns true iff an element
         /// with the key didn't previously exist in the hash table.
@@ -153,8 +153,8 @@ namespace granary {
             V value,
             bool update
         ) throw() {
-            entry_type *slots(&(table.entry_slots->entries[0]));
-            const uint32_t mask(table.entry_slots->mask);
+            entry_type *slots(&(table_.entry_slots->entries[0]));
+            const uint32_t mask(table_.entry_slots->mask);
             uint32_t entry_base(meta_type::hash(key));
             unsigned scan(0);
             hash_store_state state(HASH_ENTRY_SKIPPED);
@@ -164,7 +164,7 @@ namespace granary {
                 entry_type &entry(slots[entry_base]);
 
                 // insert position
-                if(default_key == entry.key) {
+                if(default_key_ == entry.key) {
                     entry.value = value;
                     entry.key = key;
                     state = HASH_ENTRY_STORED_NEW;
@@ -183,10 +183,10 @@ namespace granary {
             }
 
             // resize if we needed to scan too far to insert this element.
-            if(meta_type::MAX_SCAN_SCALE_FACTOR < scan && !growing) {
-                growing = true;
+            if(meta_type::MAX_SCAN_SCALE_FACTOR < scan && !growing_) {
+                growing_ = true;
                 grow();
-                growing = false;
+                growing_ = false;
             }
 
             return state;
@@ -194,7 +194,7 @@ namespace granary {
 
         /// Grow the hash table. This increases the hash table's size by two.
         void grow(void) throw() {
-            slots_type *old_slots(table.entry_slots);
+            slots_type *old_slots(table_.entry_slots);
             const uint32_t num_old_slots(old_slots->mask + 1U);
             const uint32_t num_new_slots(num_old_slots * 2);
 
@@ -203,14 +203,14 @@ namespace granary {
 
             // update the table
             new_slots->mask = num_new_slots - 1U;
-            table.entry_slots = new_slots;
-            table.scaling_factor += 1;
+            table_.entry_slots = new_slots;
+            table_.scaling_factor += 1;
 
             // transfer elements to the new slots
             entry_type *old_entries(&(old_slots->entries[0]));
             for(uint32_t i(0); i < num_old_slots; ++i) {
                 entry_type &entry_old(old_entries[i]);
-                if(default_key == entry_old.key) {
+                if(default_key_ == entry_old.key) {
                     continue;
                 }
 
@@ -224,7 +224,7 @@ namespace granary {
 
         /// Constructor, default-initialise the slots.
         hash_table(void) throw()
-            : growing(false)
+            : growing_(false)
         {
             // size of the default hash table
             const uint32_t capacity(1U << meta_type::DEFAULT_SCALE_FACTOR);
@@ -236,39 +236,36 @@ namespace granary {
             slots->mask = capacity - 1;
 
             // initialise the internal table
-            table.num_entries = 0;
-            table.scaling_factor = meta_type::DEFAULT_SCALE_FACTOR;
-            table.entry_slots = slots;
+            table_.num_entries = 0;
+            table_.scaling_factor = meta_type::DEFAULT_SCALE_FACTOR;
+            table_.entry_slots = slots;
 
             // initialise the default key
-            memset(&default_key, 0, sizeof(K));
+            memset(&default_key_, 0, sizeof(K));
         }
 
 
         /// Destructor, free the slots.
         ~hash_table(void) throw() {
-            if(table.entry_slots) {
-                delete table.entry_slots;
-                table.entry_slots = nullptr;
+            if(table_.entry_slots) {
+                delete table_.entry_slots;
+                table_.entry_slots = nullptr;
             }
         }
 
         /// Find the value associated with a key in the hash table.
         V find(const K key) const throw() {
-            const slots_type * const slots(table.entry_slots);
+            const slots_type * const slots(table_.entry_slots);
             const uint32_t mask(slots->mask);
             const entry_type * const entries(&(slots->entries[0]));
             uint32_t entry_base(meta_type::hash(key));
-
-            K default_key = K();
-            memset(&default_key, 0, sizeof(K));
 
             for(;; entry_base += 1) {
                 entry_base &= mask;
                 const entry_type &entry(entries[entry_base]);
 
                 // default value; nothing there.
-                if(default_key == entry.key) {
+                if(default_key_ == entry.key) {
                     break;
 
                 // found it.
@@ -294,20 +291,20 @@ namespace granary {
             hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
         ) throw() {
             const uint32_t max_num_entries(
-                HASH_TABLE_MAX_SIZES[table.scaling_factor]);
+                HASH_TABLE_MAX_SIZES[table_.scaling_factor]);
 
             // check if we need to grow the hash table.
-            if(table.num_entries > max_num_entries) {
-                growing = true;
+            if(table_.num_entries > max_num_entries) {
+                growing_ = true;
                 grow();
-                growing = false;
+                growing_ = false;
             }
 
             const hash_store_state state(insert(
                 key, value, HASH_OVERWRITE_PREV_ENTRY == update));
 
             if(HASH_ENTRY_STORED_NEW == state) {
-                table.num_entries += 1;
+                table_.num_entries += 1;
                 return true;
             }
 
@@ -382,12 +379,12 @@ namespace granary {
         /// Represents the internal table of this hash table. The internal
         /// table need not be heap-allocated because it doesn't change, only
         /// the set of slots changes.
-        table_type internal_table;
+        table_type internal_table_;
 
 
         /// Represents the protected hash table, backed by the internal hash
         /// table.
-        smp::rcu_protected<table_type> table;
+        smp::rcu_protected<table_type> table_;
 
 
         /// Find an entry in the table using linear probing.
@@ -430,7 +427,7 @@ namespace granary {
             const bool overwrite_old_value;
             hash_store_state stored_state;
             bool should_grow;
-            slots_write_ref_type old_slots;
+            slots_write_ref_type old_slots_;
 
             add_entry(const K key_, const V value_, bool update) throw()
                 : new_key(key_)
@@ -438,7 +435,7 @@ namespace granary {
                 , overwrite_old_value(update)
                 , stored_state(HASH_ENTRY_SKIPPED)
                 , should_grow(false)
-                , old_slots()
+                , old_slots_()
             { }
 
             /// Insert an entry into the hash table. Returns true iff an element
@@ -530,7 +527,7 @@ namespace granary {
                 if(table.num_entries > max_num_entries
                 || table.should_grow) {
 
-                    old_slots = table.entry_slots;
+                    old_slots_ = table.entry_slots;
                     table.should_grow = false;
                     table.entry_slots = publisher.promote(
                         grow(table.entry_slots));
@@ -563,9 +560,8 @@ namespace granary {
             /// If this writer grew the hash table, then fee up the old
             /// version of the table.
             virtual void teardown(collector_type &collector) throw() {
-                if(old_slots) {
-                    (void) collector;
-                    delete collector.demote(old_slots);
+                if(old_slots_) {
+                    delete collector.demote(old_slots_);
                 }
             }
         };
@@ -578,8 +574,8 @@ namespace granary {
             /// interface.
             table_type * const internal_table;
 
-            initialise(table_type *internal_table_)
-                : internal_table(internal_table_)
+            initialise(table_type *internal_table__)
+                : internal_table(internal_table__)
             { }
 
             /// See if we need to grow the hash table. This is done while
@@ -596,8 +592,8 @@ namespace granary {
     public:
 
         shared_hash_table(void) throw()
-            : internal_table()
-            , table(smp::RCU_INIT_NULL)
+            : internal_table_()
+            , table_(smp::RCU_INIT_NULL)
         {
             // size of the default hash table
             const uint32_t capacity(1U << meta_type::DEFAULT_SCALE_FACTOR);
@@ -610,13 +606,13 @@ namespace granary {
             slots->mask = mask;
 
             // initialise the internal table
-            internal_table.num_entries = 0;
-            internal_table.scaling_factor = meta_type::DEFAULT_SCALE_FACTOR;
-            internal_table.entry_slots = slots;
+            internal_table_.num_entries = 0;
+            internal_table_.scaling_factor = meta_type::DEFAULT_SCALE_FACTOR;
+            internal_table_.entry_slots = slots;
 
             // initialise the RCU-protected internal table
-            initialise table_initialiser(&internal_table);
-            table.write(table_initialiser);
+            initialise table_initialiser(&internal_table_);
+            table_.write(table_initialiser);
         }
 
         ~shared_hash_table(void) throw() {
@@ -624,18 +620,18 @@ namespace granary {
             // make it so that the RCU protected class won't try to free the
             // internal table.
             initialise table_initialiser(nullptr);
-            table.write(table_initialiser);
+            table_.write(table_initialiser);
 
             // free up the slots, if any.
-            if(internal_table.entry_slots) {
-                delete internal_table.entry_slots;
-                internal_table.entry_slots = nullptr;
+            if(internal_table_.entry_slots) {
+                delete internal_table_.entry_slots;
+                internal_table_.entry_slots = nullptr;
             }
         }
 
         /// Load a value from the hash table.
         inline bool load(const K key, V &val) const throw() {
-            return table.read(read_table, key, val);
+            return table_.read(read_table, key, val);
         }
 
         /// Store a value in the hash table. Returns true iff the entry was
@@ -647,7 +643,7 @@ namespace granary {
         ) throw() {
             add_entry entry_adder(
                 key, value, HASH_OVERWRITE_PREV_ENTRY == update);
-            table.write(entry_adder);
+            table_.write(entry_adder);
             return HASH_ENTRY_SKIPPED != entry_adder.stored_state;
         }
     };

@@ -271,10 +271,10 @@ namespace granary {
     ///
     /// Note: The RBL currently clobbers the flags.
     app_pc instruction_list_mangler::rbl_entry_routine(
-        instrumentation_policy policy
+        instrumentation_policy target_policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
-        const uint8_t policy_bits(policy.extension_bits());
+        const uint8_t policy_bits(target_policy.extension_bits());
         if(routine[policy_bits]) {
             return routine[policy_bits];
         }
@@ -282,7 +282,7 @@ namespace granary {
         instruction_list ibl;
 
         ibl_entry_stub(
-            ibl, ibl.last(), policy, operand(*reg::rsp), IBL_ENTRY_RETURN);
+            ibl, ibl.last(), target_policy, operand(*reg::rsp), IBL_ENTRY_RETURN);
 
         ibl.append(push_(reg_compare_addr));
 
@@ -331,7 +331,7 @@ namespace granary {
         // slow path: return address is not in code cache; go off to the IBL.
         IF_IBL_PREDICT( ibl.append(
             xor_(reg_predict_table_ptr, reg_predict_table_ptr)); )
-        ibl.append(jmp_(pc_(ibl_entry_routine(policy))));
+        ibl.append(jmp_(pc_(ibl_entry_routine(target_policy))));
 
         // quick double check ;-)
         if(routine[policy_bits]) {
@@ -409,6 +409,19 @@ namespace granary {
         if(policy.is_in_xmm_context()) {
             safe = save_and_restore_xmm_registers(
                 all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
+
+        // only save %xmm0 and %xmm1, because the ABI allows these registers
+        // to be used for return values.
+        //
+        // TODO: should this be done in the kernel?
+        } else {
+#if !GRANARY_IN_KERNEL
+            all_regs.revive_all_xmm();
+            all_regs.kill(dynamorio::DR_REG_XMM0);
+            all_regs.kill(dynamorio::DR_REG_XMM1);
+            safe = save_and_restore_xmm_registers(
+                all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
+#endif
         }
 
         // save the target on the stack so that if the register is clobbered by

@@ -17,7 +17,8 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...) __VA_ARGS__
+#define D(...)
+//__VA_ARGS__
 
 namespace granary {
 
@@ -44,7 +45,11 @@ namespace granary {
         cpu_state_handle cpu;
         app_pc ret(cpu->code_cache.find(addr.as_address));
 
-        D( printf("find-cpu(%p)\n", addr.as_address); )
+        D( instrumentation_policy p(addr); )
+        D( printf("find-cpu(%p, %x, xmm=%d)\n",
+            addr.unmangled_address(),
+            p.extension_bits(),
+            p.is_in_xmm_context()); )
         D( printf(" -> %p\n", ret); )
 
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
@@ -83,7 +88,10 @@ namespace granary {
         app_pc app_target_addr(addr.unmangled_address());
         app_pc target_addr(nullptr);
 
-        D( printf("find(%p, %x)\n", app_target_addr, policy.extension_bits()); )
+        D( printf("find(%p, %x, xmm=%d)\n",
+            app_target_addr,
+            policy.extension_bits(),
+            policy.is_in_xmm_context()); )
 
         // Try to load the target address from the global code cache.
         if(CODE_CACHE->load(addr.as_address, target_addr)) {

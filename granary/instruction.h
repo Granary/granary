@@ -42,30 +42,30 @@ namespace granary {
         /// Add the scale parameter to the LEA operand. Value values are 1, 2,
         /// 4, and 8.
         template <typename T>
-        operand_base_disp operator*(T scale) const throw() {
+        operand_base_disp operator*(T scale_) const throw() {
             static_assert(std::is_integral<T>::value,
                 "Scale must have an integral type.");
 
             operand_base_disp ret(*this);
-            ret.scale = static_cast<int>(scale);
+            ret.scale = static_cast<int>(scale_);
             return ret;
         }
 
         /// Add in the displacement to the LEA operand.
         template <typename T>
-        operand_base_disp operator+(T disp) const throw() {
+        operand_base_disp operator+(T disp_) const throw() {
             static_assert(std::is_integral<T>::value,
                 "Displacement must have an integral type.");
 
             operand_base_disp ret(*this);
-            ret.disp = static_cast<int>(disp);
+            ret.disp = static_cast<int>(disp_);
             return ret;
         }
 
         /// Add in the displacement to the LEA operand.
         template <typename T>
-        inline operand_base_disp operator-(T disp) const throw() {
-            operand_base_disp ret(this->operator+(disp));
+        inline operand_base_disp operator-(T disp_) const throw() {
+            operand_base_disp ret(this->operator+(disp_));
             ret.disp = -ret.disp;
             return ret;
         }
@@ -347,9 +347,9 @@ namespace granary {
 
 
         /// Set the program counter of the instruction.
-        inline void set_pc(app_pc pc) throw() {
+        inline void set_pc(app_pc pc_) throw() {
             invalidate_raw_bits();
-            instr.translation = pc;
+            instr.translation = pc_;
         }
 
 

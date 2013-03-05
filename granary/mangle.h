@@ -32,7 +32,7 @@ namespace granary {
         cpu_state_handle cpu;
         thread_state_handle thread;
         basic_block_state *bb;
-        instrumentation_policy policy;
+        const instrumentation_policy policy;
         instruction_list *ls;
 
         // used to estimate if an address is too far away from the code cache

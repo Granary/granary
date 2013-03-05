@@ -27,7 +27,7 @@ GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
-GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time
+GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time -Wshadow
 
 GR_EXTRA_CC_FLAGS ?=
 GR_EXTRA_CXX_FLAGS ?=
@@ -82,8 +82,8 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
-	GR_CC_FLAGS += 
-	GR_CXX_FLAGS +=
+	GR_CC_FLAGS += -fdiagnostics-show-option
+	GR_CXX_FLAGS += -fdiagnostics-show-option
 endif
 
 ifneq (,$(findstring icc,$(GR_CC))) # icc

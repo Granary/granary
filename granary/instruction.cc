@@ -93,15 +93,15 @@ namespace granary {
 
 
     /// Encodes an instruction into a sequence of bytes.
-    app_pc instruction::encode(app_pc pc) throw() {
+    app_pc instruction::encode(app_pc pc_) throw() {
 
         // address calculation for relative jumps uses the note
         // field; second-pass encoding for hot patchable instructions
         // takes advantage of this
-        instr.note = pc;
-        app_pc ret(dynamorio::instr_encode(DCONTEXT, &instr, pc));
+        instr.note = pc_;
+        app_pc ret(dynamorio::instr_encode(DCONTEXT, &instr, pc_));
 
-        instr.translation = pc;
+        instr.translation = pc_;
         return ret;
     }
 

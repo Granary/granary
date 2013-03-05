@@ -49,12 +49,12 @@ void indirect_call_target(void) throw() {
     ASM("");
 }
 
-void (*func)(void) = indirect_call_target;
+void (*indirect_func)(void) = indirect_call_target;
 
 __attribute__((noinline, optimize("O0")))
 void make_indirect_call(void) throw() {
     for(int i = 0; i < ITERATIONS; ++i) {
-        func();
+        indirect_func();
     }
 }
 

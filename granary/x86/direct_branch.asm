@@ -71,8 +71,20 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     push (%rsp)
     and $-0x10, %rsp
 
+#if !GRANARY_IN_KERNEL
+    lea -32(%rsp), %rsp;
+    movaps %xmm0, 16(%rsp);
+    movaps %xmm1, (%rsp);
+#endif
+
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
+
+#if !GRANARY_IN_KERNEL
+    movaps (%rsp), %xmm1;
+    movaps 16(%rsp), %xmm0;
+    lea 32(%rsp), %rsp;
+#endif
 
     // restore the old stack pointer
     mov 8(%rsp), %rsp

@@ -315,14 +315,14 @@ namespace granary {
     /// Note: This excludes block-local storage because it is actually
     ///       allocated separately from the basic block.
     unsigned basic_block::size(void) const throw() {
-        unsigned size(info->num_bytes + sizeof *info);
+        unsigned size_(info->num_bytes + sizeof *info);
 
 #if GRANARY_IN_KERNEL
         unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
-        size += num_instruction_bits / BITS_PER_BYTE;
+        size_ += num_instruction_bits / BITS_PER_BYTE;
 #endif
-        return size;
+        return size_;
     }
 
 

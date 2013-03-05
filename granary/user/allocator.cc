@@ -97,7 +97,6 @@ namespace granary { namespace detail {
     }
 
     void global_free(void *addr) throw() {
-        //FAULT_IF(nullptr == addr);
         return free(addr);
     }
 }}

@@ -74,6 +74,7 @@
 #if defined(CAN_WRAP_execvp)
 #   define WRAPPER_FOR_execvp
     FUNCTION_WRAPPER(execvp, (int), (const char *file, char * const *argv), {
+        granary::printf("execvp(%s, ...)\n", file);
         return execvp(file, argv);
     })
 #endif
@@ -82,6 +83,7 @@
 #if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe)
 #   define WRAPPER_FOR_execle
     FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
+        granary::printf("execle(%s, %s, ...)\n", __path, __arg);
         va_list args__;
         char *args[12] = {nullptr};
         int last_arg(0);
@@ -183,7 +185,11 @@ FUNCTION_WRAPPER(open, (int), (const char *_arg1, int _arg2, ...), {
     va_start(args__, _arg2);
     mode_t _arg3 = va_arg(args__, int);
     va_end(args__);
-    return open(_arg1, _arg2, _arg3);
+    int ret = open(_arg1, _arg2, _arg3);
+
+    granary::printf("function_wrapper(open, %s, %d) -> %d\n", _arg1, _arg2, ret);
+
+    return ret;
 })
 
 
@@ -197,7 +203,7 @@ FUNCTION_WRAPPER(pthread_create, (int), (pthread_t *thread, const pthread_attr_t
 
 
 
-#if 0
+#if 1
 #ifdef CAN_WRAP_pread
 #   define WRAPPER_FOR_pread
     FUNCTION_WRAPPER(pread, (ssize_t), (int fd, void *buf, size_t count, off_t offset), {

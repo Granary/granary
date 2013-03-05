@@ -17,21 +17,38 @@ namespace granary { namespace types {
 
 extern "C" {
 
+#if defined(__GNUC__)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wshadow"
+#elif defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wshadow"
+#else
+#   error "Can't disable `-Wshadow` around `(user/kernel)_types.h` include."
+#endif
+
 #define restrict
 #define __restrict
 #define _Bool bool
 
-#if GRANARY_IN_KERNEL
-#   include "granary/gen/kernel_types.h"
-#else
+#   if GRANARY_IN_KERNEL
+#      include "granary/gen/kernel_types.h"
+#   else
 // OS X-specific hack.
-#   ifdef __APPLE__
+#      ifdef __APPLE__
 typedef wchar_t __darwin_wchar_t;
+#      endif
+#      include "granary/gen/user_types.h"
 #   endif
-#   include "granary/gen/user_types.h"
+#   undef restrict
+#   undef wchar_t
+
+#if defined(GCC_VERSION)
+#   pragma GCC diagnostic pop
+#elif defined(__clang__)
+#   pragma clang diagnostic pop
 #endif
-#undef restrict
-#undef wchar_t
+
 }
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
