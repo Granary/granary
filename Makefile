@@ -166,7 +166,7 @@ ifneq ($(KERNEL),1)
 		
 		ifeq ($(UNAME),Darwin) # Mac OS X
 			GR_OUTPUT_SUFFIX = .dylib
-			GR_LD_FLAGS += -dynamiclib
+			GR_LD_PREFIX_FLAGS += -dynamiclib
 		else # Linux
 			GR_OUTPUT_SUFFIX = .so
 			GR_LD_PREFIX_FLAGS += -shared 
