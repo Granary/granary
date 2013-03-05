@@ -898,13 +898,24 @@ namespace granary {
         instrumentation_policy target_policy
     ) throw() {
 
-#if CONFIG_ENABLE_WRAPPERS
-        app_pc detach_target_pc(target.value.pc);
+        app_pc target_pc(target.value.pc);
+        mangled_address am(target_pc, target_policy.base_policy());
+
+        // if we already know the target, then forgo a stub.
+        app_pc detach_target_pc(cpu->code_cache.find(am.as_address));
+        if(detach_target_pc) {
+            target.value.pc = detach_target_pc;
+            in->set_cti_target(target);
+            return;
+        }
 
         // if this is a detach point then replace the target address with the
-        // detach address.
-        detach_target_pc = find_detach_target(detach_target_pc);
+        // detach address. This can be tricky because the instruction might not
+        // be a call/jmp (i.e. it might be a conditional branch)
+        detach_target_pc = find_detach_target(target_pc);
         if(nullptr != detach_target_pc) {
+
+            ASSERT(in->is_call() || in->is_jump());
 
             if(is_far_away(estimator_pc, detach_target_pc)) {
                 app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
@@ -918,6 +929,7 @@ namespace granary {
                 } else {
                     *in = mangled(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
                 }
+
             } else {
                 in->set_cti_target(pc_(detach_target_pc));
                 in->set_mangled();
@@ -926,7 +938,7 @@ namespace granary {
             return;
         }
 
-#elif CONFIG_TRANSPARENT_RETURN_ADDRESSES
+#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // when emulating functions (for transparent return addresses), we
         // convert the call to a jmp here so that the dbl picks up OP_jmp as
         // the instruction instead of OP_call.
@@ -943,7 +955,6 @@ namespace granary {
         const unsigned old_size(in->encoded_size());
 
         // set the policy-fied target
-        mangled_address am(target, target_policy.base_policy());
         instruction_list_handle stub(ls->prepend(label_()));
 
         dbl_entry_stub(

@@ -26,7 +26,7 @@
 /// prediction" to try to reduce the cost of looking things up in the CPU
 /// private hash table. If IBL entry stubs are not used, then generic IBL
 /// entries are used.
-#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 0
+#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
 
 
 /// Enable performance counters and reporting. Performance counters measure
@@ -98,7 +98,7 @@
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 1
 
 
 /// Set to 1 iff basic blocks should contain the instructions immediately

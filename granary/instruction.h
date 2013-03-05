@@ -288,7 +288,7 @@ namespace granary {
 
         /// Return true iff this instruction is a CALL instruction.
         inline bool is_jump(void) throw() {
-            return dynamorio::instr_is_jump(&instr);
+            return dynamorio::instr_is_jmp(&instr);
         }
 
 

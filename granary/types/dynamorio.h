@@ -2469,7 +2469,7 @@ bool instr_is_mov ( instr_t * instr );
 
 bool instr_is_call ( instr_t * instr );
 
-bool instr_is_jump(instr_t *instr);
+bool instr_is_jmp(instr_t *instr);
 
 bool instr_is_call_direct ( instr_t * instr );
 
