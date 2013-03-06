@@ -25,6 +25,7 @@ void granary_signal_handler(int) {
 
 extern "C" {
 
+    DLL_PUBLIC
     __attribute__((noinline, constructor, optimize("O0")))
     static void granary_begin_program(void) {
 
@@ -38,6 +39,8 @@ extern "C" {
 
 
 #if CONFIG_ENABLE_PERF_COUNTS
+
+    DLL_PUBLIC
     __attribute__((noinline, destructor, optimize("O0")))
     static void granary_end_program(void) {
         granary::perf::report();

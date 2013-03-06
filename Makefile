@@ -160,8 +160,8 @@ ifneq ($(KERNEL),1)
 		GR_OBJS += bin/dlmain.o
 		GR_ASM_FLAGS += -fPIC
 		GR_LD_PREFIX_FLAGS += -fPIC
-		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC
-		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC
+		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden -fvisibility-inlines-hidden
+		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden -fvisibility-inlines-hidden
 		GR_OUTPUT_PREFIX = lib
 		
 		ifeq ($(UNAME),Darwin) # Mac OS X

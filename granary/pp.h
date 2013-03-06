@@ -237,4 +237,12 @@
 #define TEMPLATE_PARAMS_6(...) < __VA_ARGS__ >
 #define TEMPLATE_PARAMS_7(...) < __VA_ARGS__ >
 
+#if defined(GRANARY_USE_PIC) && !GRANARY_IN_KERNEL
+#   define DLL_PUBLIC __attribute__ ((visibility ("default")))
+#   define DLL_LOCAL  __attribute__ ((visibility ("hidden")))
+#else
+#   define DLL_PUBLIC
+#   define DLL_LOCAL
+#endif
+
 #endif /* Granary_PP_H_ */

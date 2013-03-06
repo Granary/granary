@@ -8,7 +8,7 @@
 
 #include "granary/printf.h"
 
-#define LOG 0
+#define LOG 1
 
 #if LOG
 #   include <cstdio>
@@ -17,7 +17,7 @@
 
 namespace granary {
 #if LOG
-    static FILE *granary_out(stderr); //fopen("granary.log", "w"));
+    static FILE *granary_out(fopen("granary.log", "w"));
 #endif
 
     int printf(const char *format, ...) throw() {
