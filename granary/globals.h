@@ -169,6 +169,11 @@ namespace granary {
         MAX_IBL_PREDICT_SLOTS = 4,
 #endif
 
+        /// Number of bytes in *every* hot patched call. This allows us to say
+        /// that a return address into code cache must always satisfy:
+        ///                     (ret_addr % 8) == 5
+        RETURN_ADDRESS_OFFSET = 5,
+
         __end_globals
     };
 

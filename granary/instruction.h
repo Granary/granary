@@ -513,6 +513,7 @@ namespace granary {
         return in;
     }
 
+
     typedef decltype(instruction_list().first()) instruction_list_handle;
 
 

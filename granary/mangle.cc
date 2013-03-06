@@ -129,6 +129,7 @@ namespace granary {
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
     static operand reg_predict_table_ptr(reg::arg2);
+    static operand reg_predict_table_ptr_16(reg::arg2_16);
     static operand reg_predict_ptr(reg::rax);
 #endif
 
@@ -268,8 +269,6 @@ namespace granary {
 
     /// Checks to see if a return address is in the code cache. If so, it
     /// RETs to the address, otherwise it JMPs to the IBL entry routine.
-    ///
-    /// Note: The RBL currently clobbers the flags.
     app_pc instruction_list_mangler::rbl_entry_routine(
         instrumentation_policy target_policy
     ) throw() {
@@ -301,37 +300,37 @@ namespace granary {
         // move the return address forward, then align it back to 8 bytes and
         // expect to find the magic value which begins the basic block meta
         // info.
-        ibl.append(mov_ld_(reg_compare_addr, reg_target_addr));
-        ibl.append(add_(reg_compare_addr, int8_(16)));
-        ibl.append(and_(reg_compare_addr, int32_(-8)));
+        ibl.append(lea_(
+            reg_compare_addr, reg_target_addr[16 - RETURN_ADDRESS_OFFSET]));
 
-        // now compare for the magic value
-        ibl.append(mov_ld_(reg_compare_addr, *reg_compare_addr));
+        // load and zero-extend the (potential) 32-bit header.
+        operand header_mem(*reg_compare_addr);
+        header_mem.size = dynamorio::OPSZ_4;
+        ibl.append(mov_ld_(reg_compare_addr_32, header_mem));
 
+        // compare against the header
         ibl.append(push_(reg::rax));
-        ibl.append(mov_imm_(reg::rax, int64_(basic_block_info::HEADER)));
-        ibl.append(sub_(reg_compare_addr_32, reg::eax));
+        ibl.append(mov_imm_(reg::rax, int64_(-basic_block_info::HEADER)));
+        ibl.append(lea_(reg_compare_addr, reg_compare_addr + reg::rax));
         ibl.append(pop_(reg::rax));
 
-        instruction_list_handle slow(ibl.append(label_()));
-        instruction_list_handle fast(slow);
-        ibl.insert_before(fast, jnz_(instr_(*slow)));
-
-        // fast path: they are equal
-        ibl.insert_before(fast, pop_(reg_compare_addr));
-        IF_IBL_PREDICT( ibl.insert_before(fast, pop_(reg_predict_table_ptr)); )
-        ibl.insert_before(fast, pop_(reg_target_addr));
-
-        // restore redzone
-        IF_USER( ibl.insert_before(fast,
-            lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
-
-        ibl.insert_before(fast, ret_());
+        instruction_list_handle slow(ibl.last());
+        instruction_list_handle fast(ibl.append(label_()));
+        slow = ibl.insert_after(slow, jecxz_(instr_(*fast)));
 
         // slow path: return address is not in code cache; go off to the IBL.
-        IF_IBL_PREDICT( ibl.append(
-            xor_(reg_predict_table_ptr, reg_predict_table_ptr)); )
-        ibl.append(jmp_(pc_(ibl_entry_routine(target_policy))));
+        IF_IBL_PREDICT( slow = ibl.insert_after(slow,
+            mov_imm_(reg_predict_table_ptr_16, int16_(0))); )
+        IF_IBL_PREDICT( slow = ibl.insert_after(slow,
+            movzx_(reg_predict_table_ptr, reg_predict_table_ptr_16)); )
+        ibl.insert_after(slow, jmp_(pc_(ibl_entry_routine(target_policy))));
+
+        // fast path: they are equal
+        ibl.append(pop_(reg_compare_addr));
+        IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
+        ibl.append(pop_(reg_target_addr));
+        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
+        ibl.append(ret_());
 
         // quick double check ;-)
         if(routine[policy_bits]) {
@@ -345,6 +344,7 @@ namespace granary {
             allocate_array<uint8_t>( ibl.encoded_size()));
         ibl.encode(temp);
         routine[policy_bits] = temp;
+
         return temp;
     }
 
@@ -608,18 +608,25 @@ namespace granary {
     /// Stage an 8-byte hot patch. This will encode the instruction `in` into
     /// the `stage` location (as if it were going to be placed at the `dest`
     /// location, and then encodes however many NOPs are needed to fill in 8
-    /// bytes.
+    /// bytes. If offset is non-zero, then `offset` number of NOP bytes will be
+    /// encoded before the instruction `in`.
     void instruction_list_mangler::stage_8byte_hot_patch(
         instruction in,
         app_pc stage,
-        app_pc dest
+        app_pc dest,
+        unsigned offset
     ) throw() {
         instruction_list ls;
+
+        if(offset) {
+            inject_mangled_nops(ls, ls.first(), offset);
+        }
+
         ls.append(in);
 
         const unsigned size(in.encoded_size());
-        if(size < 8) {
-            inject_mangled_nops(ls, ls.first(), 8U - size);
+        if((size + offset) < 8) {
+            inject_mangled_nops(ls, ls.first(), 8U - (size + offset));
         }
 
         ls.stage_encode(stage, dest);
@@ -674,10 +681,14 @@ namespace granary {
         instruction cti(make_opcode(pc_(target_pc)));
         cti.widen_if_cti();
 
+        unsigned offset(0);
+        if(cti.is_call()) {
+            ASSERT(cti.encoded_size() <= RETURN_ADDRESS_OFFSET);
+            offset = RETURN_ADDRESS_OFFSET - cti.encoded_size();
+        }
+
         instruction_list_mangler::stage_8byte_hot_patch(
-            cti,
-            staged_code,
-            patch_address);
+            cti, staged_code, patch_address, offset);
 
         // apply the patch
         granary_atomic_write8(
@@ -1395,18 +1406,26 @@ namespace granary {
 
             next_in = in.next();
             const bool is_hot_patchable(in->is_patchable());
+            const unsigned in_size(in->encoded_size());
 
             // x86-64 guaranteed quadword atomic writes so long as the memory
             // location is aligned on an 8-byte boundary; we will assume that
             // we are never patching an instruction longer than 8 bytes
             if(is_hot_patchable) {
                 uint64_t forward_align(ALIGN_TO(align, 8));
+
+                // This will make sure that even indirect calls have their
+                // return addresses aligned at `RETURN_ADDRESS_OFFSET`.
+                if(in->is_call() && RETURN_ADDRESS_OFFSET > in_size) {
+                    forward_align += RETURN_ADDRESS_OFFSET - in_size;
+                }
+
                 inject_mangled_nops(*ls, prev_in, forward_align);
                 align += forward_align;
             }
 
             prev_in = in;
-            align += in->encoded_size();
+            align += in_size;
 
             // make sure that the instruction is the only "useful" one in it's
             // 8-byte block

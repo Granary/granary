@@ -109,8 +109,10 @@ namespace granary {
         //       cache return address and then displaces it then we will have a
         //       problem.
         uint64_t addr_uint(reinterpret_cast<uint64_t>(app_target_addr));
-        addr_uint = (addr_uint + 16) & ~7;
-        if(basic_block_info::HEADER == *(reinterpret_cast<uint32_t *>(addr_uint))) {
+        uint32_t *header_addr(reinterpret_cast<uint32_t *>(
+            addr_uint + 16 - RETURN_ADDRESS_OFFSET));
+        if(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
+        && basic_block_info::HEADER == *header_addr) {
             target_addr = instruction_list_mangler::ibl_exit_routine(app_target_addr);
             CODE_CACHE->store(addr.as_address, target_addr);
             D( printf(" -> %p (return)\n", target_addr); )

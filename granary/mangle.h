@@ -80,7 +80,8 @@ namespace granary {
         static void stage_8byte_hot_patch(
             instruction in,
             app_pc stage,
-            app_pc dest
+            app_pc dest,
+            unsigned offset=0
         ) throw();
 
     private:

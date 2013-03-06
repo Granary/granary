@@ -115,6 +115,7 @@ namespace granary {
         // TODO: race condition
         table->entry.source = source;
         table->entry.dest = dest;
+
         // TODO
         (void) source;
         (void) dest;
