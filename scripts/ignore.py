@@ -2,7 +2,7 @@
 # TODO: currently have linker or platform errors for these.
 IGNORE = set([
   "add_profil",
-  "alloca",
+  
   "profil",
   "unwhiteout",
   "zopen",
@@ -36,6 +36,8 @@ IGNORE = set([
   "pthread_mutexattr_getrobust",
 
   # things that are wacky to wrap
+  "alloca",
+
   "setjmp",
   "_setjmp",
   "__setjmp",
@@ -60,4 +62,16 @@ IGNORE = set([
   # TODO: make wrappers for these
   "pthread_create",
   "pthread_once",
+
+  # these don't need to be wrapped (note: these
+  # aren't all necessarily real functions!)
+  "exec",
+  "execv",
+  "execvp",
+  "execvpe",
+  "execl",
+  "execle",
+  "execlpe",
+  "fork",
+  "vfork",
 ])

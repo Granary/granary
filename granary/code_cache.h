@@ -28,7 +28,7 @@ namespace granary {
 
         /// Find fast. This looks in the cpu-private cache first, and failing
         /// that, defaults to the global code cache.
-        __attribute__((hot))
+        __attribute__((hot, optimize("Os")))
         static app_pc find_on_cpu(
             mangled_address addr,
             prediction_table **IF_IBL_PREDICT(predict_table)

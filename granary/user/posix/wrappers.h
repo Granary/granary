@@ -185,16 +185,15 @@
         va_start(args__, _arg2);
         mode_t _arg3 = va_arg(args__, int);
         va_end(args__);
-        int ret = open(_arg1, _arg2, _arg3);
+        return open(_arg1, _arg2, _arg3);
 
-        granary::printf("function_wrapper(open, %s, %d) -> %d\n", _arg1, _arg2, ret);
-
-        return ret;
+        //granary::printf("function_wrapper(open, %s, %d) -> %d\n", _arg1, _arg2, ret);
+        //return ret;
     })
 #endif
 
 
-#define WRAP_DEBUG 1
+#define WRAP_DEBUG 0
 
 #if WRAP_DEBUG
 
