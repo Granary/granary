@@ -88,6 +88,10 @@
 #include <wctype.h>
 #include <wordexp.h>
 
+#ifdef __APPLE__
+#   include <malloc/malloc.h>
+#endif
+
 #ifdef __GR_HAS_CPP
 #   undef __GR_HAS_CPP
 #endif
