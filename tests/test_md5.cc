@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
 
 #define PR(...)
 
