@@ -25,7 +25,7 @@ void granary_signal_handler(int) {
 
 extern "C" {
 
-    __attribute__((noinline, constructor, visibility ("default")))
+    __attribute__((noinline, constructor))
     static void granary_begin_program(void) {
 
         //signal(SIGSEGV, granary_signal_handler);
@@ -39,7 +39,7 @@ extern "C" {
 
 #if CONFIG_ENABLE_PERF_COUNTS
 
-    __attribute__((noinline, destructor, visibility ("default")))
+    __attribute__((noinline, destructor))
     static void granary_end_program(void) {
         granary::perf::report();
     }
