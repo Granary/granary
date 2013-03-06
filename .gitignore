@@ -25,6 +25,7 @@
 .DS_Store
 .tmp_versions
 granary.out.*
+callgrind.out.*
 
 # Generated files
 granary/gen/*

@@ -218,8 +218,10 @@ extern "C" {
     extern void granary_break_on_fault(void);
     extern int granary_fault(void);
 
-    extern void granary_break_on_encode(dynamorio::app_pc pc,
-                                        dynamorio::instr_t *instr);
+    extern void granary_break_on_encode(
+        dynamorio::app_pc pc,
+        dynamorio::instr_t *instr
+    );
     extern void granary_break_on_bb(granary::basic_block *bb);
     extern void granary_break_on_allocate(void *ptr);
 #   if CONFIG_RUN_TEST_CASES
