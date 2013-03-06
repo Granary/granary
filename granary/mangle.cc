@@ -129,7 +129,6 @@ namespace granary {
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
     static operand reg_predict_table_ptr(reg::arg2);
-    static operand reg_predict_table_ptr_16(reg::arg2_16);
     static operand reg_predict_ptr(reg::rax);
 #endif
 
@@ -320,9 +319,7 @@ namespace granary {
 
         // slow path: return address is not in code cache; go off to the IBL.
         IF_IBL_PREDICT( slow = ibl.insert_after(slow,
-            mov_imm_(reg_predict_table_ptr_16, int16_(0))); )
-        IF_IBL_PREDICT( slow = ibl.insert_after(slow,
-            movzx_(reg_predict_table_ptr, reg_predict_table_ptr_16)); )
+            mov_imm_(reg_predict_table_ptr, int64_(0))); )
         ibl.insert_after(slow, jmp_(pc_(ibl_entry_routine(target_policy))));
 
         // fast path: they are equal
