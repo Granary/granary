@@ -81,7 +81,7 @@ namespace granary {
         /// For small allocations.
         struct small_allocator_config {
             enum {
-                SLAB_SIZE = sizeof(uint64_t) * 256,
+                SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false
@@ -91,7 +91,7 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE,
+                SLAB_SIZE = PAGE_SIZE * 16,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false
@@ -111,7 +111,7 @@ namespace granary {
         /// CPU-private block-local storage allocators.
         struct block_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE / 8,
+                SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false

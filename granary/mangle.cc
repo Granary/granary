@@ -291,6 +291,7 @@ namespace granary {
         //      reg_predict_table_ptr   (cond. saved: arg2)
         //      reg_compare_addr        (saved: rcx)
 
+#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // the call instruction will be 8 byte aligned, and will occupy ~5bytes.
         // the subsequent jmp needed to link the basic block (which ends with
         // the call) will also by 8 byte aligned, and will be padded to 8 bytes
@@ -317,17 +318,23 @@ namespace granary {
         instruction_list_handle fast(ibl.append(label_()));
         slow = ibl.insert_after(slow, jecxz_(instr_(*fast)));
 
+#else
+        instruction_list_handle slow(ibl.last());
+#endif
+
         // slow path: return address is not in code cache; go off to the IBL.
         IF_IBL_PREDICT( slow = ibl.insert_after(slow,
             mov_imm_(reg_predict_table_ptr, int64_(0))); )
         ibl.insert_after(slow, jmp_(pc_(ibl_entry_routine(target_policy))));
 
+#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // fast path: they are equal
         ibl.append(pop_(reg_compare_addr));
         IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
         ibl.append(pop_(reg_target_addr));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
         ibl.append(ret_());
+#endif
 
         // quick double check ;-)
         if(routine[policy_bits]) {
@@ -512,9 +519,6 @@ namespace granary {
 
         instruction_list ibl;
 
-        operand access_count_field(*reg_predict_ptr);
-        access_count_field.size = dynamorio::OPSZ_4;
-
         ibl.append(push_(reg_compare_addr));
 
         // on qthe stack:
@@ -527,9 +531,14 @@ namespace granary {
         ibl.append(mov_ld_(reg_predict_ptr, *reg_predict_table_ptr));
 
         // increment the access count field
-        //ibl.append(mov_ld_(reg_compare_addr, access_count_field));
-        //ibl.append(lea_(reg_compare_addr, reg_compare_addr[1]));
-        //ibl.append(mov_st_(access_count_field, reg_compare_addr));
+#if 1
+        operand access_count_field(
+            reg_predict_ptr[offsetof(prediction_table, num_reads)]);
+        access_count_field.size = dynamorio::OPSZ_4;
+        ibl.append(mov_ld_(reg_compare_addr_32, access_count_field));
+        ibl.append(lea_(reg_compare_addr, reg_compare_addr + 1));
+        ibl.append(mov_st_(access_count_field, reg_compare_addr_32));
+#endif
 
         instruction_list_handle test(ibl.append(label_()));
         instruction_list_handle miss(ibl.append(label_()));

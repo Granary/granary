@@ -22,11 +22,31 @@
 #endif
 
 
+/// Use an RCU-protected hash table for the global code cache lookups, or use
+/// a global lock?
+#define CONFIG_LOCK_GLOBAL_CODE_CACHE 1
+
+
 /// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch
 /// prediction" to try to reduce the cost of looking things up in the CPU
 /// private hash table. If IBL entry stubs are not used, then generic IBL
 /// entries are used.
 #define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
+
+
+#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
+
+    /// Should single overwrite prediction tables be used? If set to zero, then
+    /// the prediction tables (if used) will default to starting with the next
+    /// used prediction method.
+#   define CONFIG_ENABLE_IBL_OVERWRITE_TABLE 1
+
+
+
+    /// Should linear prediction tables be used?
+#   define CONFIG_ENABLE_IBL_LINEAR_TABLE 1
+
+#endif /* CONFIG_ENABLE_IBL_PREDICTION_STUBS */
 
 
 /// Enable performance counters and reporting. Performance counters measure
@@ -92,18 +112,18 @@
 #ifdef GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
-#   define CONFIG_RUN_TEST_CASES 1
+#   define CONFIG_RUN_TEST_CASES 0
 #endif
 
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
 /// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 1
+#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
 
 
 /// Set to 1 iff basic blocks should contain the instructions immediately
 /// following a conditional branch. If enabled, basic blocks will be bigger.
-#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 1
+#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 0
 
 
 /// Lower bound on the cache line size.

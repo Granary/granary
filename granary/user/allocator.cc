@@ -101,60 +101,56 @@ namespace granary { namespace detail {
     }
 }}
 
-#if 0
-/// Make sure that the global operator new/delete are detach points.
-#ifdef GRANARY_USE_PIC
-extern "C" {
-    extern void _Znwm(void) throw(); // operator new
-    extern void _ZdlPv(void) throw(); // operator delete
-}
+/// Make sure that we always detach on mallocs.
+#if defined(GRANARY_USE_PIC) && defined(__linux)
 #   ifndef _GNU_SOURCE
 #      define _GNU_SOURCE
 #   endif
 #   include <dlfcn.h>
-#include <cstdio>
 
-    STATIC_INITIALISE({
-
-        // preserve the operator new/delete in the instrumented program
-
-        static void *op_new(dlsym(RTLD_NEXT, "_Znwm"));
-        static void *op_delete(dlsym(RTLD_NEXT, "_ZdlPv"));
-
-        if(op_new) {
-            fprintf(stderr, "%p vs. %p\n", (void *) _Znwm, op_new);
-            static granary::function_wrapper wrapper = { \
-                reinterpret_cast<granary::app_pc>(_Znwm), \
-                reinterpret_cast<granary::app_pc>(op_new), \
-                "_Znwm" \
-            }; \
-            granary::add_detach_target(wrapper); \
-        }
-
-        if(op_delete) {
-            static granary::function_wrapper wrapper = { \
-                reinterpret_cast<granary::app_pc>(_ZdlPv), \
-                reinterpret_cast<granary::app_pc>(op_delete), \
-                "_ZdlPv" \
-            }; \
-            granary::add_detach_target(wrapper); \
-        }
-    })
-#endif
+    // malloc is defined in linux.ld.so and libc.so.
+    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_malloc)
+    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_free)
+    GRANARY_DYNAMIC_DETACH_POINT(__libc_malloc)
+    GRANARY_DYNAMIC_DETACH_POINT(__libc_calloc)
+    GRANARY_DYNAMIC_DETACH_POINT(__libc_free)
 #endif
 
 #ifdef GRANARY_USE_PIC
     extern "C" {
-        extern void _Znwm(void) throw();
-        extern void _Znam(void) throw();
-        extern void _ZdlPv(void) throw();
+        extern void _Znwm(void);
+        extern void _Znam(void);
+        extern void _ZdlPv(void);
+        //extern void _ZdaPv(void);
     }
 
     /// Make sure that the global operator new/delete are detach points.
     GRANARY_DETACH_POINT(_Znwm) // operator new
     GRANARY_DETACH_POINT(_Znam) // operator new[]
     GRANARY_DETACH_POINT(_ZdlPv) // operator delete
+    //GRANARY_DETACH_POINT(_ZdaPv) // operator delete[]
+
+#   if defined(__linux) && 0
+#       ifndef _GNU_SOURCE
+#           define _GNU_SOURCE
+#       endif
+#       include <dlfcn.h>
+
+        STATIC_INITIALISE({
+            static void *libc_mem_align(dlsym(RTLD_NEXT, "__libc_memalign"));
+            if(libc_mem_align) {
+                static granary::function_wrapper wrapper = { \
+                    reinterpret_cast<granary::app_pc>(libc_mem_align), \
+                    reinterpret_cast<granary::app_pc>(libc_mem_align), \
+                    "__libc_memalign" \
+                }; \
+                granary::add_detach_target(wrapper); \
+            }
+        })
+
+#   endif
 #endif
+
 
 /// Add some illegal detach points.
 GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate)

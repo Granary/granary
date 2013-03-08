@@ -8,6 +8,10 @@
 #ifndef granary_POSIX_TYPES_H_
 #define granary_POSIX_TYPES_H_
 
+#ifndef _GNU_SOURCE
+#   define _GNU_SOURCE
+#endif
+
 #include <aio.h>
 //#include <arpa/inet.h>
 #include <assert.h>
@@ -24,8 +28,6 @@
 #include <fnmatch.h>
 #include <ftw.h>
 #include <glob.h>
-//#include <grp.h>
-//#include <iconv.h>
 //#include <inttypes.h>
 //#include <iso646.h>
 #include <langinfo.h>
@@ -65,7 +67,6 @@
 #include <sys/select.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
-//#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/time.h>
@@ -90,6 +91,13 @@
 
 #ifdef __APPLE__
 #   include <malloc/malloc.h>
+#endif
+
+#ifdef __linux
+#   include <grp.h>
+#   include <crypt.h>
+#   include <iconv.h>
+#   include <sys/socket.h>
 #endif
 
 #ifdef __GR_HAS_CPP

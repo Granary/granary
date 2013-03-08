@@ -64,3 +64,21 @@ namespace granary {
 
 	GRANARY_DETACH_POINT(detach)
 }
+
+
+/// Special cases for dynamically loaded symbols in user space Linux.
+#if !GRANARY_IN_KERNEL && defined(__linux)
+#   ifndef _GNU_SOURCE
+#      define _GNU_SOURCE
+#   endif
+#   include <dlfcn.h>
+
+    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlopen_mode)
+    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlsym)
+
+    GRANARY_DYNAMIC_DETACH_POINT(__libc_dlopen_mode)
+    GRANARY_DYNAMIC_DETACH_POINT(__libc_dlsym)
+
+#endif
+
+

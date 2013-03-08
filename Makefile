@@ -194,7 +194,7 @@ ifneq ($(KERNEL),1)
 	
 	ifeq ($(UNAME), Linux)
 		GR_LD_SPECIFIC = -pthread
-		GR_LD_SPECIFIC_SUFFIX = -lrt -ldl
+		GR_LD_SPECIFIC_SUFFIX = -lrt -ldl -lcrypt
 	endif
 	
 	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_SPECIFIC)

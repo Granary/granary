@@ -10,6 +10,7 @@
 
 #include "granary/globals.h"
 #include "granary/smp/rcu.h"
+#include "granary/smp/spin_lock.h"
 
 #include "deps/murmurhash/murmurhash.h"
 
@@ -358,7 +359,7 @@ namespace granary {
 
     /// Shared hash table implementation.
     template <typename K, typename V>
-    struct shared_hash_table {
+    struct rcu_hash_table {
     private:
 
         typedef hash_table_meta<K, V> meta_type;
@@ -591,7 +592,7 @@ namespace granary {
 
     public:
 
-        shared_hash_table(void) throw()
+        rcu_hash_table(void) throw()
             : internal_table_()
             , table_(smp::RCU_INIT_NULL)
         {
@@ -615,7 +616,7 @@ namespace granary {
             table_.write(table_initialiser);
         }
 
-        ~shared_hash_table(void) throw() {
+        ~rcu_hash_table(void) throw() {
 
             // make it so that the RCU protected class won't try to free the
             // internal table.
@@ -645,6 +646,43 @@ namespace granary {
                 key, value, HASH_OVERWRITE_PREV_ENTRY == update);
             table_.write(entry_adder);
             return HASH_ENTRY_SKIPPED != entry_adder.stored_state;
+        }
+    };
+
+
+    /// Represents a locked hash table.
+    template <
+        typename K,
+        typename V,
+        typename meta_type=hash_table_meta<K,V>
+    >
+    struct locked_hash_table {
+    private:
+
+        mutable smp::spin_lock lock;
+        hash_table<K, V, meta_type> table;
+
+    public:
+
+        /// Load a value from the hash table.
+        inline bool load(const K key, V &val) const throw() {
+            lock.acquire();
+            bool ret(table.load(key, val));
+            lock.release();
+            return ret;
+        }
+
+        /// Store a value in the hash table. Returns true iff the entry was
+        /// written to the hash table.
+        inline bool store(
+            K key,
+            V value,
+            hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
+        ) throw() {
+            lock.acquire();
+            bool ret(table.store(key, value, update));
+            lock.release();
+            return ret;
         }
     };
 }

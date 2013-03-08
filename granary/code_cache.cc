@@ -17,8 +17,7 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...)
-//__VA_ARGS__
+#define D(...) __VA_ARGS__
 
 namespace granary {
 
@@ -26,7 +25,12 @@ namespace granary {
 
         /// The globally shared code cache. This maps policy-mangled code
         /// code addresses to translated addresses.
-        static static_data<shared_hash_table<app_pc, app_pc>> CODE_CACHE;
+#if CONFIG_LOCK_GLOBAL_CODE_CACHE
+        static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
+#else
+        static static_data<rcu_hash_table<app_pc, app_pc>> CODE_CACHE;
+#endif
+
 
 #if !GRANARY_IN_KERNEL
         STATIC_INITIALISE({
@@ -55,9 +59,7 @@ namespace granary {
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        if(ret
-        && predict_table
-        && (*predict_table)->num_reads < prediction_table::COLD_READ_COUNT) {
+        if(ret && predict_table) {
             prediction_table::instrument(
                 predict_table, cpu, addr.unmangled_address(), ret);
         }

@@ -30,6 +30,21 @@
         granary::add_detach_target(wrapper); \
     })
 
+
+#define GRANARY_DYNAMIC_DETACH_POINT(sym_name) \
+    IF_USER(STATIC_INITIALISE({ \
+        static void *sym(dlsym(RTLD_NEXT, #sym_name )); \
+        if(sym) { \
+            static granary::function_wrapper wrapper = { \
+                reinterpret_cast<granary::app_pc>(sym), \
+                reinterpret_cast<granary::app_pc>(sym), \
+                #sym_name \
+            }; \
+            granary::add_detach_target(wrapper); \
+        } \
+    }))
+
+
 namespace granary {
 
     /// Represents an entry in the detach hash table. Entries need to map

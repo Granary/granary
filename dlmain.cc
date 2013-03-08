@@ -15,21 +15,29 @@
 #include "granary/perf.h"
 #include "clients/instrument.h"
 
-#include <unistd.h>
-#include <signal.h>
+#define CATCH_SIGNALS 0
 
+#if CATCH_SIGNALS
+#   include <unistd.h>
+#   include <signal.h>
+#   include <cstdio>
 void granary_signal_handler(int) {
-    //std::printf("Run `sudo gdb attach %d`\n", getpid());
+    std::fprintf(stderr, "Run `sudo gdb attach %d`\n", getpid());
     for(;;) { /* loop until we manually attach gdb */ }
 }
+#endif
 
 extern "C" {
 
-    __attribute__((noinline, constructor))
+    __attribute__((constructor))
     static void granary_begin_program(void) {
 
-        //signal(SIGSEGV, granary_signal_handler);
-        //signal(SIGILL, granary_signal_handler);
+#if CATCH_SIGNALS
+        signal(SIGSEGV, granary_signal_handler);
+        signal(SIGABRT, granary_signal_handler);
+        signal(SIGILL, granary_signal_handler);
+#endif
+
         granary::init();
 
         auto policy(GRANARY_INIT_POLICY);
@@ -39,7 +47,7 @@ extern "C" {
 
 #if CONFIG_ENABLE_PERF_COUNTS
 
-    __attribute__((noinline, destructor))
+    __attribute__((destructor))
     static void granary_end_program(void) {
         granary::perf::report();
     }

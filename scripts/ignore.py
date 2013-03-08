@@ -58,6 +58,7 @@ IGNORE = set([
   "setlogin",
   "lchmod",
   "revoke",
+  "getumask",
 
   # TODO: make wrappers for these
   "pthread_create",
@@ -71,7 +72,6 @@ IGNORE = set([
   "execvpe",
   "execl",
   "execle",
+  "execlp",
   "execlpe",
-  "fork",
-  "vfork",
 ])

@@ -10,24 +10,22 @@
 
 #include <atomic>
 
-#if GRANARY_IN_KERNEL
-
 namespace granary { namespace smp {
 
     /// Simple implementation of a spin lock.
-    struct spin_lock {
+    struct atomic_spin_lock {
     private:
 
         std::atomic<bool> is_locked;
 
     public:
 
-        ~spin_lock(void) throw() = default;
+        ~atomic_spin_lock(void) throw() = default;
 
-        spin_lock(const spin_lock &) throw() = delete;
-        spin_lock &operator=(const spin_lock &) throw() = delete;
+        atomic_spin_lock(const atomic_spin_lock &) throw() = delete;
+        atomic_spin_lock &operator=(const atomic_spin_lock &) throw() = delete;
 
-        spin_lock(void) throw()
+        atomic_spin_lock(void) throw()
             : is_locked(ATOMIC_VAR_INIT(false))
         { }
 
@@ -48,6 +46,12 @@ namespace granary { namespace smp {
         }
     };
 
+}}
+
+#if GRANARY_IN_KERNEL
+
+namespace granary { namespace smp {
+    typedef atomic_spin_lock spin_lock;
 }}
 
 #else

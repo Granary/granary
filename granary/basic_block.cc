@@ -30,7 +30,7 @@ namespace granary {
         /// Maximum size in bytes of a decoded basic block. This relates to
         /// *decoding* only and not the resulting size of a basic block after
         /// translation.
-        BB_MAX_SIZE_BYTES = (PAGE_SIZE / 4) * 3,
+        BB_MAX_SIZE_BYTES = (PAGE_SIZE / 4),
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes

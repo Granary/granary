@@ -186,9 +186,51 @@
         mode_t _arg3 = va_arg(args__, int);
         va_end(args__);
         return open(_arg1, _arg2, _arg3);
+    })
+#endif
 
-        //granary::printf("function_wrapper(open, %s, %d) -> %d\n", _arg1, _arg2, ret);
-        //return ret;
+
+#if defined(CAN_WRAP_vfork) && defined(CAN_WRAP_fork)
+#   define WRAPPER_FOR_vfork
+    FUNCTION_WRAPPER(vfork, (pid_t), (void), {
+        return fork();
+    })
+#endif
+
+
+#ifdef CAN_WRAP_dlopen
+#   define WRAPPER_FOR_dlopen
+    FUNCTION_WRAPPER(dlopen, (void *), (const char *filename, int flag), {
+        granary::printf("function_wrapper(dlopen, %s, %x)\n", filename, flag);
+        return dlopen(filename, flag);
+    })
+#endif
+
+
+#ifdef CAN_WRAP_dlerror
+#   define WRAPPER_FOR_dlerror
+    FUNCTION_WRAPPER(dlerror, (char *), (void), {
+        char *err(dlerror());
+        granary::printf("function_wrapper(dlerror) -> %s\n", err);
+        return err;
+    })
+#endif
+
+
+#ifdef CAN_WRAP_dlsym
+#   define WRAPPER_FOR_dlsym
+    FUNCTION_WRAPPER(dlsym, (void *), (void *handle, const char *symbol), {
+        granary::printf("function_wrapper(dlsym, %p, %s)\n", handle, symbol);
+        return dlsym(handle, symbol);
+    })
+#endif
+
+
+#ifdef CAN_WRAP_dlclose
+#   define WRAPPER_FOR_dlclose
+    FUNCTION_WRAPPER(dlclose, (int), (void *handle), {
+        granary::printf("function_wrapper(dlclose, %p)\n", handle);
+        return dlclose(handle);
     })
 #endif
 
