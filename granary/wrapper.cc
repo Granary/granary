@@ -23,17 +23,6 @@
 
 #if CONFIG_ENABLE_WRAPPERS
 
-/// Auto-generated file that assigns unique IDs to each function.
-#   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
-namespace granary {
-    enum function_wrapper_id {
-#   include "granary/gen/detach.inc"
-        LAST_DETACH_ID
-    };
-}
-#   undef WRAP_FOR_DETACH
-
-
 /// Wrapper templates.
 #   include "granary/wrapper.h"
 
@@ -56,17 +45,36 @@ namespace granary {
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specializations from
 /// user/kernel_wrappers.h.
+namespace granary {
+    function_wrapper FUNCTION_WRAPPERS[] = {
+
+    // first, generate detach entries for wrappers
 #   define WRAP_FOR_DETACH(func) \
     {   (app_pc) ::func, \
         wrapper_of<DETACH_ID_ ## func>(::func), \
         #func },
-namespace granary {
-    const function_wrapper FUNCTION_WRAPPERS[] = {
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
+#   include "granary/gen/detach.inc"
+        {nullptr, nullptr, nullptr},
+#   undef WRAP_FOR_DETACH
+#   undef DETACH
+#   undef TYPED_DETACH
+
+    // now, generate detach entries for dynamic symbols which must be
+    // looked up using dlsym.
+#   define WRAP_FOR_DETACH(func)
+#   define DETACH(func)  \
+    {   nullptr, \
+        nullptr, \
+        #func },
+#   define TYPED_DETACH(func) DETACH(func)
 #   include "granary/gen/detach.inc"
         {nullptr, nullptr, nullptr}
+#   undef WRAP_FOR_DETACH
+#   undef DETACH
     };
 }
-#   undef WRAP_FOR_DETACH
 
 #endif /* CONFIG_ENABLE_WRAPPERS */
 

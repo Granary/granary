@@ -10,6 +10,13 @@
 #include "granary/utils.h"
 #include "granary/hash_table.h"
 
+#if !GRANARY_IN_KERNEL
+#   ifndef _GNU_SOURCE
+#      define _GNU_SOURCE
+#   endif
+#   include <dlfcn.h>
+#endif
+
 namespace granary {
 
     static static_data<
@@ -20,16 +27,34 @@ namespace granary {
 
         DETACH_HASH_TABLE.construct();
 
+        // add all wrappers to the detach hash table
 #if CONFIG_ENABLE_WRAPPERS
-        for(unsigned i(0); ; ++i) {
+        for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
-            if(!wrapper.original_address) {
-                break;
-            }
             DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
         }
 #endif /* CONFIG_ENABLE_WRAPPERS */
-    });
+
+        // add internal dynamic symbols to the detach hash table.
+#if !GRANARY_IN_KERNEL
+        for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
+            function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
+
+            if(!wrapper.name) {
+                break;
+            }
+
+            wrapper.original_address = reinterpret_cast<app_pc>(
+                dlsym(RTLD_NEXT, wrapper.name));
+            if(wrapper.original_address) {
+                wrapper.wrapper_address = wrapper.original_address;
+            }
+
+            DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+        }
+#endif /* !GRANARY_IN_KERNEL */
+    })
+
 
 
     /// Add a detach target to the hash table.
@@ -52,6 +77,7 @@ namespace granary {
 	        return nullptr;
 	    }
 
+	    printf("detaching on %s\n", wrapper->name);
 	    return wrapper->wrapper_address;
 	}
 
@@ -67,18 +93,12 @@ namespace granary {
 
 
 /// Special cases for dynamically loaded symbols in user space Linux.
-#if !GRANARY_IN_KERNEL && defined(__linux)
-#   ifndef _GNU_SOURCE
-#      define _GNU_SOURCE
-#   endif
-#   include <dlfcn.h>
-
+#if 0 && !GRANARY_IN_KERNEL && defined(__linux)
     GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlopen_mode)
     GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlsym)
 
     GRANARY_DYNAMIC_DETACH_POINT(__libc_dlopen_mode)
     GRANARY_DYNAMIC_DETACH_POINT(__libc_dlsym)
-
 #endif
 
 

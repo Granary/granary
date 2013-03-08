@@ -27,7 +27,7 @@ def has_extension_attribute(ctype, attr_name):
   return False
 
 
-SEEN = set()
+FUNCTIONS = {}
 
 
 def has_internal_linkage(ctype):
@@ -35,30 +35,39 @@ def has_internal_linkage(ctype):
   if isinstance(ctype, CTypeAttributed):
     pass
 
-def visit_function(ctype, name):
-  global SEEN, IGNORE
-  if name in SEEN or name in IGNORE:
+def visit_function(name, ctype):
+  global IGNORE, FUNCTIONS
+  if name in IGNORE:
     return
 
-  SEEN.add(name)
+  # put this before checking for things that we should ignore
+  # so that these type-based rules propagate to the dll detach
+  # stuff, where type info is not known.
+  C("#ifndef CAN_WRAP_", name)
+  C("#   define CAN_WRAP_", name)
+  C("#endif")
   
   if has_extension_attribute(ctype, "deprecated"):
     return
 
+  # we don't want to add detach wrappers to these, but we do want
+  # to detach on them. This is partially doing the work of the dll
+  # detach thing, but also ignoring "hidden" versions of functions
+  # that we already have, e.g. logf vs. __logf. 
   if name.startswith("__"):
+    if name[2:] not in FUNCTIONS:
+      C("TYPED_DETACH(", name, ")")
     return
 
-  C("#ifndef CAN_WRAP_", name)
-  C("#   define CAN_WRAP_", name)
-  C("#endif")
   C("WRAP_FOR_DETACH(", name,")")
 
 
 def visit_var_def(var, ctype):
+  global FUNCTIONS
 
   # don't declare enumeration constants
   if isinstance(ctype.base_type(), CTypeFunction):
-    visit_function(ctype, var)
+    FUNCTIONS[var] = ctype
 
 
 if "__main__" == __name__:
@@ -72,6 +81,9 @@ if "__main__" == __name__:
 
     for var, ctype in parser.vars():
       visit_var_def(var, ctype)
+
+    for var, ctype in FUNCTIONS.items():
+      visit_function(var, ctype)
 
     C()
 

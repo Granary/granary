@@ -10,6 +10,7 @@ GR_NAME = granary
 GR_CPP = cpp
 GR_CC = gcc
 GR_LD = gcc
+GR_LDD = ldd
 GR_CXX = g++-4.7
 GR_CXX_STD = -std=gnu++0x
 
@@ -19,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 -O4
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS =
@@ -56,6 +57,12 @@ GR_LIBCXX ?= 0
 GR_DLL ?= 0
 GR_OUTPUT_PREFIX =
 GR_OUTPUT_SUFFIX = .out
+
+
+ifeq ($(UNAME),Darwin) # Mac OS X
+	GR_LDD = otool -L
+endif
+
 
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
@@ -207,8 +214,17 @@ ifneq ($(KERNEL),1)
 	GR_CLEAN =
 	GR_OUTPUT_FORMAT = o
 
+	# Compile an assembly file to an object file in user space. In kernel space,
+	# the kernel makefile will do this for us.
 	define GR_COMPILE_ASM
 		$$($(GR_CC) $(GR_ASM_FLAGS) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
+endef
+	
+	# Get a list of dynamically loaded libraries from the compiler being used.
+	# This is so that we can augment the detach table with internal libc symbols,
+	# etc.
+	define GR_GET_LD_LIBRARIES
+		$$($(GR_LDD) $(shell which $(GR_CC)) | python scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
 endef
 
 # kernel space
@@ -247,6 +263,8 @@ else
 	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 
 	define GR_COMPILE_ASM
+endef
+	define GR_GET_LD_LIBRARIES
 endef
 endif
 
@@ -320,7 +338,7 @@ wrappers: types
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
 	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
-
+	$(call GR_GET_LD_LIBRARIES)
 
 # make the folders where binaries / generated assemblies are stored
 install:

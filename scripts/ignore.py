@@ -65,6 +65,10 @@ IGNORE = set([
   "pthread_create",
   "pthread_once",
 
+  # built-in, must ignore
+  "__cyg_profile_func_exit",
+  "__cyg_profile_func_enter",
+
   # these don't need to be wrapped (note: these
   # aren't all necessarily real functions!)
   "exec",
@@ -75,4 +79,8 @@ IGNORE = set([
   "execle",
   "execlp",
   "execlpe",
+
+  # MUST IGNORE THIS so that it doesn't detach before the
+  # main program even starts!!!
+  "__libc_start_main",
 ])

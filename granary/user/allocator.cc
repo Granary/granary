@@ -101,20 +101,6 @@ namespace granary { namespace detail {
     }
 }}
 
-/// Make sure that we always detach on mallocs.
-#if defined(GRANARY_USE_PIC) && defined(__linux)
-#   ifndef _GNU_SOURCE
-#      define _GNU_SOURCE
-#   endif
-#   include <dlfcn.h>
-
-    // malloc is defined in linux.ld.so and libc.so.
-    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_malloc)
-    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_free)
-    GRANARY_DYNAMIC_DETACH_POINT(__libc_malloc)
-    GRANARY_DYNAMIC_DETACH_POINT(__libc_calloc)
-    GRANARY_DYNAMIC_DETACH_POINT(__libc_free)
-#endif
 
 #ifdef GRANARY_USE_PIC
     extern "C" {
@@ -130,25 +116,6 @@ namespace granary { namespace detail {
     GRANARY_DETACH_POINT(_ZdlPv) // operator delete
     //GRANARY_DETACH_POINT(_ZdaPv) // operator delete[]
 
-#   if defined(__linux) && 0
-#       ifndef _GNU_SOURCE
-#           define _GNU_SOURCE
-#       endif
-#       include <dlfcn.h>
-
-        STATIC_INITIALISE({
-            static void *libc_mem_align(dlsym(RTLD_NEXT, "__libc_memalign"));
-            if(libc_mem_align) {
-                static granary::function_wrapper wrapper = { \
-                    reinterpret_cast<granary::app_pc>(libc_mem_align), \
-                    reinterpret_cast<granary::app_pc>(libc_mem_align), \
-                    "__libc_memalign" \
-                }; \
-                granary::add_detach_target(wrapper); \
-            }
-        })
-
-#   endif
 #endif
 
 

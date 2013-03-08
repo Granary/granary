@@ -47,11 +47,27 @@
 
 namespace granary {
 
+#if CONFIG_ENABLE_WRAPPERS
+
+/// Assigns unique IDs to each wrapped function.
+#   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
+    enum function_wrapper_id {
+#   include "granary/gen/detach.inc"
+        LAST_DETACH_ID
+    };
+#   undef WRAP_FOR_DETACH
+#   undef DETACH
+#   undef TYPED_DETACH
+#endif /* CONFIG_ENABLE_WRAPPERS */
+
+
     /// Represents an entry in the detach hash table. Entries need to map
     /// original function addresses to wrapped function addresses.
     struct function_wrapper {
-        const app_pc original_address;
-        const app_pc wrapper_address;
+        app_pc original_address;
+        app_pc wrapper_address;
         const char * const name;
     };
 
@@ -61,7 +77,7 @@ namespace granary {
     /// function in this array are found in `granary/gen/detach.h`. The actual
     /// entries of this array are statically populated in
     /// `granary/gen/detach.cc`.
-    extern const function_wrapper FUNCTION_WRAPPERS[];
+    extern function_wrapper FUNCTION_WRAPPERS[];
 #endif
 
 
