@@ -484,7 +484,7 @@ namespace granary {
         bool uses_xmm(policy.is_in_xmm_context());
         bool fall_through_detach(false);
         bool detach_tail_call(false);
-        app_pc detach_app_pc(reinterpret_cast<app_pc>(detach));
+        app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
 
         for(unsigned byte_len(0); ;) {
 

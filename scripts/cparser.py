@@ -1252,6 +1252,7 @@ class CParser(object):
             if t.str in ",}":
               break
             elif t.str in "{[(":
+              sub_expr_toks = []
               i = self._get_up_to_balanced(
                   toks, sub_expr_toks, i - 1, t.str)
         
@@ -1647,8 +1648,18 @@ class CParser(object):
         i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=False)
         ctype = CTypeBitfield(ctype, expr)
 
+      # name, e.g. we have: <type> <attributes> <name>
+      elif not name and CToken.LITERAL_IDENTIFIER == t.kind:
+        name = t.str
+        i += 1
+
+      # global variable that is assigned a default value.
+      elif "=" == t.str:
+        i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=True)
       else:
-        #print repr(t.str), t.carat.line, t.carat.column, ctype
+        print
+        print repr(t.str), t.carat.line, t.carat.column, ctype
+        print
         assert False
 
     if call_recursive:

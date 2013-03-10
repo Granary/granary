@@ -13,7 +13,8 @@
 
 #if CONFIG_ENABLE_WRAPPERS
 
-#define P(...) __VA_ARGS__
+#define P(...)
+//__VA_ARGS__
 
 namespace granary {
 

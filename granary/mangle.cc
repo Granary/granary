@@ -710,7 +710,7 @@ namespace granary {
     ) throw() {
 
         instruction_list ls;
-        app_pc start_pc(reinterpret_cast<app_pc>(template_func));
+        app_pc start_pc(unsafe_cast<app_pc>(template_func));
 
         for(;;) {
             instruction in(instruction::decode(&start_pc));

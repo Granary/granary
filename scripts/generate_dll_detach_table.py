@@ -15,6 +15,8 @@ def add_symbol(sym, symbols):
   global SYMBOL_NAME
   if SYMBOL_NAME.match(sym):
     symbols.add(sym)
+    if "libc" in sym:
+      symbols.add("_GI_" + sym)
 
 
 # Get exported symbols from a .dylib file.
@@ -22,7 +24,7 @@ def get_symbols_darwin(dll, symbols):
   try:
     gen = os.popen("nm -g " + dll).readlines()
   except:
-    pass
+    gen = []
 
   for line in gen:
     if " T _" in line or " U _" in line:
@@ -37,7 +39,7 @@ def get_symbols_linux(dll, symbols):
   try:
     gen = os.popen("readelf --dyn-syms " + dll).readlines()
   except:
-    pass
+    gen = []
 
   for line in gen:
     if "FUNC" in line:

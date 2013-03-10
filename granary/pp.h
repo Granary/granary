@@ -25,7 +25,9 @@
 #   define FORCE_INLINE inline
 #endif
 
-#define GRANARY
+#ifndef GRANARY
+#   define GRANARY 1
+#endif
 
 #ifdef __APPLE__
 #   define IF_APPLE(...) __VA_ARGS__
@@ -70,6 +72,12 @@
 #   define IF_PERF(...) __VA_ARGS__
 #else
 #   define IF_PERF(...)
+#endif
+
+#if CONFIG_ENABLE_WRAPPERS
+#   define IF_WRAPPERS(...) __VA_ARGS__
+#else
+#   define IF_WRAPPERS(...)
 #endif
 
 #define FAULT (granary_break_on_fault(), granary_fault())

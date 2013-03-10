@@ -17,6 +17,11 @@
 #endif
 
 
+#ifndef GRANARY
+#   define GRANARY 1
+#endif
+
+
 #ifndef GRANARY_IN_KERNEL
 #   define GRANARY_IN_KERNEL 0
 #endif

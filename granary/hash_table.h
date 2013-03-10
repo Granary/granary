@@ -343,7 +343,7 @@ namespace granary {
             (typename K, typename V),
             detail::hash_table_entry_slots, (K, V, true),
             RCU_VALUE(mask),
-            RCU_VALUE(entries));
+            RCU_VALUE(entries))
 
 
         RCU_GENERIC_PROTOCOL(
@@ -353,7 +353,7 @@ namespace granary {
             RCU_VALUE(num_entries),
             RCU_VALUE(scaling_factor),
             RCU_VALUE(should_grow),
-            RCU_REFERENCE(entry_slots));
+            RCU_REFERENCE(entry_slots))
     }
 
 

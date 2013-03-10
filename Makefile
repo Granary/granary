@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O4
+GR_DEBUG_LEVEL = -ggdb3 -O4
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS =
@@ -40,6 +40,8 @@ GR_TYPE_CC_FLAGS =
 GR_INPUT_TYPES =
 GR_OUTPUT_TYPES =
 GR_OUTPUT_WRAPPERS =
+
+GR_TYPE_INCLUDE = 
 
 # Conditional compilation for kernel code; useful for testing if Granary code
 # compiles independent of the Linux kernel.
@@ -90,6 +92,7 @@ endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
 	GR_CC_FLAGS += -fdiagnostics-show-option
+	GR_TYPE_CC_FLAGS += -fdiagnostics-show-option
 	GR_CXX_FLAGS += -fdiagnostics-show-option
 endif
 
@@ -168,7 +171,8 @@ ifneq ($(KERNEL),1)
 		GR_ASM_FLAGS += -fPIC
 		GR_LD_PREFIX_FLAGS += -fPIC
 		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden
-		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden -fvisibility-inlines-hidden
+		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden
+		GR_CXX_FLAGS += -fvisibility-inlines-hidden
 		GR_OUTPUT_PREFIX = lib
 		
 		ifeq ($(UNAME),Darwin) # Mac OS X
@@ -227,6 +231,9 @@ endef
 		$$($(GR_LDD) $(shell which $(GR_CC)) | python scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
 endef
 
+	define GR_GET_TYPE_DEFINES
+endef
+
 # kernel space
 else
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
@@ -261,10 +268,20 @@ else
 	
 	GR_CC_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
+	
+	GR_TYPE_INCLUDE = -I./ -isystem $(KERNEL_DIR)/include
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
 
 	define GR_COMPILE_ASM
 endef
 	define GR_GET_LD_LIBRARIES
+endef
+	
+	# Get all pre-defined macros so that we can suck in the kernel headers
+	# properly.
+	define GR_GET_TYPE_DEFINES
+		$(shell python scripts/generate_kernel_macros.py > /dev/null &> /dev/null )
+		$(shell cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
 endef
 endif
 
@@ -326,7 +343,8 @@ bin/dlmain.o: dlmain.cc
 # pre-process then post-process type information; this is used for wrappers,
 # etc.
 types:
-	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) -I./ -E $(GR_INPUT_TYPES) > /tmp/ppt.h
+	$(call GR_GET_TYPE_DEFINES)
+	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
 	python scripts/post_process_header.py /tmp/ppt.h > $(GR_OUTPUT_TYPES)
 
 
@@ -340,24 +358,25 @@ detach: types
 	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
 	$(call GR_GET_LD_LIBRARIES)
 
+
 # make the folders where binaries / generated assemblies are stored
 install:
-	-mkdir bin
-	-mkdir bin/granary
-	-mkdir bin/granary/user
-	-mkdir bin/granary/kernel
-	-mkdir bin/granary/gen
-	-mkdir bin/granary/x86
-	-mkdir bin/clients
-	-mkdir bin/tests
-	-mkdir bin/deps
-	-mkdir bin/deps/dr
-	-mkdir bin/deps/dr/x86
-	-mkdir bin/deps/murmurhash
+	@-mkdir bin
+	@-mkdir bin/granary
+	@-mkdir bin/granary/user
+	@-mkdir bin/granary/kernel
+	@-mkdir bin/granary/gen
+	@-mkdir bin/granary/x86
+	@-mkdir bin/clients
+	@-mkdir bin/tests
+	@-mkdir bin/deps
+	@-mkdir bin/deps/dr
+	@-mkdir bin/deps/dr/x86
+	@-mkdir bin/deps/murmurhash
 	
 	# convert DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
 	# instruction-building functions
-	-mkdir granary/gen
+	@-mkdir granary/gen
 	python scripts/process_instr_create.py
 
 	# compile a dummy file to assembly to figure out which assembly syntax

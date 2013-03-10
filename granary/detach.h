@@ -13,8 +13,8 @@
 #define GRANARY_DETACH_POINT(func_name) \
     STATIC_INITIALISE({ \
         static granary::function_wrapper wrapper = { \
-            reinterpret_cast<granary::app_pc>(func_name), \
-            reinterpret_cast<granary::app_pc>(func_name), \
+            granary::unsafe_cast<granary::app_pc>(func_name), \
+            granary::unsafe_cast<granary::app_pc>(func_name), \
             #func_name \
         }; \
         granary::add_detach_target(wrapper); \
@@ -23,8 +23,8 @@
 #define GRANARY_DETACH_POINT_ERROR(func_name) \
     STATIC_INITIALISE({ \
         static granary::function_wrapper wrapper = { \
-            reinterpret_cast<granary::app_pc>(func_name), \
-            reinterpret_cast<granary::app_pc>(granary_fault), \
+            granary::unsafe_cast<granary::app_pc>(func_name), \
+            granary::unsafe_cast<granary::app_pc>(granary_fault), \
             #func_name \
         }; \
         granary::add_detach_target(wrapper); \

@@ -1926,6 +1926,7 @@ typedef enum {
     GENCODE_FROM_DCONTEXT
 } gencode_mode_t;
 
+#ifndef GRANARY
 typedef struct _clean_call_info_t {
     void * callee;
     uint num_args;
@@ -1943,6 +1944,7 @@ typedef struct _clean_call_info_t {
     void * callee_info;
     instrlist_t * ilist;
 } clean_call_info_t;
+#endif
 
 enum {
     FCACHE_ENTER_TARGET_SLOT = 0 ,
@@ -2751,7 +2753,9 @@ void instrlist_meta_fault_postinsert ( instrlist_t * ilist , instr_t * where , i
 
 void instrlist_meta_fault_append ( instrlist_t * ilist , instr_t * inst );
 
+#ifndef GRANARY
 struct ftrace_branch_data {const char * func; const char * file; unsigned line; union {struct {unsigned long correct; unsigned long incorrect;}; struct {unsigned long miss; unsigned long hit;}; unsigned long miss_hit [ 2 ];};};
+#endif
 
 void instr_set_note(instr_t *instr, void *value);
 

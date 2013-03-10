@@ -28,16 +28,13 @@ namespace granary {
         DETACH_HASH_TABLE.construct();
 
         // add all wrappers to the detach hash table
-#if CONFIG_ENABLE_WRAPPERS
-        for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
+        IF_WRAPPERS( for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
             DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
-        }
-#endif /* CONFIG_ENABLE_WRAPPERS */
+        } )
 
         // add internal dynamic symbols to the detach hash table.
-#if !GRANARY_IN_KERNEL
-        for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
+        IF_USER( for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
             function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
 
             if(!wrapper.name) {
@@ -51,8 +48,7 @@ namespace granary {
             }
 
             DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
-        }
-#endif /* !GRANARY_IN_KERNEL */
+        } )
     })
 
 
@@ -90,15 +86,4 @@ namespace granary {
 
 	GRANARY_DETACH_POINT(detach)
 }
-
-
-/// Special cases for dynamically loaded symbols in user space Linux.
-#if 0 && !GRANARY_IN_KERNEL && defined(__linux)
-    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlopen_mode)
-    GRANARY_DYNAMIC_DETACH_POINT(__GI___libc_dlsym)
-
-    GRANARY_DYNAMIC_DETACH_POINT(__libc_dlopen_mode)
-    GRANARY_DYNAMIC_DETACH_POINT(__libc_dlsym)
-#endif
-
 
