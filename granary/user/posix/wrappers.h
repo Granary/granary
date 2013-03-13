@@ -18,7 +18,7 @@
     }
 
 
-#if defined(CAN_WRAP_execl) && defined(CAN_WRAP_execv)
+#if defined(CAN_WRAP_execl) && defined(CAN_WRAP_execv) && CAN_WRAP_execl
 #   define WRAPPER_FOR_execl
     FUNCTION_WRAPPER(execl, (int), (char *__path, char *__arg, ...), {
         granary::printf("execl(%s, %s, ...)\n", __path, __arg);
@@ -45,7 +45,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_execlp) && defined(CAN_WRAP_execvp)
+#if defined(CAN_WRAP_execlp) && defined(CAN_WRAP_execvp) && CAN_WRAP_execlp
 #   define WRAPPER_FOR_execlp
     FUNCTION_WRAPPER(execlp, (int), (char *__file, char *__arg, ...), {
         granary::printf("execlp(%s, %s, ...)\n", __file, __arg);
@@ -71,7 +71,7 @@
     })
 #endif
 
-#if defined(CAN_WRAP_execvp)
+#if defined(CAN_WRAP_execvp) && CAN_WRAP_execvp
 #   define WRAPPER_FOR_execvp
     FUNCTION_WRAPPER(execvp, (int), (const char *file, char * const *argv), {
         granary::printf("execvp(%s, ...)\n", file);
@@ -80,7 +80,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe)
+#if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe) && CAN_WRAP_execle
 #   define WRAPPER_FOR_execle
     FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
         granary::printf("execle(%s, %s, ...)\n", __path, __arg);
@@ -166,7 +166,7 @@
 #endif
 
 
-#ifdef CAN_WRAP_semctl
+#if defined(CAN_WRAP_semctl) && CAN_WRAP_semctl
 #   define WRAPPER_FOR_semctl
     FUNCTION_WRAPPER(semctl, (int), (int _arg1, int _arg2, int _arg3, ...), {
         va_list args__;
@@ -178,7 +178,7 @@
 #endif
 
 
-#ifdef CAN_WRAP_open
+#if defined(CAN_WRAP_open) && CAN_WRAP_open
 #   define WRAPPER_FOR_open
     FUNCTION_WRAPPER(open, (int), (const char *_arg1, int _arg2, ...), {
         va_list args__;
@@ -190,7 +190,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_vfork) && defined(CAN_WRAP_fork)
+#if defined(CAN_WRAP_vfork) && defined(CAN_WRAP_fork) && CAN_WRAP_vfork
 #   define WRAPPER_FOR_vfork
     FUNCTION_WRAPPER(vfork, (pid_t), (void), {
         return fork();
@@ -198,7 +198,12 @@
 #endif
 
 
-#ifdef CAN_WRAP_dlopen
+#define WRAP_DEBUG 0
+
+#if WRAP_DEBUG
+
+
+#if defined(CAN_WRAP_dlopen) && CAN_WRAP_dlopen
 #   define WRAPPER_FOR_dlopen
     FUNCTION_WRAPPER(dlopen, (void *), (const char *filename, int flag), {
         granary::printf("function_wrapper(dlopen, %s, %x)\n", filename, flag);
@@ -235,9 +240,7 @@
 #endif
 
 
-#define WRAP_DEBUG 0
 
-#if WRAP_DEBUG
 
 
 #ifdef CAN_WRAP_pread

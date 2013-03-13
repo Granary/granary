@@ -1688,9 +1688,9 @@ class CParser(object):
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
 
-    #if not ctype:
-    #  print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
-    #  print carat.line, carat.column
+    if not ctype:
+      print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
+      print carat.line, carat.column
 
     if not attrs.has_default_attrs():
       ctype = CTypeAttributed(ctype, attrs)

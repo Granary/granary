@@ -17,16 +17,15 @@ namespace granary { namespace types {
 
 extern "C" {
 
-#if defined(__GNUC__)
+#if defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wshadow"
+#   pragma clang diagnostic ignored "-Wunused-variable"
+#elif defined(GCC_VERSION)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wshadow"
 #   pragma GCC diagnostic ignored "-fpermissive"
 #   pragma GCC diagnostic ignored "-Wunused-variable"
-#elif defined(__clang__)
-#   pragma clang diagnostic push
-#   pragma clang diagnostic ignored "-Wshadow"
-#   pragma clang diagnostic ignored "-fpermissive"
-#   pragma clang diagnostic ignored "-Wunused-variable"
 #else
 #   error "Can't disable `-Wshadow` around `(user/kernel)_types.h` include."
 #endif
@@ -48,11 +47,10 @@ extern "C" {
 #   undef __restrict
 #   endif
 
-
-#if defined(GCC_VERSION)
-#   pragma GCC diagnostic pop
-#elif defined(__clang__)
+#if defined(__clang__)
 #   pragma clang diagnostic pop
+#elif defined(GCC_VERSION)
+#   pragma GCC diagnostic pop
 #endif
 
 }

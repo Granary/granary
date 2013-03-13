@@ -15,6 +15,7 @@ def O(*args):
 
 
 NON_BRACES = re.compile(r"[^{}]")
+DOLLAR_IN_STRING = re.compile(r"\"([^\"]*)\$([^\"]*)\"")
 
 
 def get_lines():
@@ -42,6 +43,7 @@ def get_lines():
   buff = buff.replace("}", "}\n")
   buff = buff.replace(";", ";\n")
   buff = buff.replace("}\n;", "\n};\n")
+  buff = buff.replace(",\n", ", ")
 
   buff = re.sub(r"([^a-zA-Z_0-9])extern", r"\1\nextern", buff, flags=re.MULTILINE)
   buff = re.sub(r"([^a-zA-Z_0-9\*])namespace", r"\1\nnamespace", buff, flags=re.MULTILINE)
@@ -89,6 +91,8 @@ def match_next_brace_group(lines, i, internal_lines, include=False):
 
 
 def process_lines(lines):
+  global DOLLAR_IN_STRING
+
   i = -1
   if not lines:
     return
@@ -110,7 +114,9 @@ def process_lines(lines):
       continue
 
     if "$" in strip_line:
-      continue
+      # make sure that the $ is not inside a string, e.g. __asm("$INODE...")
+      if not DOLLAR_IN_STRING.search(strip_line):
+        continue
 
     #print strip_line
 

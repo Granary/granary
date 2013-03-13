@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -ggdb3 -O0
+GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS =
@@ -198,20 +198,20 @@ ifneq ($(KERNEL),1)
 	#GR_OBJS += bin/tests/test_pthreads.o
 
 	# figure out how to link in various libraries that might be OS-specific
-	GR_LD_SPECIFIC =
-	GR_LD_SPECIFIC_SUFFIX =
+	GR_LD_PREFIX_SPECIFIC =
+	GR_LD_SUFFIX_SPECIFIC =
 
 	ifeq ($(UNAME), Darwin)
-		GR_LD_SPECIFIC = -lpthread
+		GR_LD_PREFIX_SPECIFIC = -lpthread
 	endif
 	
 	ifeq ($(UNAME), Linux)
-		GR_LD_SPECIFIC = -pthread
-		GR_LD_SPECIFIC_SUFFIX = -lrt -ldl -lcrypt
+		GR_LD_PREFIX_SPECIFIC = -pthread
+		GR_LD_SUFFIX_SPECIFIC = -lrt -ldl -lcrypt
 	endif
 	
-	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_SPECIFIC)
-	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SPECIFIC_SUFFIX)
+	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_PREFIX_SPECIFIC)
+	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC)
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
@@ -375,27 +375,28 @@ detach: types
 
 # make the folders where binaries / generated assemblies are stored
 install:
-	@-mkdir bin
-	@-mkdir bin/granary
-	@-mkdir bin/granary/user
-	@-mkdir bin/granary/kernel
-	@-mkdir bin/granary/gen
-	@-mkdir bin/granary/x86
-	@-mkdir bin/clients
-	@-mkdir bin/tests
-	@-mkdir bin/deps
-	@-mkdir bin/deps/icxxabi
-	@-mkdir bin/deps/dr
-	@-mkdir bin/deps/dr/x86
-	@-mkdir bin/deps/murmurhash
+	# Creating folders for binary/assembly files...
+	@-mkdir bin &> /dev/null ||:
+	@-mkdir bin/granary &> /dev/null ||:
+	@-mkdir bin/granary/user &> /dev/null ||:
+	@-mkdir bin/granary/kernel &> /dev/null ||:
+	@-mkdir bin/granary/gen &> /dev/null ||:
+	@-mkdir bin/granary/x86 &> /dev/null ||:
+	@-mkdir bin/clients &> /dev/null ||:
+	@-mkdir bin/tests &> /dev/null ||:
+	@-mkdir bin/deps &> /dev/null ||:
+	@-mkdir bin/deps/icxxabi &> /dev/null ||:
+	@-mkdir bin/deps/dr &> /dev/null ||:
+	@-mkdir bin/deps/dr/x86 &> /dev/null ||:
+	@-mkdir bin/deps/murmurhash &> /dev/null ||:
 	
-	# convert DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
-	# instruction-building functions
-	@-mkdir granary/gen
+	# Converting DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
+	# instruction-building functions...
+	@-mkdir granary/gen &> /dev/null ||:
 	python scripts/process_instr_create.py
 
-	# compile a dummy file to assembly to figure out which assembly syntax
-	# to use for this compiler
+	# Compile a dummy file to assembly to figure out which assembly syntax
+	# to use for this compiler...
 	$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
 	python scripts/make_asm_defines.py
 
@@ -405,34 +406,34 @@ all: $(GR_OBJS)
 	$(GR_MAKE)
 
 
-# Remove all generated files. This goes and touches some file in all of the
+# Remove all generated files. This goes and @-touches some file in all of the
 # directories to make sure cleaning doesn't report any errors; depending on
 # the compilation mode (KERNEL=0/1), not all bin folders will have objects
 clean:
-	touch bin/_.$(GR_OUTPUT_FORMAT)
-	touch bin/deps/icxxabi/_.$(GR_OUTPUT_FORMAT)
-	touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
-	touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
-	touch bin/deps/murmurhash/_.$(GR_OUTPUT_FORMAT)
-	touch bin/granary/_.$(GR_OUTPUT_FORMAT)
-	touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
-	touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
-	touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
-	touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
-	touch bin/clients/_.$(GR_OUTPUT_FORMAT)
-	touch bin/tests/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/deps/icxxabi/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/deps/murmurhash/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/clients/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/tests/_.$(GR_OUTPUT_FORMAT)
 	
-	-rm bin/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/deps/icxxabi/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/deps/murmurhash/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
-	-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/deps/icxxabi/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/deps/murmurhash/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
 
 	$(GR_CLEAN)

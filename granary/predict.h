@@ -92,6 +92,7 @@ namespace granary {
     static_assert(16 == sizeof(prediction_entry),
         "`struct prediction_entry` must be 16 bytes.");
 
+
     /// Represents a code cache prediction table header. The default prediction
     /// table structure
     struct prediction_table {
@@ -101,7 +102,8 @@ namespace granary {
         uint32_t num_reads;
 
         enum {
-            HOT_OVERWRITE_COUNT = 4
+            HOT_OVERWRITE_COUNT = 4,
+            NUM_READS_OFFSET = 0
         };
 
         /// Meta-data for

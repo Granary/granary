@@ -533,7 +533,7 @@ namespace granary {
         // increment the access count field
 #if 1
         operand access_count_field(
-            reg_predict_ptr[offsetof(prediction_table, num_reads)]);
+            reg_predict_ptr[prediction_table::NUM_READS_OFFSET]);
         access_count_field.size = dynamorio::OPSZ_4;
         ibl.append(mov_ld_(reg_compare_addr_32, access_count_field));
         ibl.append(lea_(reg_compare_addr, reg_compare_addr + 1));
@@ -747,6 +747,11 @@ namespace granary {
         }
     }
 #endif
+
+
+    /// Look up and return the assembly patch (see asm/direct_branch.asm)
+    /// function needed to patch an instruction that originally had opcode as
+    /// `opcode`. These patch functions will save/restore all %xmm registers.
     static app_pc get_xmm_safe_direct_cti_patch_func(int opcode) throw() {
         switch(opcode) {
         CASE_XMM_SAFE_DIRECT_JUMP_MANGLER(call, 5)
