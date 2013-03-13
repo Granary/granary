@@ -32,6 +32,18 @@
 
 /// Wrappers (potentially auto-generated) that are specialized to specific
 /// functions (by means of IDs) or to types, all contained in types.h.
+#   if defined(__clang__)
+#       pragma clang diagnostic push
+#       pragma clang diagnostic ignored "-Wshadow"
+#       pragma clang diagnostic ignored "-Wunused-variable"
+#   elif defined(GCC_VERSION) || defined(__GNUC__)
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Wshadow"
+#       pragma GCC diagnostic ignored "-Wunused-variable"
+#   else
+#       error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
+#   endif
+
 #   if GRANARY_IN_KERNEL
 #       include "granary/kernel/linux/wrappers.h"
 #       include "granary/gen/kernel_wrappers.h"
@@ -40,6 +52,11 @@
 #       include "granary/gen/user_wrappers.h"
 #   endif
 
+#   if defined(__clang__)
+#       pragma clang diagnostic pop
+#   elif defined(GCC_VERSION) || defined(__GNUC__)
+#       pragma GCC diagnostic pop
+#   endif
 
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specialisations from

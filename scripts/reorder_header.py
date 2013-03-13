@@ -167,7 +167,7 @@ def visit_ctype(ctype, is_value, need_value):
 
 
 # Returns True iff this unit should be included in the file's
-# output. This mainly looks to filter out void-variables.
+# output. This mainly looks to filter out variables.
 def should_include_unit(unit_decls, unit_toks, is_typedef):
   global parser
 
@@ -175,7 +175,7 @@ def should_include_unit(unit_decls, unit_toks, is_typedef):
     return True
 
   for ctype, name in unit_decls:
-    if ctype.unattributed_type() is parser.T_V:
+    if name and not isinstance(ctype.base_type(), CTypeFunction):
       return False
 
   return True

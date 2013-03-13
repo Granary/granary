@@ -24,10 +24,11 @@ extern "C" {
 #elif defined(GCC_VERSION) || defined(__GNUC__)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wshadow"
-#   pragma GCC diagnostic ignored "-fpermissive"
 #   pragma GCC diagnostic ignored "-Wunused-variable"
+#   pragma GCC diagnostic ignored "-Wunused-function"
+#   pragma GCC diagnostic ignored "-fpermissive"
 #else
-#   error "Can't disable `-Wshadow` around `(user/kernel)_types.h` include."
+#   error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
 #endif
 
 
@@ -45,7 +46,7 @@ extern "C" {
 #   include "granary/gen/user_types.h"
 #   undef restrict
 #   undef __restrict
-#   endif
+#endif
 
 #if defined(__clang__)
 #   pragma clang diagnostic pop

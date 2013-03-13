@@ -213,6 +213,7 @@ def wrap_function(ctype, orig_ctype, func):
 
   special = False
   if ctype.is_variadic and va_func in VA_LIST_FUNCS:
+    O("    IF_KERNEL( auto ", va_func, "((decltype(::", va_func, ") *) DETACH_ADDR_", va_func,"); ) ")
     O("    ", a, va_func, "(", ", ".join(param_names + ["args__"]), ");")
   else:
     if ctype.is_variadic:
