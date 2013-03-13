@@ -12,6 +12,7 @@
 *.cmd.c
 *.ko.cmd
 *.o.cmd
+*.o.d
 *.symvers
 *.order
 *.mod.c
