@@ -23,7 +23,7 @@ GR_OUTPUT_FORMAT =
 GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
-GR_ASM_FLAGS =
+GR_ASM_FLAGS = -I$(PWD)
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
@@ -212,6 +212,7 @@ ifneq ($(KERNEL),1)
 	
 	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_PREFIX_SPECIFIC)
 	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC)
+	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0
 	
@@ -272,12 +273,13 @@ else
 	GR_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean
 	GR_OUTPUT_FORMAT = S
 	
+	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=1
 	GR_CC_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
 	
 	GR_TYPE_INCLUDE = -I./ -isystem $(KERNEL_DIR)/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
-
+	
 	define GR_COMPILE_ASM
 endef
 
@@ -310,7 +312,7 @@ bin/deps/dr/%.o: deps/dr/%.c
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
-	$(GR_CC) -I$(PWD) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
+	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
 	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
 
@@ -326,7 +328,7 @@ bin/granary/%.o: granary/%.cc
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
-	$(GR_CC) -I$(PWD) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
+	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
 	python scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)
