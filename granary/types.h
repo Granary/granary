@@ -20,28 +20,34 @@ extern "C" {
 #if defined(__GNUC__)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wshadow"
+#   pragma GCC diagnostic ignored "-fpermissive"
+#   pragma GCC diagnostic ignored "-Wunused-variable"
 #elif defined(__clang__)
 #   pragma clang diagnostic push
 #   pragma clang diagnostic ignored "-Wshadow"
+#   pragma clang diagnostic ignored "-fpermissive"
+#   pragma clang diagnostic ignored "-Wunused-variable"
 #else
 #   error "Can't disable `-Wshadow` around `(user/kernel)_types.h` include."
 #endif
 
-#define restrict
-#define __restrict
-#define _Bool bool
 
-#   if GRANARY_IN_KERNEL
-#      include "granary/gen/kernel_types.h"
-#   else
+#if GRANARY_IN_KERNEL
+    typedef bool K_Bool;
+#   include "granary/gen/kernel_types.h"
+#else
+#   define _Bool bool
 // OS X-specific hack.
-#      ifdef __APPLE__
-typedef wchar_t __darwin_wchar_t;
-#      endif
-#      include "granary/gen/user_types.h"
+#   ifdef __APPLE__
+        typedef wchar_t __darwin_wchar_t;
 #   endif
+#   define restrict
+#   define __restrict
+#   include "granary/gen/user_types.h"
 #   undef restrict
-#   undef wchar_t
+#   undef __restrict
+#   endif
+
 
 #if defined(GCC_VERSION)
 #   pragma GCC diagnostic pop

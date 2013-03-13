@@ -11,8 +11,12 @@
 
 extern "C" {
 
+
     __attribute__((noinline, optimize("O0")))
-    void granary_break_on_fault(void) { }
+    void granary_break_on_fault(void) {
+        ASM("");
+    }
+
 
     __attribute__((noinline, optimize("O0")))
     int granary_fault(void) {
@@ -20,25 +24,6 @@ extern "C" {
         return 1;
     }
 
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_encode(
-        dynamorio::app_pc pc,
-        dynamorio::instr_t *instr
-    ) {
-        (void) pc;
-        (void) instr;
-        granary_fault();
-    }
-
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_bb(granary::basic_block *bb) {
-        (void) bb;
-    }
-
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_allocate(void *ptr) {
-        (void) ptr;
-    }
 
 #if CONFIG_RUN_TEST_CASES
     __attribute__((noinline, optimize("O0")))

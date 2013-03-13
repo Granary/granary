@@ -1,13 +1,21 @@
+"""Process a C-pre-processed file and remove extraneous pre-processor
+directives, get rid of C++-isms, and do a bit of other "cleaning up".
+"""
 
 import sys
 import re
 
+
 def O(*args):
   line = "".join(map(str, args))
-  if "^" not in line:
+
+  # watch out for C blocks
+  if "(^" not in line:
     print line
 
+
 NON_BRACES = re.compile(r"[^{}]")
+
 
 def get_lines():
   """Get the lines of a file as a list of strings such that no line has
@@ -26,21 +34,25 @@ def get_lines():
       if strip_line.startswith("#"):
         continue
 
-      all_lines.append(strip_line + " ")
+      all_lines.append(strip_line)
 
   # inject new lines in a structured manner
-  buff = "".join(all_lines)
+  buff = "\n".join(all_lines)
   buff = buff.replace("{", "{\n")
   buff = buff.replace("}", "}\n")
   buff = buff.replace(";", ";\n")
-  buff = buff.replace("}\n;", "};\n")
-  buff = buff.replace(r"([^a-zA-Z_0-9])extern", "\1\nextern", re.MULTILINE)
-  buff = buff.replace(r"([^a-zA-Z_0-9])namespace", "\1\nnamespace", re.MULTILINE)
-  buff = buff.replace(r"(^[a-zA-Z_0-9])template", "\1\ntemplate", re.MULTILINE)
-  buff = buff.replace("typedef", "\ntypedef")
+  buff = buff.replace("}\n;", "\n};\n")
 
+  buff = re.sub(r"([^a-zA-Z_0-9])extern", r"\1\nextern", buff, flags=re.MULTILINE)
+  buff = re.sub(r"([^a-zA-Z_0-9\*])namespace", r"\1\nnamespace", buff, flags=re.MULTILINE)
+  buff = re.sub(r"(^[a-zA-Z_0-9\*])template", r"\1\ntemplate", buff, flags=re.MULTILINE)
+  buff = re.sub(r"static([\r\n \t]+)", "static ", buff, flags=re.MULTILINE)
+
+  buff = buff.replace("typedef", "\ntypedef")
+  
   # now there is only one brace ({ or }) per line.
   return buff.split("\n")
+
 
 def match_next_brace_group(lines, i, internal_lines, include=False):
   """Try to determine the line index (i) of the line that ends a brace
@@ -75,6 +87,7 @@ def match_next_brace_group(lines, i, internal_lines, include=False):
   
   return len(lines)
 
+
 def process_lines(lines):
   i = -1
   if not lines:
@@ -99,6 +112,8 @@ def process_lines(lines):
     if "$" in strip_line:
       continue
 
+    #print strip_line
+
     # strip out C++-isms.
     if strip_line.startswith("namespace") \
     or strip_line.startswith("template"):
@@ -107,10 +122,15 @@ def process_lines(lines):
       continue
 
     # look for inline function definitions and turn them into declarations
-    if "inline" in strip_line:
+    if "inline " in strip_line \
+    or " inline" in strip_line \
+    or "__inline" in strip_line \
+    or "inline__" in strip_line:
       output_line = strip_line
       def_lines = []
+      old_i = i
       i = match_next_brace_group(lines, i, def_lines)
+      #print lines[old_i:i + 1]
 
       if "{" in output_line:
         output_line = output_line[:-1]
@@ -143,5 +163,6 @@ def process_lines(lines):
       continue
 
     O(strip_line)
+
 
 process_lines(get_lines())

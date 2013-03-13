@@ -5,6 +5,7 @@
  *      Author: pag
  */
 
+#include "granary/globals.h"
 #include "granary/policy.h"
 #include "granary/mangle.h"
 

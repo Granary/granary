@@ -210,7 +210,6 @@ namespace granary {
         }
 
         handle_type item(first());
-        app_pc prev_pc(nullptr);
         app_pc pc(start_pc);
         bool has_local_jump(false);
 
@@ -227,11 +226,7 @@ namespace granary {
                 }
             }
 
-            prev_pc = pc;
             pc = item->encode(pc);
-
-            IF_DEBUG(nullptr == pc,
-                granary_break_on_encode(prev_pc, *item));
 
             // restore its correct target for later jump resolution.
             if(target_instr) {

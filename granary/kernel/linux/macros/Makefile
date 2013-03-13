@@ -7,5 +7,5 @@ obj-m += empty.o
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 
-macros:
+macros: clean
 	make -w -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

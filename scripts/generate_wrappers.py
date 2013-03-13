@@ -18,20 +18,6 @@ def NULL(*args):
   pass
 
 
-def has_extension_attribute(ctype, attr_name):
-  ctype = ctype.unaliased_type()
-  while isinstance(ctype, CTypeAttributed):
-    attrs = ctype.attrs
-    if isinstance(attrs, CTypeNameAttributes):
-      attr_toks = attrs.attrs[0][:]
-      attr_toks.extend(attrs.attrs[1])
-      for attr in attr_toks:
-        if attr_name in attr.str:
-          return True
-    ctype = ctype.ctype.unaliased_type()
-  return False
-
-
 def is_function_pointer(ctype):
   if isinstance(ctype, CTypePointer):
     internal = ctype.ctype.unattributed_type()
@@ -109,6 +95,7 @@ def scoped_name(ctype):
       break
   return "::".join(reversed(parts))
 
+
 def wrap_struct(ctype):
   if not will_pre_wrap_feilds(ctype):
     return
@@ -153,8 +140,8 @@ def wrap_function(ctype, orig_ctype, func):
   # and functions that don't return.
   if not ctype.is_variadic \
   and not has_extension_attribute(orig_ctype, "noreturn"):
-    if not will_wrap_function(ctype.ret_type, []):
-      return
+    #if not will_wrap_function(ctype.ret_type, []):
+    return
 
   # don't wrap deprecated functions; the compiler will complain about them.
   if has_extension_attribute(orig_ctype, "deprecated"):
@@ -202,6 +189,7 @@ def wrap_function(ctype, orig_ctype, func):
     ret_type = pretty_print_type(ctype.ret_type, "", lang="C++").strip(" ")
     ret_type = " (%s), " % ret_type
 
+  O("#if defined(CAN_WRAP_", func, ") && CAN_WRAP_", func)
   O("#ifndef WRAPPER_FOR_", func)
   O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
 
@@ -245,6 +233,8 @@ def wrap_function(ctype, orig_ctype, func):
 
   O("})")
   O("#endif")
+  O("#endif")
+  O()
   O()
 
 
@@ -308,8 +298,13 @@ def visit_struct(ctype):
     wrap_struct(ctype)
 
 
+def visit_use(ctype):
+  visit_type(ctype.ctype)
+
+
 TYPES = set()
 VISITORS = {
+  CTypeUse:           visit_use,
   CTypeEnum:          visit_enum,
   CTypeFunction:      visit_function,
   CTypeAttributed:    visit_attributed,

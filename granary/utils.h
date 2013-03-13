@@ -12,11 +12,10 @@
 #include "granary/pp.h"
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-#   include "granary/allocator.h"
-#   include "granary/type_traits.h"
-
 #   include <stdint.h>
 #   include <cstring>
+#   include "granary/allocator.h"
+#   include "granary/type_traits.h"
 #   include <algorithm>
 #   include <atomic>
 #   include <new>
@@ -70,10 +69,15 @@ namespace granary {
     struct static_data {
 
 #if GRANARY_IN_KERNEL
+
         T self;
+
         inline T *operator->(void) throw() {
             return &self;
         }
+
+        inline void construct(void) throw() { }
+
 #else
         char memory[sizeof(T)];
         T *self;

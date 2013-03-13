@@ -143,6 +143,7 @@ class CToken(object):
     "__volatile__":   EXTENSION_NO_PARAM,
     
     "__attribute__":  EXTENSION,
+    "__attribute":    EXTENSION,
     "noinline":       EXTENSION_NO_PARAM,
     
     # note: not an exhaustive list
@@ -385,7 +386,7 @@ class CTokenizer(object):
     c = self.buff[self.pos]
     might_be_hex = ("0" == c)
     hex_x_pos = self.pos + 1
-    hex_set_check = ""
+    hex_set_check = "xX"
 
     while self.pos < self.len:
       c = self.buff[self.pos]
@@ -394,8 +395,8 @@ class CTokenizer(object):
       if might_be_hex and hex_x_pos == self.pos and c in "xX":
         hex_set_check = "abcdefABCDEF"
 
-      if not c.isdigit() and "." != c and c not in hex_set_check:
-          break
+      elif not c.isdigit() and "." != c and c not in hex_set_check:
+        break
 
       cs.append(c)
       self.pos += 1
@@ -542,6 +543,53 @@ class CTokenizer(object):
     assert False
 
 
+class CExpression(object):
+  """Represents a C expression."""
+
+  def __init__(self, toks):
+    self.toks = toks
+    self.ctypes = None
+
+  # Parse the tokens of an expression to find any types referenced by this
+  # expression.
+  def parse_types(self, cparser):
+    if None is not self.ctypes:
+      return self.ctypes
+
+    self.ctypes = set([])
+    i = 0
+    while i < len(self.toks):
+      t = self.toks[i]
+      if "struct" == t.str:
+        t = self.toks[i + 1]
+        self.ctypes.add(cparser.get_type(t.str, CTypeStruct))
+        i += 1
+      elif "union" == t.str:
+        t = self.toks[i + 1]
+        self.ctypes.add(cparser.get_type(t.str, CTypeUnion))
+        i += 1
+      elif "enum" == t.str:
+        t = self.toks[i + 1]
+        self.ctypes.add(cparser.get_type(t.str, CTypeEnum))
+        i += 1
+      elif CToken.TYPE_USER == t.kind:
+        self.ctypes.add(cparser.get_type(t.str, CTypeDefinition))
+      elif CToken.LITERAL_IDENTIFIER == t.kind:
+        try:
+          self.ctypes.add(cparser.get_var(t.str))
+        except:
+          pass
+
+        try:
+          self.ctypes.add(cparser.get_type(t.str, CTypeDefinition))
+        except:
+          pass
+      i += 1
+
+    return self.ctypes
+
+
+
 class CType(object):
   """Base class for all types."""
   
@@ -567,12 +615,18 @@ class CType(object):
       ctype = ctype.ctype
     return ctype
 
+  def used_type(self):
+    ctype = self
+    while isinstance(ctype, CTypeUse):
+      ctype = ctype.ctype
+    return ctype
+
   def base_type(self):
     prev_type = None
     ctype = self
     while prev_type != ctype:
       prev_type = ctype
-      ctype = ctype.unattributed_type().unaliased_type()
+      ctype = ctype.used_type().unattributed_type().unaliased_type()
     return ctype
 
 
@@ -584,7 +638,7 @@ class CTypeCompound(CType):
 class CTypeStruct(CTypeCompound):
   """Represents a structure type."""
 
-  __slots__ = ('_id', 'name', 'internal_name', 
+  __slots__ = ('_id', 'name', 'internal_name', 'had_name',
                '_fields', '_field_list', 'has_name',
                'parent_ctype')
   ID = 0
@@ -597,14 +651,24 @@ class CTypeStruct(CTypeCompound):
       self.has_name = False
       name_ = "anon_struct_%d" % self._id
 
+    self.had_name = self.has_name
     self.internal_name = name_
     self.name = "struct " + name_
     self.parent_ctype = None
     self._fields = {}
     self._field_list = []
+    #self.is_printing = False
 
   def __repr__(self):
-    return "Struct(%s)" % self.name
+    return "Struct(%s)" % (self.name) 
+    #if self.is_printing:
+    #  r = "Struct(%s)" % (self.name) 
+    #else:
+    #  self.is_printing = True
+    #  r = "Struct(%s, %s)" % (self.name, 
+    #    ", ".join("%s=%s" % (k, repr(v)) for k, v in self._fields.items()))
+    #  self.is_printing = False
+    #return r
 
   def add_field(self, ctype, name):
     self._field_list.append((ctype, name))
@@ -618,7 +682,7 @@ class CTypeStruct(CTypeCompound):
 class CTypeUnion(CTypeCompound):
   """Represents a union type."""
 
-  __slots__ = ('_id', 'name', 'internal_name',
+  __slots__ = ('_id', 'name', 'internal_name', 'had_name',
                '_fields', '_field_list', 'has_name',
                'parent_ctype')
   ID = 0
@@ -631,6 +695,7 @@ class CTypeUnion(CTypeCompound):
       self.has_name = False
       name_ = "anon_union_%d" % self._id
 
+    self.had_name = self.has_name
     self.internal_name = name_
     self.name = "union " + name_
     self.parent_ctype = None
@@ -657,6 +722,8 @@ class CTypeEnum(CTypeCompound):
                'parent_ctype')
   ID = 0
 
+  BASE_EXPRESSION = CExpression([])
+
   def __init__(self, name_=None):
     self._id = CTypeEnum.ID
     self.has_name = True
@@ -671,6 +738,13 @@ class CTypeEnum(CTypeCompound):
     self.field_list = []
     self.fields = {}
 
+  def add_field(self, name):
+    self.fields[name] = CTypeEnum.BASE_EXPRESSION
+    self.field_list.append(name)
+
+  def set_field(self, name, toks):
+    self.fields[name] = CExpression(toks)
+
   def __repr__(self):
     return "Enum(%s)" % self.name
 
@@ -684,7 +758,7 @@ class CTypeBuiltIn(CType):
     self.name = name_
 
   def __repr__(self):
-    return self.name
+    return "BuiltIn(%s)" % self.name
 
 
 class CTypeDefinition(CType):
@@ -696,6 +770,7 @@ class CTypeDefinition(CType):
     self.name = name_
     self.ctype = ctype_
     self.is_missing = is_missing
+    self.is_printing = False
 
     # update internal names of some compound types
     base_ctype = ctype_.base_type()
@@ -708,7 +783,13 @@ class CTypeDefinition(CType):
         base_ctype.has_name = True
 
   def __repr__(self):
-    return "TypeDef(%s)" % self.name
+    if self.is_printing:
+      r = "TypeDef(%s, *rec*)" % (self.name)
+    else:
+      self.is_printing = True
+      r = "TypeDef(%s, %s)" % (self.name, repr(self.ctype))
+      self.is_printing = False
+    return r
 
 
 class CTypePointer(CType):
@@ -849,17 +930,19 @@ class CTypeAttributed(CType):
     self.ctype = ctype_
     self.attrs = attrs_
 
+  def __repr__(self):
+    return "Attributed(%s, %s)" % (repr(self.attrs), repr(self.ctype))
 
 class CTypeExpression(CType):
   """Represents a type that is computed by some expression e.g.: typeof (...)."""
 
   __slots__ = ('toks',)
 
-  def __init__(self, toks_):
-    self.toks = toks_
+  def __init__(self, expr):
+    self.expr = expr
 
   def __repr__(self):
-    return " ".join(map(lambda t: t.str, self.attrs))
+    return "Expr"
 
 
 class CTypeBitfield(CType):
@@ -896,6 +979,17 @@ class CTypeFunction(CTypeCompound):
   def __repr__(self):
     types_str = ", ".join(map(repr, [self.ret_type] + self.param_types))
     return "Function(%s)" % types_str
+
+
+class CTypeUse(CType):
+  """Represents a "weak" reference to another type. This means that the
+  referenced type was not defined at the point of reference."""
+
+  def __init__(self, ctype):
+    self.ctype = ctype
+
+  def __repr__(self):
+    return "Use(%s)" % repr(self.ctype)
 
 
 class CStackedDict(object):
@@ -1010,6 +1104,12 @@ class CSymbolTable(object):
     assert const in self._types
     assert name in self._types[const]
     return self._types[const][name]
+
+  # Get a reference to a type given its name and constructor
+  def get_type_ref(self, name, const):
+    assert const in self._types
+    assert name in self._types[const]
+    return CTypeUse(self._types[const][name])
 
 
 class CParser(object):
@@ -1183,6 +1283,10 @@ class CParser(object):
     while i < len(toks):
       carat = toks[i].carat
       i, decls, is_typedef = self._parse_declaration(stab, toks, i)
+
+      #if is_typedef:
+      #  print carat.line, carat.column
+
       assert not is_typedef
 
       # note: might have an unnamed struct declaration field, so long as it's a
@@ -1219,12 +1323,15 @@ class CParser(object):
     j = self._get_up_to_balanced(outer_toks, toks, j, "{")
     i = 0
     building_expr = False
+    last_const_name = None
     while i < len(toks):
       t = toks[i]
       
       if CToken.LITERAL_IDENTIFIER == t.kind:
         if not building_expr:
           stab.set_var(t.str, ctype)
+          ctype.add_field(t.str)
+          last_const_name = t.str
         i += 1
       elif "," == t.str:
         building_expr = False
@@ -1238,6 +1345,7 @@ class CParser(object):
         assert building_expr
         sub_expr_toks = []
         i = self._get_up_to_balanced(toks, sub_expr_toks, i, t.str)
+        ctype.set_field(last_const_name, sub_expr_toks)
 
       else:
 
@@ -1295,7 +1403,8 @@ class CParser(object):
         return i + 1, decls, False
 
     name_attrs = CTypeNameAttributes()
-    i, specs_ctype, defines_type = self._parse_specifiers(stab, name_attrs, toks, i)
+    i, specs_ctype, defines_type = self._parse_specifiers(
+        stab, name_attrs, toks, i)
 
     # parse the declarators until we make no progress
     while i < len(toks):
@@ -1306,7 +1415,8 @@ class CParser(object):
 
       has_declarator = True
       i, ctype, ctype_name_attrs, name = self._parse_declarator(
-          stab, specs_ctype, CTypeNameAttributes(name_attrs), toks, i, end_on_comma)
+          stab, specs_ctype, CTypeNameAttributes(name_attrs),
+          toks, i, end_on_comma)
       
       if not ctype_name_attrs.has_default_attrs():
         ctype = CTypeAttributed(ctype, ctype_name_attrs)
@@ -1408,24 +1518,30 @@ class CParser(object):
         ctype = stab.get_type(t.str, CTypeDefinition)
         might_have_type = True
       
-      # possible typedef name
+      # possible typedef name, or maybe just a declared variable/
+      # field.
       elif CToken.LITERAL_IDENTIFIER == t.kind:
         if stab.has_type(t.str, CTypeDefinition):
 
+          found_ctype = stab.get_type(t.str, CTypeDefinition)
+
           # todo: assume it's a re-definition of the type in
-          # terms of another typedef'd type.
-          if isinstance(ctype, CTypeDefinition):
+          # terms of another typedef'd type. If so, canonicalize
+          # on the new typedef by setting the internal `is_missing`
+          # to True so that the interval value will be updated later.
+          if isinstance(ctype, CTypeUse) \
+          and isinstance(ctype.ctype, CTypeDefinition):
+            assert False
+            found_ctype.is_missing = True
             i -= 1
             break
-
-          found_ctype = stab.get_type(t.str, CTypeDefinition)
 
           # assume a definition of a type that was used before
           # it was defined, so we are defining it now
           if found_ctype.is_missing \
           and (might_have_type or ctype or built_in_names) \
           and defines_type:
-            i -=1
+            i -= 1
             break
 
           # try extra hard to find things that might be defined
@@ -1442,11 +1558,12 @@ class CParser(object):
 
           # this is the type if what we are defining
           t.kind = CToken.TYPE_USER
-          ctype = found_ctype
+          ctype = stab.get_type_ref(t.str, CTypeDefinition)
           might_have_type = True
 
         # we've seen an identifier before, e.g. a type name;
-        # this is almost certainly the defined type
+        # this is almost certainly the defined type, or the declared
+        # variable/field.
         elif ctype or might_have_type:
           i -= 1
           break
@@ -1454,10 +1571,13 @@ class CParser(object):
         # break the standard here; let's assume that this type
         # has yet to be defined, but WILL be defined, and we will
         # define it, on our own for now.
+        #
+        # Note: this modifies the global stab, not the local one!!
         else:
           t.kind = CToken.TYPE_USER
-          ctype = CTypeDefinition(t.str, CParser.T_I, is_missing=True)
-          stab.set_type(t.str, ctype)
+          self.stab.set_type(t.str,
+              CTypeDefinition(t.str, CParser.T_I, is_missing=True))
+          ctype = stab.get_type_ref(t.str, CTypeDefinition)
 
       # qualifiers (const, volatile, restrict)
       elif hasattr(attrs, "is_" + t.str):
@@ -1505,16 +1625,28 @@ class CParser(object):
           inner_stab = CParser.COMPOUND_TYPE_STAB[t.str](self, stab)
           i = parser(self, inner_stab, ctype, toks, i + 1)
 
-        # cheat: user-defined type use
+        # cheat: user-defined type use, or forward declaration
+        # e.g. `struct bar *baz(void);` or `struct bar;`.
         elif t2.kind in (CToken.LITERAL_IDENTIFIER, CToken.TYPE_USER):
           t2.kind = CToken.TYPE_USER
           i += 1
 
+          # not previously defined; this is likely a forward declaration
+          # or a use-before-def.
+          if not stab.has_type(t2.str, constructor):
+
+            # likely just a forward declaration
+            if t3 and ";" == t3:
+              ctype = constructor(t2.str)
+
+            # use-before-def of the type; define it.
+            else:
+              stab.set_type(t2.str, constructor(t2.str))
+              ctype = stab.get_type_ref(t2.str, constructor)
+
           # get prev. instance from forward declaration
-          if stab.has_type(t2.str, constructor):
-            ctype = stab.get_type(t2.str, constructor)
           else:
-            ctype = constructor(t2.str) # define the type
+            ctype = stab.get_type_ref(t2.str, constructor)
 
         # anonymous type definition
         elif "{" == t2.str:
@@ -1533,7 +1665,7 @@ class CParser(object):
           ctype = expr_or_type
         else:
           # todo: unimplemented
-          ctype = CTypeExpression(typeof_toks)
+          ctype = CTypeExpression(expr_or_type)
 
       # compiler-specific attributes (parameterized)
       elif CToken.EXTENSION == t.kind:
@@ -1657,9 +1789,9 @@ class CParser(object):
       elif "=" == t.str:
         i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=True)
       else:
-        print
-        print repr(t.str), t.carat.line, t.carat.column, ctype
-        print
+        #print
+        #print repr(t.str), t.carat.line, t.carat.column, ctype
+        #print
         assert False
 
     if call_recursive:
@@ -1854,7 +1986,7 @@ class CParser(object):
         i += 1
 
     # todo: actually parse expressions
-    return i, expr_toks
+    return i, CExpression(expr_toks)
 
   # Extract a sub-list of tokens (`sub_toks`) from `toks` such that 
   # `sub_toks` is everything contained between balanced `open_str` and the
@@ -1902,36 +2034,102 @@ class CParser(object):
 
     return i
 
+  # Update the parser state given some declarations, and return the
+  # massaged declarations.
+  def _update_with_declarations(self, decls, is_typedef):
+    i = 0
+    while i < len(decls):
+      ctype, name = decls[i]
+      if is_typedef:
+        assert name
+        add_type = True
+
+        if self.stab.has_type(name, CTypeDefinition):
+          prev_ctype = self.stab.get_type(name, CTypeDefinition)
+
+          if prev_ctype.is_missing:
+            prev_ctype.is_missing = False
+            prev_ctype.ctype = ctype
+            ctype = prev_ctype
+            add_type = False
+
+        if add_type:
+          ctype = CTypeDefinition(name, ctype)
+          self.stab.set_type(name, ctype)
+
+        decls[i] = (ctype, name)
+      elif name: 
+        self.stab.set_var(name, ctype)
+      i += 1
+    return decls
+
   # Parse a C file.
   #
   # Returns:
   #   A list of C declarations (AST nodes).
   def parse(self, toks):
-    decls = []
     toks = list(toks)
     i = 0
+    all_decls = []
     while i < len(toks):
       carat = toks[i].carat
       i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
-      
-      for ctype, name in decls:
-        if is_typedef:
-          if not name:
-            print carat.line, carat.column
-          assert name
-          ctype = CTypeDefinition(name, ctype)
-          self.stab.set_type(name, ctype)
-        else:
-          if name: 
-            self.stab.set_var(name, ctype)
+      decls = self._update_with_declarations(decls, is_typedef)
+      all_decls.extend(decls)
+    return all_decls
 
-  # Generate pairs of variables/functions and their types at the global scope.
+  # Parse a C file and return the groups of declarations/definitions
+  # along with all tokens belonging to those groups. This makes it
+  # easier to re-order the declarations / definitions within a C file
+  # just in case the file contains minor errors (e.g. use-before-def
+  # of a type).
+  #
+  # Returns:
+  #   A list of 3-tuples `(decls, toks, is_typedef)` where `decls` is a
+  #   list of `(ctype, name)` pairs of declarations in this group, `toks`
+  #   is a list of the tokens used in all declarations of the group, and
+  #   `is_typedef` is True iff this group defines a type.
+  def parse_units(self, toks):
+    toks = list(toks)
+    groups = []
+    i = 0
+    while i < len(toks):
+      prev_i = i
+      i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
+      decls = self._update_with_declarations(decls, is_typedef)
+      groups.append((decls, toks[prev_i:i], is_typedef))
+    return groups
+
+  # Generate pairs of variables/functions and their types at the global 
+  # scope.
   def vars(self):
     return self.stab.vars()
+
+
+  # Get the type of a variable.
+  def get_var(self, name):
+    return self.stab.get_var(name)
 
   # Get a type.
   def get_type(self, name, constructor):
     return self.stab.get_type(name, constructor)
+
+
+# Returns True iff the type has an extension attribute,
+# e.g. `has_extension_attribute(ctype, "inline")` ==> True
+# if `ctype` is `__attribute__((inline)) foo;`.
+def has_extension_attribute(ctype, attr_name):
+  ctype = ctype.unaliased_type()
+  while isinstance(ctype, CTypeAttributed):
+    attrs = ctype.attrs
+    if isinstance(attrs, CTypeNameAttributes):
+      attr_toks = attrs.attrs[0][:]
+      attr_toks.extend(attrs.attrs[1])
+      for attr in attr_toks:
+        if attr_name in attr.str:
+          return True
+    ctype = ctype.ctype.unaliased_type()
+  return False
 
 
 # for testing

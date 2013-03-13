@@ -13,27 +13,8 @@ def C(*args):
   code.write("".join(map(str, args)) + "\n")
 
 
-def has_extension_attribute(ctype, attr_name):
-  ctype = ctype.unaliased_type()
-  while isinstance(ctype, CTypeAttributed):
-    attrs = ctype.attrs
-    if isinstance(attrs, CTypeNameAttributes):
-      attr_toks = attrs.attrs[0][:]
-      attr_toks.extend(attrs.attrs[1])
-      for attr in attr_toks:
-        if attr_name in attr.str:
-          return True
-    ctype = ctype.ctype.unaliased_type()
-  return False
-
-
 FUNCTIONS = {}
 
-
-def has_internal_linkage(ctype):
-  is_inline, is_static = False, False
-  if isinstance(ctype, CTypeAttributed):
-    pass
 
 def visit_function(name, ctype):
   global IGNORE, FUNCTIONS
@@ -44,7 +25,7 @@ def visit_function(name, ctype):
   # so that these type-based rules propagate to the dll detach
   # stuff, where type info is not known.
   C("#ifndef CAN_WRAP_", name)
-  C("#   define CAN_WRAP_", name)
+  C("#   define CAN_WRAP_", name, " 1")
   C("#endif")
   
   if has_extension_attribute(ctype, "deprecated"):
@@ -56,11 +37,14 @@ def visit_function(name, ctype):
   # that we already have, e.g. logf vs. __logf. 
   if name.startswith("__"):
     if name[2:] not in FUNCTIONS:
-      C("TYPED_DETACH(", name, ")")
+      C("#if CAN_WRAP_", name)
+      C("    TYPED_DETACH(", name, ")")
+      C("#endif")
     return
 
-  C("WRAP_FOR_DETACH(", name,")")
-
+  C("#if CAN_WRAP_", name)
+  C("    WRAP_FOR_DETACH(", name,")")
+  C("#endif")
 
 def visit_var_def(var, ctype):
   global FUNCTIONS

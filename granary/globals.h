@@ -13,9 +13,9 @@
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <cstring>
 #   include <cstddef>
-#   include <stdint.h>
 #endif
 
+#include <stdint.h>
 
 #ifndef GRANARY
 #   define GRANARY 1
@@ -225,12 +225,9 @@ namespace granary {
     };
 
 
-    /// Processor flags
-    typedef unsigned long long flags_t;
-
-
     /// Forward declarations.
     struct basic_block;
+
 
 #if CONFIG_RUN_TEST_CASES
     extern void run_tests(void) throw();
@@ -239,14 +236,11 @@ namespace granary {
 
 
 extern "C" {
-#if !GRANARY_IN_KERNEL
+
     extern void granary_break_on_fault(void);
     extern int granary_fault(void);
 
-    extern void granary_break_on_encode(
-        dynamorio::app_pc pc,
-        dynamorio::instr_t *instr
-    );
+#if !GRANARY_IN_KERNEL
     extern void granary_break_on_bb(granary::basic_block *bb);
     extern void granary_break_on_allocate(void *ptr);
 #   if CONFIG_RUN_TEST_CASES
@@ -255,8 +249,8 @@ extern "C" {
 #   endif
 #else
 
-    extern flags_t granary_disable_interrupts(void);
-    extern void granary_restore_flags(flags_t);
+    extern unsigned long long granary_disable_interrupts(void);
+    extern void granary_restore_flags(unsigned long long);
 
 #endif
 

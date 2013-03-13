@@ -174,6 +174,7 @@ namespace granary {
 
     /// Return the address of a function wrapper given its id and type.
     template <enum function_wrapper_id id, typename R, typename... Args>
+    __attribute__((always_inline))
     inline constexpr app_pc wrapper_of(R (*)(Args...)) throw() {
         return reinterpret_cast<app_pc>(wrapped_function<id, R, Args...>::apply);
     }
@@ -182,17 +183,26 @@ namespace granary {
     /// Return the address of a function wrapper given its id and type, where
     /// the function being wrapped is a C-style variadic function.
     template <enum function_wrapper_id id, typename T>
+    __attribute__((always_inline))
     inline constexpr app_pc wrapper_of(T *) throw() {
         return reinterpret_cast<app_pc>(
             wrapped_function<id, custom_wrapped_function>::apply);
     }
+
+
+    /// The identity of a type.
+    template <typename T>
+    struct identity {
+    public:
+        typedef T type;
+    };
 }
 
 #define TYPE_WRAPPER(type_name, wrap_code) \
     namespace granary { \
         template <> \
         struct type_wrapper<type_name> { \
-            typedef decltype(*(new type_name)) wrapped_type__; \
+            typedef identity<type_name>::type wrapped_type__; \
             \
             struct impl__: public type_wrapper_base<type_name> \
             wrap_code; \
@@ -251,6 +261,8 @@ namespace granary {
         public: \
             typedef std::remove_reference<PARAMS return_type>::type R; \
             static R apply arg_list throw() { \
+                IF_KERNEL(auto function_name((decltype(::function_name) *) \
+                    DETACH_ADDR_ ## function_name );) \
                 const unsigned depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \

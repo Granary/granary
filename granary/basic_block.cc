@@ -49,11 +49,11 @@ namespace granary {
 
     /// Get the state of a byte in the basic block.
     inline static code_cache_byte_state
-    get_state(uint8_t *pc_byte_states, unsigned i) throw() {
+    get_state(uint8_t *states, unsigned i) throw() {
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
         const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
         return static_cast<code_cache_byte_state>(
-                1 << ((pc_byte_states[j] >> k) & 0x03));
+                1 << ((states[j] >> k) & 0x03));
     }
 
 
@@ -248,7 +248,6 @@ namespace granary {
         app_pc &begin,
         app_pc &end
     ) const throw() {
-        uint8_t *pc_byte_states(reinterpret_cast<uint8_t *>(info + 1));
 
         const unsigned current_offset(cache_pc_current - cache_pc_start);
         code_cache_byte_state byte_state(get_state(
@@ -652,7 +651,7 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
 
-        app_pc emitted_pc = emit(
+        IF_TEST( app_pc emitted_pc =) emit(
             policy, ls, *bb_begin, block_storage, start_pc, generated_pc);
 
         // If this isn't the case, then there there was likely a buffer

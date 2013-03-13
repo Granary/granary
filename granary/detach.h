@@ -49,7 +49,9 @@ namespace granary {
 
 #if CONFIG_ENABLE_WRAPPERS
 
-/// Assigns unique IDs to each wrapped function.
+/// Assigns unique IDs to each wrapped function. The `DETACH` and `TYPED_DETACH`
+/// function kinds are not assigned IDs because their addresses are dynamically
+/// looked up.
 #   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
 #   define DETACH(func)
 #   define TYPED_DETACH(func)

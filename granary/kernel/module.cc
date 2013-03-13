@@ -6,21 +6,27 @@
  *     Version: $Id$
  */
 
-#include "granary/utils.h"
+#include "granary/globals.h"
 #include "granary/instruction.h"
 
 #include "granary/kernel/module.h"
 #include "granary/kernel/printf.h"
 
-#include "granary/gen/kernel_types.h"
+#ifdef GRANARY_DONT_INCLUDE_CSTDLIB
+#   undef GRANARY_DONT_INCLUDE_CSTDLIB
+#endif
+
+#include "granary/types.h"
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
+        using namespace granary;
+
         if(module->is_granary) {
             return;
         }
 
-        kernel::module *mod(granary::unsafe_cast<kernel::module *>(module->address));
+        types::module *mod(unsafe_cast<types::module *>(module->address));
 
         granary::printf("Notified about module (%s) state change!!\n", mod->name);
 

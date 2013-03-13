@@ -1089,6 +1089,7 @@ namespace granary {
     }
 
 
+#if !GRANARY_IN_KERNEL
     void instruction_list_mangler::mangle_lea(
         instruction_list_handle in
     ) throw() {
@@ -1104,6 +1105,7 @@ namespace granary {
                 int64_(reinterpret_cast<uint64_t>(target_pc)));
         }
     }
+#endif
 
 
     /// Propagate a delay region across mangling. If we have mangled a single

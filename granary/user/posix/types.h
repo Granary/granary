@@ -12,6 +12,16 @@
 #   define _GNU_SOURCE
 #endif
 
+#define int8_t U_int8_t
+#define int16_t U_int16_t
+#define int32_t U_int32_t
+#define int64_t U_int64_t
+
+#define uint8_t U_uint8_t
+#define uint16_t U_uint16_t
+#define uint32_t U_uint32_t
+#define uint64_t U_uint64_t
+
 #include <aio.h>
 //#include <arpa/inet.h>
 #include <assert.h>

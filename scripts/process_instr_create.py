@@ -1,3 +1,5 @@
+"""Process DynamoRIO's instr_create.h file and generate a simplied
+instruction creation API for use by Granary."""
 
 import re
 

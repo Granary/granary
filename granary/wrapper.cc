@@ -26,7 +26,6 @@
 /// Wrapper templates.
 #   include "granary/wrapper.h"
 
-
 /// Needed for C-style variadic functions.
 #   include <cstdarg>
 
@@ -43,15 +42,17 @@
 
 
 /// Auto-generated table of all detachable functions and their wrapper
-/// instantiations. These depend on the partial specializations from
+/// instantiations. These depend on the partial specialisations from
 /// user/kernel_wrappers.h.
 namespace granary {
+
     function_wrapper FUNCTION_WRAPPERS[] = {
 
     // first, generate detach entries for wrappers
 #   define WRAP_FOR_DETACH(func) \
-    {   (app_pc) ::func, \
-        wrapper_of<DETACH_ID_ ## func>(::func), \
+    {   (app_pc) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
+        wrapper_of<DETACH_ID_ ## func>( \
+            IF_USER_ELSE(::func, (decltype(::func) *) nullptr)), \
         #func },
 #   define DETACH(func)
 #   define TYPED_DETACH(func)

@@ -83,4 +83,7 @@ IGNORE = set([
   # MUST IGNORE THIS so that it doesn't detach before the
   # main program even starts!!!
   "__libc_start_main",
+
+  # kernel stuff
+  "early_printk",
 ])

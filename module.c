@@ -12,24 +12,43 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
-#include <asm/pgtype_types.h>
 
 #include "granary/kernel/module.h"
+#include "deps/icxxabi/icxxabi.h"
 
-MODULE_LICENSE("Dual BSD/GPL");
+
+/// It's a trap!
+MODULE_LICENSE("GPL");
 
 
-void granary_break_on_fault(void) { }
+/// Function that is called before granary faults.
+void granary_break_on_fault(void) {
+    __asm__ __volatile__ ("");
+}
+
+
+/// Function that is called in order to force a fault.
+int granary_fault(void) {
+    __asm__ __volatile__ ("mov 0, %rax;");
+    return 1;
+}
+
 
 struct kernel_module *modules = NULL;
 extern int (**kernel_printf)(const char *, ...);
 extern void *(**kernel_vmalloc_exec)(unsigned long);
 extern void *(**kernel_vmalloc)(unsigned long);
-extern void (**kernel_vfree)(void *);
+extern void (**kernel_vfree)(const void *);
+
+
+/// C++-implemented function that operates on modules. This is the
+/// bridge from C to C++.
 extern void notify_module_state_change(struct kernel_module *);
+
 
 /// Find the Granary-representation for an internal module.
 static struct kernel_module *find_interal_module(void *vmod) {
+
     struct kernel_module *module = modules;
     struct kernel_module **next_link = &modules;
     const int is_granary = NULL == modules;
@@ -45,7 +64,7 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
     mod = (struct module *) vmod;
 
-    // initialise
+    // Initialise.
     module->is_granary = is_granary;
     module->init = &(mod->init);
     module->exit = &(mod->exit);
@@ -53,8 +72,9 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module->text_begin = mod->module_core;
     module->text_end = mod->module_core + mod->core_text_size;
 
-    // chain it in and return
+    // Chain it in and return.
     *next_link = module;
+
     return module;
 }
 
@@ -72,7 +92,7 @@ static int module_load_notifier(
 }
 
 
-/// Callbnack structure used by Linux for module state change events.
+/// Callback structure used by Linux for module state change events.
 static struct notifier_block notifier_block = {
     .notifier_call = module_load_notifier,
     .next = NULL,
@@ -128,6 +148,9 @@ static void exit_granary(void) {
         next_mod = mod->next;
         kfree(mod);
     }
+
+    // Invoke C++ global destructors.
+    __cxa_finalize(0);
 }
 
 module_init(init_granary);

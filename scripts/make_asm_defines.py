@@ -1,3 +1,6 @@
+"""Parse a compiler-generated assembly so that we can see what
+kinds of assembly syntax the compiler being used uses, so that certain
+assembly macros can be customized to those compilers."""
 
 PREFIX_WITH_UNDERSCORE = False
 USE_GLOBL = False

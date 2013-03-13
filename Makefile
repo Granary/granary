@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -ggdb3 -O4
+GR_DEBUG_LEVEL = -ggdb3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS =
@@ -156,13 +156,15 @@ ifneq ($(KERNEL),1)
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
-
+	
+	GR_OBJS += bin/granary/test.o
+	
+	# user-specific versions of granary functions
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
 	GR_OBJS += bin/granary/user/utils.o
 	GR_OBJS += bin/granary/user/printf.o
-	GR_OBJS += bin/granary/test.o
 	
 	ifneq ($(GR_DLL),1)
 		GR_OBJS += bin/main.o
@@ -244,20 +246,24 @@ else
 		GR_TYPE_CXX_FLAGS += -mcmodel=kernel
 	endif
 	
-	GR_TYPE_CC_FLAGS += -mno-red-zone
-	GR_TYPE_CXX_FLAGS += -mno-red-zone
+	GR_TYPE_CC_FLAGS += -mno-red-zone -nostdlib -nostartfiles
+	GR_TYPE_CXX_FLAGS += -mno-red-zone -nostdlib -nostartfiles
 	
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
-
+	
+	# kernel-specific versions of granary functions
 	GR_OBJS += bin/granary/kernel/module.o
 	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/init.o
 	GR_OBJS += bin/granary/kernel/utils.o
-
+	
+	# C++ ABI-specific stuff
+	GR_OBJS += bin/deps/icxxabi/icxxabi.o
+	
 	# Module objects
 	obj-m += $(GR_NAME).o
 	$(GR_NAME)-objs = $(GR_OBJS) module.o
@@ -274,7 +280,10 @@ else
 
 	define GR_COMPILE_ASM
 endef
+
+	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
+		$$(sudo python scripts/generate_detach_addresses.py)
 endef
 	
 	# Get all pre-defined macros so that we can suck in the kernel headers
@@ -304,6 +313,10 @@ bin/deps/dr/%.o: deps/dr/%.asm
 	$(GR_CC) -I$(PWD) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
 	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
+
+# Itanium C++ ABI rules for C++ files
+bin/deps/icxxabi/%.o: deps/icxxabi/%.cc
+	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/icxxabi/$*.$(GR_OUTPUT_FORMAT)
 
 
 # Granary rules for C++ files
@@ -345,7 +358,8 @@ bin/dlmain.o: dlmain.cc
 types:
 	$(call GR_GET_TYPE_DEFINES)
 	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
-	python scripts/post_process_header.py /tmp/ppt.h > $(GR_OUTPUT_TYPES)
+	python scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
+	python scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)
 
 
 # auto-generate wrappers
@@ -370,6 +384,7 @@ install:
 	@-mkdir bin/clients
 	@-mkdir bin/tests
 	@-mkdir bin/deps
+	@-mkdir bin/deps/icxxabi
 	@-mkdir bin/deps/dr
 	@-mkdir bin/deps/dr/x86
 	@-mkdir bin/deps/murmurhash
@@ -395,6 +410,7 @@ all: $(GR_OBJS)
 # the compilation mode (KERNEL=0/1), not all bin folders will have objects
 clean:
 	touch bin/_.$(GR_OUTPUT_FORMAT)
+	touch bin/deps/icxxabi/_.$(GR_OUTPUT_FORMAT)
 	touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
 	touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
 	touch bin/deps/murmurhash/_.$(GR_OUTPUT_FORMAT)
@@ -407,6 +423,7 @@ clean:
 	touch bin/tests/_.$(GR_OUTPUT_FORMAT)
 	
 	-rm bin/*.$(GR_OUTPUT_FORMAT)
+	-rm bin/deps/icxxabi/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
 	-rm bin/deps/murmurhash/*.$(GR_OUTPUT_FORMAT)
