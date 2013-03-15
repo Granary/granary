@@ -23,6 +23,7 @@ namespace granary {
         hash_table<app_pc, const function_wrapper *>
     > DETACH_HASH_TABLE;
 
+
     STATIC_INITIALISE({
 
         DETACH_HASH_TABLE.construct();
@@ -50,7 +51,6 @@ namespace granary {
             DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
         } )
     })
-
 
 
     /// Add a detach target to the hash table.

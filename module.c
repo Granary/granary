@@ -136,16 +136,19 @@ static void *allocate(unsigned long size) {
 
 /// Initialise Granary.
 static int init_granary(void) {
+
+    *kernel_printf = printk;
+    *kernel_vmalloc_exec = allocate_executable;
+    *kernel_vmalloc = allocate;
+    *kernel_vfree = vfree;
+
     printk("Loading Granary...\n");
 
     printk("    Running initialisers...\n");
     granary_run_initialisers();
     printk("    Done running initialisers.\n");
 
-    *kernel_printf = printk;
-    *kernel_vmalloc_exec = allocate_executable;
-    *kernel_vmalloc = allocate;
-    *kernel_vfree = vfree;
+
 
     printk("    Registering module notifier...\n");
 

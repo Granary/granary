@@ -72,6 +72,8 @@ namespace granary {
         inline cpu_state *operator->(void) throw() {
             return state;
         }
+
+        IF_KERNEL( static void init(void) throw(); )
     };
 
 

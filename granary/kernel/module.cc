@@ -25,6 +25,10 @@
 
 #include "granary/types.h"
 
+int foo(void) throw() {
+    return 10;
+}
+
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
         using namespace granary;
@@ -33,12 +37,20 @@ extern "C" {
 
             granary::printf("        Module is Granary; initialising...\n");
             granary::init();
+            int x = 0;
+            auto policy(GRANARY_INIT_POLICY);
+            granary::attach(granary::policy_for<decltype(policy)>());
+            x = foo();
+            granary::detach();
+
+            granary::printf("x=%d\n", x);
             return;
         }
 
         types::module *mod(unsafe_cast<types::module *>(module->address));
 
         granary::printf("        Notified about module (%s) state change!!\n", mod->name);
+
 
         (void) mod;
     }
