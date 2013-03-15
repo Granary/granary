@@ -34,24 +34,19 @@ extern "C" {
         using namespace granary;
 
         if(module->is_granary) {
-
-            granary::printf("        Module is Granary; initialising...\n");
-            granary::init();
-            int x = 0;
-            auto policy(GRANARY_INIT_POLICY);
-            granary::attach(granary::policy_for<decltype(policy)>());
-            x = foo();
-            granary::detach();
-
-            granary::printf("x=%d\n", x);
             return;
         }
 
         types::module *mod(unsafe_cast<types::module *>(module->address));
 
-        granary::printf("        Notified about module (%s) state change!!\n", mod->name);
-
+        granary::printf("        Notified about module (%s) state change!!\n",
+            mod->name);
 
         (void) mod;
+    }
+
+    void granary_initialise(void) {
+        granary::printf("Initialising Granary...\n");
+        granary::init();
     }
 }

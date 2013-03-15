@@ -12,18 +12,35 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
 
 #include "granary/kernel/module.h"
 #include "deps/icxxabi/icxxabi.h"
+
+
+#ifndef SUCCESS
+#   define SUCCESS 0
+#endif
+
+
+#define MAJOR_NUM
+#define IOCTL_RUN_COMMAND _IOR(MAJOR_NUM, 0, char *)
 
 
 /// It's a trap!
 MODULE_LICENSE("GPL");
 
 
-/// Assembly function to run initialisers for globally-defined C++ data
+/// Assembly function to run constructors for globally-defined C++ data
 /// structures.
 extern void granary_run_initialisers(void);
+
+
+/// C function defined in granary/kernel/module.cc for initialising Granary.
+/// This function is invoked when an ioctl is used to tell Granary to
+/// initialise.
+extern void granary_initialise(void);
 
 
 /// Function that is called before granary faults.
@@ -133,6 +150,77 @@ static void *allocate(unsigned long size) {
 }
 
 
+static int granary_device_open = 0;
+static int granary_device_initialised = 0;
+
+
+/// Open Granary as a device.
+static int device_open(struct inode *inode, struct file *file) {
+    if(granary_device_open) {
+        return -EBUSY;
+    }
+
+    granary_device_open++;
+
+    (void) inode;
+    (void) file;
+
+    return SUCCESS;
+}
+
+
+/// Close Granary as a device.
+static int device_close(struct inode *inode, struct file *file) {
+    if(granary_device_open) {
+        granary_device_open--;
+    }
+
+    (void) inode;
+    (void) file;
+
+    return SUCCESS;
+}
+
+
+/// Tell a Granary device to run a command.
+static long device_ioctl(
+    struct file *file,
+    unsigned int ioctl_num,
+    unsigned long ioctl_param
+) {
+    (void) file;
+
+    // we only support one command: initialise granary.
+    switch(ioctl_num) {
+    case 0:
+        if(!granary_device_initialised) {
+            granary_device_initialised = 1;
+            granary_initialise();
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    return SUCCESS;
+}
+
+
+struct file_operations operations = {
+    .owner = THIS_MODULE,
+    .open = device_open,
+    .release = device_close,
+    .unlocked_ioctl = device_ioctl
+};
+
+
+struct miscdevice device = {
+    .minor = 0,
+    .name = "granary",
+    .fops = &operations
+};
+
 
 /// Initialise Granary.
 static int init_granary(void) {
@@ -153,6 +241,17 @@ static int init_granary(void) {
     printk("    Registering module notifier...\n");
 
     register_module_notifier(&notifier_block);
+
+    printk("    Registering 'granary' device...\n");
+
+    if(0 != misc_register(&device)) {
+        printk("        Unable to register 'granary' device.\n");
+    } else {
+        printk("        Registered 'granary' device.\n");
+    }
+
+    printk("    Done; waiting for command to initialise Granary.\n");
+
     return 0;
 }
 
@@ -164,6 +263,7 @@ static void exit_granary(void) {
 
     printk("Unloading Granary... Goodbye!\n");
     unregister_module_notifier(&notifier_block);
+    misc_register(&device);
 
     // free the memory associated with internal modules
     for(; NULL != mod; mod = next_mod) {

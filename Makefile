@@ -303,8 +303,7 @@ endef
 	# Get all pre-defined macros so that we can suck in the kernel headers
 	# properly.
 	define GR_GET_TYPE_DEFINES
-		$(shell python scripts/generate_kernel_macros.py > /dev/null &> /dev/null )
-		$(shell cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
+		$(shell python scripts/generate_kernel_macros.py > /dev/null &> /dev/null ; cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
 endef
 endif
 
