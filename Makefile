@@ -280,8 +280,8 @@ else
 	GR_OUTPUT_FORMAT = S
 	
 	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=1
-	GR_CC_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
-	GR_CXX_FLAGS += -mcmodel=kernel -S -DGRANARY_IN_KERNEL=1
+	GR_CC_FLAGS += -mcmodel=kernel -mno-red-zone -nostdlib -nostartfiles -S -DGRANARY_IN_KERNEL=1
+	GR_CXX_FLAGS += -mcmodel=kernel -mno-red-zone -nostdlib -nostartfiles -S -DGRANARY_IN_KERNEL=1
 	
 	GR_TYPE_INCLUDE = -I./ -isystem $(KERNEL_DIR)/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
