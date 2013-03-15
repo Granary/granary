@@ -7,7 +7,14 @@
  */
 
 #include "granary/globals.h"
-#include "granary/instruction.h"
+#include "granary/policy.h"
+#include "granary/code_cache.h"
+#include "granary/basic_block.h"
+#include "granary/attach.h"
+#include "granary/detach.h"
+#include "granary/perf.h"
+#include "clients/instrument.h"
+
 
 #include "granary/kernel/module.h"
 #include "granary/kernel/printf.h"
@@ -23,12 +30,15 @@ extern "C" {
         using namespace granary;
 
         if(module->is_granary) {
+
+            granary::printf("        Module is Granary; initialising...\n");
+            granary::init();
             return;
         }
 
         types::module *mod(unsafe_cast<types::module *>(module->address));
 
-        granary::printf("Notified about module (%s) state change!!\n", mod->name);
+        granary::printf("        Notified about module (%s) state change!!\n", mod->name);
 
         (void) mod;
     }

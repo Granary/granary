@@ -41,6 +41,16 @@
     (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
 #if GRANARY_IN_KERNEL
+
+    /// Note: this macro should be used *outside* of any anonymous namespaces.
+#   define INITIALISE_GLOBAL_VARIABLE(var) \
+    extern "C" { \
+        __attribute__((noinline)) \
+        void CAT(CAT(KERNEL_INIT_VAR_, __COUNTER__), CAT(_, __LINE__)) (void) throw() { \
+            granary::construct_object(var); \
+        } \
+    } \
+
 #   define IF_KERNEL(...) __VA_ARGS__
 #   define IF_KERNEL_(...) , __VA_ARGS__
 #   define IF_KERNEL_ELSE(if_true, if_false) if_true
@@ -49,6 +59,7 @@
 #   define IF_USER_(...)
 #   define IF_USER_ELSE(x, y) y
 #else
+#   define INITIALISE_GLOBAL_VARIABLE(var)
 #   define IF_KERNEL(...)
 #   define IF_KERNEL_(...)
 #   define IF_KERNEL_ELSE(if_true, if_false) if_false
@@ -100,7 +111,8 @@
     static __attribute__((noinline)) void init_func_ ## id(void) { \
         (void) init_val_ ## id; \
         { __VA_ARGS__ } \
-    }
+    } \
+    INITIALISE_GLOBAL_VARIABLE(CAT(init_val_, id))
 
 #define STATIC_INITIALISE__(line, counter, ...) \
     STATIC_INITIALISE___(line ## _ ## counter, ##__VA_ARGS__)

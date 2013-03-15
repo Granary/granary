@@ -32,13 +32,12 @@ namespace granary {
         static static_data<rcu_hash_table<app_pc, app_pc>> CODE_CACHE;
 #endif
 
-
-#if !GRANARY_IN_KERNEL
-        STATIC_INITIALISE({
-            CODE_CACHE.construct();
-        })
-#endif
     }
+
+
+    STATIC_INITIALISE({
+        CODE_CACHE.construct();
+    })
 
 
     /// Find fast. This looks in the cpu-private cache first, and failing

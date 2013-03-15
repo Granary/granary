@@ -13,6 +13,7 @@
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <cstring>
 #   include <cstddef>
+#   include <new>
 #endif
 
 #include <stdint.h>
@@ -231,6 +232,15 @@ namespace granary {
 
 #if CONFIG_RUN_TEST_CASES
     extern void run_tests(void) throw();
+#endif
+
+
+#if GRANARY_IN_KERNEL
+    template <typename T>
+    __attribute__((always_inline))
+    inline void construct_object(T &obj) throw() {
+        new (&obj) T;
+    }
 #endif
 }
 

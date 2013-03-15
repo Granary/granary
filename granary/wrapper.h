@@ -76,6 +76,7 @@ namespace granary {
     template <enum function_wrapper_id id, typename R, typename... Args>
     struct wrapped_function;
 
+
     template <enum function_wrapper_id id, bool inherit, typename R, typename... Args>
     struct wrapped_function_impl;
 
@@ -89,16 +90,14 @@ namespace granary {
         typedef R func_type(Args...);
 
 
-        /// The function that this wrapper wraps.
-        static func_type *WRAPPED_ADDRESS;
-
-
         /// Call the function to be wrapped. Before calling, this will first
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
-            return WRAPPED_ADDRESS(args...);
+            func_type *func(
+                (func_type *) FUNCTION_WRAPPERS[id].original_address);
+            return func(args...);
         }
     };
 
@@ -110,14 +109,6 @@ namespace granary {
     { };
 
 
-    /// Static-initialise the wrapper address.
-    template <enum function_wrapper_id id, typename R, typename... Args>
-    typename wrapped_function_impl<id, false, R, Args...>::func_type *
-    wrapped_function_impl<id, false, R, Args...>::WRAPPED_ADDRESS = \
-    (typename wrapped_function_impl<id, false, R, Args...>::func_type *) \
-    FUNCTION_WRAPPERS[id].original_address;
-
-
     /// Represents a generic, type-aware function wrapper, where the wrapped
     /// function returns void.
     template <enum function_wrapper_id id, typename... Args>
@@ -125,11 +116,7 @@ namespace granary {
     public:
 
         typedef void R;
-        typedef void func_type(Args...);
-
-
-        /// The function that this wrapper wraps.
-        static func_type *WRAPPED_ADDRESS;
+        typedef R func_type(Args...);
 
 
         /// Call the function to be wrapped. Before calling, this will first
@@ -137,7 +124,9 @@ namespace granary {
         /// wrap the arguments.
         static void apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
-            WRAPPED_ADDRESS(args...);
+            func_type *func(
+                (func_type *) FUNCTION_WRAPPERS[id].original_address);
+            func(args...);
         }
     };
 
@@ -152,14 +141,6 @@ namespace granary {
         // error will give us the function id as well as its type signature.
 
     };
-
-
-    /// Static-initialise the wrapper address.
-    template <enum function_wrapper_id id, typename... Args>
-    typename wrapped_function_impl<id, false, void, Args...>::func_type *
-    wrapped_function_impl<id, false, void, Args...>::WRAPPED_ADDRESS = \
-    (typename wrapped_function_impl<id, false, R, Args...>::func_type *) \
-    FUNCTION_WRAPPERS[id].original_address;
 
 
     /// Choose between a specific wrapped function implementation.

@@ -18,7 +18,7 @@ namespace granary {
 
 
     STATIC_INITIALISE({
-        FORCE_LIVE |= (1 << (dynamorio::DR_REG_RSP - 1));
+        granary::FORCE_LIVE = (1 << (dynamorio::DR_REG_RSP - 1));
     })
 
 

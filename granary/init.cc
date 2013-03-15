@@ -42,6 +42,7 @@ namespace granary {
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
         for(; init; init = init->next) {
             if(init->exec) {
+                printf("        Initialising static data...\n");
                 init->exec();
             }
         }

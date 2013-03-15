@@ -21,6 +21,11 @@
 MODULE_LICENSE("GPL");
 
 
+/// Assembly function to run initialisers for globally-defined C++ data
+/// structures.
+extern void granary_run_initialisers(void);
+
+
 /// Function that is called before granary faults.
 void granary_break_on_fault(void) {
     __asm__ __volatile__ ("");
@@ -71,6 +76,7 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module->address = vmod;
     module->text_begin = mod->module_core;
     module->text_end = mod->module_core + mod->core_text_size;
+    module->next = NULL;
 
     // Chain it in and return.
     *next_link = module;
@@ -85,9 +91,16 @@ static int module_load_notifier(
     unsigned long mod_state,
     void *vmod
 ) {
-    struct kernel_module *internal_mod = find_interal_module(vmod);
+    struct kernel_module *internal_mod = NULL;
+    struct module *mod = (struct module *) vmod;
+    printk("    Notified of module 0x%p\n", vmod);
+    printk("    Module's name is: %s.\n", mod->name);
+    internal_mod = find_interal_module(vmod);
+    printk("    Got internal representation for module.\n");
     internal_mod->state = mod_state;
+    printk("    Notifying Granary of the module...\n");
     notify_module_state_change(internal_mod);
+    printk("    Notified Granary of the module.\n");
     return 0;
 }
 
@@ -125,10 +138,16 @@ static void *allocate(unsigned long size) {
 static int init_granary(void) {
     printk("Loading Granary...\n");
 
+    printk("    Running initialisers...\n");
+    granary_run_initialisers();
+    printk("    Done running initialisers.\n");
+
     *kernel_printf = printk;
     *kernel_vmalloc_exec = allocate_executable;
     *kernel_vmalloc = allocate;
     *kernel_vfree = vfree;
+
+    printk("    Registering module notifier...\n");
 
     register_module_notifier(&notifier_block);
     return 0;

@@ -76,7 +76,9 @@ namespace granary {
             return &self;
         }
 
-        inline void construct(void) throw() { }
+        inline void construct(void) throw() {
+            new (&self) T;
+        }
 
 #else
         char memory[sizeof(T)];

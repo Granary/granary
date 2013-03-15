@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g0 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -226,6 +226,9 @@ ifneq ($(KERNEL),1)
 	define GR_COMPILE_ASM
 		$$($(GR_CC) $(GR_ASM_FLAGS) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
 endef
+
+	define GR_GENERATE_INIT_FUNC
+endef
 	
 	# Get a list of dynamically loaded libraries from the compiler being used.
 	# This is so that we can augment the detach table with internal libc symbols,
@@ -248,7 +251,7 @@ else
 	endif
 	
 	GR_TYPE_CC_FLAGS += -mno-red-zone -nostdlib -nostartfiles
-	GR_TYPE_CXX_FLAGS += -mno-red-zone -nostdlib -nostartfiles
+	GR_TYPE_CXX_FLAGS += -mno-red-zone -nostdlib 
 	
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
@@ -264,6 +267,9 @@ else
 	
 	# C++ ABI-specific stuff
 	GR_OBJS += bin/deps/icxxabi/icxxabi.o
+
+	# Must be last!!!!
+	GR_OBJS += bin/granary/x86/init.o
 	
 	# Module objects
 	obj-m += $(GR_NAME).o
@@ -281,6 +287,12 @@ else
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
 	
 	define GR_COMPILE_ASM
+endef
+	
+	# Parse an assembly file looking for functions that must be called
+	# in order to initialise the static global data.
+	define GR_GENERATE_INIT_FUNC
+		$$(python scripts/generate_init_func.py $1 >> granary/gen/kernel_init.S)
 endef
 
 	# get the addresses of kernel symbols
@@ -324,6 +336,7 @@ bin/deps/icxxabi/%.o: deps/icxxabi/%.cc
 # Granary rules for C++ files
 bin/granary/%.o: granary/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
+	$(call GR_GENERATE_INIT_FUNC,bin/granary/$*.$(GR_OUTPUT_FORMAT))
 
 
 # Granary rules for assembly files
@@ -337,11 +350,12 @@ bin/granary/x86/%.o: granary/x86/%.asm
 # Granary rules for client C++ files
 bin/clients/%.o: clients/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
-
+	$(call GR_GENERATE_INIT_FUNC,bin/clients/$*.$(GR_OUTPUT_FORMAT))
 
 # Granary rules for test files
 bin/tests/%.o: tests/%.cc
 	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/tests/$*.$(GR_OUTPUT_FORMAT)
+	$(call GR_GENERATE_INIT_FUNC,bin/tests/$*.$(GR_OUTPUT_FORMAT))
 
 
 # Granary user space "harness" for testing compilation, etc. This is convenient
@@ -437,5 +451,8 @@ clean:
 	@-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
+
+	@-rm granary/gen/kernel_init.S ||:
+	@-touch granary/gen/kernel_init.S
 
 	$(GR_CLEAN)
