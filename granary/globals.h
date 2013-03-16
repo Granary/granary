@@ -261,7 +261,8 @@ extern "C" {
 
     extern unsigned long long granary_disable_interrupts(void);
     extern void granary_restore_flags(unsigned long long);
-
+    extern void kernel_preempt_disable(void);
+    extern void kernel_preempt_enable(void);
 #endif
 
 

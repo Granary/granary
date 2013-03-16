@@ -22,8 +22,12 @@ namespace granary {
 
         uint64_t index(reinterpret_cast<uint64_t>(key) & bit_mask);
         for(int m(0); ++m <= MAX_SCAN; index = (index + 1) & bit_mask) {
-            if(key == entries[index].source) {
-                return entries[index].dest;
+            cpu_private_code_cache_entry &entry(entries[index]);
+            if(!entry.source) {
+                break;
+            }
+            if(key == entry.source) {
+                return entry.dest;
             }
         }
 

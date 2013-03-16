@@ -177,7 +177,10 @@ namespace granary {
         // Shift the stack. If this is a return in user space then we shift if
         // by 8 bytes less than the redzone size, so that the return address
         // itself "extends" the redzone by those 8 bytes.
-        in = ibl.insert_after(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
+        if(stack_offset) {
+            in = ibl.insert_after(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
+        }
+
         in = ibl.insert_after(in, push_(reg_target_addr));
         stack_offset += 8;
 
@@ -679,6 +682,8 @@ namespace granary {
     static void
     find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
+        IF_KERNEL( kernel_preempt_disable(); )
+
         // notify Granary that we're entering!
         cpu_state_handle cpu;
         thread_state_handle thread;
@@ -727,6 +732,8 @@ namespace granary {
         granary_atomic_write8(
             staged_code_,
             reinterpret_cast<uint64_t *>(patch_address));
+
+        IF_KERNEL( kernel_preempt_enable(); )
     }
 
 

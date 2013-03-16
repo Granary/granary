@@ -66,7 +66,7 @@ extern "C" {
 
 namespace granary { namespace detail {
 
-    void *global_allocate_executable(unsigned long size) throw() {
+    void *global_allocate_executable(unsigned long size, bool) throw() {
 
         // shared map just in case we manage to get user space instrumentation
         // working in a more general case.

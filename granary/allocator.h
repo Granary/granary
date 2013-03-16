@@ -35,7 +35,7 @@ namespace granary {
         /// sufficiently large to allow for both user space and kernel
         /// space allocation, and that the user of this allocator will
         /// handle page alignment, etc.
-        void *global_allocate_executable(unsigned long size) throw();
+        void *global_allocate_executable(unsigned long size, bool) throw();
 
 
         /// Free globally allocated executable memory.

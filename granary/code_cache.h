@@ -28,6 +28,7 @@ namespace granary {
 
         /// Find fast. This looks in the cpu-private cache first, and failing
         /// that, defaults to the global code cache.
+        GRANARY_ENTRYPOINT
         __attribute__((hot, optimize("Os")))
         static app_pc find_on_cpu(
             mangled_address addr,
@@ -42,10 +43,16 @@ namespace granary {
         inline static app_pc find(
             mangled_address addr
         ) throw() {
+            IF_KERNEL( kernel_preempt_disable(); )
+
             cpu_state_handle cpu;
             thread_state_handle thread;
             enter(cpu, thread);
-            return find(cpu, thread, addr);
+            app_pc ret(find(cpu, thread, addr));
+
+            IF_KERNEL( kernel_preempt_enable(); )
+
+            return ret;
         }
 
         /// Perform both lookup and insertion of a raw address for a given

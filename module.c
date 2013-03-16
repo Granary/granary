@@ -17,14 +17,26 @@
 #include <linux/init.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
-#include <linux/vmalloc.h>
+#include <linux/pfn.h>
+#include <asm/page.h>
+#include <asm/cacheflush.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
+#include <linux/preempt.h>
 
 #include "granary/kernel/module.h"
 #include "deps/icxxabi/icxxabi.h"
+
+#   define WRAP_FOR_DETACH(func)
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
+#include "granary/gen/detach.inc"
+
+#ifndef DETACH_ADDR_module_alloc_update_bounds
+#   error "Unable to compile; need to be able to allocate module memory."
+#endif
 
 #ifndef SUCCESS
 #   define SUCCESS 0
@@ -69,10 +81,26 @@ int granary_fault(void) {
 }
 
 
+/// Notify the kernel that pre-emption is disabled. Granary does this even
+/// when interrupts are disabled.
+void kernel_preempt_disable(void) {
+    preempt_disable();
+}
+
+
+/// Notify the kernel that pre-emption is re-enabled. Granary does this even
+/// when interrupts remain disabled, with the understanding that Granary won't
+/// do anything "interesting" (i.e. call kernel functions that might inspect
+/// the pre-emption state) until it re-enabled interrupts.
+void kernel_preempt_enable(void) {
+    preempt_enable();
+}
+
+
 struct kernel_module *modules = NULL;
-extern void *(**kernel_vmalloc_exec)(unsigned long);
-extern void *(**kernel_vmalloc)(unsigned long);
-extern void (**kernel_vfree)(const void *);
+extern void *(**kernel_malloc_exec)(unsigned long, int);
+extern void *(**kernel_malloc)(unsigned long);
+extern void (**kernel_free)(const void *);
 
 
 /// C++-implemented function that operates on modules. This is the
@@ -142,21 +170,78 @@ static struct notifier_block notifier_block = {
 };
 
 
-/// Allocate some executable memory
-static void *allocate_executable(unsigned long size) {
-    void *ret = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL_EXEC);
-    if(!ret) {
-        ret = __vmalloc(size, GFP_KERNEL, PAGE_KERNEL_EXEC);
+/// Allocate a "fake" module that will serve as a lasting memory zone for
+/// executable allocations.
+static unsigned long EXEC_MEMORY_START = 0;
+static unsigned long ORIG_EXEC_MEMORY_START = 0;
+static unsigned long EXEC_MEMORY_END = 0;
+
+static void preallocate_executable(void) {
+
+    typedef void *(module_alloc_t)(unsigned long);
+
+    enum {
+        _250_MB = 262144000,
+        _1_P = 4096
+    };
+
+    /// What is used internally by the kernel to allocate modules :D
+    module_alloc_t *module_alloc_update_bounds  =
+        (module_alloc_t *) DETACH_ADDR_module_alloc_update_bounds;
+
+    void *mem = module_alloc_update_bounds(_250_MB);
+    uint64_t begin_pfn = 0;
+    uint64_t end_pfn = 0;
+
+    if(!mem) {
+        granary_fault();
     }
-    return ret;
+
+    EXEC_MEMORY_START = (unsigned long) mem;
+    ORIG_EXEC_MEMORY_START = EXEC_MEMORY_START;
+    EXEC_MEMORY_END = EXEC_MEMORY_START + _250_MB;
+
+    begin_pfn = PFN_DOWN(EXEC_MEMORY_START);
+    end_pfn = PFN_DOWN(EXEC_MEMORY_END);
+
+    if(end_pfn > begin_pfn) {
+        set_memory_x(begin_pfn << PAGE_SHIFT, end_pfn - begin_pfn);
+
+    } else if(end_pfn == begin_pfn) {
+        set_memory_x(begin_pfn << PAGE_SHIFT, 1);
+    }
+
+    EXEC_MEMORY_END -= _1_P;
+}
+
+
+/// Allocate some executable memory
+static void *allocate_executable(unsigned long size, int in_code_cache) {
+
+    // code cache pages are allocated from the beginning
+    if(in_code_cache) {
+        unsigned long mem = __sync_fetch_and_add(&EXEC_MEMORY_START, size);
+        if((mem + size) > EXEC_MEMORY_END) {
+            granary_fault();
+        }
+        return (void *) mem;
+
+    // non code cache pages are allocated from the end
+    } else {
+        unsigned long mem = __sync_sub_and_fetch(&EXEC_MEMORY_START, size);
+        if(mem < EXEC_MEMORY_START) {
+            granary_fault();
+        }
+        return (void *) mem;
+    }
 }
 
 
 /// Allocate some executable memory
 static void *allocate(unsigned long size) {
-    void *ret = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+    void *ret = kmalloc(size, GFP_ATOMIC);
     if(!ret) {
-        ret = __vmalloc(size, GFP_KERNEL, PAGE_KERNEL);
+        granary_fault();
     }
     return ret;
 }
@@ -176,6 +261,7 @@ static int device_open(struct inode *inode, struct file *file) {
 
     if(!granary_device_initialised) {
         granary_device_initialised = 1;
+        preallocate_executable();
         granary_initialise();
     }
 
@@ -242,9 +328,9 @@ struct miscdevice device = {
 /// Initialise Granary.
 static int init_granary(void) {
 
-    *kernel_vmalloc_exec = allocate_executable;
-    *kernel_vmalloc = allocate;
-    *kernel_vfree = vfree;
+    *kernel_malloc_exec = allocate_executable;
+    *kernel_malloc = allocate;
+    *kernel_free = kfree;
 
     printk("Loading Granary...\n");
 

@@ -86,7 +86,8 @@ namespace granary {
                 SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
                 TRANSIENT = false,
-                SHARED = false
+                SHARED = false,
+                IS_CODE_CACHE = false
             };
         };
 
@@ -96,7 +97,8 @@ namespace granary {
                 SLAB_SIZE = PAGE_SIZE * 16,
                 EXECUTABLE = true,
                 TRANSIENT = false,
-                SHARED = false
+                SHARED = false,
+                IS_CODE_CACHE = true
             };
         };
 
@@ -105,7 +107,8 @@ namespace granary {
                 SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = true,
                 TRANSIENT = true,
-                SHARED = false
+                SHARED = false,
+                IS_CODE_CACHE = false
             };
         };
 
@@ -116,18 +119,20 @@ namespace granary {
                 SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
                 TRANSIENT = false,
-                SHARED = false
+                SHARED = false,
+                IS_CODE_CACHE = false
             };
         };
 
 
-        /// Shared/Gencode fragment allocators.
+        /// Shared/gencode fragment allocators.
         struct global_fragment_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = true,
                 TRANSIENT = false,
-                SHARED = true
+                SHARED = true,
+                IS_CODE_CACHE = false
             };
         };
 
@@ -138,7 +143,8 @@ namespace granary {
                 SLAB_SIZE = PAGE_SIZE / 2,
                 EXECUTABLE = false,
                 TRANSIENT = true,
-                SHARED = false
+                SHARED = false,
+                IS_CODE_CACHE = false
             };
         };
 

@@ -16,6 +16,9 @@ if "__main__" == __name__:
       if line.startswith(prefix):
         SYMBOLS.add(line[prefix_len:])
   
+  # special function that we need!
+  SYMBOLS.add("module_alloc_update_bounds")
+
   with open("/proc/kallsyms", "r") as lines_:
     for line in lines_:
       line = line.strip(" \r\n\t")
@@ -34,6 +37,9 @@ if "__main__" == __name__:
     
     missing = SYMBOLS - set(FOUND_SYMBOLS.keys())
     
+    if "module_alloc_update_bounds" in missing:
+      missing.remove("module_alloc_update_bounds")
+
     for sym in missing:
       new_lines.append("#ifndef CAN_WRAP_%s\n" % sym)
       new_lines.append("#    define CAN_WRAP_%s 0\n" % sym)
