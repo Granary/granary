@@ -6,6 +6,12 @@
  *     Version: $Id$
  */
 
+
+#ifndef CONFIG_MODULES
+#   define CONFIG_MODULES 1
+#endif
+
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -14,10 +20,11 @@
 #include <linux/vmalloc.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/percpu.h>
+#include <linux/percpu-defs.h>
 
 #include "granary/kernel/module.h"
 #include "deps/icxxabi/icxxabi.h"
-
 
 #ifndef SUCCESS
 #   define SUCCESS 0
@@ -30,6 +37,12 @@
 
 /// It's a trap!
 MODULE_LICENSE("GPL");
+
+
+/// Get access to per-CPU Granary state.
+void *get_percpu_state(void *ptr) {
+    return this_cpu_ptr(ptr);
+}
 
 
 /// Assembly function to run constructors for globally-defined C++ data
@@ -162,6 +175,11 @@ static int device_open(struct inode *inode, struct file *file) {
 
     granary_device_open++;
 
+    if(!granary_device_initialised) {
+        granary_device_initialised = 1;
+        granary_initialise();
+    }
+
     (void) inode;
     (void) file;
 
@@ -183,42 +201,29 @@ static int device_close(struct inode *inode, struct file *file) {
 
 
 /// Tell a Granary device to run a command.
-static long device_ioctl(
-    struct file *file,
-    unsigned int ioctl_num,
-    unsigned long ioctl_param
+static ssize_t device_write(
+    struct file *file, const char *str, size_t size, loff_t *offset
 ) {
     (void) file;
-
-    // we only support one command: initialise granary.
-    switch(ioctl_num) {
-    case 0:
-        if(!granary_device_initialised) {
-            granary_device_initialised = 1;
-            granary_initialise();
-        }
-        break;
-
-    default:
-        break;
-    }
-
-    return SUCCESS;
+    (void) str;
+    (void) size;
+    (void) offset;
+    return size;
 }
 
 
 struct file_operations operations = {
-    .owner = THIS_MODULE,
-    .open = device_open,
-    .release = device_close,
-    .unlocked_ioctl = device_ioctl
+    .owner      = THIS_MODULE,
+    .open       = device_open,
+    .release    = device_close,
+    .write      = device_write
 };
 
 
 struct miscdevice device = {
-    .minor = 0,
-    .name = "granary",
-    .fops = &operations
+    .minor      = 0,
+    .name       = "granary",
+    .fops       = &operations
 };
 
 

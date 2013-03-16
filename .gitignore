@@ -14,6 +14,7 @@
 *.o.cmd
 *.o.d
 *.symvers
+*.syms
 *.order
 *.mod.c
 *.so

@@ -11,26 +11,35 @@
 #include "granary/state.h"
 #include "granary/types.h"
 
+
+extern "C" {
+    extern granary::cpu_state *get_percpu_state(void *);
+}
+
+
 namespace granary {
 
-    namespace {
-        cpu_state *CPU_STATE __attribute__((section (".data..percpu")));
-    }
+
+    static void *CPU_STATES;
 
 
     /// Gets a handle to the current CPU state.
     cpu_state_handle::cpu_state_handle(void) throw()
-        : state(CPU_STATE)
+        : state(get_percpu_state(CPU_STATES))
     { }
 
 
     void init_cpu_state(void *) throw() {
-        CPU_STATE = new cpu_state;
+        new (get_percpu_state(CPU_STATES)) cpu_state;
     }
 
 
     /// Initialise the state.
     void cpu_state_handle::init(void) throw() {
+
+        CPU_STATES = types::__alloc_percpu(
+            sizeof(cpu_state), alignof(cpu_state));
+
         types::on_each_cpu(init_cpu_state, nullptr, 1);
     }
 
