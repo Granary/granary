@@ -7,12 +7,9 @@
  */
 
 #include "granary/kernel/printf.h"
+#include "granary/types.h"
 
 namespace granary {
-    int (*printf)(const char *, ...);
-}
-
-extern "C" {
-    int (**kernel_printf)(const char *, ...) = &(granary::printf);
+    int (*printf)(const char *, ...) = types::printk;
 }
 

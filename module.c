@@ -70,7 +70,6 @@ int granary_fault(void) {
 
 
 struct kernel_module *modules = NULL;
-extern int (**kernel_printf)(const char *, ...);
 extern void *(**kernel_vmalloc_exec)(unsigned long);
 extern void *(**kernel_vmalloc)(unsigned long);
 extern void (**kernel_vfree)(const void *);
@@ -212,11 +211,24 @@ static ssize_t device_write(
 }
 
 
+/// Tell a Granary device to run a command.
+static ssize_t device_read(
+    struct file *file, char *str, size_t size, loff_t *offset
+) {
+    (void) file;
+    (void) str;
+    (void) size;
+    (void) offset;
+    return 0;
+}
+
+
 struct file_operations operations = {
     .owner      = THIS_MODULE,
     .open       = device_open,
     .release    = device_close,
-    .write      = device_write
+    .write      = device_write,
+    .read       = device_read
 };
 
 
@@ -230,7 +242,6 @@ struct miscdevice device = {
 /// Initialise Granary.
 static int init_granary(void) {
 
-    *kernel_printf = printk;
     *kernel_vmalloc_exec = allocate_executable;
     *kernel_vmalloc = allocate;
     *kernel_vfree = vfree;

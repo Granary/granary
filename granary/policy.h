@@ -344,6 +344,12 @@ namespace granary {
     public:
 
         operator instrumentation_policy(void) const throw() {
+
+            // TODO: race condition?
+            if(!POLICY_ID) {
+                POLICY_ID = init_policy();
+            }
+
             return instrumentation_policy::from_id(POLICY_ID);
         }
     };
@@ -353,7 +359,7 @@ namespace granary {
     /// instantiations of the `policy_for` template (in client code) and the
     /// static function/field ensure that policies are initialised early on.
     template <typename T>
-    unsigned policy_for<T>::POLICY_ID = init_policy();
+    unsigned policy_for<T>::POLICY_ID = 0;
 }
 
 #endif /* GRANARY_POLICY_H_ */

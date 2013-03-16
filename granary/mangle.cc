@@ -60,10 +60,10 @@
 /// Used to forward-declare the assembly funcion patches. These patch functions
 /// eventually call the templates.
 #define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
-    static app_pc direct_branch_ ## opcode;
+    static app_pc direct_branch_ ## opcode = nullptr;
 
 #define DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER(opcode, size) \
-    static app_pc direct_branch_ ## opcode ## _xmm;
+    static app_pc direct_branch_ ## opcode ## _xmm = nullptr;
 
 
 extern "C" {
@@ -122,15 +122,23 @@ namespace granary {
 
 
     /// Nice names for registers used by the IBL and RBL.
-    static operand reg_target_addr(reg::arg1);
-    static operand reg_compare_addr(reg::rcx);
-    static operand reg_compare_addr_32(reg::ecx);
+    static operand reg_target_addr;
+    static operand reg_compare_addr;
+    static operand reg_compare_addr_32;
 
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-    static operand reg_predict_table_ptr(reg::arg2);
-    static operand reg_predict_ptr(reg::rax);
+    static operand reg_predict_table_ptr;
+    static operand reg_predict_ptr;
 #endif
+
+    STATIC_INITIALISE({
+        reg_target_addr = reg::arg1;
+        reg_compare_addr = reg::rcx;
+        reg_compare_addr_32 = reg::ecx;
+        IF_IBL_PREDICT( reg_predict_table_ptr = reg::arg2; )
+        IF_IBL_PREDICT( reg_predict_ptr = reg::rax; )
+    })
 
 
     /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
@@ -146,18 +154,14 @@ namespace granary {
 
         instruction_list_handle in_ret(in);
 
-        bool handled_target(false);
         int stack_offset(0);
         IF_PERF( const unsigned num_instruction(ibl.length()); )
 
         if(IBL_ENTRY_RETURN == ibl_kind) {
 
-            // kernel space: exchange the return address with the target
+            // kernel space: save `reg_target_addr` and load the return address.
             if(!REDZONE_SIZE) {
-
-                // TODO: avoid a locked exchange.
-                in = ibl.insert_after(in, xchg_(*reg::rsp, reg_target_addr));
-                handled_target = true;
+                FAULT; // should not be calling this from kernel space
 
             // user space: overlay the redzone on top of the return address,
             // and default over to our usual mechanism.
@@ -173,53 +177,49 @@ namespace granary {
         // Shift the stack. If this is a return in user space then we shift if
         // by 8 bytes less than the redzone size, so that the return address
         // itself "extends" the redzone by those 8 bytes.
-        if(!handled_target) {
-            in = ibl.insert_after(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
-            in = ibl.insert_after(in, push_(reg_target_addr));
-            stack_offset += 8;
-        }
+        in = ibl.insert_after(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
+        in = ibl.insert_after(in, push_(reg_target_addr));
+        stack_offset += 8;
 
         IF_IBL_PREDICT( in = ibl.insert_after(in, push_(reg_predict_table_ptr)); )
 
-        if(!handled_target) {
-            stack_offset += IF_IBL_PREDICT_ELSE(8, 0);
+        stack_offset += IF_IBL_PREDICT_ELSE(8, 0);
 
-            // if this was a call, then the stack offset was also shifted by
-            // the push of the return address
-            if(IBL_ENTRY_CALL == ibl_kind) {
-                stack_offset += 8;
-            }
+        // if this was a call, then the stack offset was also shifted by
+        // the push of the return address
+        if(IBL_ENTRY_CALL == ibl_kind) {
+            stack_offset += 8;
+        }
 
-            // adjust the target operand if it's on the stack
-            if(dynamorio::BASE_DISP_kind == target.kind
-            && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
-                target.value.base_disp.disp += stack_offset;
-            }
+        // adjust the target operand if it's on the stack
+        if(dynamorio::BASE_DISP_kind == target.kind
+        && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
+            target.value.base_disp.disp += stack_offset;
+        }
 
-            // load the target address into `reg_target_addr`. This might be a
-            // normal base/disp kind, or a relative address, or an absolute
-            // address.
-            if(dynamorio::REG_kind != target.kind) {
-                if(dynamorio::REL_ADDR_kind == target.kind
-                || dynamorio::opnd_is_abs_addr(target)) {
+        // load the target address into `reg_target_addr`. This might be a
+        // normal base/disp kind, or a relative address, or an absolute
+        // address.
+        if(dynamorio::REG_kind != target.kind) {
+            if(dynamorio::REL_ADDR_kind == target.kind
+            || dynamorio::opnd_is_abs_addr(target)) {
 
-                    app_pc target_addr(target.value.pc);
+                app_pc target_addr(target.value.pc);
 
-                    // do an indirect load using abs address
-                    if(is_far_away(target_addr, estimator_pc)) {
-                        in = ibl.insert_after(in, mov_imm_(
-                            reg_target_addr,
-                            int64_(reinterpret_cast<uint64_t>(target_addr))));
-                        target = *reg_target_addr;
-                    }
+                // do an indirect load using abs address
+                if(is_far_away(target_addr, estimator_pc)) {
+                    in = ibl.insert_after(in, mov_imm_(
+                        reg_target_addr,
+                        int64_(reinterpret_cast<uint64_t>(target_addr))));
+                    target = *reg_target_addr;
                 }
-
-                in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
-
-            // target is in a register
-            } else if(reg_target_addr.value.reg != target.value.reg) {
-                in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
             }
+
+            in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
+
+        // target is in a register
+        } else if(reg_target_addr.value.reg != target.value.reg) {
+            in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
         }
 
         switch(ibl_kind) {
@@ -279,10 +279,18 @@ namespace granary {
 
         instruction_list ibl;
 
+#if !GRANARY_IN_KERNEL
         ibl_entry_stub(
             ibl, ibl.last(), target_policy, operand(*reg::rsp), IBL_ENTRY_RETURN);
 
         ibl.append(push_(reg_compare_addr));
+#else
+        IF_IBL_PREDICT( ibl.append(push_(reg_predict_table_ptr)); )
+        ibl.append(push_(reg_compare_addr));
+        ibl.append(mov_ld_(reg_compare_addr, reg_target_addr));
+        ibl.append(mov_ld_(reg_target_addr, reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)]));
+        ibl.append(mov_st_(reg::rsp[8], reg_compare_addr));
+#endif
 
         // on the stack:
         //      return address
@@ -328,12 +336,24 @@ namespace granary {
         ibl.insert_after(slow, jmp_(pc_(ibl_entry_routine(target_policy))));
 
 #if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
-        // fast path: they are equal
+        // fast path: they are equal; in the kernel this requires restoring the
+        // return address, in user space this isn't necessary because the we
+        // overlap the redzone and return address in the case of the slow path.
+#   if GRANARY_IN_KERNEL
+        ibl.append(mov_ld_(reg_compare_addr, reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)]));
+        ibl.append(mov_st_(reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)], reg_target_addr));
+        ibl.append(mov_st_(reg_target_addr, reg_compare_addr));
+        ibl.append(pop_(reg_compare_addr));
+        IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
+        ibl.append(ret_());
+
+#   else
         ibl.append(pop_(reg_compare_addr));
         IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
         ibl.append(pop_(reg_target_addr));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
         ibl.append(ret_());
+#   endif
 #endif
 
         // quick double check ;-)
@@ -354,17 +374,24 @@ namespace granary {
 
 
     /// Address of the CPU-private code cache lookup function.
-    static app_pc cpu_private_code_cache_find(unsafe_cast<app_pc>(
-        (app_pc (*)(
-            mangled_address,
-            prediction_table **
-        )) code_cache::find_on_cpu
-    ));
+    static app_pc cpu_private_code_cache_find(nullptr);
 
 
     /// Address of the global code cache lookup function.
-    static app_pc global_code_cache_find(unsafe_cast<app_pc>(
-        (app_pc (*)(mangled_address)) code_cache::find));
+    static app_pc global_code_cache_find(nullptr);
+
+
+    STATIC_INITIALISE({
+        cpu_private_code_cache_find = unsafe_cast<app_pc>(
+            (app_pc (*)(
+                mangled_address,
+                prediction_table **
+            )) code_cache::find_on_cpu
+        );
+
+        global_code_cache_find = unsafe_cast<app_pc>(
+            (app_pc (*)(mangled_address)) code_cache::find);
+    })
 
 
     /// Return the IBL entry routine. The IBL entry routine is responsible
@@ -761,10 +788,6 @@ namespace granary {
     }
 
 
-    /// Nice names for registers used by the DBL.
-    static operand reg_mangled_addr(reg::rax);
-
-
     /// Get or build the direct branch lookup (DBL) routine for some jump/call
     /// target.
     app_pc instruction_list_mangler::dbl_entry_routine(
@@ -772,6 +795,9 @@ namespace granary {
         instruction_list_handle in,
         mangled_address am
     ) throw() {
+
+        /// Nice names for register(s) used by the DBL.
+        operand reg_mangled_addr(reg::rax);
 
         // add in the patch code, change the initial behaviour of the
         // instruction, and mark it has hot patchable so it is nicely aligned.

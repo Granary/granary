@@ -329,12 +329,20 @@ namespace granary {
     }
 
 
-#define MAKE_REG(name, upper_name) operand name = \
-    dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name);
+#define MAKE_REG(name, upper_name) operand name;
 
     namespace reg {
 #   include "granary/inc/registers.h"
     }
+
+#undef MAKE_REG
+#define MAKE_REG(name, upper_name) \
+    STATIC_INITIALISE({ \
+        reg::name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name); \
+    })
+
+#include "granary/inc/registers.h"
+
 #undef MAKE_REG
 
 }
