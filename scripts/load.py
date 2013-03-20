@@ -19,6 +19,12 @@ for x in $(find /sys/module/granary/sections -type f); do
   echo $(basename $x),$(sudo cat $x) >> /tmp/granary.sections; 
 done"""
 
+# get /proc/kallsyms
+GET_SYMBOLS = """sudo cat /proc/kallsyms > %s"""
+
+# Copy the symbols from the remote machine to the local one.
+COPY_SYMBOLS_REMOTE = """scp -P %s %s %s@%s:%s"""
+
 # copy the sections
 COPY_SECTIONS_REMOTE = """scp -P %s /tmp/granary.sections %s@%s:/tmp/granary.sections"""
 
@@ -55,22 +61,41 @@ if "__main__" == __name__:
     '--local-port', type=str, default='22',
     help='If Granary is running remotely, then the port used to remotely log into the local system.')
 
+  parser.add_argument(
+    '--symbols', action='store_true',
+    help='Tell Granary to load /proc/kallsyms from the target system. This will not load granary.')
+
   args = parser.parse_args()
 
   # get the granary .ko
   rel_path = ""
   if "scripts" in sys.path[0]:
     rel_path = "../"
+
   local_granary_file = os.path.join(sys.path[0], "%sgranary.ko" % rel_path)
+  local_symbols_file = os.path.join(sys.path[0], "%skernel.syms" % rel_path)
 
-  # get the sections
-  with open("/dev/null", "w") as dev_null:
+  # running Granary on a remote machine.
+  if args.remote:
+    print "If/when prompted, you will need to type", \
+          "the root password on the remote machine."
+    print 
 
-    # running Granary on a remote machine.
-    if args.remote:
-      print "If/when prompted, you will need to type", \
-            "the root password on the remote machine."
-      print 
+    if args.symbols:
+      subprocess.call(
+        "ssh -t -p %s %s@%s '%s;%s'" % (
+          args.remote_port,
+          args.remote_user,
+          args.remote_host,
+          GET_SYMBOLS % "/tmp/kernel.syms",
+          COPY_SYMBOLS_REMOTE % (
+            args.local_port,
+            "/tmp/kernel.syms",
+            args.local_user,
+            args.local_host,
+            local_symbols_file)),
+        shell=True)
+    else:
       subprocess.call(
         "ssh -t -p %s %s@%s '%s;%s;%s;%s'" % (
           args.remote_port,
@@ -89,32 +114,38 @@ if "__main__" == __name__:
             args.local_user,
             args.local_host)),
         shell=True)
+  
+  # Running granary on the local machine
+  else:
+    print "If/when prompted, you will need to type", \
+          "the root password on your current machine."
     
-    # Running granary on the local machine
+    if args.symbols:
+      subprocess.call(
+        "%s" % (GET_SYMBOLS % local_symbols_file),
+        shell=True)
     else:
-      print "If/when prompted, you will need to type", \
-            "the root password on your current machine."
       subprocess.call(
         "%s;%s" % (
           LOAD_GRANARY % local_granary_file,
           GET_SECTIONS), 
-        shell=True, 
-        stdout=dev_null)
+        shell=True)
 
   # parse the sections
-  sections = {}
-  with open("/tmp/granary.sections", "r") as lines:
-    for line in lines:
-      section, address = line.strip(" \r\n\t").split(",")
-      sections[section] = address
+  if not args.symbols:
+    sections = {}
+    with open("/tmp/granary.sections", "r") as lines:
+      for line in lines:
+        section, address = line.strip(" \r\n\t").split(",")
+        sections[section] = address
 
-  with open("granary.syms", "w") as f:
-    f.write("add-symbol-file %s %s" % (
-      local_granary_file,
-      sections[".text"]))
+    with open("granary.syms", "w") as f:
+      f.write("add-symbol-file %s %s" % (
+        local_granary_file,
+        sections[".text"]))
 
-    del sections[".text"]
-    for section, address in sections.items():
-      f.write(" -s %s %s" % (section, address))
-    f.write("\n")
+      del sections[".text"]
+      for section, address in sections.items():
+        f.write(" -s %s %s" % (section, address))
+      f.write("\n")
   

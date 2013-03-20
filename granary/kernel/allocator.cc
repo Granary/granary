@@ -26,7 +26,7 @@ namespace granary { namespace detail {
 
     void *global_allocate(unsigned long size) throw() {
         void * mem(__malloc(size));
-        memset(mem, 0, size);
+        //memset(mem, 0, size);
         return mem;
     }
 

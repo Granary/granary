@@ -90,7 +90,7 @@ namespace granary {
         code_cache_byte_state prev_state
     ) throw() {
 
-        uint8_t flags(in.instr.granary_flags);
+        uint8_t flags(in.instr->granary_flags);
 
         enum {
             SINGLETON = instruction::DELAY_BEGIN | instruction::DELAY_END
@@ -142,7 +142,7 @@ namespace granary {
             static_cast<int>(BB_PADDING_LONG),
             num_state_bytes);
 
-        instruction_list_handle in(ls.first());
+        instruction in(ls.first());
         unsigned byte_offset(0);
         unsigned prev_byte_offset(0);
 
@@ -151,9 +151,9 @@ namespace granary {
         unsigned num_delayed_instructions(0);
         unsigned prev_num_delayed_instructions(0);
         for(unsigned i = 0, max = ls.length(); i < max; ++i) {
-            code_cache_byte_state state(get_instruction_state(*in, prev_state));
+            code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
-            unsigned num_bytes(in->encoded_size());
+            unsigned num_bytes(in.encoded_size());
 
             if(code_cache_byte_state::BB_BYTE_NATIVE != stored_state) {
                 if(num_bytes) {
@@ -327,16 +327,16 @@ namespace granary {
 
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
     /// Get a handle for an instruction in the instruction list.
-    static instruction_list_handle
+    static instruction
     find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
-        instruction_list_handle in(ls.first());
+        instruction in(ls.first());
         for(unsigned i(0), max(ls.length()); i < max; ++i) {
-            if(in->pc() == pc) {
+            if(in.pc() == pc) {
                 return in;
             }
             in = in.next();
         }
-        return instruction_list_handle();
+        return instruction(nullptr);
     }
 #endif
 
@@ -346,7 +346,7 @@ namespace granary {
     /// the current basic block.
     struct local_branch_target {
         app_pc target;
-        instruction_list_handle source;
+        instruction source;
 
         bool operator<(const local_branch_target &that) const throw() {
             return target < that.target;
@@ -363,15 +363,15 @@ namespace granary {
                                 instruction_list &ls) throw() {
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
-        instruction_list_handle in(ls.first());
+        instruction in(ls.first());
         const unsigned max(ls.length());
 
         // find the number of pc targets
         unsigned num_direct_branches(0);
         for(unsigned i(0); i < max; ++i) {
-            if(in->is_cti()
-            && (!in->policy() || in->policy() == policy)
-            && dynamorio::opnd_is_pc(in->cti_target())) {
+            if(in.is_cti()
+            && (!in.policy() || in.policy() == policy)
+            && dynamorio::opnd_is_pc(in.cti_target())) {
                 ++num_direct_branches;
             }
             in = in.next();
@@ -388,8 +388,8 @@ namespace granary {
 
         in = ls.first();
         for(unsigned i(0), j(0); i < max; ++i) {
-            if(in->is_cti() && policy == in->policy()) {
-                operand target(in->cti_target());
+            if(in.is_cti() && policy == in.policy()) {
+                operand target(in.cti_target());
                 if(dynamorio::opnd_is_pc(target)) {
                     branch_targets[j].target = target;
                     branch_targets[j].source = in;
@@ -400,17 +400,20 @@ namespace granary {
         }
 
         // sort targets by their destination (target pc)
+#       error "Find an alternative to sort, e.g. using simple hash tables, as" \
+              "sorting requires a dependency on <algorithm>, which uses " \
+              "floating point (and hence sse / mmx)."
         branch_targets.sort();
 
         // re-target the instructions
         in = ls.first();
         for(unsigned i(0), j(0); i < max && j < num_direct_branches; ++i) {
             while(j < num_direct_branches
-               && in->pc() == branch_targets[j].target
-               && in->policy() == policy) {
+               && in.pc() == branch_targets[j].target
+               && in.policy() == policy) {
 
                 dynamorio::instr_set_target(
-                    *(branch_targets[j++].source), instr_(*in));
+                    (branch_targets[j++].source), instr_(in));
             }
             in = in.next();
         }
@@ -433,24 +436,24 @@ namespace granary {
     ///         loop <do_loop>
     static unsigned translate_loops(instruction_list &ls) throw() {
 
-        instruction_list_handle in(ls.first());
+        instruction in(ls.first());
         const unsigned max(ls.length());
         unsigned num_loops(0);
 
         for(unsigned i(0); i < max; ++i) {
-            if(dynamorio::instr_is_cti_loop(*in)) {
+            if(dynamorio::instr_is_cti_loop(in.instr)) {
                 ++num_loops;
 
-                operand target(in->cti_target());
-                instruction_list_handle in_first(ls.insert_before(in,
-                    jmp_(instr_(*in))));
-                instruction_list_handle in_second(ls.insert_before(in,
+                operand target(in.cti_target());
+                instruction in_first(ls.insert_before(in,
+                    jmp_(instr_(in))));
+                instruction in_second(ls.insert_before(in,
                     jmp_(target)));
 
-                in_first->set_pc(in->pc());
-                in->set_cti_target(instr_(*in_second));
-                in->set_pc(nullptr);
-                in->set_mangled();
+                in_first.set_pc(in.pc());
+                in.set_cti_target(instr_(in_second));
+                in.set_pc(nullptr);
+                in.set_mangled();
             }
 
             in = in.next();
@@ -503,7 +506,7 @@ namespace granary {
                 break;
             }
 
-            byte_len += in.instr.length;
+            byte_len += in.instr->length;
 
             if(in.is_cti()) {
                 operand target(in.cti_target());
@@ -529,24 +532,24 @@ namespace granary {
                     if(start_pc <= target_pc
                     && target_pc < *pc
                     && policy == in.policy()) {
-                        instruction_list_handle prev_in(
+                        instruction prev_in(
                             find_local_back_edge_target(ls, target_pc));
 
                         if(prev_in.is_valid()) {
-                            target = instr_(*prev_in);
+                            target = instr_(prev_in);
                             in.set_cti_target(target);
                         }
                     }
 #endif
                 }
 
-                instruction_list_handle added_in(ls.append(in));
+                instruction added_in(ls.append(in));
 
                 // used to estimate how many direct branch slots we'll
                 // need to add to the final basic block
                 if(dynamorio::opnd_is_pc(target)) {
                     ++num_direct_branches;
-                    added_in->set_patchable();
+                    added_in.set_patchable();
                 }
 
                 // it's a conditional jmp; terminate the basic block, and save
@@ -572,13 +575,13 @@ namespace granary {
                 }
 
             // between this block and next block we should disable interrupts.
-            } else if(dynamorio::OP_cli == in->opcode) {
+            } else if(dynamorio::OP_cli == in.op_code()) {
                 ls.append(in);
                 fall_through_pc = true; // TODO
                 break;
 
             // between this block and next block, we should enable interrupts.
-            } else if(dynamorio::OP_sti == in->opcode) {
+            } else if(dynamorio::OP_sti == in.op_code()) {
                 ls.append(in);
                 fall_through_pc = true; // TODO
                 break;
@@ -622,7 +625,7 @@ namespace granary {
             } else {
                 insert_cti_after(
                     ls, ls.last(), *pc, false, operand(), CTI_JMP
-                )->set_mangled();
+                ).set_mangled();
             }
         }
 
@@ -634,7 +637,7 @@ namespace granary {
             resolve_local_branches(policy, cpu, ls);
         }
 
-        instruction_list_handle bb_begin(ls.prepend(label_()));
+        instruction bb_begin(ls.prepend(label_()));
 
         // prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
@@ -652,7 +655,7 @@ namespace granary {
             allocate_array<uint8_t>(basic_block::size(ls));
 
         IF_TEST( app_pc emitted_pc =) emit(
-            policy, ls, *bb_begin, block_storage, start_pc, generated_pc);
+            policy, ls, bb_begin, block_storage, start_pc, generated_pc);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
@@ -661,12 +664,12 @@ namespace granary {
 
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.
-        basic_block ret(bb_begin->pc());
+        basic_block ret(bb_begin.pc());
 
         // quick double check to make sure that we can properly resolve the
         // basic block info later. If this isn't the case, then we likely need
         // to choose different magic values, or make them longer.
-        ASSERT(bb_begin->pc() == ret.cache_pc_start);
+        ASSERT(bb_begin.pc() == ret.cache_pc_start);
 
         //printf("%p -> %p\n", start_pc, bb_begin->pc());
 
@@ -684,7 +687,7 @@ namespace granary {
     app_pc basic_block::emit(
         instrumentation_policy policy,
         instruction_list &ls,
-        instruction &bb_begin,
+        instruction bb_begin,
         basic_block_state *block_storage,
         app_pc generating_pc,
         app_pc pc

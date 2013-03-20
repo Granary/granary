@@ -13,6 +13,7 @@
 #include "granary/attach.h"
 #include "granary/detach.h"
 #include "granary/perf.h"
+#include "granary/test.h"
 #include "clients/instrument.h"
 
 
@@ -24,11 +25,6 @@
 #endif
 
 #include "granary/types.h"
-
-int foo(void) throw() {
-    granary::printf("called printk indirectly from in foo!\n");
-    return 10;
-}
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
@@ -50,12 +46,8 @@ extern "C" {
         granary::printf("Initialising Granary...\n");
         granary::init();
 
-        int x(0);
-        granary::attach(granary::policy_for<decltype(GRANARY_INIT_POLICY)>());
-
-        x = foo();
-
-        granary::detach();
-        granary::printf("x = %d\n", x);
+#if CONFIG_RUN_TEST_CASES
+        granary::run_tests();
+#endif
     }
 }

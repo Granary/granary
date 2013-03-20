@@ -59,31 +59,31 @@ namespace granary {
     }
 
 
-	/// Returns the address of a detach point. For example, in the
-	/// kernel, if pc == &printk is a detach point then this will
-	/// return the address of the printk wrapper (which might itself
-	/// be printk).
-	///
-	/// Returns:
-	///		A translated target address, or nullptr if this isn't a
-	/// 	detach target.
-	app_pc find_detach_target(app_pc target) throw() {
-	    const function_wrapper *wrapper(nullptr);
-	    if(!DETACH_HASH_TABLE->load(target, wrapper)) {
-	        return nullptr;
-	    }
+    /// Returns the address of a detach point. For example, in the
+    /// kernel, if pc == &printk is a detach point then this will
+    /// return the address of the printk wrapper (which might itself
+    /// be printk).
+    ///
+    /// Returns:
+    ///        A translated target address, or nullptr if this isn't a
+    ///     detach target.
+    app_pc find_detach_target(app_pc target) throw() {
+        const function_wrapper *wrapper(nullptr);
+        if(!DETACH_HASH_TABLE->load(target, wrapper)) {
+            return nullptr;
+        }
 
-	    printf("detaching on %s\n", wrapper->name);
-	    return wrapper->wrapper_address;
-	}
-
-
-	/// Detach Granary.
-	void detach(void) throw() {
-	    ASM("");
-	}
+        // printf("detaching on %s\n", wrapper->name);
+        return wrapper->wrapper_address;
+    }
 
 
-	GRANARY_DETACH_POINT(detach)
+    /// Detach Granary.
+    void detach(void) throw() {
+        ASM("");
+    }
+
+
+    GRANARY_DETACH_POINT(detach)
 }
 

@@ -76,9 +76,11 @@ namespace granary {
 
 
     /// Kill registers used in some class op operands within an instruction.
-    void register_manager::kill(dynamorio::instr_t *in,
-                                opnd_counter *num_ops,
-                                opnd_getter *which_op) throw() {
+    void register_manager::kill(
+        dynamorio::instr_t *in,
+        opnd_counter *num_ops,
+        opnd_getter *which_op
+    ) throw() {
         for(int i(0); i < num_ops(in); i++) {
             kill(which_op(in, i));
         }
@@ -86,9 +88,11 @@ namespace granary {
 
 
     /// Revive registers used in some class op operands within an instruction.
-    void register_manager::revive(dynamorio::instr_t *in,
-                                  opnd_counter *num_ops,
-                                  opnd_getter *which_op) throw() {
+    void register_manager::revive(
+        dynamorio::instr_t *in,
+        opnd_counter *num_ops,
+        opnd_getter *which_op
+    ) throw() {
         for(int i(0); i < num_ops(in); i++) {
             revive(which_op(in, i));
         }
@@ -108,7 +112,7 @@ namespace granary {
 
         // only kill registers written to; base/disp types are actually
         // sources.
-        const unsigned num_dests(dynamorio::instr_num_dsts(in));
+        unsigned num_dests(dynamorio::instr_num_dsts(in));
         for(unsigned i(0); i < num_dests; i++) {
             dynamorio::opnd_t opnd(dynamorio::instr_get_dst(in, i));
             if(dynamorio::REG_kind == opnd.kind) {
@@ -256,7 +260,7 @@ namespace granary {
     /// Returns the next 64-bit "free" dead register. Note: < reg15 instead of
     /// <= reg15 because reg_null=0 and it is not represented in the bitset.
     dynamorio::reg_id_t register_manager::get_zombie(void) throw() {
-        uint64_t zombies((live | undead));
+        const uint64_t zombies((live | undead));
         for(unsigned pos(0); pos < dynamorio::DR_REG_R15; ++pos) {
             const uint16_t mask(1U << pos);
             if(!(mask & zombies)) {
@@ -270,7 +274,7 @@ namespace granary {
 
     /// Returns the next xmm "free" dead register.
     dynamorio::reg_id_t register_manager::get_xmm_zombie(void) throw() {
-        uint64_t zombies((live_xmm | undead_xmm));
+        const uint64_t zombies((live_xmm | undead_xmm));
         for(unsigned pos(0); pos < 16; ++pos) {
             const uint16_t mask(1U << pos);
             if(!(mask & zombies)) {

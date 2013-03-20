@@ -79,13 +79,13 @@ namespace granary {
         NUM_ADDRESS_LOOKUP_HITS.fetch_add(1);
     }
 
-    void perf::visit_decoded(instruction &in) throw() {
+    void perf::visit_decoded(instruction in) throw() {
         NUM_DECODED_INSTRUCTIONS.fetch_add(1);
         NUM_DECODED_BYTES.fetch_add(in.instr.length);
     }
 
 
-    void perf::visit_encoded(instruction &in) throw() {
+    void perf::visit_encoded(instruction in) throw() {
         NUM_ENCODED_INSTRUCTIONS.fetch_add(1);
         NUM_ENCODED_BYTES.fetch_add(in.encoded_size());
     }

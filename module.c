@@ -18,16 +18,17 @@
 #include <linux/notifier.h>
 #include <linux/slab.h>
 #include <linux/pfn.h>
-#include <asm/page.h>
-#include <asm/cacheflush.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/preempt.h>
 
+#include <asm/page.h>
+#include <asm/cacheflush.h>
+#include <asm/thread_info.h>
+
 #include "granary/kernel/module.h"
-#include "deps/icxxabi/icxxabi.h"
 
 #   define WRAP_FOR_DETACH(func)
 #   define DETACH(func)
@@ -237,6 +238,12 @@ static void *allocate_executable(unsigned long size, int in_code_cache) {
 }
 
 
+/// granary::is_code_cache_address
+int _ZN7granary21is_code_cache_addressEPh(unsigned long addr) {
+    return ORIG_EXEC_MEMORY_START <= addr && addr < EXEC_MEMORY_START;
+}
+
+
 /// Allocate some executable memory
 static void *allocate(unsigned long size) {
     void *ret = kmalloc(size, GFP_ATOMIC);
@@ -293,7 +300,7 @@ static ssize_t device_write(
     (void) str;
     (void) size;
     (void) offset;
-    return size;
+    return 0;
 }
 
 
@@ -331,6 +338,8 @@ static int init_granary(void) {
     *kernel_malloc_exec = allocate_executable;
     *kernel_malloc = allocate;
     *kernel_free = kfree;
+
+    printk("Stack size is %lu\n", THREAD_SIZE);
 
     printk("Loading Granary...\n");
 
@@ -372,9 +381,6 @@ static void exit_granary(void) {
         next_mod = mod->next;
         kfree(mod);
     }
-
-    // Invoke C++ global destructors.
-    __cxa_finalize(0);
 }
 
 module_init(init_granary);

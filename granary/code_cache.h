@@ -47,7 +47,9 @@ namespace granary {
 
             cpu_state_handle cpu;
             thread_state_handle thread;
+
             enter(cpu, thread);
+
             app_pc ret(find(cpu, thread, addr));
 
             IF_KERNEL( kernel_preempt_enable(); )
@@ -57,15 +59,27 @@ namespace granary {
 
         /// Perform both lookup and insertion of a raw address for a given
         /// policy.
+        GRANARY_ENTRYPOINT
         __attribute__((hot))
         inline static app_pc find(
             app_pc addr,
             instrumentation_policy policy
         ) throw() {
+
+            IF_KERNEL( uint64_t flags(granary_disable_interrupts()); )
+            IF_KERNEL( kernel_preempt_disable(); )
+
             cpu_state_handle cpu;
             thread_state_handle thread;
+
+            enter(cpu, thread);
+
             mangled_address mangled_addr(addr, policy);
-            return find(cpu, thread, mangled_addr);
+            app_pc ret(find(cpu, thread, mangled_addr));
+
+            IF_KERNEL( kernel_preempt_enable(); )
+            IF_KERNEL( granary_restore_flags(flags); )
+            return ret;
         }
 
         /// Perform both lookup and insertion (basic block translation) into
@@ -77,9 +91,6 @@ namespace granary {
             mangled_address addr
         ) throw();
 
-        /// Initialise the indirect branch lookup routine.
-        //static void init_ibl(app_pc &, bool) throw();
-        //static app_pc ibl_exit_for(app_pc) throw();
 
         /// Force add an entry into the code cache.
         static void add(app_pc, app_pc) throw();

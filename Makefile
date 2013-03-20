@@ -150,14 +150,23 @@ GR_OBJS += bin/granary/gen/instruction.o
 # Client code dependencies
 GR_OBJS += bin/clients/instrument.o
 
+# C++ ABI-specific stuff
+GR_OBJS += bin/deps/icxxabi/icxxabi.o
+
+# Granary tests.
+GR_OBJS += bin/granary/test.o
+GR_OBJS += bin/tests/test_direct_cbr.o
+GR_OBJS += bin/tests/test_direct_call.o
+GR_OBJS += bin/tests/test_lock_inc.o
+GR_OBJS += bin/tests/test_direct_rec.o
+GR_OBJS += bin/tests/test_indirect_cti.o
+
 # user space
 ifneq ($(KERNEL),1)
 
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
-	
-	GR_OBJS += bin/granary/test.o
 	
 	# user-specific versions of granary functions
 	GR_OBJS += bin/granary/user/allocator.o
@@ -187,15 +196,9 @@ ifneq ($(KERNEL),1)
 	endif
 
 	# Granary tests
-	GR_OBJS += bin/tests/test_direct_cbr.o
-	GR_OBJS += bin/tests/test_direct_call.o
-	GR_OBJS += bin/tests/test_lock_inc.o
-	GR_OBJS += bin/tests/test_direct_rec.o
-	GR_OBJS += bin/tests/test_indirect_cti.o
 	GR_OBJS += bin/tests/test_mat_mul.o
 	GR_OBJS += bin/tests/test_md5.o
 	GR_OBJS += bin/tests/test_sigsetjmp.o
-	#GR_OBJS += bin/tests/test_pthreads.o
 
 	# figure out how to link in various libraries that might be OS-specific
 	GR_LD_PREFIX_SPECIFIC =
@@ -242,16 +245,17 @@ endef
 
 # kernel space
 else
+	GR_COMMON_KERNEL_FLAGS = 
+	
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
-		GR_TYPE_CC_FLAGS += -mkernel
-		GR_TYPE_CXX_FLAGS += -mkernel
+		GR_COMMON_KERNEL_FLAGS += -mkernel
 	else
-		GR_TYPE_CC_FLAGS += -mcmodel=kernel
-		GR_TYPE_CXX_FLAGS += -mcmodel=kernel
+		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel
 	endif
 	
-	GR_TYPE_CC_FLAGS += -mno-red-zone -nostdlib -nostartfiles
-	GR_TYPE_CXX_FLAGS += -mno-red-zone -nostdlib 
+	# common flags to disable certain user space features for the kernel
+	GR_COMMON_KERNEL_FLAGS += -fstack-usage -mno-red-zone -nostdlib -nostartfiles
+	GR_COMMON_KERNEL_FLAGS += -fstack-usage -mno-sse -mno-sse2 -mno-mmx
 	
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
@@ -264,9 +268,6 @@ else
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/init.o
 	GR_OBJS += bin/granary/kernel/utils.o
-	
-	# C++ ABI-specific stuff
-	GR_OBJS += bin/deps/icxxabi/icxxabi.o
 
 	# Must be last!!!!
 	GR_OBJS += bin/granary/x86/init.o
@@ -279,9 +280,11 @@ else
 	GR_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean
 	GR_OUTPUT_FORMAT = S
 	
+	GR_TYPE_CC_FLAGS += $(GR_COMMON_KERNEL_FLAGS)
+	GR_TYPE_CXX_FLAGS += $(GR_COMMON_KERNEL_FLAGS)
 	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=1
-	GR_CC_FLAGS += -mcmodel=kernel -mno-red-zone -nostdlib -nostartfiles -S -DGRANARY_IN_KERNEL=1
-	GR_CXX_FLAGS += -mcmodel=kernel -mno-red-zone -nostdlib -nostartfiles -S -DGRANARY_IN_KERNEL=1
+	GR_CC_FLAGS += $(GR_COMMON_KERNEL_FLAGS) -S -DGRANARY_IN_KERNEL=1
+	GR_CXX_FLAGS += $(GR_COMMON_KERNEL_FLAGS) -S -DGRANARY_IN_KERNEL=1
 	
 	GR_TYPE_INCLUDE = -I./ -isystem $(KERNEL_DIR)/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
@@ -297,7 +300,7 @@ endef
 
 	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
-		$$(sudo python scripts/generate_detach_addresses.py)
+		$$(python scripts/generate_detach_addresses.py)
 endef
 	
 	# Get all pre-defined macros so that we can suck in the kernel headers

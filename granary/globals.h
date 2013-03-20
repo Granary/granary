@@ -116,10 +116,11 @@
 
 /// Set the 1 iff we should run test cases (before doing anything else).
 #ifdef GRANARY_USE_PIC
-#   define CONFIG_RUN_TEST_CASES 0
+#   define CONFIG_RUN_TEST_CASES 1
 #else
-#   define CONFIG_RUN_TEST_CASES 0
+#   define CONFIG_RUN_TEST_CASES 1
 #endif
+
 
 /// Set to 1 iff jumps that keep control within the same basic block should be
 /// patched to jump directly back into the same basic block instead of being
@@ -161,8 +162,9 @@
 /// away from the memory region that contains the code. As a result, translated
 /// `%rip`-relative addresses cannot fit in 32-bits.
 #ifndef CONFIG_TRANSLATE_FAR_ADDRESSES
-#   define CONFIG_TRANSLATE_FAR_ADDRESSES !GRANARY_IN_KERNEL
+#   define CONFIG_TRANSLATE_FAR_ADDRESSES 1
 #endif
+
 
 #include "granary/types/dynamorio.h"
 #include "granary/pp.h"
@@ -242,6 +244,8 @@ namespace granary {
         new (&obj) T;
     }
 #endif
+
+    extern bool is_code_cache_address(app_pc) throw();
 }
 
 
@@ -250,21 +254,17 @@ extern "C" {
     extern void granary_break_on_fault(void);
     extern int granary_fault(void);
 
-#if !GRANARY_IN_KERNEL
-    extern void granary_break_on_bb(granary::basic_block *bb);
-    extern void granary_break_on_allocate(void *ptr);
-#   if CONFIG_RUN_TEST_CASES
-    extern int granary_test_return_true(void);
-    extern int granary_test_return_false(void);
-#   endif
-#else
-
+#if GRANARY_IN_KERNEL
     extern unsigned long long granary_disable_interrupts(void);
     extern void granary_restore_flags(unsigned long long);
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
 #endif
 
+#if CONFIG_RUN_TEST_CASES
+    extern int granary_test_return_true(void);
+    extern int granary_test_return_false(void);
+#endif
 
     /// Get the APIC ID of the current processor.
     extern int granary_asm_apic_id(void);

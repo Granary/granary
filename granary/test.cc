@@ -12,19 +12,6 @@
 extern "C" {
 
 
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_fault(void) {
-        ASM("");
-    }
-
-
-    __attribute__((noinline, optimize("O0")))
-    int granary_fault(void) {
-        ASM("mov 0, %rax;");
-        return 1;
-    }
-
-
 #if CONFIG_RUN_TEST_CASES
     __attribute__((noinline, optimize("O0")))
     int granary_test_return_true(void) {
@@ -37,13 +24,22 @@ extern "C" {
     }
 #endif
 
-    /// Hacks so that we don't need to link in libc++.
-    int __cxa_guard_acquire(void) {
+#if !GRANARY_IN_KERNEL
+
+    __attribute__((noinline, optimize("O0")))
+    void granary_break_on_fault(void) {
+        ASM("");
+    }
+
+
+    __attribute__((noinline, optimize("O0")))
+    int granary_fault(void) {
+        ASM("mov 0, %rax;");
         return 1;
     }
-    int __cxa_guard_release(void) {
-        return 1;
-    }
+
+#endif
+
 }
 
 
@@ -90,11 +86,11 @@ namespace granary {
     template <dynamorio::reg_id_t reg_of_interest>
     static void track_register(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw() {
         register_manager all_regs;
         all_regs.revive_all();
-        all_regs.visit(*in);
+        all_regs.visit(in);
 
         bool reg_is_dead(false);
         for(;;) {
@@ -118,7 +114,7 @@ namespace granary {
         IF_USER( in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
         in = insert_save_flags_after(ls, in);
 
-        instruction_list_handle after_regs(ls.insert_after(in, label_()));
+        instruction after_regs(ls.insert_after(in, label_()));
 
         // save register state
         in = save_and_restore_registers(all_regs, ls, in);
@@ -149,8 +145,8 @@ namespace granary {
         instruction_list &ls
     ) throw() {
 #if 0
-        instruction_list_handle in(ls.first());
-        instruction_list_handle next;
+        instruction in(ls.first());
+        instruction next;
         for(; in.is_valid(); in = next) {
             next = in.next();
             track_register<dynamorio::DR_REG_RDI>(ls, in);
@@ -164,7 +160,7 @@ namespace granary {
             all_regs.revive_all_xmm();
         }
 
-        instruction_list_handle in(ls.prepend(granary::label_()));
+        instruction in(ls.prepend(granary::label_()));
 
         IF_USER( in = ls.insert_after(
             in, lea_(granary::reg::rsp, granary::reg::rsp[-REDZONE_SIZE])); )
@@ -173,7 +169,7 @@ namespace granary {
         in = ls.insert_after(in, granary::pushf_());
 
         // restore the flags
-        instruction_list_handle tail_in(ls.insert_after(in, granary::popf_()));
+        instruction tail_in(ls.insert_after(in, granary::popf_()));
 
         IF_USER( tail_in = ls.insert_after(
                 tail_in, lea_(granary::reg::rsp, granary::reg::rsp[REDZONE_SIZE])); )

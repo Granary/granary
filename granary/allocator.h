@@ -55,13 +55,13 @@ namespace granary {
 
 /// Overload operator new for global heap allocation.
 inline void *operator new(size_t size) throw() {
-    return granary::detail::global_allocate(size);
+    return memset(granary::detail::global_allocate(size), 0, size);
 }
 
 
 /// Overload operator new for global heap allocation.
 inline void *operator new[](size_t size) throw() {
-    return granary::detail::global_allocate(size);
+    return memset(granary::detail::global_allocate(size), 0, size);
 }
 
 

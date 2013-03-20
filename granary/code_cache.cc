@@ -109,19 +109,24 @@ namespace granary {
         }
 
 #if !CONFIG_ENABLE_TRANSPARENT_RETURN_ADDRESSES
-        // do a return address ibl-like lookup to see if this might be a return
-        // address into the code cache. This issue comes up if a copied return
-        // address is jmp/called to.
+        // do a return address ibl-like lookup to see if this might be a
+        // return address into the code cache. This issue comes up if a
+        // copied return address is jmp/called to.
         //
         // TODO: this isn't a perfect solution: if some code inspects a code
-        //       cache return address and then displaces it then we will have a
-        //       problem.
+        //       cache return address and then displaces it then we will
+        //       have a problem (moreso in user space; kernel space is easier
+        //       to detect code cache addresses).
         uint64_t addr_uint(reinterpret_cast<uint64_t>(app_target_addr));
         uint32_t *header_addr(reinterpret_cast<uint32_t *>(
             addr_uint + 16 - RETURN_ADDRESS_OFFSET));
-        if(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
-        && basic_block_info::HEADER == *header_addr) {
-            target_addr = instruction_list_mangler::ibl_exit_routine(app_target_addr);
+
+        if(is_code_cache_address(app_target_addr)
+        && (RETURN_ADDRESS_OFFSET == (addr_uint % 8)
+            && basic_block_info::HEADER == *header_addr)) {
+
+            target_addr = instruction_list_mangler::ibl_exit_routine(
+                app_target_addr);
             CODE_CACHE->store(addr.as_address, target_addr);
             D( printf(" -> %p (return)\n", target_addr); )
             return target_addr;
@@ -136,7 +141,8 @@ namespace granary {
         // handle detaching, e.g. through a wrapper or through granary::detach.
         if(nullptr != target_addr) {
             if(policy.is_indirect_cti_policy()) {
-                target_addr = instruction_list_mangler::ibl_exit_routine(target_addr);
+                target_addr = instruction_list_mangler::ibl_exit_routine(
+                    target_addr);
             }
 
             CODE_CACHE->store(addr.as_address, target_addr);

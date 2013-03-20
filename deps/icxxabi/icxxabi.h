@@ -11,6 +11,7 @@
 extern "C" {
 #endif
 
+#if 0
 typedef unsigned uarch_t;
 
 struct atexit_func_entry_t
@@ -24,14 +25,13 @@ struct atexit_func_entry_t
     void *dso_handle;
 };
 
-
-/// Register a destructor.
-int __cxa_atexit(void (*f)(void *), void *objptr, void *dso);
-
-
 /// Invoke destructors.
 void __cxa_finalize(void *f);
 
+#endif
+
+/// Register a destructor.
+int __cxa_atexit(void (*f)(void *), void *objptr, void *dso);
 
 __extension__ typedef int __guard __attribute__((mode(__DI__)));
 
@@ -39,6 +39,7 @@ __extension__ typedef int __guard __attribute__((mode(__DI__)));
 int __cxa_guard_acquire(__guard *);
 void __cxa_guard_release(__guard *);
 void __cxa_guard_abort(__guard *);
+void __cxa_pure_virtual(void);
 
 #ifdef __cplusplus
 };

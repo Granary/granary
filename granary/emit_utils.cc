@@ -76,10 +76,10 @@ namespace granary {
     /// save and restore the undead registers of `regs` after `in`, and returns
     /// the handle of the last pushed register, so that further instructions
     /// can be placed in-between the saving/restoring instructions.
-    instruction_list_handle save_and_restore_registers(
+    instruction save_and_restore_registers(
         register_manager &regs,
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw() {
         for(;;) {
             dynamorio::reg_id_t reg_id(regs.get_zombie());
@@ -99,18 +99,18 @@ namespace granary {
 
     /// Save all dead xmm registers within a particular register manager. This
     /// is analogous to `save_and_restore_registers`.
-    instruction_list_handle save_and_restore_xmm_registers(
+    instruction save_and_restore_xmm_registers(
         register_manager &regs,
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         xmm_save_constraint is_aligned
     ) throw() {
         instruction (*mov_xmm)(dynamorio::opnd_t, dynamorio::opnd_t) = (
             XMM_SAVE_ALIGNED == is_aligned ? movaps_ : movups_);
 
         in = ls.insert_after(in, label_());
-        instruction_list_handle window_top(in);
-        instruction_list_handle window_bottom(in);
+        instruction window_top(in);
+        instruction window_bottom(in);
 
         int disp(0);
         for(; ; disp += 16) {
@@ -142,9 +142,9 @@ namespace granary {
     /// too far away then a specified register is clobbered with the target pc,
     /// and an indirect jump is performed. If no clobber register is available
     /// then an indirect jump slot is allocated and used.
-    instruction_list_handle insert_cti_after(
+    instruction insert_cti_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         app_pc target,
         bool has_clobber_reg,
         operand clobber_reg,
@@ -190,9 +190,9 @@ namespace granary {
 
 
     /// Add the instructions to save the flags onto the top of the stack.
-    instruction_list_handle insert_save_flags_after(
+    instruction insert_save_flags_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         flag_save_constraint constraint
     ) throw() {
         (void) constraint;
@@ -218,9 +218,9 @@ namespace granary {
 
 
     /// Add the instructions to restore the flags from the top of the stack.
-    instruction_list_handle insert_restore_flags_after(
+    instruction insert_restore_flags_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         flag_save_constraint constraint
     ) throw() {
         (void) constraint;
@@ -246,9 +246,9 @@ namespace granary {
 
     /// Add instructions to align the stack (to the top of the stack) to a 16
     /// byte boundary.
-    instruction_list_handle insert_align_stack_after(
+    instruction insert_align_stack_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw() {
         in = ls.insert_after(in, push_(reg::rsp));
         in = ls.insert_after(in, push_(reg::rsp[0]));
@@ -258,9 +258,9 @@ namespace granary {
 
 
     /// Add instructions to restore the stack's previous alignment.
-    instruction_list_handle insert_restore_old_stack_alignment_after(
+    instruction insert_restore_old_stack_alignment_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw() {
         in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
         return in;

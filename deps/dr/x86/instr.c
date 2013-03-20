@@ -327,6 +327,7 @@ opnd_get_immed_int(opnd_t opnd)
     return opnd.value.immed_int;
 }
 
+#ifndef GRANARY
 /* NOTE: requires caller to be under PRESERVE_FLOATING_POINT_STATE */
 float
 opnd_get_immed_float(opnd_t opnd)
@@ -338,7 +339,7 @@ opnd_get_immed_float(opnd_t opnd)
      */
     return opnd.value.immed_float;
 }
-
+#endif
 
 /* address operands */
 

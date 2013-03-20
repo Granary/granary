@@ -15,15 +15,15 @@
 namespace granary {
 
     template <typename> struct list_item;
-    template <typename T, unsigned, unsigned> struct list_item_impl;
+    template <typename T, bool, bool> struct list_item_impl;
 
     template <typename T>
     struct list_meta {
     public:
 
         enum {
-            HAS_NEXT = 0,
-            HAS_PREV = 0,
+            HAS_NEXT = false,
+            HAS_PREV = false,
             NEXT_POINTER_OFFSET = 0,
             PREV_POINTER_OFFSET = 0
         };
@@ -38,7 +38,7 @@ namespace granary {
     };
 
     template <typename T>
-    struct list_item_impl<T, 0, 0> {
+    struct list_item_impl<T, false, false> {
     public:
         T value;
         list_item<T> *next;
@@ -58,7 +58,7 @@ namespace granary {
     };
 
     template <typename T>
-    struct list_item_impl<T, 0, 1> {
+    struct list_item_impl<T, false, true> {
     public:
         union {
             T value;
@@ -82,7 +82,7 @@ namespace granary {
     };
 
     template <typename T>
-    struct list_item_impl<T, 1, 0> {
+    struct list_item_impl<T, true, false> {
     public:
         union {
             T value;
@@ -106,7 +106,7 @@ namespace granary {
     };
 
     template <typename T>
-    struct list_item_impl<T, 1, 1> {
+    struct list_item_impl<T, true, true> {
     public:
         union {
             T value;
@@ -129,6 +129,7 @@ namespace granary {
     };
 
 
+    /// Represents an item in the list.
     template <typename T>
     struct list_item {
     public:
@@ -153,6 +154,7 @@ namespace granary {
             return item.get_prev();
         }
     };
+
 
     /// represents a handle to a list item
     template <typename T>
@@ -205,17 +207,15 @@ namespace granary {
         typedef list_item<T> item_type;
         typedef list_item_handle<T> handle_type;
 
-    private:
+    protected:
 
         item_type *first_;
         item_type *last_;
         item_type *cache_;
         unsigned length_;
 
-    protected:
-
         /// allocate a new list item
-        item_type *allocate(T val) throw() {
+        virtual item_type *allocate_(T val) throw() {
             item_type *ptr(nullptr);
             if(nullptr != cache_) {
                 ptr = cache_;
@@ -227,6 +227,10 @@ namespace granary {
 
             ptr->get_value() = val;
             return ptr;
+        }
+
+        inline static item_type *allocate(self_type *this_, T val) throw() {
+            return this_->allocate_(val);
         }
 
         /// cache an item for later use/allocation
@@ -261,7 +265,7 @@ namespace granary {
 
 
         /// Destroy the list by clearing all items.
-        ~list(void) throw() {
+        virtual ~list(void) throw() {
             clear();
         }
 
@@ -314,12 +318,12 @@ namespace granary {
         }
 
         inline handle_type append(T val) throw() {
-            return append(allocate(val));
+            return append(allocate(this, val));
         }
 
 
         inline handle_type prepend(T val) throw() {
-            return prepend(allocate(val));
+            return prepend(allocate(this, val));
         }
 
 
@@ -390,7 +394,7 @@ namespace granary {
         }
 
         inline handle_type insert_before(item_type *at_pos, T val) throw() {
-            return insert_before(at_pos, allocate(val));
+            return insert_before(at_pos, allocate(this, val));
         }
 
         /// Insert an element before another object in the list.
@@ -413,7 +417,7 @@ namespace granary {
         }
 
         inline handle_type insert_after(item_type *at_pos, T val) throw() {
-            return insert_after(at_pos, allocate(val));
+            return insert_after(at_pos, allocate(this, val));
         }
 
         /// Insert an element after another object in the list

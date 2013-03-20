@@ -13,8 +13,6 @@
 extern "C" {
 #endif
 
-extern int (**kernel_printf)(const char *, ...);
-
 #ifdef __cplusplus
 }
 #endif

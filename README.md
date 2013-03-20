@@ -28,10 +28,11 @@ Other options for clang are `GR_ASAN` and `GR_LIBCXX`.
 
 Compiling for kernel space
 --------------------------
-Note: the last step is likely to fail because we are missing the kernel types
-for all but one set of kernel versions.
+Note: If you are using a remote machine, e.g. a VM, then specify `--remote`,
+otherwise leave it absent.
 
 ```basemake
+python scripts/load.py --remote --symbols
 make detach KERNEL=1
 make wrappers KERNEL=1
 make clear KERNEL=1 ; make all KERNEL=1 GR_CC=gcc GR_CXX=g++

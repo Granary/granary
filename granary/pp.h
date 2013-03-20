@@ -121,10 +121,10 @@
 #define STATIC_INITIALISE(...) \
     STATIC_INITIALISE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
 
-#if GRANARY_IN_KERNEL
+#if !CONFIG_RUN_TEST_CASES
 #   define IF_TEST(...)
 #   define ADD_TEST(func, desc)
-#   define ASSERT(cond)
+#   define ASSERT(cond) if(false && (cond)) { }
 #else
 #   define IF_TEST(...) __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \

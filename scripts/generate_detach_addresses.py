@@ -19,7 +19,7 @@ if "__main__" == __name__:
   # special function that we need!
   SYMBOLS.add("module_alloc_update_bounds")
 
-  with open("/proc/kallsyms", "r") as lines_:
+  with open("kernel.syms", "r") as lines_:
     for line in lines_:
       line = line.strip(" \r\n\t")
       line = line.replace("\t", " ")

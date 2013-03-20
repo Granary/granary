@@ -144,15 +144,15 @@ namespace granary {
     /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
     /// The purpose of the stub is to set up the registers and stack in a
     /// canonical way for entry into the indirect branch lookup table.
-    instruction_list_handle instruction_list_mangler::ibl_entry_stub(
+    instruction instruction_list_mangler::ibl_entry_stub(
         instruction_list &ibl,
-        instruction_list_handle in,
+        instruction in,
         instrumentation_policy target_policy,
         operand target,
         ibl_entry_kind ibl_kind
     ) throw() {
 
-        instruction_list_handle in_ret(in);
+        instruction in_ret(in);
 
         int stack_offset(0);
         IF_PERF( const unsigned num_instruction(ibl.length()); )
@@ -325,12 +325,12 @@ namespace granary {
         ibl.append(lea_(reg_compare_addr, reg_compare_addr + reg::rax));
         ibl.append(pop_(reg::rax));
 
-        instruction_list_handle slow(ibl.last());
-        instruction_list_handle fast(ibl.append(label_()));
-        slow = ibl.insert_after(slow, jecxz_(instr_(*fast)));
+        instruction slow(ibl.last());
+        instruction fast(ibl.append(label_()));
+        slow = ibl.insert_after(slow, jecxz_(instr_(fast)));
 
 #else
-        instruction_list_handle slow(ibl.last());
+        instruction slow(ibl.last());
 #endif
 
         // slow path: return address is not in code cache; go off to the IBL.
@@ -438,7 +438,7 @@ namespace granary {
 
         // create a "safe" region of code around which all registers are saved
         // and restored.
-        instruction_list_handle safe(
+        instruction safe(
             save_and_restore_registers(all_regs, ibl, ibl.last()));
         if(policy.is_in_xmm_context()) {
             safe = save_and_restore_xmm_registers(
@@ -473,9 +473,9 @@ namespace granary {
         safe = ibl.insert_after(safe, pop_(reg_target_addr));
         safe = ibl.insert_after(safe, test_(reg::ret, reg::ret));
 
-        instruction_list_handle safe_fast(ibl.insert_after(safe, label_()));
+        instruction safe_fast(ibl.insert_after(safe, label_()));
 
-        safe = ibl.insert_after(safe, jnz_(instr_(*safe_fast)));
+        safe = ibl.insert_after(safe, jnz_(instr_(safe_fast)));
 
         // slow path: do a global code cache lookup
         safe = insert_align_stack_after(ibl, safe);
@@ -570,9 +570,9 @@ namespace granary {
         ibl.append(mov_st_(access_count_field, reg_compare_addr_32));
 #endif
 
-        instruction_list_handle test(ibl.append(label_()));
-        instruction_list_handle miss(ibl.append(label_()));
-        instruction_list_handle hit_or_fail(ibl.append(label_()));
+        instruction test(ibl.append(label_()));
+        instruction miss(ibl.append(label_()));
+        instruction hit_or_fail(ibl.append(label_()));
 
         // on the first iteration, the LEA will skip the prediction table
         // header and go right for the first slot; subsequent iterations
@@ -583,10 +583,10 @@ namespace granary {
         //       sub target, cmp.
         ibl.insert_before(miss, lea_(reg_predict_ptr, reg_predict_ptr[16]));
         ibl.insert_before(miss, mov_ld_(reg_compare_addr, *reg_predict_ptr));
-        ibl.insert_before(miss, jrcxz_(instr_(*miss)));
+        ibl.insert_before(miss, jrcxz_(instr_(miss)));
         ibl.insert_before(miss, lea_(reg_compare_addr, reg_compare_addr + reg_target_addr));
-        ibl.insert_before(miss, jrcxz_(instr_(*miss)));
-        ibl.insert_before(miss, jmp_(instr_(*test)));
+        ibl.insert_before(miss, jrcxz_(instr_(miss)));
+        ibl.insert_before(miss, jmp_(instr_(test)));
 
         // Note: in both the hit and fail cases, we want to maintain the values
         //       of `reg_target_addr` and `reg_predict_table_ptr` so that we
@@ -616,11 +616,11 @@ namespace granary {
     ///       hot-patchable regions are never interrupted.
     void instruction_list_mangler::inject_mangled_nops(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         unsigned num_nops
     ) throw() {
-        instruction_list_handle original(in);
-        instruction_list_handle invalid;
+        instruction original(in);
+        instruction invalid;
 
         for(; num_nops >= 3; num_nops -= 3) {
             IF_PERF( perf::visit_align_nop(); )
@@ -799,7 +799,7 @@ namespace granary {
     /// target.
     app_pc instruction_list_mangler::dbl_entry_routine(
         instrumentation_policy target_policy,
-        instruction_list_handle in,
+        instruction in,
         mangled_address am
     ) throw() {
 
@@ -811,14 +811,14 @@ namespace granary {
 #if CONFIG_TRACK_XMM_REGS
         app_pc patcher_for_opcode(nullptr);
         if(target_policy.is_in_xmm_context()) {
-            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(in->op_code());
+            patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(in.op_code());
         } else {
-            patcher_for_opcode = get_direct_cti_patch_func(in->op_code());
+            patcher_for_opcode = get_direct_cti_patch_func(in.op_code());
         }
 #else
         (void) target_policy;
         app_pc patcher_for_opcode(get_xmm_safe_direct_cti_patch_func(
-            in->op_code()));
+            in.op_code()));
 #endif
 
         instruction_list dbl;
@@ -857,8 +857,8 @@ namespace granary {
     /// addresses are used.
     void instruction_list_mangler::dbl_entry_stub(
         instruction_list &patch_ls,
-        instruction_list_handle patch,
-        instruction_list_handle patched_in,
+        instruction patch,
+        instruction patched_in,
         app_pc dbl_routine
     ) throw() {
         IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
@@ -878,7 +878,7 @@ namespace granary {
         // around:
         //      i)  Doesn't screw around with the return address predictor.
         //      ii) Works with user space red zones.
-        patch_ls.insert_after(patch, mangled(jmp_(instr_(*patched_in))));
+        patch_ls.insert_after(patch, mangled(jmp_(instr_(patched_in))));
 
         IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
     }
@@ -890,10 +890,10 @@ namespace granary {
     ///
     /// TODO: doesn't handle case of `call -8(%rsp)`.
     void instruction_list_mangler::emulate_call_ret_addr(
-        instruction_list_handle in,
+        instruction in,
         instrumentation_policy target_policy
     ) throw() {
-        app_pc return_address(in->pc() + in->encoded_size());
+        app_pc return_address(in.pc() + in.encoded_size());
         ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
         ls->insert_before(in, push_(reg::rax));
         ls->insert_before(in,
@@ -906,10 +906,10 @@ namespace granary {
         // getting back into the proper policy on return from the function.
         mangled_address am(return_address, policy);
         instruction_list trampoline;
-        instruction_list_handle conn(trampoline.append(
+        instruction conn(trampoline.append(
             jmp_(pc_(return_address))));
         app_pc dbl_routine(dbl_entry_routine(policy, conn, am));
-        instruction_list_handle patch(trampoline.append(label_()));
+        instruction patch(trampoline.append(label_()));
 
         dbl_entry_stub(trampoline, patch, conn, dbl_routine);
 
@@ -919,7 +919,7 @@ namespace granary {
         // hot-patchable instruction.
         inject_mangled_nops(trampoline, conn, 8 - conn->encoded_size());
 
-        conn->set_cti_target(instr_(*patch));
+        conn->set_cti_target(instr_(patch));
 
         // encode it
         app_pc return_routine(global_state::FRAGMENT_ALLOCATOR-> \
@@ -948,7 +948,7 @@ namespace granary {
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
     void instruction_list_mangler::mangle_direct_cti(
-        instruction_list_handle in,
+        instruction in,
         operand target,
         instrumentation_policy target_policy
     ) throw() {
@@ -960,7 +960,7 @@ namespace granary {
         app_pc detach_target_pc(cpu->code_cache.find(am.as_address));
         if(detach_target_pc) {
             target.value.pc = detach_target_pc;
-            in->set_cti_target(target);
+            in.set_cti_target(target);
             return;
         }
 
@@ -970,7 +970,7 @@ namespace granary {
         detach_target_pc = find_detach_target(target_pc);
         if(nullptr != detach_target_pc) {
 
-            ASSERT(in->is_call() || in->is_jump());
+            ASSERT(in.is_call() || in.is_jump());
 
             if(is_far_away(estimator_pc, detach_target_pc)) {
                 app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
@@ -979,15 +979,17 @@ namespace granary {
                 // regardless of return address transparency, a direct call to
                 // a detach target *always* needs to be a call so that control
                 // returns to the code cache.
-                if(in->is_call()) {
-                    *in = mangled(call_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+                if(in.is_call()) {
+                    in.replace_with(
+                        mangled(call_ind_(absmem_(slot, dynamorio::OPSZ_8))));
                 } else {
-                    *in = mangled(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+                    in.replace_with(
+                        mangled(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8))));
                 }
 
             } else {
-                in->set_cti_target(pc_(detach_target_pc));
-                in->set_mangled();
+                in.set_cti_target(pc_(detach_target_pc));
+                in.set_mangled();
             }
 
             return;
@@ -1001,16 +1003,16 @@ namespace granary {
         // Note: this isn't a detach point, or else we would have detected it
         //       above, so regardless of whether or not wrappers are enabled,
         //       we will push on the return address.
-        if(in->is_call()) {
+        if(in.is_call()) {
             emulate_call_ret_addr(in, target_policy);
-            *in = jmp_(target);
+            in.replace_with(jmp_(target));
         }
 #endif
 
-        const unsigned old_size(in->encoded_size());
+        const unsigned old_size(in.encoded_size());
 
         // set the policy-fied target
-        instruction_list_handle stub(ls->prepend(label_()));
+        instruction stub(ls->prepend(label_()));
 
         dbl_entry_stub(
             *ls,                                     // list to patch
@@ -1019,9 +1021,9 @@ namespace granary {
             dbl_entry_routine(target_policy, in, am) // target of stub
         );
 
-        *in = patchable(mangled(jmp_(instr_(*stub))));
+        in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
 
-        const unsigned new_size(in->encoded_size());
+        const unsigned new_size(in.encoded_size());
 
         IF_DEBUG(old_size > 8, FAULT)
         IF_DEBUG(new_size > 8, FAULT)
@@ -1032,7 +1034,7 @@ namespace granary {
 
     /// Mangle an indirect control transfer instruction.
     void instruction_list_mangler::mangle_indirect_cti(
-        instruction_list_handle in,
+        instruction in,
         operand target,
         instrumentation_policy target_policy
     ) throw() {
@@ -1044,7 +1046,7 @@ namespace granary {
         //
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
-        if(in->is_call()) {
+        if(in.is_call()) {
             instruction (*cti_)(dynamorio::opnd_t) = call_;
 
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
@@ -1052,9 +1054,11 @@ namespace granary {
             cti_ = jmp_;
 #endif
 
-            *in = patchable(mangled(cti_(instr_(*ibl_entry_stub(
+            instruction start_of_stub(ls->prepend(label_()));
+
+            ibl_entry_stub(
                 *ls,
-                ls->prepend(label_()),
+                start_of_stub,
                 target_policy,
                 target,
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
@@ -1062,20 +1066,23 @@ namespace granary {
 #else
                 IBL_ENTRY_CALL
 #endif
-            )))));
+            );
 
-        } else if(in->is_return()) {
+            in.replace_with(patchable(mangled(cti_(instr_(start_of_stub)))));
+
+        } else if(in.is_return()) {
             // TODO: handle RETn/RETf with a byte count.
-            *in = mangled(jmp_(pc_(rbl_entry_routine(target_policy))));
+            in.replace_with(
+                mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
 
         } else {
-            *in = mangled(jmp_(instr_(*ibl_entry_stub(
+            in.replace_with(mangled(jmp_(instr_(ibl_entry_stub(
                 *ls,
                 ls->prepend(label_()),
                 target_policy,
                 target,
                 IBL_ENTRY_JMP
-            ))));
+            )))));
         }
     }
 
@@ -1083,10 +1090,10 @@ namespace granary {
     /// Mangle a control-transfer instruction. This handles both direct and
     /// indirect CTIs.
     void instruction_list_mangler::mangle_cti(
-        instruction_list_handle in
+        instruction in
     ) throw() {
 
-        instrumentation_policy target_policy(in->policy());
+        instrumentation_policy target_policy(in.policy());
         if(!target_policy) {
             target_policy = policy;
         }
@@ -1095,14 +1102,14 @@ namespace granary {
         instrumentation_policy target_policy_ibl(policy);
         target_policy_ibl.inherit_properties(policy);
 
-        if(in->is_return()) {
+        if(in.is_return()) {
             mangle_indirect_cti(
                 in,
                 operand(*reg::rsp),
                 target_policy.indirect_cti_policy()
             );
         } else {
-            operand target(in->cti_target());
+            operand target(in.cti_target());
             if(dynamorio::opnd_is_pc(target)) {
                 mangle_direct_cti(in, target, target_policy);
             } else if(!dynamorio::opnd_is_instr(target)) {
@@ -1116,31 +1123,31 @@ namespace granary {
     }
 
 
-    void instruction_list_mangler::mangle_cli(instruction_list_handle in) throw() {
+    void instruction_list_mangler::mangle_cli(instruction in) throw() {
         (void) in;
     }
 
 
-    void instruction_list_mangler::mangle_sti(instruction_list_handle in) throw() {
+    void instruction_list_mangler::mangle_sti(instruction in) throw() {
 
         (void) in;
     }
 
 
-#if !GRANARY_IN_KERNEL
+#if CONFIG_TRANSLATE_FAR_ADDRESSES
     void instruction_list_mangler::mangle_lea(
-        instruction_list_handle in
+        instruction in
     ) throw() {
-        if(dynamorio::REL_ADDR_kind != in->instr.u.o.src0.kind) {
+        if(dynamorio::REL_ADDR_kind != in.instr->u.o.src0.kind) {
             return;
         }
 
         // it's an LEA to a far address; convert to a 64-bit move.
-        app_pc target_pc(in->instr.u.o.src0.value.pc);
+        app_pc target_pc(in.instr->u.o.src0.value.pc);
         if(is_far_away(estimator_pc, target_pc)) {
-            *in = mov_imm_(
-                in->instr.u.o.dsts[0],
-                int64_(reinterpret_cast<uint64_t>(target_pc)));
+            in.replace_with(mov_imm_(
+                in.instr->u.o.dsts[0],
+                int64_(reinterpret_cast<uint64_t>(target_pc))));
         }
     }
 #endif
@@ -1151,15 +1158,15 @@ namespace granary {
     /// instructions then we need to change which instruction logically begins
     /// the interrupt delay region's begin/end bounds.
     void instruction_list_mangler::propagate_delay_region(
-        instruction_list_handle in,
-        instruction_list_handle first,
-        instruction_list_handle last
+        instruction in,
+        instruction first,
+        instruction last
     ) throw() {
-        if(in->begins_delay_region() && first.is_valid()) {
+        if(in.begins_delay_region() && first.is_valid()) {
             // TODO
         }
 
-        if(in->ends_delay_region() && last.is_valid()) {
+        if(in.ends_delay_region() && last.is_valid()) {
             // TODO
         }
     }
@@ -1206,19 +1213,19 @@ namespace granary {
     /// in user space is that we don't need to worry about the redzone because
     /// `push` is operating on the stack.
     void instruction_list_mangler::mangle_far_memory_push(
-        instruction_list_handle in,
+        instruction in,
         bool first_reg_is_dead,
         dynamorio::reg_id_t dead_reg_id,
         dynamorio::reg_id_t spill_reg_id,
         uint64_t addr
     ) throw() {
-        instruction_list_handle first_in;
-        instruction_list_handle last_in;
+        instruction first_in;
+        instruction last_in;
 
         if(first_reg_is_dead) {
             const operand reg_addr(dead_reg_id);
             first_in = ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
-            *in = push_(*reg_addr);
+            in.replace_with(push_(*reg_addr));
 
         } else {
             const operand reg_addr(spill_reg_id);
@@ -1228,7 +1235,7 @@ namespace granary {
             ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
             ls->insert_before(in, mov_ld_(reg_value, *reg_addr));
 
-            *in = mov_st_(reg::rsp[8], reg_value);
+            in.replace_with(mov_st_(reg::rsp[8], reg_value));
 
             last_in = ls->insert_after(in, pop_(reg_addr));
         }
@@ -1241,14 +1248,14 @@ namespace granary {
     /// in user space is that we don't need to worry about the redzone because
     /// `pop` is operating on the stack.
     void instruction_list_mangler::mangle_far_memory_pop(
-        instruction_list_handle in,
+        instruction in,
         bool first_reg_is_dead,
         dynamorio::reg_id_t dead_reg_id,
         dynamorio::reg_id_t spill_reg_id,
         uint64_t addr
     ) throw() {
-        instruction_list_handle first_in;
-        instruction_list_handle last_in;
+        instruction first_in;
+        instruction last_in;
 
         if(first_reg_is_dead) {
             const operand reg_value(dead_reg_id);
@@ -1258,7 +1265,7 @@ namespace granary {
             ls->insert_before(in, push_(reg_addr));
             ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
 
-            *in = mov_st_(*reg_addr, reg_value);
+            in.replace_with(mov_st_(*reg_addr, reg_value));
 
             last_in = ls->insert_after(in, pop_(reg_addr));
 
@@ -1271,7 +1278,7 @@ namespace granary {
             ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
             ls->insert_before(in, mov_ld_(reg_value, reg::rsp[16]));
 
-            *in = mov_st_(*reg_addr, reg_value);
+            in.replace_with(mov_st_(*reg_addr, reg_value));
 
             ls->insert_after(in, pop_(reg_addr));
             ls->insert_after(in, pop_(reg_value));
@@ -1292,14 +1299,14 @@ namespace granary {
     /// We assume it's always legal to convert %rip-relative into a base/disp
     /// type operand (of the same size).
     void instruction_list_mangler::mangle_far_memory_refs(
-        instruction_list_handle in
+        instruction in
     ) throw() {
 
-        const bool was_atomic(in->is_atomic());
+        const bool was_atomic(in.is_atomic());
         bool has_far_op(false);
         operand far_op;
 
-        in->for_each_operand(
+        in.for_each_operand(
             find_far_operand, estimator_pc, far_op, has_far_op);
 
         if(!has_far_op) {
@@ -1313,16 +1320,16 @@ namespace granary {
 
         // peephole optimisation; ideally will allow us to avoid spilling a
         // register by finding a dead register.
-        instruction_list_handle next_in(in.next());
+        instruction next_in(in.next());
         if(next_in.is_valid()) {
-            rm.visit(*next_in);
+            rm.visit(next_in);
         }
 
-        rm.visit(*in);
+        rm.visit(in);
         dynamorio::reg_id_t dead_reg_id(rm.get_zombie());
 
         rm.kill_all();
-        rm.revive(*in);
+        rm.revive(in);
         rm.kill(dead_reg_id);
         dynamorio::reg_id_t spill_reg_id(rm.get_zombie());
 
@@ -1335,7 +1342,7 @@ namespace granary {
 
         // push and pop need to be handled specially because they operate on
         // the stack, so the usual save/restore is not legal.
-        switch(in->op_code()) {
+        switch(in.op_code()) {
         case dynamorio::OP_push:
             return mangle_far_memory_push(
                 in, first_reg_is_dead, dead_reg_id, spill_reg_id, addr);
@@ -1346,8 +1353,8 @@ namespace granary {
         }
 
         operand used_reg;
-        instruction_list_handle first_in;
-        instruction_list_handle last_in;
+        instruction first_in;
+        instruction last_in;
 
         // use a dead register
         if(first_reg_is_dead) {
@@ -1373,9 +1380,9 @@ namespace granary {
         new_op_.size = far_op.size;
 
         operand new_op(new_op_);
-        in->for_each_operand(update_far_operand, new_op);
+        in.for_each_operand(update_far_operand, new_op);
 
-        ASSERT(was_atomic == in->is_atomic());
+        ASSERT(was_atomic == in.is_atomic());
 
         // propagate interrupt delaying.
         propagate_delay_region(in, first_in, last_in);
@@ -1389,30 +1396,30 @@ namespace granary {
 
         ls = &ls_;
 
-        instruction_list_handle in(ls->first());
-        instruction_list_handle next_in;
+        instruction in(ls->first());
+        instruction next_in;
 
         // go mangle instructions; note: indirect CTI mangling happens here.
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
-            const bool is_mangled(in->is_mangled());
-            const bool can_skip(nullptr == in->pc() || is_mangled);
+            const bool is_mangled(in.is_mangled());
+            const bool can_skip(nullptr == in.pc() || is_mangled);
             next_in = in.next();
 
             // native instruction, we might need to mangle it.
-            if(in->is_cti()) {
+            if(in.is_cti()) {
                 if(!is_mangled) {
                     mangle_cti(in);
                 }
 
             // clear interrupt
-            } else if(dynamorio::OP_cli == (*in)->opcode) {
+            } else if(dynamorio::OP_cli == in.op_code()) {
                 if(can_skip) {
                     continue;
                 }
                 mangle_cli(in);
 
             // restore interrupt
-            } else if(dynamorio::OP_sti == (*in)->opcode) {
+            } else if(dynamorio::OP_sti == in.op_code()) {
                 if(can_skip) {
                     continue;
                 }
@@ -1421,7 +1428,7 @@ namespace granary {
 #if CONFIG_TRANSLATE_FAR_ADDRESSES
             // look for cases where an lea loads from a memory address that is
             // too far away and fix it.
-            } else if(dynamorio::OP_lea == (*in)->opcode) {
+            } else if(dynamorio::OP_lea == in.op_code()) {
 
                 IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_lea(in);
@@ -1445,14 +1452,14 @@ namespace granary {
         // Extra alignment/etc needs to be done here instead of in encoding
         // because of how basic block allocation works.
         unsigned align(0);
-        instruction_list_handle prev_in;
+        instruction prev_in;
         in = ls->first();
 
         for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
 
             next_in = in.next();
-            const bool is_hot_patchable(in->is_patchable());
-            const unsigned in_size(in->encoded_size());
+            const bool is_hot_patchable(in.is_patchable());
+            const unsigned in_size(in.encoded_size());
 
             // x86-64 guaranteed quadword atomic writes so long as the memory
             // location is aligned on an 8-byte boundary; we will assume that
@@ -1462,7 +1469,7 @@ namespace granary {
 
                 // This will make sure that even indirect calls have their
                 // return addresses aligned at `RETURN_ADDRESS_OFFSET`.
-                if(in->is_call() && RETURN_ADDRESS_OFFSET > in_size) {
+                if(in.is_call() && RETURN_ADDRESS_OFFSET > in_size) {
                     forward_align += RETURN_ADDRESS_OFFSET - in_size;
                 }
 

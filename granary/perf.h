@@ -22,8 +22,8 @@ namespace granary {
 
     struct perf {
 
-        static void visit_decoded(instruction &) throw();
-        static void visit_encoded(instruction &) throw();
+        static void visit_decoded(instruction ) throw();
+        static void visit_encoded(instruction ) throw();
         static void visit_encoded(basic_block &) throw();
 
         static void visit_ibl_stub(unsigned) throw();

@@ -170,7 +170,7 @@ namespace granary {
         static app_pc emit(
             instrumentation_policy kind,
             instruction_list &ls,
-            instruction &bb_begin,
+            instruction bb_begin,
             basic_block_state *block_storage,
             app_pc generating_pc,
             app_pc generated_pc

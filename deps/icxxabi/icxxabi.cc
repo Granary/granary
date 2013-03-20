@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+#if 0
+
 atexit_func_entry_t __atexit_funcs[ATEXIT_MAX_FUNCS];
 uarch_t __atexit_func_count = 0;
 
@@ -97,6 +99,11 @@ void __cxa_finalize(void *f) {
         }
     } while(i-- > 0);
 }
+#elif GRANARY_IN_KERNEL
+void *__dso_handle = 0;
+
+int __cxa_atexit(void (*)(void *), void *, void *) { return 0; }
+#endif
 
 int __cxa_guard_acquire (__guard *g) {
     while(__sync_lock_test_and_set(g, 1)) { }
@@ -108,6 +115,13 @@ void __cxa_guard_release (__guard *g) {
 }
 
 void __cxa_guard_abort (__guard *) { }
+
+void __cxa_pure_virtual(void) {
+    extern void granary_break_on_fault(void);
+    extern void granary_fault(void);
+    granary_break_on_fault();
+    granary_fault();
+}
 
 #ifdef __cplusplus
 };

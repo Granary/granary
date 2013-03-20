@@ -41,39 +41,39 @@ namespace granary {
 
         void dbl_entry_stub(
             instruction_list &patch_ls,
-            instruction_list_handle patch,
-            instruction_list_handle patched_in,
+            instruction patch,
+            instruction patched_in,
             app_pc dbl_routine
         ) throw();
 
-        void mangle_sti(instruction_list_handle in) throw();
-        void mangle_cli(instruction_list_handle in) throw();
+        void mangle_sti(instruction in) throw();
+        void mangle_cli(instruction in) throw();
 
-        void mangle_cti(instruction_list_handle in) throw();
+        void mangle_cti(instruction in) throw();
 
         void mangle_direct_cti(
-            instruction_list_handle in,
+            instruction in,
             operand target,
             instrumentation_policy target_policy
         ) throw();
 
         void mangle_indirect_cti(
-            instruction_list_handle in,
+            instruction in,
             operand op,
             instrumentation_policy target_policy
         ) throw();
 
         static void propagate_delay_region(
-            instruction_list_handle in,
-            instruction_list_handle first,
-            instruction_list_handle last
+            instruction in,
+            instruction first,
+            instruction last
         ) throw();
 
     public:
 
         static void inject_mangled_nops(
             instruction_list &ls,
-            instruction_list_handle in,
+            instruction in,
             unsigned num_nops
         ) throw();
 
@@ -88,12 +88,12 @@ namespace granary {
 
 #if CONFIG_TRANSLATE_FAR_ADDRESSES
 
-        void mangle_lea(instruction_list_handle in) throw();
+        void mangle_lea(instruction in) throw();
 
-        void mangle_far_memory_refs(instruction_list_handle in) throw();
+        void mangle_far_memory_refs(instruction in) throw();
 
         void mangle_far_memory_push(
-            instruction_list_handle in,
+            instruction in,
             bool first_reg_is_dead,
             dynamorio::reg_id_t dead_reg_id,
             dynamorio::reg_id_t spill_reg_id,
@@ -101,7 +101,7 @@ namespace granary {
         ) throw();
 
         void mangle_far_memory_pop(
-            instruction_list_handle in,
+            instruction in,
             bool first_reg_is_dead,
             dynamorio::reg_id_t dead_reg_id,
             dynamorio::reg_id_t spill_reg_id,
@@ -112,7 +112,7 @@ namespace granary {
         /// Get the direct branch lookip (DBL) entry point for a direct operand.
         app_pc dbl_entry_routine(
             instrumentation_policy target_policy,
-            instruction_list_handle in,
+            instruction in,
             mangled_address am
         ) throw();
 
@@ -127,9 +127,9 @@ namespace granary {
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup table.
-        instruction_list_handle ibl_entry_stub(
+        instruction ibl_entry_stub(
             instruction_list &ibl,
-            instruction_list_handle in,
+            instruction in,
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind
@@ -174,7 +174,7 @@ namespace granary {
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
         /// Emulate the push of a function call's return address onto the stack.
         void emulate_call_ret_addr(
-            instruction_list_handle in,
+            instruction in,
             instrumentation_policy target_policy
         ) throw();
 #endif

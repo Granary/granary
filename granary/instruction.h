@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "granary/globals.h"
-#include "granary/list.h"
 #include "granary/policy.h"
 
 namespace granary {
@@ -96,7 +95,7 @@ namespace granary {
 
         operand(typename dynamorio::reg_id_t reg_) throw();
 
-        inline operand &operator=(dynamorio::opnd_t &&that) throw() {
+        inline operand &operator=(dynamorio::opnd_t that) throw() {
         	memcpy(this, &that, sizeof *this);
         	return *this;
         }
@@ -162,12 +161,12 @@ namespace granary {
 
         friend struct instruction;
 
-        instruction *instr;
+        dynamorio::instr_t *instr;
         operand *op;
 
         operand_ref(void) = delete;
 
-        operand_ref(instruction *instr_, dynamorio::opnd_t *op_) throw();
+        operand_ref(dynamorio::instr_t *instr_, dynamorio::opnd_t *op_) throw();
 
     public:
 
@@ -208,13 +207,11 @@ namespace granary {
     /// Defines a decoded x86 instruction type. This wraps around DynamoRIO's
     /// Level-3 decoding on x86 instructions.
     struct instruction {
-    private:
+    public:
 
         template <typename> friend struct list_meta;
 
         static typename dynamorio::dcontext_t *DCONTEXT;
-
-    public:
 
         enum {
             DONT_MANGLE     = (1 << 0),
@@ -222,171 +219,194 @@ namespace granary {
             DELAY_END       = (1 << 2)
         };
 
-        typename dynamorio::instr_t instr;
+        typename dynamorio::instr_t *instr;
 
 
         /// Constructor
-        instruction(void) throw();
+        inline instruction(void) throw()
+            : instr(nullptr)
+        { }
 
 
-        /// Copy
-        instruction(const instruction &) throw() = default;
-        instruction &operator=(const instruction &) throw() = default;
+        /// Construct an instruction by an instr_t pointer.
+        inline instruction(dynamorio::instr_t *instr_) throw()
+            : instr(instr_)
+        { }
 
 
-        /// Move assignment operator.
-        inline instruction(const instruction &&that) throw() {
-            memcpy(this, &that, sizeof *this);
+        /// Replace one instruction with another.
+        void replace_with(instruction) throw();
+
+
+        /// Return whether or not this instruction is valid.
+        inline bool is_valid(void) const throw() {
+            return nullptr != instr;
         }
 
 
-        instruction &operator=(const instruction &&that) throw();
+        inline instruction prev(void) throw() {
+            return instruction(instr->prev);
+        }
+
+
+        inline instruction next(void) throw() {
+            return instruction(instr->next);
+        }
+
+
+        inline operator bool(void) const throw() {
+            return nullptr != instr;
+        }
+
+        inline bool operator!(void) const throw() {
+            return nullptr == instr;
+        }
 
 
         /// Return the code cache policy to be used for the target of this CTI.
         inline instrumentation_policy policy(void) const throw() {
-            return instrumentation_policy::from_id(instr.granary_policy);
+            return instrumentation_policy::from_id(instr->granary_policy);
         }
 
 
         /// Return the opcode of the instruction.
         inline unsigned op_code(void) const throw() {
-            return instr.opcode;
+            return instr->opcode;
         }
 
 
         /// Return the number of source operands in this instruction.
         inline unsigned num_sources(void) const throw() {
-            return instr.num_srcs;
+            return instr->num_srcs;
         }
 
 
         /// Return the number of destination operands in this instruction.
         inline unsigned num_destinations(void) const throw() {
-            return instr.num_dsts;
+            return instr->num_dsts;
         }
 
 
         /// Return true iff this instruction is a control-transfer
         /// instruction.
         inline bool is_cti(void) throw() {
-            return dynamorio::instr_is_cti(&instr);
+            return dynamorio::instr_is_cti(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
         inline bool is_call(void) throw() {
-        	return dynamorio::instr_is_call(&instr);
+        	return dynamorio::instr_is_call(instr);
         }
 
 
         /// Return true iff this instruction is a RET instruction.
         inline bool is_return(void) throw() {
-            return dynamorio::instr_is_return(&instr);
+            return dynamorio::instr_is_return(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
         inline bool is_jump(void) throw() {
-            return dynamorio::instr_is_jmp(&instr);
+            return dynamorio::instr_is_jmp(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
         inline bool is_unconditional_cti(void) throw() {
-            return is_cti() && !dynamorio::instr_is_cbr(&instr);
+            return is_cti() && !dynamorio::instr_is_cbr(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
 		inline bool is_direct_call(void) throw() {
-			return dynamorio::instr_is_call_direct(&instr);
+			return dynamorio::instr_is_call_direct(instr);
 		}
 
 
 		/// Return true iff this instruction is a CALL instruction.
 		inline bool is_indirect_call(void) throw() {
-			return dynamorio::instr_is_call_indirect(&instr);
+			return dynamorio::instr_is_call_indirect(instr);
 		}
 
 
 		/// Return true iff this instruction is atomic.
 		inline bool is_atomic(void) throw() {
-		    return instr.prefixes & PREFIX_LOCK;
+		    return instr->prefixes & PREFIX_LOCK;
 		}
 
 
         /// Invalidate the raw bits of this instruction.
         inline void invalidate_raw_bits(void) throw() {
-            dynamorio::instr_set_raw_bits_valid(&instr, false);
-            instr.flags &= ~dynamorio::INSTR_RAW_BITS_ALLOCATED;
-            instr.flags &= ~dynamorio::INSTR_RAW_BITS_VALID;
-            instr.bytes = nullptr;
+            dynamorio::instr_set_raw_bits_valid(instr, false);
+            instr->flags &= ~dynamorio::INSTR_RAW_BITS_ALLOCATED;
+            instr->flags &= ~dynamorio::INSTR_RAW_BITS_VALID;
+            instr->bytes = nullptr;
         }
 
 
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
 		inline operand cti_target(void) throw() {
-		    return dynamorio::instr_get_target(&instr);
+		    return dynamorio::instr_get_target(instr);
 		}
 
 
 		/// If this instruction is a CTI, then set the target of the instruction.
         inline void set_cti_target(operand target) throw() {
             invalidate_raw_bits();
-            return dynamorio::instr_set_target(&instr, target);
+            return dynamorio::instr_set_target(instr, target);
         }
 
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
-            return instr.translation;
+            return instr->translation;
         }
 
 
         /// Set the program counter of the instruction.
         inline void set_pc(app_pc pc_) throw() {
             invalidate_raw_bits();
-            instr.translation = pc_;
+            instr->translation = pc_;
         }
 
 
         /// Return true iff this instruction begins a delay region.
         inline bool begins_delay_region(void) const throw() {
-            return 0 != (DELAY_BEGIN & instr.granary_flags);
+            return 0 != (DELAY_BEGIN & instr->granary_flags);
         }
 
 
         /// Return true iff this instruction ends a delay region.
         inline bool ends_delay_region(void) const throw() {
-            return 0 != (DELAY_END & instr.granary_flags);
+            return 0 != (DELAY_END & instr->granary_flags);
         }
 
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (DONT_MANGLE & instr.granary_flags);
+            return 0 != (DONT_MANGLE & instr->granary_flags);
         }
 
 
         /// Set the state of the instruction to be mangled.
         inline void set_mangled(void) throw() {
-            instr.granary_flags |= DONT_MANGLE;
+            instr->granary_flags |= DONT_MANGLE;
         }
 
 
         /// Check to see if this instruction can be patched at runtime. If so,
         /// then this instruction needs to be aligned nicely.
         inline bool is_patchable(void) const throw() {
-            return 0 != (dynamorio::INSTR_HOT_PATCHABLE & instr.flags);
+            return 0 != (dynamorio::INSTR_HOT_PATCHABLE & instr->flags);
         }
 
 
         /// Set the state of the instruction to be mangled.
         inline void set_patchable(void) throw() {
-            instr.flags |= dynamorio::INSTR_HOT_PATCHABLE;
+            instr->flags |= dynamorio::INSTR_HOT_PATCHABLE;
         }
 
 
@@ -394,7 +414,7 @@ namespace granary {
         /// it is encoded.
         inline unsigned encoded_size(void) throw() {
             return static_cast<unsigned>(
-                dynamorio::instr_length(DCONTEXT, &instr));
+                dynamorio::instr_length(DCONTEXT, instr));
         }
 
 
@@ -420,13 +440,7 @@ namespace granary {
         /// Slightly evil convenience method for implicitly converting instructions
         /// to pointers to their underlying DR type.
         inline operator typename dynamorio::instr_t *(void) throw() {
-        	return &instr;
-        }
-
-
-        /// Get easy access to the internal dynamorio instruction structure
-        inline dynamorio::instr_t *operator->(void) throw() {
-            return &instr;
+        	return instr;
         }
 
 
@@ -434,68 +448,20 @@ namespace granary {
         /// of the source operands.
         template <typename... Args>
         void for_each_operand(void (*func)(operand_ref, Args&...), Args&... args) throw() {
-            if(instr.num_dsts) {
-                for(int i(0); i < instr.num_dsts; ++i) {
-                    func(operand_ref(this, &(instr.u.o.dsts[i])), args...);
+            if(instr->num_dsts) {
+                for(int i(0); i < instr->num_dsts; ++i) {
+                    func(operand_ref(instr, &(instr->u.o.dsts[i])), args...);
                 }
             }
 
-            if(instr.num_srcs) {
-                func(operand_ref(this, &(instr.u.o.src0)), args...);
+            if(instr->num_srcs) {
+                func(operand_ref(instr, &(instr->u.o.src0)), args...);
 
-                for(int i(0); i < (instr.num_srcs - 1); ++i) {
-                    func(operand_ref(this, &(instr.u.o.srcs[i])), args...);
+                for(int i(0); i < (instr->num_srcs - 1); ++i) {
+                    func(operand_ref(instr, &(instr->u.o.srcs[i])), args...);
                 }
             }
         }
-    };
-
-
-    /// Declare that instructions form a doubly linked list, where the next/prev
-    /// pointers are embedded in the list structure.
-    template <>
-    struct list_meta<instruction> {
-        enum {
-            HAS_NEXT = 1,
-            HAS_PREV = 1,
-            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
-            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
-        };
-
-        static void *allocate(unsigned size) throw() {
-            return heap_alloc(nullptr, size);
-        }
-
-        static void free(void *val, unsigned size) throw() {
-            dynamorio::instr_destroy(
-                instruction::DCONTEXT, (dynamorio::instr_t *) val);
-            heap_free(nullptr, val, size);
-        }
-    };
-
-
-    /// Represents a list of Level 3 instructions.
-    struct instruction_list : public list<instruction> {
-    public:
-
-        using list<instruction>::item_type;
-        using list<instruction>::handle_type;
-        using list<instruction>::append;
-        using list<instruction>::prepend;
-        using list<instruction>::insert_before;
-        using list<instruction>::insert_after;
-
-        /// The encoded size of the instruction list.
-        unsigned encoded_size(void) throw();
-
-        /// encodes an instruction list into a sequence of bytes
-        app_pc encode(app_pc pc) throw();
-
-        /// Performs a staged encoding of an instruction list into a sequence
-        /// of bytes.
-        ///
-        /// Note: This will not do any fancy jump resolution, alignment, etc.
-        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
     };
 
 
@@ -514,7 +480,266 @@ namespace granary {
     }
 
 
-    typedef decltype(instruction_list().first()) instruction_list_handle;
+#if 0
+    /// Declare that instructions form a doubly linked list, where the next/prev
+    /// pointers are embedded in the list structure.
+    template <>
+    struct list_meta<instruction> {
+        enum {
+            HAS_NEXT = 1,
+            HAS_PREV = 1,
+            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
+            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
+        };
+
+        static void *allocate(unsigned) throw() {
+            FAULT;
+            return nullptr;
+        }
+
+        static void free(void *, unsigned) throw() { }
+    };
+
+
+    /// An instruction within a list.
+    template <>
+    struct list_item<instruction> {
+
+        dynamorio::instr_t item;
+
+        inline instruction get_value(void) throw() {
+            FAULT;
+            return instruction(); // hack
+        }
+
+        inline list_item<instruction> *&get_next(void) throw() {
+            dynamorio::instr_t **ptr(&(item.next));
+            return *unsafe_cast<list_item<instruction> **>(ptr);
+        }
+
+        inline list_item<instruction> *&get_prev(void) throw() {
+            dynamorio::instr_t **ptr(&(item.prev));
+            return *unsafe_cast<list_item<instruction> **>(ptr);
+        }
+    };
+
+
+    /// represents a handle to a list item
+    template <>
+    struct list_item_handle<instruction> {
+    protected:
+
+        template <typename> friend struct list;
+
+        list_item<instruction> *handle;
+
+        list_item_handle(list_item<instruction> *handle_) throw()
+            : handle(handle_)
+        { }
+
+    public:
+
+        list_item_handle(void) throw()
+            : handle(nullptr)
+        { }
+
+        inline instruction operator*(void) throw() {
+            return instruction(&(handle->item));
+        }
+
+        inline instruction *operator->(void) throw() {
+            return unsafe_cast<instruction *>(handle);
+        }
+
+        inline bool is_valid(void) const throw() {
+            return nullptr != handle;
+        }
+
+        inline list_item_handle next(void) throw() {
+            return list_item_handle(handle->next);
+        }
+
+        inline list_item_handle prev(void) throw() {
+            return list_item_handle(handle->prev);
+        }
+    };
+
+
+    struct instruction_list : list<instruction> {
+    protected:
+
+        typedef list_item<instruction> item_type;
+        typedef list_item_handle<instruction> handle_type;
+
+        /// allocate a new list item
+        virtual item_type *allocate_(instruction in) throw() {
+            return unsafe_cast<item_type *>(in.instr);
+        }
+
+    public:
+
+        virtual ~instruction_list(void) throw() { }
+
+        /// The encoded size of the instruction list.
+        unsigned encoded_size(void) throw();
+
+        /// encodes an instruction list into a sequence of bytes
+        app_pc encode(app_pc pc) throw();
+
+        /// Performs a staged encoding of an instruction list into a sequence
+        /// of bytes.
+        ///
+        /// Note: This will not do any fancy jump resolution, alignment, etc.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
+    };
+
+
+#if 0
+    /// Oh gawd this is such an ugly hack...
+    /// Originally, instructions were passed around by value, but that used
+    /// way too much stack space. The following partial specialisation is an
+    /// acceptable compromise to make the rest of the code "work".
+
+    /// Partial specialisation for lists of pointers to things that are lists,
+    /// where this list generalizes over the other list.
+    template <>
+    struct list<dynamorio::instr_t *> : public list<instruction> {
+    public:
+
+        typedef instruction T;
+
+        typedef typename list<T>::item_type item_type;
+
+        virtual ~list(void) throw() { }
+
+    protected:
+
+        /// allocate a new list item
+        virtual item_type *allocate_(instruction val) throw() {
+            return unsafe_cast<item_type *>(val.instr);
+        }
+    };
+
+
+    /// Represents a list of Level 3 instructions.
+    struct instruction_list : public list<dynamorio::instr_t *> {
+    public:
+
+        using list<dynamorio::instr_t *>::item_type;
+        using list<dynamorio::instr_t *>::handle_type;
+        using list<dynamorio::instr_t *>::append;
+        using list<dynamorio::instr_t *>::prepend;
+        using list<dynamorio::instr_t *>::insert_before;
+        using list<dynamorio::instr_t *>::insert_after;
+
+        virtual ~instruction_list(void) throw() { }
+
+        /// The encoded size of the instruction list.
+        unsigned encoded_size(void) throw();
+
+        /// encodes an instruction list into a sequence of bytes
+        app_pc encode(app_pc pc) throw();
+
+        /// Performs a staged encoding of an instruction list into a sequence
+        /// of bytes.
+        ///
+        /// Note: This will not do any fancy jump resolution, alignment, etc.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
+    };
+#endif
+#endif
+
+
+    /// represents a generic list of T, where the properties of the list are
+    /// configured by specializing list_meta<T>.
+    struct instruction_list {
+    public:
+
+        typedef instruction_list self_type;
+
+    protected:
+
+        dynamorio::instr_t *first_;
+        dynamorio::instr_t *last_;
+        unsigned length_;
+
+    public:
+
+        /// Initialise an empty list.
+        inline instruction_list(void) throw()
+            : first_(nullptr)
+            , last_(nullptr)
+            , length_(0U)
+        { }
+
+
+        /// Move constructor.
+        instruction_list(self_type &&that) throw();
+
+
+        /// Returns the number of elements in the list.
+        inline unsigned length(void) const throw() {
+            return length_;
+        }
+
+
+        /// Clear the elements of the list, and release any memory associated
+        /// with the elements of the list
+        void clear(void) throw();
+
+
+        /// Return the first element in the list.
+        inline instruction first(void) const throw() {
+            if(!first_) {
+                return instruction(nullptr);
+            }
+
+            return instruction(first_);
+        }
+
+        /// Return the last element in the list.
+        inline instruction last(void) const throw() {
+            if(!last_) {
+                return instruction(nullptr);
+            }
+
+            return instruction(last_);
+        }
+
+        /// Adds an element on to the end of the list.
+        instruction append(instruction item_) throw();
+
+        /// Adds an element on to the beginning of the list.
+        instruction prepend(instruction item_) throw();
+
+        /// Insert an element before another object in the list.
+        instruction insert_before(instruction after_item_, instruction item_);
+
+
+        /// Insert an element after another object in the list
+        instruction insert_after(instruction before_item_, instruction item_);
+
+        /// The encoded size of the instruction list.
+        unsigned encoded_size(void) throw();
+
+        /// encodes an instruction list into a sequence of bytes
+        app_pc encode(app_pc pc) throw();
+
+        /// Performs a staged encoding of an instruction list into a sequence
+        /// of bytes.
+        ///
+        /// Note: This will not do any fancy jump resolution, alignment, etc.
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
+
+    protected:
+
+        /// Chain an element into the list.
+        instruction chain(
+            dynamorio::instr_t *before_item,
+            dynamorio::instr_t *item,
+            dynamorio::instr_t *after_item
+        ) throw();
+    };
 
 
     /// registers

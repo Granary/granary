@@ -32,6 +32,10 @@ namespace granary {
             state = CPU_STATE = new cpu_state;
         }
     }
+
+    bool is_code_cache_address(app_pc) throw() {
+        return true;
+    }
 }
 
 

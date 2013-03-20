@@ -53,10 +53,10 @@ namespace granary {
     /// Save all dead 64-bit registers within a particular register manager.
     /// This is useful for saving/restoring only those registers used by a
     /// function.
-    instruction_list_handle save_and_restore_registers(
+    instruction save_and_restore_registers(
         register_manager &regs,
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw();
 
 
@@ -69,10 +69,10 @@ namespace granary {
     /// Save all dead xmm registers within a particular register manager.
     /// This is useful for saving/restoring only those registers used by a
     /// function.
-    instruction_list_handle save_and_restore_xmm_registers(
+    instruction save_and_restore_xmm_registers(
         register_manager &regs,
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         xmm_save_constraint
     ) throw();
 
@@ -88,9 +88,9 @@ namespace granary {
     /// too far away then a specified register is clobbered with the target pc,
     /// and an indirect jump is performed. If no clobber register is available
     /// then an indirect jump slot is allocated and used.
-    instruction_list_handle insert_cti_after(
+    instruction insert_cti_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         app_pc target,
         bool has_clobber_reg,
         operand clobber_reg,
@@ -105,33 +105,33 @@ namespace granary {
 
 
     /// Add the instructions to save the flags onto the top of the stack.
-    instruction_list_handle insert_save_flags_after(
+    instruction insert_save_flags_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         flag_save_constraint constraint=REG_AH_IS_LIVE
     ) throw();
 
 
     /// Add the instructions to restore the flags from the top of the stack.
-    instruction_list_handle insert_restore_flags_after(
+    instruction insert_restore_flags_after(
         instruction_list &ls,
-        instruction_list_handle in,
+        instruction in,
         flag_save_constraint constraint=REG_AH_IS_LIVE
     ) throw();
 
 
     /// Add instructions to align the stack (to the top of the stack) to a 16
     /// byte boundary.
-    instruction_list_handle insert_align_stack_after(
+    instruction insert_align_stack_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw();
 
 
     /// Add instructions to restore the stack's previous alignment.
-    instruction_list_handle insert_restore_old_stack_alignment_after(
+    instruction insert_restore_old_stack_alignment_after(
         instruction_list &ls,
-        instruction_list_handle in
+        instruction in
     ) throw();
 }
 

@@ -16,7 +16,6 @@
 #   include <cstring>
 #   include "granary/allocator.h"
 #   include "granary/type_traits.h"
-#   include <algorithm>
 #   include <atomic>
 #   include <new>
 #endif
@@ -158,12 +157,6 @@ namespace granary {
         inline T *end(void) throw() {
             return elms + num_elms;
         }
-
-#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-        inline void sort(void) throw() {
-            std::sort(begin(), end());
-        }
-#endif
     };
 
 
@@ -179,6 +172,8 @@ namespace granary {
         const size_t needed_space(sizeof(T) + (array_size - 1) * sizeof(V));
         char *internal(reinterpret_cast<char *>(
             detail::global_allocate(needed_space)));
+
+        memset(internal, 0, needed_space);
 
         if(!std::is_trivial<T>::value) {
             new (internal) T;

@@ -10,13 +10,14 @@
 #define Granary_REGISTER_H_
 
 #include "granary/globals.h"
+#include "granary/instruction.h"
 
 namespace granary {
 
     /// Forward declarations.
-    struct instruction;
     struct instruction_list;
     struct operand;
+
 
     /// A class for managing spill registers, dead registers, etc.
     ///
@@ -46,6 +47,9 @@ namespace granary {
         /// Visit the registers in the instruction; kill the destination
         /// registers and revive the source registers.
         void visit(dynamorio::instr_t *) throw();
+        inline void visit(instruction in) throw() {
+            return visit(in.instr);
+        }
 
 
         /// Forcibly kill all registers used within an instruction.
@@ -53,6 +57,9 @@ namespace granary {
         /// Note: if the instruction is a call, then all scratch registers are
         ///       killed as well.
         void kill(dynamorio::instr_t *) throw();
+        inline void kill(instruction in) throw() {
+            return kill(in.instr);
+        }
 
 
         /// Forcibly revive all registers used within an instruction.
@@ -60,6 +67,9 @@ namespace granary {
         /// Note: if the instruction is a call, then all scratch registers are
         ///       killed as well.
         void revive(dynamorio::instr_t *) throw();
+        inline void revive(instruction in) throw() {
+            return revive(in.instr);
+        }
 
 
         /// Revive all registers.
@@ -100,7 +110,7 @@ namespace granary {
 
 
         /// Returns true iff there are any dead registers available.
-        bool has_dead(void) const throw();
+        bool has_dead(void) throw();
 
 
         /// Returns the next 64-bit "free" dead register.
@@ -122,12 +132,34 @@ namespace granary {
         typedef int (opnd_counter)(dynamorio::instr_t *);
         typedef dynamorio::opnd_t (opnd_getter)(dynamorio::instr_t *, dynamorio::uint);
 
+
         /// Kill registers used in some class op operands within an instruction.
         void revive(dynamorio::instr_t *, opnd_counter *, opnd_getter *) throw();
         void kill(dynamorio::instr_t *, opnd_counter *, opnd_getter *) throw();
 
+        inline void revive(
+            instruction in,
+            opnd_counter *counter,
+            opnd_getter *getter
+        ) throw() {
+            return revive(in.instr, counter, getter);
+        }
+
+        inline void kill(
+            instruction in,
+            opnd_counter *counter,
+            opnd_getter *getter
+        ) throw() {
+            return kill(in.instr, counter, getter);
+        }
+
+
         /// Do opcode-specific killing/reviving.
         void visit(dynamorio::instr_t *in, unsigned num_dests) throw();
+
+        inline void visit(instruction in, unsigned num_dests) throw() {
+            return visit(in.instr, num_dests);
+        }
     };
 
 }
