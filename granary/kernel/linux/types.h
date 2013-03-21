@@ -119,7 +119,7 @@
 #include <linux/miscdevice.h>
 #include <linux/magic.h>
 #include <linux/slab.h>
-#include <linux/cleancache.h>
+/*#include <linux/cleancache.h>*/
 #include <linux/ratelimit.h>
 
 /* Taken from ramfs */
