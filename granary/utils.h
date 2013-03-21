@@ -95,15 +95,6 @@ namespace granary {
     } __attribute__((aligned (16)));
 #endif
 
-    /// Returns an offset of some application code from the beginning of
-    /// application code.
-    int32_t to_application_offset(uint64_t addr) throw();
-
-
-    /// Converts an offset from the beginning of application code into an
-    /// application code pointer (represented as a uint64_t)
-    uint64_t from_application_offset(int32_t) throw();
-
 
     /// Represents a simple boxed array type. This is mostly means to more
     /// easily pass transiently-allocated arrays around as arguments/return

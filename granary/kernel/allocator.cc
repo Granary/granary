@@ -14,8 +14,8 @@ namespace granary { namespace detail {
     void *(*__malloc)(unsigned long);
     void (*__free)(void *);
 
-    void *global_allocate_executable(unsigned long size, bool in_code_cache) throw() {
-        return __malloc_exec(size, in_code_cache);
+    void *global_allocate_executable(unsigned long size, int where) throw() {
+        return __malloc_exec(size, where);
     }
 
 

@@ -57,6 +57,7 @@ namespace granary {
             return ret;
         }
 
+
         /// Perform both lookup and insertion of a raw address for a given
         /// policy.
         GRANARY_ENTRYPOINT

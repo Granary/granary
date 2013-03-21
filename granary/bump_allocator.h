@@ -58,7 +58,7 @@ namespace granary {
                         ? (SLAB_SIZE_ + ALIGN_TO(SLAB_SIZE_, PAGE_SIZE))
                         : SLAB_SIZE_),
 
-            IS_CODE_CACHE = Config::IS_CODE_CACHE,
+            EXEC_WHERE = Config::EXEC_WHERE,
 
             // Alignment within the slab for the first allocated
             // memory
@@ -129,7 +129,7 @@ namespace granary {
                 if(IS_EXECUTABLE) {
                     next_slab->data_ptr = unsafe_cast<uint8_t *>(
                         detail::global_allocate_executable(
-                            SLAB_SIZE, IS_CODE_CACHE));
+                            SLAB_SIZE, EXEC_WHERE));
                 } else {
                     next_slab->data_ptr = unsafe_cast<uint8_t *>(
                         detail::global_allocate(SLAB_SIZE));
@@ -150,7 +150,7 @@ namespace granary {
             slab *next_slab(new (detail::global_allocate(sizeof(slab))) slab);
             if(IS_EXECUTABLE) {
                 next_slab->data_ptr = unsafe_cast<uint8_t *>(
-                    detail::global_allocate_executable(size, IS_CODE_CACHE));
+                    detail::global_allocate_executable(size, EXEC_WHERE));
             } else {
                 next_slab->data_ptr = unsafe_cast<uint8_t *>(
                     detail::global_allocate(size));

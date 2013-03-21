@@ -157,6 +157,9 @@ namespace granary {
         /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
         ///       boundary.
         ///
+        /// Note: it is assumed that enough space has been allocated for the
+        ///       instructions and the basic block meta-info, etc.
+        ///
         /// Args:
         ///     policy:         The policy of this basic block.
         ///     ls:             The instructions to encode.

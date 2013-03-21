@@ -68,9 +68,25 @@ namespace granary {
     ///        A translated target address, or nullptr if this isn't a
     ///     detach target.
     app_pc find_detach_target(app_pc target) throw() {
+
+#if GRANARY_IN_KERNEL
+        // in user space, this function would be non-reentrant; this check is
+        // easier than checking the hash table so it comes first.
+        if(!is_host_address(target)) {
+
+            // consider a code cache target to be a detach address; much easier
+            // to do in kernel space, and simple check.
+            if(is_code_cache_address(target)) {
+                return target;
+            }
+
+            return nullptr;
+        }
+#endif
+
         const function_wrapper *wrapper(nullptr);
         if(!DETACH_HASH_TABLE->load(target, wrapper)) {
-            return nullptr;
+            return IF_USER_ELSE(nullptr, target);
         }
 
         // printf("detaching on %s\n", wrapper->name);

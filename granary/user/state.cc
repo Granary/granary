@@ -34,7 +34,11 @@ namespace granary {
     }
 
     bool is_code_cache_address(app_pc) throw() {
-        return true;
+        return true; // TODO
+    }
+
+    bool is_wrapper_address(app_pc) throw() {
+        return true; // TODO
     }
 }
 

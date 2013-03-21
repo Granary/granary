@@ -87,7 +87,7 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false,
-                IS_CODE_CACHE = false
+                EXEC_WHERE = EXEC_NONE
             };
         };
 
@@ -98,9 +98,10 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
-                IS_CODE_CACHE = true
+                EXEC_WHERE = EXEC_CODE_CACHE
             };
         };
+
 
         struct instruction_allocator_config {
             enum {
@@ -108,7 +109,17 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = true,
                 SHARED = false,
-                IS_CODE_CACHE = false
+                EXEC_WHERE = EXEC_GEN_CODE
+            };
+        };
+
+        struct wrapper_allocator_config {
+            enum {
+                SLAB_SIZE = PAGE_SIZE,
+                EXECUTABLE = true,
+                TRANSIENT = false,
+                SHARED = true,
+                EXEC_WHERE = EXEC_WRAPPER
             };
         };
 
@@ -120,7 +131,7 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false,
-                IS_CODE_CACHE = false
+                EXEC_WHERE = EXEC_NONE
             };
         };
 
@@ -132,7 +143,7 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = true,
-                IS_CODE_CACHE = false
+                EXEC_WHERE = EXEC_GEN_CODE
             };
         };
 
@@ -144,7 +155,7 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = true,
                 SHARED = false,
-                IS_CODE_CACHE = false
+                EXEC_WHERE = EXEC_NONE
             };
         };
 
@@ -254,6 +265,11 @@ namespace granary {
         static static_data<
             bump_pointer_allocator<detail::global_fragment_allocator_config>
         > FRAGMENT_ALLOCATOR;
+
+
+        static static_data<
+            bump_pointer_allocator<detail::wrapper_allocator_config>
+        > WRAPPER_ALLOCATOR;
     };
 
 

@@ -173,9 +173,13 @@ static struct notifier_block notifier_block = {
 
 /// Allocate a "fake" module that will serve as a lasting memory zone for
 /// executable allocations.
-static unsigned long EXEC_MEMORY_START = 0;
-static unsigned long ORIG_EXEC_MEMORY_START = 0;
-static unsigned long EXEC_MEMORY_END = 0;
+static unsigned long EXEC_START = 0;
+static unsigned long EXEC_END = 0;
+
+static unsigned long CODE_CACHE_END = 0;
+static unsigned long GEN_CODE_START = 0;
+static unsigned long WRAPPER_START = 0;
+static unsigned long WRAPPER_END = 0;
 
 static void preallocate_executable(void) {
 
@@ -183,7 +187,8 @@ static void preallocate_executable(void) {
 
     enum {
         _250_MB = 262144000,
-        _1_P = 4096
+        _1_P = 4096,
+        _1_MB = 1048576
     };
 
     /// What is used internally by the kernel to allocate modules :D
@@ -198,12 +203,12 @@ static void preallocate_executable(void) {
         granary_fault();
     }
 
-    EXEC_MEMORY_START = (unsigned long) mem;
-    ORIG_EXEC_MEMORY_START = EXEC_MEMORY_START;
-    EXEC_MEMORY_END = EXEC_MEMORY_START + _250_MB;
+    EXEC_START = (unsigned long) mem;
+    EXEC_END = EXEC_START + _250_MB;
 
-    begin_pfn = PFN_DOWN(EXEC_MEMORY_START);
-    end_pfn = PFN_DOWN(EXEC_MEMORY_END);
+
+    begin_pfn = PFN_DOWN(EXEC_START);
+    end_pfn = PFN_DOWN(EXEC_END);
 
     if(end_pfn > begin_pfn) {
         set_memory_x(begin_pfn << PAGE_SHIFT, end_pfn - begin_pfn);
@@ -212,35 +217,65 @@ static void preallocate_executable(void) {
         set_memory_x(begin_pfn << PAGE_SHIFT, 1);
     }
 
-    EXEC_MEMORY_END -= _1_P;
+    CODE_CACHE_END = EXEC_START;
+    WRAPPER_START = EXEC_END - _1_MB;
+    WRAPPER_END = WRAPPER_START;
+    GEN_CODE_START = WRAPPER_START;
 }
 
+enum executable_memory_kind {
+    EXEC_CODE_CACHE = 0,
+    EXEC_GEN_CODE = 1,
+    EXEC_WRAPPER = 2
+};
 
 /// Allocate some executable memory
-static void *allocate_executable(unsigned long size, int in_code_cache) {
+static void *allocate_executable(unsigned long size, int where) {
+    unsigned long mem = 0;
+    switch(where) {
 
     // code cache pages are allocated from the beginning
-    if(in_code_cache) {
-        unsigned long mem = __sync_fetch_and_add(&EXEC_MEMORY_START, size);
-        if((mem + size) > EXEC_MEMORY_END) {
+    case EXEC_CODE_CACHE:
+        mem = __sync_fetch_and_add(&CODE_CACHE_END, size);
+        if((mem + size) > GEN_CODE_START) {
             granary_fault();
         }
-        return (void *) mem;
+        break;
 
-    // non code cache pages are allocated from the end
-    } else {
-        unsigned long mem = __sync_sub_and_fetch(&EXEC_MEMORY_START, size);
-        if(mem < EXEC_MEMORY_START) {
+    // gencode pages are allocated from near the end
+    case EXEC_GEN_CODE:
+        mem = __sync_sub_and_fetch(&GEN_CODE_START, size);
+        if(mem < CODE_CACHE_END) {
             granary_fault();
         }
-        return (void *) mem;
+        break;
+
+    // wrapper entry points are allocated from the end in a fixed-size buffer.
+    case EXEC_WRAPPER:
+        mem = __sync_fetch_and_add(&WRAPPER_END, size);
+        if((mem + size) > EXEC_END) {
+            granary_fault();
+        }
+        break;
+
+    default:
+        granary_fault();
+        break;
     }
+
+    return (void *) mem;
 }
 
 
 /// granary::is_code_cache_address
 int _ZN7granary21is_code_cache_addressEPh(unsigned long addr) {
-    return ORIG_EXEC_MEMORY_START <= addr && addr < EXEC_MEMORY_START;
+    return EXEC_START <= addr && addr < CODE_CACHE_END;
+}
+
+
+/// granary::is_wrapper_address
+int _ZN7granary18is_wrapper_addressEPh(unsigned long addr) {
+    return WRAPPER_START <= addr && addr < WRAPPER_END;
 }
 
 

@@ -14,8 +14,7 @@
 #include "granary/detach.h"
 #include "granary/perf.h"
 #include "granary/test.h"
-#include "clients/instrument.h"
-
+#include "granary/wrapper.h"
 
 #include "granary/kernel/module.h"
 #include "granary/kernel/printf.h"
@@ -42,12 +41,25 @@ extern "C" {
         (void) mod;
     }
 
+    static void on_cpu(void *) throw() {
+        granary::types::printk("I am on a CPU\n");
+    }
+
     void granary_initialise(void) {
         granary::printf("Initialising Granary...\n");
         granary::init();
 
 #if CONFIG_RUN_TEST_CASES
+        granary::printf("Running test cases...\n");
         granary::run_tests();
 #endif
+
+
+        granary::printf("Running dynamic wrapper and detach test...\n");
+        auto func_ptr = granary::dynamic_wrapper_of(on_cpu);
+        granary::attach(granary::START_POLICY);
+        granary::types::on_each_cpu(func_ptr, nullptr, 1);
+        granary::detach();
+        granary::printf("Wooooo!\n");
     }
 }

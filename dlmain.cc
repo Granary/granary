@@ -13,7 +13,6 @@
 #include "granary/attach.h"
 #include "granary/detach.h"
 #include "granary/perf.h"
-#include "clients/instrument.h"
 
 #define CATCH_SIGNALS 0
 
@@ -40,8 +39,7 @@ extern "C" {
 
         granary::init();
 
-        auto policy(GRANARY_INIT_POLICY);
-        granary::attach(granary::policy_for<decltype(policy)>());
+        granary::attach(granary::START_POLICY);
     }
 
 

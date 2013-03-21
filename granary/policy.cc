@@ -9,6 +9,8 @@
 #include "granary/policy.h"
 #include "granary/mangle.h"
 
+#include "clients/instrument.h"
+
 namespace granary {
 
 
@@ -102,5 +104,12 @@ namespace granary {
         return policy_for<missing_policy_policy>();
     }
 
+
+    instrumentation_policy START_POLICY;
+
+
+    STATIC_INITIALISE({
+        START_POLICY = policy_for<decltype(GRANARY_INIT_POLICY)>();
+    })
 }
 

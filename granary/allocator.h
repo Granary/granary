@@ -10,6 +10,7 @@
 #define Granary_HEAP_H_
 
 #ifdef __cplusplus
+
 #   include <new>
 #   include "granary/atomic.h"
 #   include "granary/type_traits.h"
@@ -28,14 +29,13 @@ void *heap_alloc_temp_instr(void);
 }
 
 namespace granary {
-
     namespace detail {
 
         /// Allocate some executable memory. It is assumed that size is
         /// sufficiently large to allow for both user space and kernel
         /// space allocation, and that the user of this allocator will
         /// handle page alignment, etc.
-        void *global_allocate_executable(unsigned long size, bool) throw();
+        void *global_allocate_executable(unsigned long size, int) throw();
 
 
         /// Free globally allocated executable memory.

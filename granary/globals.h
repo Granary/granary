@@ -208,8 +208,21 @@ namespace granary {
     enum {
 
         /// Bounds on where kernel module code is placed
-        KERNEL_MODULE_START = 0xffffffffa0000000ULL,
-        KERNEL_MODULE_END = 0xfffffffffff00000ULL
+        MODULE_TEXT_START = 0xffffffffa0000000ULL,
+        MODULE_TEXT_END = 0xfffffffffff00000ULL,
+
+        KERNEL_TEXT_START = 0xffffffff80000000ULL,
+        KERNEL_TEXT_END = MODULE_TEXT_START
+    };
+
+
+    /// Kinds of executable memory. Must match the enum of the same name in
+    /// module.c.
+    enum executable_memory_kind {
+        EXEC_CODE_CACHE = 0,
+        EXEC_GEN_CODE = 1,
+        EXEC_WRAPPER = 2,
+        EXEC_NONE = 3
     };
 
 
@@ -245,7 +258,42 @@ namespace granary {
     }
 #endif
 
+
     extern bool is_code_cache_address(app_pc) throw();
+    extern bool is_wrapper_address(app_pc) throw();
+
+
+#if GRANARY_IN_KERNEL
+    template <typename T>
+    inline bool is_host_address(T *addr_) throw() {
+        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
+        return KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END;
+    }
+
+    template <typename T>
+    inline bool is_app_address(T *addr_) throw() {
+        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
+        if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
+            return !is_code_cache_address(reinterpret_cast<app_pc>(addr));
+        }
+        return false;
+    }
+
+#else
+    template <typename T>
+    inline bool is_host_address(T *addr_) throw() {
+        extern app_pc find_detach_target(app_pc pc) throw();
+        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
+        return nullptr != find_detach_target(
+            reinterpret_cast<app_pc>(addr));
+    }
+
+    template <typename T>
+    inline bool is_app_address(T *addr_) throw() {
+        return true; // TODO
+    }
+
+#endif
 }
 
 

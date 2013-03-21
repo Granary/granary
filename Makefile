@@ -134,6 +134,7 @@ GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/policy.o
 GR_OBJS += bin/granary/predict.o
 GR_OBJS += bin/granary/perf.o
+GR_OBJS += bin/granary/dynamic_wrapper.o
 GR_OBJS += bin/granary/init.o
 
 # Granary wrapper dependencies
@@ -172,7 +173,6 @@ ifneq ($(KERNEL),1)
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
-	GR_OBJS += bin/granary/user/utils.o
 	GR_OBJS += bin/granary/user/printf.o
 	
 	ifneq ($(GR_DLL),1)
@@ -267,7 +267,6 @@ else
 	GR_OBJS += bin/granary/kernel/printf.o
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/init.o
-	GR_OBJS += bin/granary/kernel/utils.o
 
 	# Must be last!!!!
 	GR_OBJS += bin/granary/x86/init.o

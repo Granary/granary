@@ -264,6 +264,9 @@ namespace granary {
     };
 
 
+    extern instrumentation_policy START_POLICY;
+
+
     /// Defines a data type used to de/mangle an address that may or may not
     /// contain policy-specific bits.
     union mangled_address {

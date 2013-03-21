@@ -60,6 +60,8 @@ namespace granary {
     };
 
 
+    /// Tracks whether the function is already wrapped (by a custom function
+    /// wrapper).
     template <enum function_wrapper_id>
     struct is_function_wrapped {
         enum {
@@ -171,11 +173,126 @@ namespace granary {
     }
 
 
+    /// A function that dynamically wraps an instrumented module function and
+    /// returns a value.
+    template <typename R, typename... Args>
+    struct dynamically_wrapped_function {
+    public:
+        static R apply(Args... args) throw() {
+
+            // such an ugly hack :-(
+            register R (*func_addr)(Args...) asm("r10");
+            ASM("movq %%r10, %0;" : "=r"(func_addr));
+
+            R ret(func_addr(args...));
+            granary::detach();
+            return ret;
+        }
+    };
+
+
+    /// Temporarily disable the check for uninitalised variables so it doesn't
+    /// warn us about `func_addr`, which takes its value from `%r10`.
+#   if defined(__clang__)
+#       pragma clang diagnostic push
+#       pragma clang diagnostic ignored "-Wuninitialized"
+#   elif defined(GCC_VERSION) || defined(__GNUC__)
+#       pragma GCC diagnostic push
+#       pragma GCC diagnostic ignored "-Wuninitialized"
+#   else
+#       error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
+#   endif
+
+
+    /// A function that dynamically wraps an instrumented module function and
+    /// returns nothing.
+    template <typename... Args>
+    struct dynamically_wrapped_function<void, Args...> {
+    public:
+        static void apply(Args... args) throw() {
+            // such an ugly hack :-(
+            register void (*func_addr)(Args...) asm("r10");
+            ASM("movq %%r10, %0;" : "=r"(func_addr));
+
+            printf("in dynamic wrapper!\n");
+            func_addr(args...);
+            detach();
+        }
+    };
+
+
+#   if defined(__clang__)
+#       pragma clang diagnostic pop
+#   elif defined(GCC_VERSION) || defined(__GNUC__)
+#       pragma GCC diagnostic pop
+#   endif
+
+
+    /// Return the dynamic wrapper address for a wrapper / wrappee.
+    /// See granary/dynamic_wrapper.cc
+    app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+
+
+    /// Return the address of a dynamic wrapper for a function.
+    template <typename R, typename... Args>
+    R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) throw() {
+        typedef R (func_type)(Args...);
+
+        app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
+
+        // make sure we're not wrapping libc/kernel code, or double-wrapping a
+        // wrapper.
+        if(is_host_address(app_addr) || is_wrapper_address(app_addr_pc)) {
+            return unsafe_cast<func_type *>(app_addr);
+        }
+
+        ASSERT(!is_code_cache_address(app_addr_pc));
+
+        app_pc wrapper_func(unsafe_cast<app_pc>(
+            dynamically_wrapped_function<R, Args...>::apply));
+
+        return unsafe_cast<func_type *>(
+            dynamic_wrapper_of(wrapper_func, app_addr_pc));
+    }
+
+
     /// The identity of a type.
     template <typename T>
     struct identity {
     public:
         typedef T type;
+    };
+
+
+    /// Type without const.
+    template <typename T>
+    struct constless {
+    public:
+        typedef T type;
+    };
+
+    template <typename T>
+    struct constless<const T> {
+    public:
+        typedef typename constless<T>::type type;
+    };
+
+    template <typename T>
+    struct constless<T *> {
+    public:
+        typedef typename constless<T>::type *type;
+    };
+
+    template <typename T>
+    struct constless<T &> {
+    public:
+        typedef typename constless<T>::type &type;
+    };
+
+    template <typename R, typename... Args>
+    struct constless<R (* const)(Args...)> {
+    public:
+        typedef R (*type)(Args...);
     };
 }
 
@@ -275,7 +392,12 @@ namespace granary {
         }; \
     }
 
-#define WRAP_FUNCTION(lvalue) (void) (lvalue); (void) depth__
+#define WRAP_FUNCTION(lvalue) \
+    { \
+        *const_cast<constless<decltype(lvalue)>::type *>(&lvalue) = \
+            dynamic_wrapper_of(lvalue); \
+    } (void) depth__
+
 #define PRE_WRAP(lvalue) (void) (lvalue); (void) depth__
 #define POST_WRAP(lvalue) (void) (lvalue); (void) depth__
 #define RETURN_WRAP(lvalue) (void) depth__

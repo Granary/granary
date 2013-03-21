@@ -24,7 +24,13 @@ namespace granary {
     > global_state::FRAGMENT_ALLOCATOR;
 
 
+    static_data<
+        bump_pointer_allocator<detail::wrapper_allocator_config>
+    > global_state::WRAPPER_ALLOCATOR;
+
+
     STATIC_INITIALISE({
         global_state::FRAGMENT_ALLOCATOR.construct();
+        global_state::WRAPPER_ALLOCATOR.construct();
     })
 }
