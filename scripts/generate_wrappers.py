@@ -9,6 +9,7 @@ attach/detach requirements."""
 from cparser import *
 from cprinter import pretty_print_type
 from ignore import IGNORE
+from wrap import *
 
 def OUT(*args):
   print "".join(map(str, args))
@@ -18,42 +19,7 @@ def NULL(*args):
   pass
 
 
-def is_function_pointer(ctype):
-  if isinstance(ctype, CTypePointer):
-    internal = ctype.ctype.unattributed_type()
-    return isinstance(internal, CTypeFunction)
-  return False
-
-
-def is_wrappable_type(ctype):
-  ctype = ctype.base_type()
-  if isinstance(ctype, CTypePointer):
-    internal = ctype.ctype.base_type()
-    return isinstance(internal, CTypeStruct)
-  return isinstance(ctype, CTypeStruct)
-
-
-WILL_WRAP_CACHE = {}
 VA_LIST_FUNCS = set()
-
-
-def will_pre_wrap_feilds(ctype):
-  if ctype in WILL_WRAP_CACHE:
-    return WILL_WRAP_CACHE[ctype]
-
-  ret = False
-  for ctype, field_name in ctype.fields():
-    intern_ctype = ctype.base_type()
-    if not field_name:
-      if isinstance(intern_ctype, CTypeStruct):
-        ret = will_pre_wrap_feilds(intern_ctype)
-    elif is_function_pointer(intern_ctype):
-      ret = True
-    elif is_wrappable_type(intern_ctype):
-      ret = True
-  
-  WILL_WRAP_CACHE[ctype] = ret
-  return ret
 
 
 def pre_wrap_var(ctype, var_name, O, indent="        "):
@@ -123,15 +89,6 @@ def wrap_typedef(ctype, name):
   #O("")
 
 
-def will_wrap_function(ret_type, arg_types):
-  ctypes = [ret_type] + arg_types
-  for ctype in ctypes:
-    ctype = ctype.base_type()
-    if is_function_pointer(ctype) or is_wrappable_type(ctype):
-      return True
-  return False
-
-
 # Output Granary code that will wrap a C function.
 def wrap_function(ctype, orig_ctype, func):
 
@@ -148,8 +105,10 @@ def wrap_function(ctype, orig_ctype, func):
     return
 
   # internal function
-  elif func.startswith("__"):
-    return
+  #elif func.startswith("__"):
+  #  return
+
+  O = OUT
 
   internal_ret_type = ctype.ret_type.base_type()
   suffix, is_void = "", False
@@ -181,15 +140,17 @@ def wrap_function(ctype, orig_ctype, func):
     arg_list.append(pretty_print_type(arg_ctype, arg_name, lang="C++").strip(" "))
   args = ", ".join(arg_list)
 
-  O = OUT
-
   # get an output string for the return type.
   ret_type = ""
   if not is_void:
     ret_type = pretty_print_type(ctype.ret_type, "", lang="C++").strip(" ")
     ret_type = " (%s), " % ret_type
 
-  O("#if defined(CAN_WRAP_", func, ") && CAN_WRAP_", func)
+  addr_check = ""
+  if func.startswith("__"):
+    addr_check = " && defined(DETACH_ADDR_%s)" % func
+
+  O("#if defined(CAN_WRAP_", func, ") && CAN_WRAP_", func, addr_check)
   O("#ifndef WRAPPER_FOR_", func)
   O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
 

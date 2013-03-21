@@ -483,7 +483,10 @@ namespace granary {
             block_storage = cpu->block_allocator.allocate<basic_block_state>();
         }
 
+#if CONFIG_TRACK_XMM_REGS
         bool uses_xmm(policy.is_in_xmm_context());
+#endif
+
         bool fall_through_detach(false);
         bool detach_tail_call(false);
         app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
@@ -589,11 +592,13 @@ namespace granary {
             // some other instruction
             } else {
 
+#if CONFIG_TRACK_XMM_REGS
                 // update the policy to be in an xmm context.
                 if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
                     policy.in_xmm_context();
                     uses_xmm = true;
                 }
+#endif
 
                 ls.append(in);
             }

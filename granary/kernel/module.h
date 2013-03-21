@@ -18,6 +18,7 @@ struct kernel_module {
 
     /// Is this the Granary module?
     int is_granary;
+    int is_instrumented;
 
     /// Initial entrypoints into the module.
     int (**init)(void);
@@ -28,11 +29,14 @@ struct kernel_module {
     void *text_begin;
     void *text_end;
 
+    /// The name.
+    const char *name;
+
     /// The current module state.
     enum {
-        KERNEL_MODULE_STATE_LIVE,
-        KERNEL_MODULE_STATE_COMING,
-        KERNEL_MODULE_STATE_GOING
+        STATE_LIVE,
+        STATE_COMING,
+        STATE_GOING
     } state;
 
     /// The next module object in the list of module objects.

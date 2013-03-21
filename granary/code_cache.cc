@@ -35,7 +35,7 @@ namespace granary {
     }
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(code_cache, {
         CODE_CACHE.construct();
     })
 

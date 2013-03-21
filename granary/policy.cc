@@ -108,7 +108,7 @@ namespace granary {
     instrumentation_policy START_POLICY;
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(start_policy, {
         START_POLICY = policy_for<decltype(GRANARY_INIT_POLICY)>();
     })
 }

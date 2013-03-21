@@ -1529,8 +1529,12 @@ class CParser(object):
           # terms of another typedef'd type. If so, canonicalize
           # on the new typedef by setting the internal `is_missing`
           # to True so that the interval value will be updated later.
+          #
+          # we potentially have a `T V` where `T` is the type and `V`
+          # is the variable, but `V` also names a type.
           if isinstance(ctype, CTypeUse) \
-          and isinstance(ctype.ctype, CTypeDefinition):
+          and isinstance(ctype.ctype, CTypeDefinition) \
+          and defines_type:
             assert False
             found_ctype.is_missing = True
             i -= 1

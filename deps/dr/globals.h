@@ -10,6 +10,8 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
+#define heap_free granary_heap_free
+#define heap_alloc granary_heap_alloc
 #define FAULT (granary_break_on_fault(), granary_fault())
 #define IF_GRANARY(...) __VA_ARGS__
 #define _IF_GRANARY(...) , __VA_ARGS__
@@ -346,7 +348,7 @@ extern "C" {
 #include "deps/dr/link.h"
 
 extern void *heap_alloc(void *, unsigned long long);
-extern void *heap_alloc_temp_instr(void);
+extern void *granary_heap_alloc_temp_instr(void);
 extern void heap_free(void *, void *, unsigned long long);
 extern dcontext_t *get_thread_private_dcontext(void);
 

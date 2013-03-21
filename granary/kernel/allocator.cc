@@ -44,13 +44,13 @@ extern "C" {
     void (**kernel_free)(void *) = &(granary::detail::__free);
 
 
-    void *heap_alloc(void *, unsigned long long size) {
+    void *granary_heap_alloc(void *, unsigned long long size) {
         granary::cpu_state_handle cpu;
         return cpu->transient_allocator.allocate_untyped(16, size);
     }
 
 
-    void heap_free(void *, void *addr, unsigned long long) {
+    void granary_heap_free(void *, void *addr, unsigned long long) {
 #if CONFIG_PRECISE_ALLOCATE
         granary::detail::global_free(addr);
 #endif
@@ -59,7 +59,7 @@ extern "C" {
 
 
     /// Return temporarily allocated space for an instruction.
-    void *heap_alloc_temp_instr(void) {
+    void *granary_heap_alloc_temp_instr(void) {
         granary::cpu_state_handle cpu;
         return cpu->instruction_allocator.allocate_array<uint8_t>(32);
     }

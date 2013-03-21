@@ -29,7 +29,7 @@ namespace granary {
     > global_state::WRAPPER_ALLOCATOR;
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(global_state, {
         global_state::FRAGMENT_ALLOCATOR.construct();
         global_state::WRAPPER_ALLOCATOR.construct();
     })

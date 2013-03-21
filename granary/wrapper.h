@@ -19,6 +19,13 @@
 namespace granary {
 
 
+    enum {
+        PRE_WRAP_MASK       = (1 << 0),
+        POST_WRAP_MASK      = (1 << 1),
+        RETURN_WRAP_MASK    = (1 << 2)
+    };
+
+
     /// Base of a generic, unwrapped type. This exists to implement "null"
     /// functionality so that not all type wrappers need to specify pre/post/
     /// return wrappers.
@@ -38,7 +45,9 @@ namespace granary {
     public:
         enum {
 
-            /// Does this type have any wrappers?
+            /// Does this type have any wrappers? This will be a bitmask of
+            /// the pre/post/return wrappers, so we can detect which are
+            /// present.
             HAS_WRAPPER             = 0,
 
             /// Is there a pre wrapper defined for T? Pre wrappers apply
@@ -60,6 +69,148 @@ namespace granary {
     };
 
 
+    /// Specialisation to handle tricky cases.
+#define WRAP_BASIC_TYPE_IMPL(basic_type) \
+    template <> \
+    struct has_wrapper<basic_type> { \
+    public: \
+        enum { \
+            VALUE = 0 \
+        }; \
+    }; \
+    \
+    template <> \
+    struct type_wrapper<basic_type> { \
+    public: \
+        enum { \
+            HAS_WRAPPER             = 0, \
+            HAS_PRE_WRAPPER         = 0, \
+            HAS_POST_WRAPPER        = 0, \
+            HAS_RETURN_WRAPPER      = 0, \
+            HAS_META_INFO_TRACKER   = 0 \
+        }; \
+        \
+        typedef basic_type T; \
+        \
+        inline static void pre_wrap(T, const unsigned) throw() { } \
+        inline static void post_wrap(T, const unsigned) throw() { } \
+        inline static void return_wrap(T, const unsigned) throw() { } \
+    };
+
+
+#define WRAP_BASIC_TYPE(basic_type) \
+    WRAP_BASIC_TYPE_IMPL(basic_type *) \
+    WRAP_BASIC_TYPE_IMPL(const basic_type *) \
+    WRAP_BASIC_TYPE_IMPL(volatile basic_type *) \
+    WRAP_BASIC_TYPE_IMPL(volatile const basic_type *) \
+
+
+    /// Specialisations to handle "following" types.
+    template <typename T>
+    struct type_wrapper_base<const T> {
+    public:
+
+        inline static void pre_wrap(const T &val, const unsigned depth) throw() {
+            type_wrapper<T>::pre_wrap(const_cast<T &>(val), depth);
+        }
+
+        inline static void post_wrap(const T &val, const unsigned depth) throw() {
+            type_wrapper<T>::post_wrap(const_cast<T &>(val), depth);
+        }
+
+        inline static void return_wrap(const T &val, const unsigned depth) throw() {
+            type_wrapper<T>::return_wrap(const_cast<T &>(val), depth);
+        }
+    };
+
+
+    /// Specialisations to handle "following" types.
+    template <typename T>
+    struct type_wrapper_base<volatile T> {
+    public:
+
+        inline static void pre_wrap(volatile T &val, const unsigned depth) throw() {
+            type_wrapper<T>::pre_wrap(reinterpret_cast<T &>(val), depth);
+        }
+
+        inline static void post_wrap(volatile T &val, const unsigned depth) throw() {
+            type_wrapper<T>::post_wrap(reinterpret_cast<T &>(val), depth);
+        }
+
+        inline static void return_wrap(volatile T &val, const unsigned depth) throw() {
+            type_wrapper<T>::return_wrap(reinterpret_cast<T &>(val), depth);
+        }
+    };
+
+
+    template <typename T>
+    struct type_wrapper_base<T *> {
+    public:
+
+        inline static void pre_wrap(T *&val, const unsigned depth) throw() {
+            if(val) {
+                type_wrapper<T>::pre_wrap(*val, depth);
+            }
+        }
+
+        inline static void post_wrap(T *&val, const unsigned depth) throw() {
+            if(val) {
+                type_wrapper<T>::post_wrap(*val, depth);
+            }
+        }
+
+        inline static void return_wrap(T *&val, const unsigned depth) throw() {
+            if(val) {
+                type_wrapper<T>::return_wrap(*val, depth);
+            }
+        }
+    };
+
+
+    /// Check to see if something, or some derivation of that thing, has a
+    /// wrapper.
+    template <typename T>
+    struct has_wrapper {
+    public:
+        enum {
+            VALUE = type_wrapper<T>::HAS_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_wrapper<T *> {
+    public:
+        enum {
+            VALUE = has_wrapper<T>::VALUE | type_wrapper<T *>::HAS_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_wrapper<const T> {
+    public:
+        enum {
+            VALUE = has_wrapper<T>::VALUE | type_wrapper<const T>::HAS_WRAPPER
+        };
+    };
+
+
+    WRAP_BASIC_TYPE(void)
+    WRAP_BASIC_TYPE(char)
+    WRAP_BASIC_TYPE(unsigned char)
+    WRAP_BASIC_TYPE(short)
+    WRAP_BASIC_TYPE(unsigned short)
+    WRAP_BASIC_TYPE(int)
+    WRAP_BASIC_TYPE(unsigned)
+    WRAP_BASIC_TYPE(long)
+    WRAP_BASIC_TYPE(unsigned long)
+    WRAP_BASIC_TYPE(long long)
+    WRAP_BASIC_TYPE(unsigned long long)
+    WRAP_BASIC_TYPE(float)
+    WRAP_BASIC_TYPE(double)
+
+
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
     template <enum function_wrapper_id>
@@ -67,6 +218,40 @@ namespace granary {
         enum {
             VALUE = 0
         };
+    };
+
+
+    /// Wrapping operators.
+    struct pre_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_wrapper<T>::VALUE | PRE_WRAP_MASK) {
+                type_wrapper<T>::pre_wrap(val, MAX_PRE_WRAP_DEPTH);
+            }
+        }
+    };
+
+
+    struct post_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_wrapper<T>::VALUE | POST_WRAP_MASK) {
+                type_wrapper<T>::post_wrap(val, MAX_POST_WRAP_DEPTH);
+            }
+        }
+    };
+
+
+    struct return_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
+                type_wrapper<T>::return_wrap(val, MAX_RETURN_WRAP_DEPTH);
+            }
+        }
     };
 
 
@@ -97,9 +282,15 @@ namespace granary {
         /// wrap the arguments.
         static R apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
+
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
-            return func(args...);
+
+            apply_to_values<pre_wrap, Args...>::apply(args...);
+            R ret(func(args...));
+            apply_to_values<post_wrap, Args...>::apply(args...);
+            apply_to_values<return_wrap, R>::apply(ret);
+            return ret;
         }
     };
 
@@ -126,9 +317,13 @@ namespace granary {
         /// wrap the arguments.
         static void apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
+
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
+
+            apply_to_values<pre_wrap, Args...>::apply(args...);
             func(args...);
+            apply_to_values<post_wrap, Args...>::apply(args...);
         }
     };
 
@@ -173,19 +368,29 @@ namespace granary {
     }
 
 
+    /// A pretty ugly hack to pass the target address from gencode into a
+    /// generic dynamic wrapper.
+#define GET_DYNAMIC_ADDR(var, R, Args) \
+    register R (*var)(Args...) asm("r10"); \
+    ASM("movq %%r10, %0;" : "=r"(var))
+
+
     /// A function that dynamically wraps an instrumented module function and
     /// returns a value.
     template <typename R, typename... Args>
     struct dynamically_wrapped_function {
     public:
         static R apply(Args... args) throw() {
+            GET_DYNAMIC_ADDR(func_addr, R, Args);
 
-            // such an ugly hack :-(
-            register R (*func_addr)(Args...) asm("r10");
-            ASM("movq %%r10, %0;" : "=r"(func_addr));
+            P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
 
+            apply_to_values<pre_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
             granary::detach();
+
+            apply_to_values<post_wrap, Args...>::apply(args...);
+            apply_to_values<return_wrap, R>::apply(ret);
             return ret;
         }
     };
@@ -210,13 +415,14 @@ namespace granary {
     struct dynamically_wrapped_function<void, Args...> {
     public:
         static void apply(Args... args) throw() {
-            // such an ugly hack :-(
-            register void (*func_addr)(Args...) asm("r10");
-            ASM("movq %%r10, %0;" : "=r"(func_addr));
+            GET_DYNAMIC_ADDR(func_addr, void, Args);
 
-            printf("in dynamic wrapper!\n");
+            P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
+
+            apply_to_values<pre_wrap, Args...>::apply(args...);
             func_addr(args...);
             detach();
+            apply_to_values<post_wrap, Args...>::apply(args...);
         }
     };
 
@@ -240,9 +446,16 @@ namespace granary {
 
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
 
+        if(!app_addr_pc) {
+            return app_addr;
+        }
+
         // make sure we're not wrapping libc/kernel code, or double-wrapping a
-        // wrapper.
-        if(is_host_address(app_addr) || is_wrapper_address(app_addr_pc)) {
+        // wrapper; and make sure that what we're wrapping is sane, i.e. that
+        // we're not trying to wrap some garbage memory (it's an app address).
+        if(is_host_address(app_addr)
+        || is_wrapper_address(app_addr_pc)
+        || !is_app_address(app_addr)) {
             return unsafe_cast<func_type *>(app_addr);
         }
 
@@ -254,6 +467,29 @@ namespace granary {
         return unsafe_cast<func_type *>(
             dynamic_wrapper_of(wrapper_func, app_addr_pc));
     }
+
+
+    /// Automatically wrap function pointers.
+    template <typename R, typename... Args>
+    struct type_wrapper<R (*)(Args...)> {
+        enum {
+            HAS_WRAPPER             = 1,
+            HAS_PRE_WRAPPER         = 1,
+            HAS_POST_WRAPPER        = 0,
+            HAS_RETURN_WRAPPER      = 0,
+            HAS_META_INFO_TRACKER   = 0
+        };
+
+        typedef R (*T)(Args...);
+
+        inline static void pre_wrap(T &func_ptr, const unsigned) throw() {
+            func_ptr = dynamic_wrapper_of(func_ptr);
+        }
+
+        inline static void post_wrap(T &, const unsigned) throw() { }
+
+        inline static void return_wrap(T &, const unsigned) throw() { }
+    };
 
 
     /// The identity of a type.
@@ -306,11 +542,13 @@ namespace granary {
             wrap_code; \
             \
             enum { \
-                HAS_WRAPPER = 1, \
                 HAS_META_INFO_TRACKER = 0, \
                 HAS_PRE_WRAPPER = impl__::HAS_PRE_WRAPPER, \
                 HAS_POST_WRAPPER = impl__::HAS_POST_WRAPPER, \
-                HAS_RETURN_WRAPPER = impl__::HAS_RETURN_WRAPPER \
+                HAS_RETURN_WRAPPER = impl__::HAS_RETURN_WRAPPER, \
+                HAS_WRAPPER = HAS_PRE_WRAPPER \
+                            | (HAS_POST_WRAPPER << 1) \
+                            | (HAS_RETURN_WRAPPER << 1) \
             }; \
             \
             inline static void \

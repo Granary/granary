@@ -23,7 +23,6 @@
 #   undef GRANARY_DONT_INCLUDE_CSTDLIB
 #endif
 
-#include "granary/types.h"
 
 extern "C" {
     void notify_module_state_change(struct kernel_module *module) {
@@ -33,33 +32,37 @@ extern "C" {
             return;
         }
 
-        types::module *mod(unsafe_cast<types::module *>(module->address));
+        printf("[granary] Notified about module (%s) state change.\n",
+            module->name);
 
-        granary::printf("        Notified about module (%s) state change!!\n",
-            mod->name);
+        switch(module->state) {
+        case kernel_module::STATE_COMING:
+            *(module->init) = dynamic_wrapper_of(*(module->init));
+            if(module->exit) {
+                *(module->exit) = dynamic_wrapper_of(*(module->exit));
+            }
+            break;
 
-        (void) mod;
+        case kernel_module::STATE_LIVE:
+            break;
+
+        case kernel_module::STATE_GOING:
+            break;
+        }
     }
 
-    static void on_cpu(void *) throw() {
-        granary::types::printk("I am on a CPU\n");
-    }
 
     void granary_initialise(void) {
-        granary::printf("Initialising Granary...\n");
-        granary::init();
+        using namespace granary;
+
+        printf("[granary] Initialising Granary...\n");
+        init();
+        printf("[granary] Initialised.\n");
 
 #if CONFIG_RUN_TEST_CASES
-        granary::printf("Running test cases...\n");
-        granary::run_tests();
+        printf("[granary] Running test cases...\n");
+        run_tests();
+        printf("[granary] All test cases ran.\n");
 #endif
-
-
-        granary::printf("Running dynamic wrapper and detach test...\n");
-        auto func_ptr = granary::dynamic_wrapper_of(on_cpu);
-        granary::attach(granary::START_POLICY);
-        granary::types::on_each_cpu(func_ptr, nullptr, 1);
-        granary::detach();
-        granary::printf("Wooooo!\n");
     }
 }

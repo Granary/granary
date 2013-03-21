@@ -103,6 +103,17 @@ extern void *(**kernel_malloc_exec)(unsigned long, int);
 extern void *(**kernel_malloc)(unsigned long);
 extern void (**kernel_free)(const void *);
 
+static unsigned long EXEC_START = 0;
+static unsigned long EXEC_END = 0;
+
+static unsigned long CODE_CACHE_END = 0;
+static unsigned long GEN_CODE_START = 0;
+static unsigned long WRAPPER_START = 0;
+static unsigned long WRAPPER_END = 0;
+
+static int granary_device_open = 0;
+static int granary_device_initialised = 0;
+
 
 /// C++-implemented function that operates on modules. This is the
 /// bridge from C to C++.
@@ -115,26 +126,37 @@ static struct kernel_module *find_interal_module(void *vmod) {
     struct kernel_module *module = modules;
     struct kernel_module **next_link = &modules;
     const int is_granary = NULL == modules;
-    struct module *mod = NULL;
+    struct module *mod = (struct module *) vmod;
 
     for(; NULL != module; module = module->next) {
-        if(module->address == vmod) {
+        if(module->text_begin == mod->module_core) {
             return module;
         }
         next_link = &(module->next);
     }
 
+    // we don't care about modules that are being unloaded and that we
+    // previously didn't know about.
+    if(MODULE_STATE_GOING == mod->state) {
+        return NULL;
+    }
+
     module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
-    mod = (struct module *) vmod;
 
     // Initialise.
     module->is_granary = is_granary;
     module->init = &(mod->init);
+#ifdef CONFIG_MODULE_UNLOAD
     module->exit = &(mod->exit);
+#else
+    module->exit = NULL;
+#endif
     module->address = vmod;
     module->text_begin = mod->module_core;
     module->text_end = mod->module_core + mod->core_text_size;
     module->next = NULL;
+    module->name = mod->name;
+    module->is_instrumented = granary_device_initialised;
 
     // Chain it in and return.
     *next_link = module;
@@ -151,14 +173,22 @@ static int module_load_notifier(
 ) {
     struct kernel_module *internal_mod = NULL;
     struct module *mod = (struct module *) vmod;
-    printk("    Notified of module 0x%p\n", vmod);
-    printk("    Module's name is: %s.\n", mod->name);
+    printk("[granary] Notified of module 0x%p\n", vmod);
+    printk("[granary] Module's name is: %s.\n", mod->name);
+
     internal_mod = find_interal_module(vmod);
-    printk("    Got internal representation for module.\n");
+
+    if(!internal_mod || !(internal_mod->is_instrumented)) {
+        printk("[granary] Ignoring module state change.\n");
+        return 0;
+    }
+
+    printk("[granary] Got internal representation for module.\n");
     internal_mod->state = mod_state;
-    printk("    Notifying Granary of the module...\n");
+    printk("[granary] Notifying Granary of the module...\n");
     notify_module_state_change(internal_mod);
-    printk("    Notified Granary of the module.\n");
+    printk("[granary] Notified Granary of the module.\n");
+
     return 0;
 }
 
@@ -173,14 +203,6 @@ static struct notifier_block notifier_block = {
 
 /// Allocate a "fake" module that will serve as a lasting memory zone for
 /// executable allocations.
-static unsigned long EXEC_START = 0;
-static unsigned long EXEC_END = 0;
-
-static unsigned long CODE_CACHE_END = 0;
-static unsigned long GEN_CODE_START = 0;
-static unsigned long WRAPPER_START = 0;
-static unsigned long WRAPPER_END = 0;
-
 static void preallocate_executable(void) {
 
     typedef void *(module_alloc_t)(unsigned long);
@@ -289,10 +311,6 @@ static void *allocate(unsigned long size) {
 }
 
 
-static int granary_device_open = 0;
-static int granary_device_initialised = 0;
-
-
 /// Open Granary as a device.
 static int device_open(struct inode *inode, struct file *file) {
     if(granary_device_open) {
@@ -374,29 +392,26 @@ static int init_granary(void) {
     *kernel_malloc = allocate;
     *kernel_free = kfree;
 
-    printk("Stack size is %lu\n", THREAD_SIZE);
+    printk("[granary] Loading Granary...\n");
+    printk("[granary] Stack size is %lu\n", THREAD_SIZE);
+    printk("[granary] Running initialisers...\n");
 
-    printk("Loading Granary...\n");
-
-    printk("    Running initialisers...\n");
     granary_run_initialisers();
-    printk("    Done running initialisers.\n");
 
-
-
-    printk("    Registering module notifier...\n");
+    printk("[granary] Done running initialisers.\n");
+    printk("[granary] Registering module notifier...\n");
 
     register_module_notifier(&notifier_block);
 
-    printk("    Registering 'granary' device...\n");
+    printk("[granary] Registering 'granary' device...\n");
 
     if(0 != misc_register(&device)) {
-        printk("        Unable to register 'granary' device.\n");
+        printk("[granary] Unable to register 'granary' device.\n");
     } else {
-        printk("        Registered 'granary' device.\n");
+        printk("[granary] Registered 'granary' device.\n");
     }
 
-    printk("    Done; waiting for command to initialise Granary.\n");
+    printk("[granary] Done; waiting for command to initialise Granary.\n");
 
     return 0;
 }

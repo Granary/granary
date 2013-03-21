@@ -10,6 +10,13 @@
 
 #include <atomic>
 
+#if GRANARY_IN_KERNEL
+extern "C" {
+    extern void kernel_preempt_disable(void);
+    extern void kernel_preempt_enable(void);
+}
+#endif
+
 namespace granary { namespace smp {
 
     /// Simple implementation of a spin lock.
@@ -30,6 +37,8 @@ namespace granary { namespace smp {
         { }
 
         inline void acquire(void) throw() {
+            IF_KERNEL( kernel_preempt_disable(); )
+
             for(;;) {
                 if(is_locked.load(std::memory_order_acquire)) {
                     continue;
@@ -43,6 +52,7 @@ namespace granary { namespace smp {
 
         inline void release(void) throw() {
             is_locked.store(false, std::memory_order_release);
+            IF_KERNEL( kernel_preempt_enable(); )
         }
     };
 

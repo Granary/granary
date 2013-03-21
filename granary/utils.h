@@ -152,7 +152,6 @@ namespace granary {
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-
     /// Represents a type where the first type ends with a value
     /// of the second type, and the second type "spills" over to
     /// form a very large array. The assumed use of this type is
@@ -181,6 +180,7 @@ namespace granary {
         return unsafe_cast<T *>(internal);
     }
 #endif
+
 
     namespace {
         template<typename T>
@@ -229,6 +229,7 @@ namespace granary {
         }
     };
 
+
     /// Read-critical section returning nothing.
     template <typename... Args>
     struct function_call<void, Args...> {
@@ -248,6 +249,39 @@ namespace granary {
         inline void yield(void) throw() {
             return;
         }
+    };
+
+
+    /// Apply an operator over the arguments of an argument pack.
+    template <typename Operator, typename... Types>
+    struct apply_to_values;
+
+
+    template <typename Operator, typename T0, typename... Types>
+    struct apply_to_values<Operator, T0, Types...> {
+    public:
+        __attribute__((always_inline))
+        static inline void apply(T0 &value, Types&... values) throw() {
+            Operator::apply(value);
+            apply_to_values<Operator, Types...>::apply(values...);
+        }
+    };
+
+    template <typename Operator, typename T0>
+    struct apply_to_values<Operator, T0> {
+    public:
+        __attribute__((always_inline))
+        static inline void apply(T0 &value) throw() {
+            Operator::apply(value);
+        }
+    };
+
+
+    template <typename Operator>
+    struct apply_to_values<Operator> {
+    public:
+        __attribute__((always_inline))
+        static inline void apply(void) throw() { }
     };
 }
 

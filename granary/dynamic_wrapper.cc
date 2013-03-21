@@ -18,7 +18,7 @@ namespace granary {
     static static_data<locked_hash_table<app_pc, app_pc>> wrappers;
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(dynamic_wrappers, {
         wrappers.construct();
     })
 

@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 -O4
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -286,7 +286,8 @@ else
 	GR_CXX_FLAGS += $(GR_COMMON_KERNEL_FLAGS) -S -DGRANARY_IN_KERNEL=1
 	
 	GR_TYPE_INCLUDE = -I./ -isystem $(KERNEL_DIR)/include
-	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include 
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include/generated 
 	
 	define GR_COMPILE_ASM
 endef

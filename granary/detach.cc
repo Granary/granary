@@ -24,7 +24,7 @@ namespace granary {
     > DETACH_HASH_TABLE;
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(detach_hash_table, {
 
         DETACH_HASH_TABLE.construct();
 

@@ -24,7 +24,7 @@ with open(sys.argv[1]) as lines:
       if m:
         func_name = m.group(1)
         if "_GLOBAL__" not in func_name:
-          funcs[m.group(3)] = func_name
+          funcs[int(m.group(3))] = func_name
 
   calls = []
   for i in sorted(funcs.keys()):

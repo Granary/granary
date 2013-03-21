@@ -17,7 +17,7 @@ namespace granary {
     static uint16_t FORCE_LIVE(0);
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(always_live_registers, {
         granary::FORCE_LIVE = (1 << (dynamorio::DR_REG_RSP - 1));
     })
 

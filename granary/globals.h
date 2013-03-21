@@ -99,8 +99,11 @@
 
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.
-#define CONFIG_TRACK_XMM_REGS 1
-
+#if GRANARY_IN_KERNEL
+#   define CONFIG_TRACK_XMM_REGS 0
+#else
+#   define CONFIG_TRACK_XMM_REGS 1
+#endif
 
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all

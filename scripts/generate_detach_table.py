@@ -4,6 +4,7 @@ Each function is associated with a unique id."""
 
 from cparser import *
 from ignore import IGNORE
+from wrap import *
 
 header, code = None, None
 
@@ -21,14 +22,23 @@ def visit_function(name, ctype):
   if name in IGNORE:
     return
 
+  func_ctype = ctype.base_type()
+  will_wrap = will_wrap_function(func_ctype.ret_type, func_ctype.param_types)
+  
+  if will_wrap and func_ctype.is_variadic:
+    will_wrap = False
+
+  if has_extension_attribute(ctype, "deprecated"):
+    will_wrap = False
+
   # put this before checking for things that we should ignore
   # so that these type-based rules propagate to the dll detach
   # stuff, where type info is not known.
   C("#ifndef CAN_WRAP_", name)
-  C("#   define CAN_WRAP_", name, " 1")
+  C("#   define CAN_WRAP_", name, " ", int(will_wrap))
   C("#endif")
-  
-  if has_extension_attribute(ctype, "deprecated"):
+
+  if not will_wrap:
     return
 
   # we don't want to add detach wrappers to these, but we do want
@@ -38,7 +48,11 @@ def visit_function(name, ctype):
   if name.startswith("__"):
     if name[2:] not in FUNCTIONS:
       C("#if CAN_WRAP_", name)
-      C("    TYPED_DETACH(", name, ")")
+      C("#   ifdef DETACH_ADDR_", name)
+      C("        WRAP_FOR_DETACH(", name, ")")
+      C("#   else")
+      C("        TYPED_DETACH(", name, ")")
+      C("#   endif")
       C("#endif")
     return
 

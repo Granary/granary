@@ -86,4 +86,5 @@ IGNORE = set([
 
   # kernel stuff
   "early_printk",
+  "warn_alloc_failed",
 ])

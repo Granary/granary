@@ -28,7 +28,7 @@ namespace granary {
     typename dynamorio::dcontext_t *instruction::DCONTEXT = nullptr;
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(dcontext, {
         instruction::DCONTEXT = dynamorio::get_thread_private_dcontext();
     })
 
@@ -44,7 +44,7 @@ namespace granary {
 
 
     static dynamorio::instr_t *make_instr(void) throw() {
-        auto instr = (dynamorio::instr_t *) heap_alloc(
+        auto instr = (dynamorio::instr_t *) granary_heap_alloc(
             nullptr, sizeof (dynamorio::instr_t));
         dynamorio::instr_set_x86_mode(instr, false);
         instr->flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
@@ -463,7 +463,7 @@ namespace granary {
 
 #undef MAKE_REG
 #define MAKE_REG(name, upper_name) \
-    STATIC_INITIALISE({ \
+    STATIC_INITIALISE_ID(register, { \
         reg::name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name); \
     })
 

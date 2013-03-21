@@ -46,7 +46,7 @@
 #   define INITIALISE_GLOBAL_VARIABLE(var) \
     extern "C" { \
         __attribute__((noinline)) \
-        void CAT(CAT(KERNEL_INIT_VAR_, __COUNTER__), CAT(_, __LINE__)) (void) throw() { \
+        void CAT(CAT(KERNEL_INIT_VAR_, __COUNTER__), CAT(_, var)) (void) throw() { \
             granary::construct_object(var); \
         } \
     } \
@@ -99,27 +99,29 @@
 
 /// Use to statically initialise some code.
 #define STATIC_INITIALISE___(id, ...) \
-    static void init_func_ ## id(void) throw(); \
-    struct init_class_ ## id : public granary::static_init_list { \
+    static void CAT(init_func_, id)(void) throw(); \
+    struct CAT(init_class_, id) : public granary::static_init_list { \
     public: \
-        init_class_ ## id(void) throw() { \
-            this->exec = init_func_ ## id; \
+        CAT(init_class_, id)(void) throw() { \
+            this->exec = CAT(init_func_, id); \
             granary::static_init_list::append(*this); \
         } \
     }; \
-    static init_class_ ## id init_val_ ## id; \
-    static __attribute__((noinline)) void init_func_ ## id(void) { \
-        (void) init_val_ ## id; \
+    static CAT(init_class_, id) CAT(init_val_, id); \
+    static __attribute__((noinline)) void CAT(init_func_, id)(void) { \
+        (void) CAT(init_val_, id); \
         { __VA_ARGS__ } \
     } \
     INITIALISE_GLOBAL_VARIABLE(CAT(init_val_, id))
 
-#define STATIC_INITIALISE__(line, counter, ...) \
-    STATIC_INITIALISE___(line ## _ ## counter, ##__VA_ARGS__)
-#define STATIC_INITIALISE_(line, counter, ...) \
-    STATIC_INITIALISE__(line, counter, ##__VA_ARGS__)
+#define STATIC_INITIALISE__(id, ...) \
+    STATIC_INITIALISE___(id, ##__VA_ARGS__)
+#define STATIC_INITIALISE_(id, ...) \
+    STATIC_INITIALISE__(id, ##__VA_ARGS__)
 #define STATIC_INITIALISE(...) \
-    STATIC_INITIALISE_(__LINE__, __COUNTER__, ##__VA_ARGS__)
+    STATIC_INITIALISE_(CAT(CAT(__LINE__, _), __COUNTER__), ##__VA_ARGS__)
+#define STATIC_INITIALISE_ID(id, ...) \
+    STATIC_INITIALISE_(CAT(CAT(id, __LINE__), CAT(_, __COUNTER__)), ##__VA_ARGS__)
 
 #if !CONFIG_RUN_TEST_CASES
 #   define IF_TEST(...)

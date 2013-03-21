@@ -21,6 +21,7 @@
 #define namespace namespace_
 #define template template_
 #define class class_
+#define delete delete_
 
 #define int8_t K_int8_t
 #define int16_t K_int16_t
@@ -46,7 +47,34 @@
 #include <linux/ioctl.h>
 #include <linux/device.h>
 #include <linux/tick.h>
+#include <linux/pci.h>
+#include <linux/sched.h>
 #include <asm/pvclock.h>
+
+/* Taken from e1000 */
+#include <linux/hardirq.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/init.h>
+#include <linux/pci.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/mii.h>
+#include <linux/if_vlan.h>
+#include <linux/skbuff.h>
+#include <linux/ethtool.h>
+#include <linux/string.h>
+#include <linux/firmware.h>
+#include <linux/rtnetlink.h>
+#include <asm/unaligned.h>
 
 
 #endif /* GR_KERNEL_TYPES_H_ */

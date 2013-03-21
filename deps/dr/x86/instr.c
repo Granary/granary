@@ -1906,7 +1906,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
      * can be too far to reach from our heap
      */
     byte *buf = IF_GRANARY_ELSE(
-        heap_alloc_temp_instr(),
+        granary_heap_alloc_temp_instr(),
         (heap_alloc(dcontext, 32 /* max instr length is 17 bytes */ HEAPACCT(ACCT_IR))));
 
     uint len;
@@ -2571,7 +2571,7 @@ instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
     if ((instr->flags & INSTR_RAW_BITS_ALLOCATED) == 0 ||
         instr->length != num_bytes) {
         byte * new_bits = (byte *) IF_GRANARY_ELSE(
-            heap_alloc_temp_instr(),
+            granary_heap_alloc_temp_instr(),
             (heap_alloc(dcontext, num_bytes HEAPACCT(ACCT_IR))));
         if (original_bits != NULL) {
             /* copy original bits into modified bits so can just modify

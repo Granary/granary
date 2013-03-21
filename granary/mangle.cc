@@ -132,7 +132,7 @@ namespace granary {
     static operand reg_predict_ptr;
 #endif
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(ibl_registers, {
         reg_target_addr = reg::arg1;
         reg_compare_addr = reg::rcx;
         reg_compare_addr_32 = reg::ecx;
@@ -384,7 +384,7 @@ namespace granary {
     static app_pc global_code_cache_find(nullptr);
 
 
-    STATIC_INITIALISE({
+    STATIC_INITIALISE_ID(code_cache_functions, {
         cpu_private_code_cache_find = unsafe_cast<app_pc>(
             (app_pc (*)(
                 mangled_address,
@@ -441,8 +441,10 @@ namespace granary {
         instruction safe(
             save_and_restore_registers(all_regs, ibl, ibl.last()));
         if(policy.is_in_xmm_context()) {
+#if !GRANARY_IN_KERNEL
             safe = save_and_restore_xmm_registers(
                 all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
+#endif
 
         // only save %xmm0 and %xmm1, because the ABI allows these registers
         // to be used for return values.
