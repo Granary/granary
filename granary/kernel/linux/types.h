@@ -76,5 +76,51 @@
 #include <linux/rtnetlink.h>
 #include <asm/unaligned.h>
 
+/* Taken from ext4 */
+#include <linux/types.h>
+#include <linux/blkdev.h>
+#include <linux/magic.h>
+#include <linux/jbd2.h>
+#include <linux/quota.h>
+#include <linux/rwsem.h>
+#include <linux/rbtree.h>
+#include <linux/seqlock.h>
+#include <linux/mutex.h>
+#include <linux/timer.h>
+#include <linux/wait.h>
+#include <linux/blockgroup_lock.h>
+#include <linux/percpu_counter.h>
+#include <crypto/hash.h>
+#ifdef __KERNEL__
+#include <linux/compat.h>
+#endif
+
+/* Taken from btrfs */
+#include <linux/blkdev.h>
+#include <linux/module.h>
+#include <linux/buffer_head.h>
+#include <linux/fs.h>
+#include <linux/pagemap.h>
+#include <linux/highmem.h>
+#include <linux/time.h>
+#include <linux/init.h>
+#include <linux/seq_file.h>
+#include <linux/string.h>
+#include <linux/backing-dev.h>
+#include <linux/mount.h>
+#include <linux/mpage.h>
+#include <linux/swap.h>
+#include <linux/writeback.h>
+#include <linux/statfs.h>
+#include <linux/compat.h>
+#include <linux/parser.h>
+#include <linux/ctype.h>
+#include <linux/namei.h>
+#include <linux/miscdevice.h>
+#include <linux/magic.h>
+#include <linux/slab.h>
+#include <linux/cleancache.h>
+#include <linux/ratelimit.h>
+
 
 #endif /* GR_KERNEL_TYPES_H_ */
