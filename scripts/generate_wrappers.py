@@ -73,7 +73,7 @@ def wrap_struct(ctype):
     if isinstance(parent_ctype, CTypeUnion) \
     and not parent_ctype.had_name:
       return
-    parent_ctype = ctype.parent_ctype
+    parent_ctype = parent_ctype.parent_ctype
 
   name = scoped_name(ctype)
 
