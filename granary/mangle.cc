@@ -77,13 +77,14 @@ namespace granary {
     namespace {
 
         /// Specific instruction manglers used for branch lookup.
-#if CONFIG_TRACK_XMM_REGS
+#if CONFIG_TRACK_XMM_REGS || GRANARY_IN_KERNEL
         DECLARE_DIRECT_JUMP_MANGLER(call, 5)
         FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
 #endif
-
+#if !GRANARY_IN_KERNEL
         DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER(call, 5)
         FOR_EACH_DIRECT_JUMP(DECLARE_XMM_SAFE_DIRECT_JUMP_MANGLER)
+#endif
     }
 
 
@@ -774,7 +775,7 @@ namespace granary {
     /// Look up and return the assembly patch (see asm/direct_branch.asm)
     /// function needed to patch an instruction that originally had opcode as
     /// `opcode`.
-#if CONFIG_TRACK_XMM_REGS
+#if CONFIG_TRACK_XMM_REGS || GRANARY_IN_KERNEL
     static app_pc get_direct_cti_patch_func(int opcode) throw() {
         switch(opcode) {
         CASE_DIRECT_JUMP_MANGLER(call, 5)
@@ -785,6 +786,7 @@ namespace granary {
 #endif
 
 
+#if !GRANARY_IN_KERNEL
     /// Look up and return the assembly patch (see asm/direct_branch.asm)
     /// function needed to patch an instruction that originally had opcode as
     /// `opcode`. These patch functions will save/restore all %xmm registers.
@@ -795,6 +797,7 @@ namespace granary {
         default: return nullptr;
         }
     }
+#endif
 
 
     /// Get or build the direct branch lookup (DBL) routine for some jump/call
@@ -810,7 +813,9 @@ namespace granary {
 
         // add in the patch code, change the initial behaviour of the
         // instruction, and mark it has hot patchable so it is nicely aligned.
-#if CONFIG_TRACK_XMM_REGS
+#if GRANARY_IN_KERNEL
+        app_pc patcher_for_opcode(get_direct_cti_patch_func(in.op_code()));
+#elif CONFIG_TRACK_XMM_REGS
         app_pc patcher_for_opcode(nullptr);
         if(target_policy.is_in_xmm_context()) {
             patcher_for_opcode = get_xmm_safe_direct_cti_patch_func(in.op_code());
@@ -818,10 +823,11 @@ namespace granary {
             patcher_for_opcode = get_direct_cti_patch_func(in.op_code());
         }
 #else
-        (void) target_policy;
         app_pc patcher_for_opcode(get_xmm_safe_direct_cti_patch_func(
             in.op_code()));
 #endif
+
+        (void) target_policy;
 
         instruction_list dbl;
 

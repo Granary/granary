@@ -52,6 +52,8 @@ extern "C" {
     }
 
 
+    /// Initialise Granary. This is the bridge between the C module code and
+    /// the C++ Granary code.
     void granary_initialise(void) {
         using namespace granary;
 
@@ -64,5 +66,11 @@ extern "C" {
         run_tests();
         printf("[granary] All test cases ran.\n");
 #endif
+    }
+
+
+    /// Report on Granary's activities.
+    void granary_report(void) {
+        IF_PERF( granary::perf::report(); )
     }
 }

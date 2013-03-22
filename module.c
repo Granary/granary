@@ -69,6 +69,11 @@ extern void granary_run_initialisers(void);
 extern void granary_initialise(void);
 
 
+/// C funciton defined in granary/kernel/module.cc for communicating performance
+/// counters, etc.
+extern void granary_report(void);
+
+
 /// Function that is called before granary faults.
 void granary_break_on_fault(void) {
     __asm__ __volatile__ ("");
@@ -323,6 +328,8 @@ static int device_open(struct inode *inode, struct file *file) {
         granary_device_initialised = 1;
         preallocate_executable();
         granary_initialise();
+    } else {
+        granary_report();
     }
 
     (void) inode;

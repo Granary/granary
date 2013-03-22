@@ -80,8 +80,10 @@ namespace granary {
     }
 
     void perf::visit_decoded(instruction in) throw() {
-        NUM_DECODED_INSTRUCTIONS.fetch_add(1);
-        NUM_DECODED_BYTES.fetch_add(in.instr.length);
+        if(in.instr) {
+            NUM_DECODED_INSTRUCTIONS.fetch_add(1);
+            NUM_DECODED_BYTES.fetch_add(in.instr->length);
+        }
     }
 
 

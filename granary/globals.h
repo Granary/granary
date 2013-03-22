@@ -48,9 +48,9 @@
 #   define CONFIG_ENABLE_IBL_OVERWRITE_TABLE 1
 
 
-
     /// Should linear prediction tables be used?
 #   define CONFIG_ENABLE_IBL_LINEAR_TABLE 1
+
 
 #endif /* CONFIG_ENABLE_IBL_PREDICTION_STUBS */
 
@@ -59,7 +59,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically

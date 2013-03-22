@@ -360,7 +360,7 @@ namespace granary {
                 item.instr->u.o.src0.value.instr = target_instr;
             }
 
-            IF_PERF( perf::visit_encoded(*item); )
+            IF_PERF( perf::visit_encoded(item); )
 
             item = item.next();
         }

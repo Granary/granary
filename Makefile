@@ -20,7 +20,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O4
+GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -248,14 +248,16 @@ else
 	GR_COMMON_KERNEL_FLAGS = 
 	
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
-		GR_COMMON_KERNEL_FLAGS += -mkernel
-	else
-		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel
+		GR_COMMON_KERNEL_FLAGS += -mkernel -mcmodel=kernel
+	else # gcc
+		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel -maccumulate-outgoing-args
+		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
 	endif
 	
 	# common flags to disable certain user space features for the kernel
-	GR_COMMON_KERNEL_FLAGS += -fstack-usage -mno-red-zone -nostdlib -nostartfiles
-	GR_COMMON_KERNEL_FLAGS += -fstack-usage -mno-sse -mno-sse2 -mno-mmx
+	GR_COMMON_KERNEL_FLAGS += -mno-red-zone -mno-3dnow -fno-stack-protector
+	GR_COMMON_KERNEL_FLAGS += -mno-sse -mno-sse2 -mno-mmx -m64 -march=native
+	GR_COMMON_KERNEL_FLAGS += -fno-asynchronous-unwind-tables -fno-common
 	
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h

@@ -23,6 +23,7 @@
 #define class class_
 #define delete delete_
 #define export export_
+#define typeof decltype
 
 #define int8_t K_int8_t
 #define int16_t K_int16_t
@@ -36,6 +37,12 @@
 
 #define bool K_bool
 #define _Bool K_Bool
+
+/* Big hack: clang complains when a (named) struct is declared inside of an
+ * anonymous union. There is one such case: __raw_tickets, and it's not
+ * referenced by other types, so we will clobber it.
+ */
+#define __raw_tickets
 
 #include <linux/version.h>
 #define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
