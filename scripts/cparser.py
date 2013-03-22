@@ -81,6 +81,7 @@ class CToken(object):
   TYPEOF                    = 52
 
   EOF                       = 60
+  COMMENT                   = 61
 
   # mapping of reserved words to token kinds
   RESERVED = {
@@ -621,6 +622,15 @@ class CType(object):
       ctype = ctype.ctype
     return ctype
 
+  def is_type_use(self):
+    is_use = False
+    prev_ctype, ctype = None, self
+    while prev_ctype != ctype:
+      prev_ctype = ctype
+      ctype = ctype.unattributed_type().unaliased_type()
+
+    return isinstance(ctype, CTypeUse)
+
   def base_type(self):
     prev_type = None
     ctype = self
@@ -638,8 +648,8 @@ class CTypeCompound(CType):
 class CTypeStruct(CTypeCompound):
   """Represents a structure type."""
 
-  __slots__ = ('_id', 'name', 'internal_name', 'had_name',
-               '_fields', '_field_list', 'has_name',
+  __slots__ = ('_id', 'name', 'internal_name', 'original_name', 
+               'had_name', '_fields', '_field_list', 'has_name',
                'parent_ctype')
   ID = 0
 
@@ -653,6 +663,7 @@ class CTypeStruct(CTypeCompound):
 
     self.had_name = self.has_name
     self.internal_name = name_
+    self.original_name = self.internal_name
     self.name = "struct " + name_
     self.parent_ctype = None
     self._fields = {}
@@ -682,8 +693,8 @@ class CTypeStruct(CTypeCompound):
 class CTypeUnion(CTypeCompound):
   """Represents a union type."""
 
-  __slots__ = ('_id', 'name', 'internal_name', 'had_name',
-               '_fields', '_field_list', 'has_name',
+  __slots__ = ('_id', 'name', 'internal_name', 'original_name', 
+               'had_name', '_fields', '_field_list', 'has_name',
                'parent_ctype')
   ID = 0
   
@@ -697,6 +708,7 @@ class CTypeUnion(CTypeCompound):
 
     self.had_name = self.has_name
     self.internal_name = name_
+    self.original_name = self.internal_name
     self.name = "union " + name_
     self.parent_ctype = None
     self._fields = {}
@@ -717,9 +729,8 @@ class CTypeUnion(CTypeCompound):
 class CTypeEnum(CTypeCompound):
   """Represents an enumeration type."""
 
-  __slots__ = ('_id', 'name', 'internal_name',
-               'fields', 'field_list', 'has_name',
-               'parent_ctype')
+  __slots__ = ('_id', 'name', 'internal_name', 'original_name',
+               'fields', 'field_list', 'has_name', 'parent_ctype')
   ID = 0
 
   BASE_EXPRESSION = CExpression([])
@@ -733,6 +744,7 @@ class CTypeEnum(CTypeCompound):
       name_ = "anon_enum_%d" % self._id
 
     self.internal_name = name_
+    self.original_name = self.internal_name
     self.name = "enum " + name_
     self.parent_ctype = None
     self.field_list = []

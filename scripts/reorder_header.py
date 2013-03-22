@@ -181,6 +181,105 @@ def should_include_unit(unit_decls, unit_toks, is_typedef):
   return True
 
 
+# Look for duplicate global enumerator constants and remove enums
+# with duplicate constants. This is a simplistic solution.
+#
+# This is mostly to address trivial cases of the following three
+# specific problems:
+#     i)   typedef struct foo { ... } foo;
+#     ii)  enum { X }; ... enum { X }; 
+#     iii) struct foo { }; ... struct foo { };
+def process_redundant_decls(units):
+  units = list(units)
+
+  enum_constants = set()
+  structs = set()
+  unions = set()
+  compounds = {
+    CTypeUnion: set(),
+    CTypeStruct: set()
+  }
+
+  open_comment = CToken("/*", CToken.COMMENT)
+  close_comment = CToken("*/", CToken.COMMENT)
+
+  T = 0
+
+  for unit_decls, unit_toks, is_typedef in units:
+    for ctype, name in unit_decls:
+      base_ctype = ctype.base_type()
+      
+      # look for duplicate definitions of enumerator constants
+      # and delete one of the enums (containing the duplicate
+      # constant).
+      if isinstance(base_ctype, CTypeEnum):
+        if ctype.is_type_use():
+          continue
+        
+        for name in base_ctype.field_list:
+          if name in enum_constants:
+            assert len(unit_decls) == 1
+            #unit_toks.insert(0, open_comment)
+            #unit_toks.append(close_comment)
+            del unit_toks[:]
+            break
+          else:
+            enum_constants.add(name)
+
+      # look for duplicate definitions of structs / unions
+      # and delete the most recently found type.
+      elif isinstance(base_ctype, CTypeStruct) \
+      or   isinstance(base_ctype, CTypeUnion):
+
+        handled = False
+        while not ctype.is_type_use():
+
+          # try to distinguish a forward declaration from the real
+          # definition. The types of the two things will be resolved
+          if ";" == unit_toks[-1].str \
+          and CToken.TYPE_USER == unit_toks[-2].kind \
+          and CToken.TYPE_SPECIFIER == unit_toks[-3].kind:
+            break
+
+          names = compounds[base_ctype.__class__]
+          if base_ctype.internal_name in names:
+            assert len(unit_decls) == 1
+            #unit_toks.insert(0, open_comment)
+            #unit_toks.append(close_comment)
+            del unit_toks[:]
+            handled = True
+          else:
+            names.add(base_ctype.internal_name)
+          break
+
+        # no naming conflict
+        if handled or name != base_ctype.original_name:
+          continue
+
+        # hard case, we need to preserve the struct/union
+        # definition; we will try to do this by just renaming
+        # the typedef'd name.
+        if not ctype.is_type_use():
+          print name, base_ctype.original_name, unit_toks
+          assert CToken.TYPE_USER == unit_toks[-2].kind
+          unit_toks[-2].str += T
+          T += 1
+          continue
+
+        # easy case, delete the typedef: because it's used in
+        # C++, it means the compiler will resolve the correct
+        # type.
+        else:
+          #unit_toks.insert(0, open_comment)
+          #unit_toks.append(close_comment)
+          del unit_toks[:]
+          continue
+
+
+
+
+
+
 def process_units(units):
   global order_numbers, seen, CHANGED
   decls = []
@@ -244,4 +343,5 @@ if "__main__" == __name__:
     buff = "".join(lines_)
     tokens = CTokenizer(buff)
     units = parser.parse_units(tokens)
+    process_redundant_decls(units)
     process_units(units)

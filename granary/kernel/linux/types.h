@@ -22,6 +22,7 @@
 #define template template_
 #define class class_
 #define delete delete_
+#define export export_
 
 #define int8_t K_int8_t
 #define int16_t K_int16_t
@@ -35,6 +36,11 @@
 
 #define bool K_bool
 #define _Bool K_Bool
+
+#include <linux/version.h>
+#define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
+#define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
+#define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
 
 
 #include <linux/kernel.h>
@@ -119,7 +125,9 @@
 #include <linux/miscdevice.h>
 #include <linux/magic.h>
 #include <linux/slab.h>
-/*#include <linux/cleancache.h>*/
+#if LINUX_MAJOR_VERSION >= 3
+#   include <linux/cleancache.h>
+#endif
 #include <linux/ratelimit.h>
 
 /* Taken from ramfs */
