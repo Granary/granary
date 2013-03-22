@@ -23,10 +23,15 @@
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/preempt.h>
+#include <linux/version.h>
 
 #include <asm/page.h>
 #include <asm/cacheflush.h>
 #include <asm/thread_info.h>
+
+#define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
+#define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
+#define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
 
 #include "granary/kernel/module.h"
 
@@ -54,7 +59,17 @@ MODULE_LICENSE("GPL");
 
 /// Get access to per-CPU Granary state.
 void *get_percpu_state(void *ptr) {
+#if LINUX_MAJOR_VERSION > 2 || (LINUX_MINOR_VERSION == 2 && LINUX_MINOR_VERSION > 6)
     return this_cpu_ptr(ptr);
+#elif LINUX_MAJOR_VERSION == 2 && LINUX_MINOR_VERSION == 6
+#   if LINUX_PATCH_VERSION >= 33
+    return this_cpu_ptr(ptr);
+#   else
+    return per_cpu_ptr(ptr, smp_processor_id());
+#   endif
+#else
+#   error "Unsupported Linux kernel version."
+#endif
 }
 
 

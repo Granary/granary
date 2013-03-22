@@ -25,6 +25,7 @@
 #define export export_
 #define typeof decltype
 #define this this_
+#define typename typename_
 
 #define int8_t K_int8_t
 #define int16_t K_int16_t

@@ -1,5 +1,5 @@
 
-KERNEL_DIR = /lib/modules/$(shell uname -r)/build
+KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 UNAME = $(shell uname)
 
@@ -13,6 +13,7 @@ GR_LD = gcc
 GR_LDD = ldd
 GR_CXX = g++-4.7
 GR_CXX_STD = -std=gnu++0x
+GR_PYTHON = python
 
 # Later used commands/options
 GR_MAKE =
@@ -20,7 +21,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 -O3
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -237,7 +238,7 @@ endef
 	# This is so that we can augment the detach table with internal libc symbols,
 	# etc.
 	define GR_GET_LD_LIBRARIES
-		$$($(GR_LDD) $(shell which $(GR_CC)) | python scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
+		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
 endef
 
 	define GR_GET_TYPE_DEFINES
@@ -248,7 +249,8 @@ else
 	GR_COMMON_KERNEL_FLAGS = 
 	
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
-		GR_COMMON_KERNEL_FLAGS += -mkernel -mcmodel=kernel
+		GR_COMMON_KERNEL_FLAGS += -mkernel -mcmodel=kernel -fno-builtin
+		GR_COMMON_KERNEL_FLAGS += -ffreestanding
 	else # gcc
 		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel -maccumulate-outgoing-args
 		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
@@ -297,18 +299,18 @@ endef
 	# Parse an assembly file looking for functions that must be called
 	# in order to initialise the static global data.
 	define GR_GENERATE_INIT_FUNC
-		$$(python scripts/generate_init_func.py $1 >> granary/gen/kernel_init.S)
+		$$($(GR_PYTHON) scripts/generate_init_func.py $1 >> granary/gen/kernel_init.S)
 endef
 
 	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
-		$$(python scripts/generate_detach_addresses.py)
+		$$($(GR_PYTHON) scripts/generate_detach_addresses.py)
 endef
 	
 	# Get all pre-defined macros so that we can suck in the kernel headers
 	# properly.
 	define GR_GET_TYPE_DEFINES
-		$(shell python scripts/generate_kernel_macros.py > /dev/null &> /dev/null ; cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
+		$$($(GR_PYTHON) scripts/generate_kernel_macros.py > /dev/null &> /dev/null ; cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
 endef
 endif
 
@@ -329,7 +331,7 @@ bin/deps/dr/%.o: deps/dr/%.c
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
 	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
-	python scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
+	$(GR_PYTHON) scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	rm bin/deps/dr/$*.1.S
 
 # Itanium C++ ABI rules for C++ files
@@ -346,7 +348,7 @@ bin/granary/%.o: granary/%.cc
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
 	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
-	python scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
+	$(GR_PYTHON) scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	rm bin/granary/x86/$*.1.S
 	$(call GR_COMPILE_ASM,$*)
 
@@ -378,18 +380,18 @@ bin/dlmain.o: dlmain.cc
 types:
 	$(call GR_GET_TYPE_DEFINES)
 	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
-	python scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
-	python scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)
+	$(GR_PYTHON) scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
+	$(GR_PYTHON) scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)
 
 
 # auto-generate wrappers
 wrappers: types
-	python scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
+	$(GR_PYTHON) scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
 
 
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
-	python scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
+	$(GR_PYTHON) scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
 	$(call GR_GET_LD_LIBRARIES)
 
 
@@ -413,12 +415,12 @@ install:
 	# Converting DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
 	# instruction-building functions...
 	@-mkdir granary/gen &> /dev/null ||:
-	python scripts/process_instr_create.py
+	$(GR_PYTHON) scripts/process_instr_create.py
 
 	# Compile a dummy file to assembly to figure out which assembly syntax
 	# to use for this compiler...
 	$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
-	python scripts/make_asm_defines.py
+	$(GR_PYTHON) scripts/make_asm_defines.py
 
 
 # Compile granary
