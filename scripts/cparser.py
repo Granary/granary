@@ -1298,6 +1298,7 @@ class CParser(object):
 
       #if is_typedef:
       #  print carat.line, carat.column
+      #  print toks
 
       assert not is_typedef
 
@@ -1805,9 +1806,9 @@ class CParser(object):
       elif "=" == t.str:
         i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=True)
       else:
-        #print
-        #print repr(t.str), t.carat.line, t.carat.column, ctype
-        #print
+        print
+        print repr(t.str), t.carat.line, t.carat.column, ctype
+        print
         assert False
 
     if call_recursive:

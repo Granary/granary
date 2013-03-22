@@ -128,10 +128,11 @@ def process_lines(lines):
       continue
 
     # look for inline function definitions and turn them into declarations
-    if "inline " in strip_line \
-    or " inline" in strip_line \
-    or "__inline" in strip_line \
-    or "inline__" in strip_line:
+    if " inline " in strip_line \
+    or "__inline " in strip_line \
+    or "inline__ " in strip_line \
+    or "always_inline" in strip_line:
+
       output_line = strip_line
       def_lines = []
       old_i = i
