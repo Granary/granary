@@ -24,6 +24,7 @@
 #define delete delete_
 #define export export_
 #define typeof decltype
+#define this this_
 
 #define int8_t K_int8_t
 #define int16_t K_int16_t
@@ -191,6 +192,9 @@
 #include <linux/magic.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
+
+/* for __fswab32 */
+#include <linux/swab.h>
 
 
 #endif /* GR_KERNEL_TYPES_H_ */

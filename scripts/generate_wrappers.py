@@ -66,6 +66,15 @@ def wrap_struct(ctype):
   if not will_pre_wrap_feilds(ctype):
     return
 
+  # make sure we're not trying to wrap a struct that is
+  # embedded in an anonymous union
+  parent_ctype = ctype.parent_ctype
+  while parent_ctype:
+    if isinstance(parent_ctype, CTypeUnion) \
+    and not parent_ctype.had_name:
+      return
+    parent_ctype = ctype.parent_ctype
+
   name = scoped_name(ctype)
 
   O = ctype.has_name and OUT or NULL
