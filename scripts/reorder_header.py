@@ -12,6 +12,7 @@ seen = set()
 COMPOUNDS = set()
 CHANGED = False
 
+
 def O(*args):
   print "".join(map(str, args))
 
@@ -216,6 +217,20 @@ def process_redundant_decls(units):
         if ctype.is_type_use():
           continue
         
+        # the union has no name; delete it. This helps us avoid
+        # issues in the kernel where an enumerator constant's value
+        # is dependent on the return from an inline function, which
+        # itself is stripped from the types.
+        #
+        # we just hope that we haven't deleted an enum where one of
+        # the deleted enumerator constants is referenced elsewhere.
+        #if not base_ctype.has_name:
+        #  assert len(unit_decls) == 1
+        #  #unit_toks.insert(0, open_comment)
+        #  #unit_toks.append(close_comment)
+        #  del unit_toks[:]
+        #  break
+
         for name in base_ctype.field_list:
           if name in enum_constants:
             assert len(unit_decls) == 1

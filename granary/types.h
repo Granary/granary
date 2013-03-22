@@ -33,7 +33,20 @@ extern "C" {
 
 
 #if GRANARY_IN_KERNEL
+
+    /* Big hack: the kernel has it's own definition for bool, which we macro'd
+     * out in kernel/linux/types.h.
+     */
     typedef bool K_Bool;
+
+    /* Big hack: we remove inline functions, and these two are called by some
+     * enumerator constants. The constants don't appear to be used in any
+     * significant way within the kernel types though.
+     */
+#   define __fswab32(...) __VA_ARGS__
+#   define __fswab64(...) __VA_ARGS__
+#   define __fswab16(...) __VA_ARGS__
+
 #   include "granary/gen/kernel_types.h"
 #else
 #   define _Bool bool

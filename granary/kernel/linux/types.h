@@ -45,6 +45,7 @@
  */
 #define __raw_tickets
 
+
 #include <linux/version.h>
 #define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
 #define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
@@ -193,7 +194,6 @@
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 
-/* for __fswab32 */
 #include <linux/swab.h>
 
 
