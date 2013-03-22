@@ -129,6 +129,8 @@ def process_lines(lines):
 
     # look for inline function definitions and turn them into declarations
     if " inline " in strip_line \
+    or strip_line.startswith("inline ") \
+    or strip_line.endswith(" inline") \
     or "__inline " in strip_line \
     or "inline__ " in strip_line \
     or "always_inline" in strip_line:
