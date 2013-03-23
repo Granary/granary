@@ -16,6 +16,14 @@
 #define D(...)
 
 
+extern "C" {
+    __attribute__((noinline))
+    void granary_break_on_predict(void) {
+        ASM("");
+    }
+}
+
+
 /// Used to sanity check on the layout of a prediction table in memory.
 #define SANTIY_CHECK_PREDICT(T) \
     static_assert( \
@@ -194,6 +202,7 @@ namespace granary {
         no_good_predictions:
         default:
             // TODO
+            granary_break_on_predict();
             break;
         }
 

@@ -525,7 +525,35 @@ namespace granary {
                             detach_tail_call = true;
                         }
                         break;
+
+                    // a very simple optimisation to keep more code in a basic
+                    // block is to inline the calls that will detach.
+                    } else if(find_detach_target(target_pc)) {
+
+                        if(in.is_call() || !in.is_unconditional_cti()) {
+                            ls.append(in);
+                            continue;
+                        }
+
+#if CONFIG_USE_ONLY_ONE_POLICY
+                    // if only one policy is being used, then we can inline
+                    // some direct CTIs, knowing that the policy for the target
+                    // of a CTI should never be changed by the instrumenter.
+                    } else {
+                        mangled_address am(target_pc, policy);
+                        if(cpu->code_cache.find(am.as_address)) {
+                            ls.append(in);
+                            if(in.is_unconditional_cti() && !in.is_call()) {
+                                fall_through_pc = false;
+                                fall_through_detach = false;
+                                break;
+                            } else {
+                                continue;
+                            }
+                        }
+#endif
                     }
+
 
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
 

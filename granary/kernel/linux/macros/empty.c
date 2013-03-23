@@ -1,2 +1,0 @@
-
-/* purposefully empty C file. */

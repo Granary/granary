@@ -964,13 +964,17 @@ namespace granary {
         app_pc target_pc(target.value.pc);
         mangled_address am(target_pc, target_policy.base_policy());
 
+        app_pc detach_target_pc(nullptr);
+
+#if CONFIG_USE_ONLY_ONE_POLICY
         // if we already know the target, then forgo a stub.
-        app_pc detach_target_pc(cpu->code_cache.find(am.as_address));
+        detach_target_pc = cpu->code_cache.find(am.as_address);
         if(detach_target_pc) {
             target.value.pc = detach_target_pc;
             in.set_cti_target(target);
             return;
         }
+#endif
 
         // if this is a detach point then replace the target address with the
         // detach address. This can be tricky because the instruction might not

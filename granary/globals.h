@@ -33,6 +33,13 @@
 #define CONFIG_LOCK_GLOBAL_CODE_CACHE 1
 
 
+/// Is instrumentation using only one policy? If so, there are some optimisation
+/// opportunities that involve looking for places where direct control-flow
+/// transfers don't need to be dynamically resolved / hot patched if we have
+/// already seen them.
+#define CONFIG_USE_ONLY_ONE_POLICY 1
+
+
 /// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch
 /// prediction" to try to reduce the cost of looking things up in the CPU
 /// private hash table. If IBL entry stubs are not used, then generic IBL

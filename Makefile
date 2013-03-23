@@ -241,9 +241,6 @@ endef
 		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
 endef
 
-	define GR_GET_TYPE_DEFINES
-endef
-
 # kernel space
 else
 	GR_COMMON_KERNEL_FLAGS = 
@@ -305,12 +302,6 @@ endef
 	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
 		$$($(GR_PYTHON) scripts/generate_detach_addresses.py)
-endef
-	
-	# Get all pre-defined macros so that we can suck in the kernel headers
-	# properly.
-	define GR_GET_TYPE_DEFINES
-		$$($(GR_PYTHON) scripts/generate_kernel_macros.py > /dev/null &> /dev/null ; cp granary/kernel/linux/macros/empty.o granary/gen/kernel_macros.h )
 endef
 endif
 
@@ -378,7 +369,6 @@ bin/dlmain.o: dlmain.cc
 # pre-process then post-process type information; this is used for wrappers,
 # etc.
 types:
-	$(call GR_GET_TYPE_DEFINES)
 	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
 	$(GR_PYTHON) scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
 	$(GR_PYTHON) scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)

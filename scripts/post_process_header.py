@@ -134,7 +134,7 @@ def process_lines(lines):
     or "__inline " in strip_line \
     or "inline__ " in strip_line \
     or "always_inline" in strip_line \
-    or ("static " in strip_line and "{" in strip_line): # uuugh
+    or ("static " in strip_line and "(" in strip_line): # uuugh
 
       output_line = strip_line
       def_lines = []

@@ -12,8 +12,6 @@
 #   error "This file should not be included directly."
 #endif
 
-#include "granary/gen/kernel_macros.h"
-
 #define new new_
 #define true true_
 #define false false_
@@ -46,6 +44,8 @@
  */
 #define __raw_tickets
 
+#define __KERNEL__
+#include <linux/kconfig.h>
 
 #include <linux/version.h>
 #define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
