@@ -521,7 +521,7 @@ namespace granary {
                     if(detach_app_pc == target_pc) {
                         fall_through_detach = true;
                         fall_through_pc = false;
-                        if(in.is_return()) {
+                        if(in.is_jump()) {
                             detach_tail_call = true;
                         }
                         break;
