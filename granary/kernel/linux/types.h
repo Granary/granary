@@ -57,7 +57,7 @@
 #elif 3 == LINUX_MAJOR_VERSION && LINUX_MINOR_VERSION >= 1
 #   include <linux/kconfig.h>
 #else
-#   include <linux/generated/autoconf.h>
+#   include <generated/autoconf.h>
 #   ifndef IS_ENABLED
 #       define IS_ENABLED(option) \
             (__enabled_ ## option || __enabled_ ## option ## _MODULE)
