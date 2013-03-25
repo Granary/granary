@@ -28,7 +28,7 @@ def visit_function(name, ctype):
   if will_wrap and func_ctype.is_variadic:
     will_wrap = must_wrap([func_ctype.ret_type] + func_ctype.param_types)
 
-  if has_extension_attribute(ctype, "deprecated"):
+  if will_wrap and has_extension_attribute(ctype, "deprecated"):
     will_wrap = False
 
   # put this before checking for things that we should ignore

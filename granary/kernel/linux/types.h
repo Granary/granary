@@ -45,13 +45,30 @@
 #define __raw_tickets
 
 #define __KERNEL__
-#include <linux/kconfig.h>
 
 #include <linux/version.h>
+
 #define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
 #define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
 #define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
 
+#if LINUX_MAJOR_VERSION > 3
+#   include <linux/kconfig.h>
+#elif 3 == LINUX_MAJOR_VERSION && LINUX_MINOR_VERSION >= 1
+#   include <linux/kconfig.h>
+#else
+#   include <linux/generated/autoconf.h>
+#   ifndef IS_ENABLED
+#       define IS_ENABLED(option) \
+            (__enabled_ ## option || __enabled_ ## option ## _MODULE)
+#   endif
+#   ifndef IS_BUILTIN
+#       define IS_BUILTIN(option) __enabled_ ## option
+#   endif
+#   ifndef IS_MODULE
+#       define IS_MODULE(option) __enabled_ ## option ## _MODULE
+#   endif
+#endif
 
 #include <linux/kernel.h>
 #include <linux/module.h>
