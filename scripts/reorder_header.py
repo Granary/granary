@@ -275,9 +275,9 @@ def process_redundant_decls(units):
         # definition; we will try to do this by just renaming
         # the typedef'd name.
         if not ctype.is_type_use():
-          print name, base_ctype.original_name, unit_toks
-          assert CToken.TYPE_USER == unit_toks[-2].kind
-          unit_toks[-2].str += T
+          #print name, base_ctype.original_name, unit_toks
+          #assert CToken.TYPE_USER == unit_toks[-2].kind
+          unit_toks[-2].str += str(T)
           T += 1
           continue
 

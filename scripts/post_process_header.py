@@ -39,10 +39,14 @@ def get_lines():
 
   # inject new lines in a structured manner
   buff = "\n".join(all_lines)
+  buff = buff.replace("\n", " ") # this is quite aggressive!
   buff = buff.replace("{", "{\n")
   buff = buff.replace("}", "}\n")
   buff = buff.replace(";", ";\n")
   buff = buff.replace("}\n;", "\n};\n")
+  buff = buff.replace("(\n", "(")
+  buff = buff.replace("\n)", ")")
+  buff = buff.replace("\n{", "{")
   buff = buff.replace(",\n", ", ")
 
   buff = re.sub(r"([^a-zA-Z_0-9])extern", r"\1\nextern", buff, flags=re.MULTILINE)
