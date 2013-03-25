@@ -3,7 +3,7 @@
 Each function is associated with a unique id."""
 
 from cparser import *
-from ignore import IGNORE
+from ignore import should_ignore
 from wrap import *
 
 header, code = None, None
@@ -18,8 +18,8 @@ FUNCTIONS = {}
 
 
 def visit_function(name, ctype):
-  global IGNORE, FUNCTIONS
-  if name in IGNORE:
+  global FUNCTIONS
+  if should_ignore(name):
     return
 
   func_ctype = ctype.base_type()

@@ -8,8 +8,9 @@ attach/detach requirements."""
 
 from cparser import *
 from cprinter import pretty_print_type
-from ignore import IGNORE
+from ignore import should_ignore
 from wrap import *
+import re
 
 def OUT(*args):
   print "".join(map(str, args))
@@ -111,6 +112,9 @@ def wrap_function(ctype, orig_ctype, func):
 
   # don't wrap deprecated functions; the compiler will complain about them.
   if has_extension_attribute(orig_ctype, "deprecated"):
+    return
+
+  if not must_wrap([ctype.ret_type] + ctype.param_types):
     return
 
   # internal function
@@ -339,9 +343,9 @@ if "__main__" == __name__:
     OUT("/* Auto-generated wrappers. */")
     OUT("#define D(...) __VA_ARGS__ ")
     for var, ctype in parser.vars():
-      if var not in IGNORE and var.startswith("v"):
+      if not should_ignore(var) and var.startswith("v"):
         visit_possible_variadic_def(var, ctype.base_type(), va_list)
 
     for var, ctype in parser.vars():
-      if var not in IGNORE:
+      if not should_ignore(var):
         visit_var_def(var, ctype)

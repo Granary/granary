@@ -1,4 +1,6 @@
 
+import re
+
 # TODO: currently have linker or platform errors for these.
 IGNORE = set([
   "add_profil",
@@ -88,3 +90,15 @@ IGNORE = set([
   "early_printk",
   "warn_alloc_failed",
 ])
+
+KERNEL_DEV = re.compile("dev_(emerg|alert|crit|err|warn|notice|info|debug|default|cont|printk)")
+
+def should_ignore(name):
+  global IGNORE, KERNEL_DEV
+  if name in IGNORE:
+    return True
+
+  elif KERNEL_DEV.search(name):
+    return True
+
+  return False

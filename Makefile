@@ -243,6 +243,10 @@ endef
 
 # kernel space
 else
+
+	# pass the debug / optimisation settings to the kernel's makefile.
+	EXTRA_CFLAGS = $(GR_DEBUG_LEVEL)
+
 	GR_COMMON_KERNEL_FLAGS = 
 	
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
