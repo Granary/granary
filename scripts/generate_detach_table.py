@@ -23,13 +23,20 @@ def visit_function(name, ctype):
     return
 
   func_ctype = ctype.base_type()
-  will_wrap = will_wrap_function(func_ctype.ret_type, func_ctype.param_types)
-  
-  if will_wrap and func_ctype.is_variadic:
-    will_wrap = must_wrap([func_ctype.ret_type] + func_ctype.param_types)
 
-  if will_wrap and has_extension_attribute(ctype, "deprecated"):
-    will_wrap = False
+  if name in MUST_WRAP:
+    will_wrap = True
+  
+  else:
+    will_wrap = will_wrap_function(
+        func_ctype.ret_type, func_ctype.param_types)
+    
+    if will_wrap and func_ctype.is_variadic:
+      will_wrap = must_wrap(
+          [func_ctype.ret_type] + func_ctype.param_types)
+
+    if will_wrap and has_extension_attribute(ctype, "deprecated"):
+      will_wrap = False
 
   # put this before checking for things that we should ignore
   # so that these type-based rules propagate to the dll detach
@@ -39,6 +46,7 @@ def visit_function(name, ctype):
   C("#endif")
 
   if not will_wrap:
+    C("DETACH(", name, ")")
     return
 
   # we don't want to add detach wrappers to these, but we do want

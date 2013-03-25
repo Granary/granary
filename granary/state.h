@@ -165,33 +165,6 @@ namespace granary {
                 MIN_ALIGN = 1
             };
         };
-
-
-        /// Meta information for the cpu-private code cache.
-        struct cpu_code_cache_meta {
-            enum {
-                HASH_SEED = 0xDEADBEEFU,
-            };
-
-            enum {
-                DEFAULT_SCALE_FACTOR = 8U,
-                MAX_SCAN_SCALE_FACTOR = 8U
-            };
-
-            __attribute__((hot))
-            FORCE_INLINE static uint32_t hash(const app_pc target_) throw() {
-                const uint64_t target(reinterpret_cast<uint64_t>(target_));
-                uint32_t h(target);
-
-                /// 32-bit finalizer from Murmurhash3 on the 32-low-order bits.
-                h ^= h >> 16;
-                h *= 0x85ebca6b;
-                h ^= h >> 13;
-                h *= 0xc2b2ae35;
-                h ^= h >> 16;
-                return h;
-            }
-        };
     }
 
 
@@ -202,21 +175,26 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
+
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::small_allocator_config>
             small_allocator;
+
 
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::fragment_allocator_config>
             fragment_allocator;
 
+
         /// Allocator for instructions in process.
         bump_pointer_allocator<detail::instruction_allocator_config>
             instruction_allocator;
 
+
         /// The block-local storage allocator for this CPU.
         bump_pointer_allocator<detail::block_allocator_config>
             block_allocator;
+
 
         /// Allocator for objects whose lifetimes end before the next entry
         /// into Granary.
@@ -228,6 +206,7 @@ namespace granary {
         /// mirrors the global one insofar as entries move from the global one
         /// into local ones over the course of execution.
         cpu_private_code_cache code_cache;
+
 
         /// A buffer, allocated from the global fragment allocator, that
         /// is used by DynamoRIO for privately encoding instructions.

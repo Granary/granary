@@ -454,8 +454,8 @@ namespace granary {
         // wrapper; and make sure that what we're wrapping is sane, i.e. that
         // we're not trying to wrap some garbage memory (it's an app address).
         if(is_host_address(app_addr)
-        || is_wrapper_address(app_addr_pc)
-        || !is_app_address(app_addr)) {
+        IF_KERNEL( || is_wrapper_address(app_addr_pc) )
+        IF_KERNEL( || !is_app_address(app_addr) )) {
             return unsafe_cast<func_type *>(app_addr);
         }
 

@@ -190,7 +190,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_vfork) && defined(CAN_WRAP_fork) && CAN_WRAP_vfork
+#if defined(CAN_WRAP_vfork) && CAN_WRAP_vfork
 #   define WRAPPER_FOR_vfork
     FUNCTION_WRAPPER(vfork, (pid_t), (void), {
         return fork();

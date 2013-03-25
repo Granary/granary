@@ -5,6 +5,11 @@ for figuring out what should be wrapped."""
 from cparser import *
 
 
+MUST_WRAP = set([
+  "vfork"
+])
+
+
 def is_function_pointer(ctype):
   if isinstance(ctype, CTypePointer):
     internal = ctype.ctype.unattributed_type()

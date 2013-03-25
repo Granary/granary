@@ -116,13 +116,14 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-        uint64_t addr_uint(reinterpret_cast<uint64_t>(app_target_addr));
-        uint32_t *header_addr(reinterpret_cast<uint32_t *>(
-            addr_uint + 16 - RETURN_ADDRESS_OFFSET));
+        IF_USER( uint64_t addr_uint(
+            reinterpret_cast<uint64_t>(app_target_addr)); )
+        IF_USER( uint32_t *header_addr(reinterpret_cast<uint32_t *>(
+            addr_uint + 16 - RETURN_ADDRESS_OFFSET)); )
 
-        if(is_code_cache_address(app_target_addr)
-        && RETURN_ADDRESS_OFFSET == (addr_uint % 8)
-        && basic_block_info::HEADER == *header_addr) {
+        if(IF_KERNEL( is_code_cache_address(app_target_addr))
+        IF_USER(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
+        && basic_block_info::HEADER == *header_addr)) {
 
             target_addr = instruction_list_mangler::ibl_exit_routine(
                 app_target_addr);

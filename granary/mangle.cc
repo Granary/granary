@@ -441,25 +441,24 @@ namespace granary {
         // and restored.
         instruction safe(
             save_and_restore_registers(all_regs, ibl, ibl.last()));
-        if(policy.is_in_xmm_context()) {
+
 #if !GRANARY_IN_KERNEL
+        if(policy.is_in_xmm_context()) {
             safe = save_and_restore_xmm_registers(
                 all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
-#endif
 
         // only save %xmm0 and %xmm1, because the ABI allows these registers
         // to be used for return values.
         //
         // TODO: should this be done in the kernel?
         } else {
-#if !GRANARY_IN_KERNEL
             all_regs.revive_all_xmm();
             all_regs.kill(dynamorio::DR_REG_XMM0);
             all_regs.kill(dynamorio::DR_REG_XMM1);
             safe = save_and_restore_xmm_registers(
                 all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
-#endif
         }
+#endif
 
         // save the target on the stack so that if the register is clobbered by
         // the CPU-private lookup function then we can recall it for the global
@@ -966,7 +965,6 @@ namespace granary {
 
         app_pc detach_target_pc(nullptr);
 
-#if CONFIG_USE_ONLY_ONE_POLICY
         // if we already know the target, then forgo a stub.
         detach_target_pc = cpu->code_cache.find(am.as_address);
         if(detach_target_pc) {
@@ -974,7 +972,6 @@ namespace granary {
             in.set_cti_target(target);
             return;
         }
-#endif
 
         // if this is a detach point then replace the target address with the
         // detach address. This can be tricky because the instruction might not
