@@ -41,8 +41,8 @@ namespace granary {
         __attribute__((hot))
         thread_state_handle(void) throw();
 
-        __attribute__((hot, always_inline))
-        inline thread_state *operator->(void) throw() {
+        FORCE_INLINE
+        thread_state *operator->(void) throw() {
             return state;
         }
     };
@@ -68,8 +68,8 @@ namespace granary {
         __attribute__((hot))
         cpu_state_handle(void) throw();
 
-        __attribute__((hot, always_inline))
-        inline cpu_state *operator->(void) throw() {
+        FORCE_INLINE
+        cpu_state *operator->(void) throw() {
             return state;
         }
 
@@ -87,7 +87,8 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false,
-                EXEC_WHERE = EXEC_NONE
+                EXEC_WHERE = EXEC_NONE,
+                MIN_ALIGN = 1
             };
         };
 
@@ -98,7 +99,8 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
-                EXEC_WHERE = EXEC_CODE_CACHE
+                EXEC_WHERE = EXEC_CODE_CACHE,
+                MIN_ALIGN = 16
             };
         };
 
@@ -109,7 +111,8 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = true,
                 SHARED = false,
-                EXEC_WHERE = EXEC_GEN_CODE
+                EXEC_WHERE = EXEC_GEN_CODE,
+                MIN_ALIGN = 1
             };
         };
 
@@ -119,7 +122,8 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = true,
-                EXEC_WHERE = EXEC_WRAPPER
+                EXEC_WHERE = EXEC_WRAPPER,
+                MIN_ALIGN = 1
             };
         };
 
@@ -131,7 +135,8 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false,
-                EXEC_WHERE = EXEC_NONE
+                EXEC_WHERE = EXEC_NONE,
+                MIN_ALIGN = 1
             };
         };
 
@@ -143,7 +148,8 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = true,
-                EXEC_WHERE = EXEC_GEN_CODE
+                EXEC_WHERE = EXEC_GEN_CODE,
+                MIN_ALIGN = 1
             };
         };
 
@@ -155,7 +161,8 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = true,
                 SHARED = false,
-                EXEC_WHERE = EXEC_NONE
+                EXEC_WHERE = EXEC_NONE,
+                MIN_ALIGN = 1
             };
         };
 

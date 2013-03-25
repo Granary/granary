@@ -17,8 +17,7 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...)
-//__VA_ARGS__
+#define D(...) __VA_ARGS__
 
 namespace granary {
 
@@ -122,8 +121,8 @@ namespace granary {
             addr_uint + 16 - RETURN_ADDRESS_OFFSET));
 
         if(is_code_cache_address(app_target_addr)
-        && (RETURN_ADDRESS_OFFSET == (addr_uint % 8)
-            && basic_block_info::HEADER == *header_addr)) {
+        && RETURN_ADDRESS_OFFSET == (addr_uint % 8)
+        && basic_block_info::HEADER == *header_addr) {
 
             target_addr = instruction_list_mangler::ibl_exit_routine(
                 app_target_addr);

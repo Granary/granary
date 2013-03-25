@@ -536,14 +536,21 @@ namespace granary {
                         }
 
 #if CONFIG_USE_ONLY_ONE_POLICY
-                    // if only one policy is being used, then we can inline
+                    // If only one policy is being used, then we can inline
                     // some direct CTIs, knowing that the policy for the target
                     // of a CTI should never be changed by the instrumenter.
-                    } else {
+                    //
+                    // We treat user/kernel space slightly differently here
+                    // because in kernel space, we can properly detect (from
+                    // `code_cache::find`) that we are re-entering the code
+                    // cache, but in user space we don't attempt such detection.
+                    } else IF_USER( if(!in.is_call()) ) {
                         mangled_address am(target_pc, policy);
                         if(cpu->code_cache.find(am.as_address)) {
                             ls.append(in);
-                            if(in.is_unconditional_cti() && !in.is_call()) {
+                            if(in.is_unconditional_cti()
+                            IF_KERNEL( && !in.is_call() )) {
+
                                 fall_through_pc = false;
                                 fall_through_detach = false;
                                 break;

@@ -197,5 +197,11 @@
 
 #include <linux/swab.h>
 
+/* for kthreads */
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
 
 #endif /* GR_KERNEL_TYPES_H_ */

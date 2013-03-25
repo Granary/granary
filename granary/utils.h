@@ -260,8 +260,8 @@ namespace granary {
     template <typename Operator, typename T0, typename... Types>
     struct apply_to_values<Operator, T0, Types...> {
     public:
-        __attribute__((always_inline))
-        static inline void apply(T0 &value, Types&... values) throw() {
+        FORCE_INLINE
+        static void apply(T0 &value, Types&... values) throw() {
             Operator::apply(value);
             apply_to_values<Operator, Types...>::apply(values...);
         }
@@ -270,8 +270,8 @@ namespace granary {
     template <typename Operator, typename T0>
     struct apply_to_values<Operator, T0> {
     public:
-        __attribute__((always_inline))
-        static inline void apply(T0 &value) throw() {
+        FORCE_INLINE
+        static void apply(T0 &value) throw() {
             Operator::apply(value);
         }
     };
@@ -280,8 +280,8 @@ namespace granary {
     template <typename Operator>
     struct apply_to_values<Operator> {
     public:
-        __attribute__((always_inline))
-        static inline void apply(void) throw() { }
+        FORCE_INLINE
+        static void apply(void) throw() { }
     };
 }
 

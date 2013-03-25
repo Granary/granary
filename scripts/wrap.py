@@ -23,6 +23,34 @@ def is_wrappable_type(ctype):
 WILL_WRAP_CACHE = {}
 
 
+def must_wrap(ctypes, seen_=None):
+  seen = seen_ or set()
+  must = False
+  for ctype in ctypes:
+    if must:
+      break
+
+    ctype = ctype.base_type()
+    if ctype in seen:
+      continue
+    else:
+      seen.add(ctype)
+
+    if isinstance(ctype, CTypeStruct):
+      for t, n in ctype.fields():
+        must = must_wrap([t.base_type()], seen)
+        if must:
+          break
+
+    elif is_function_pointer(ctype):
+      must = True
+
+    elif isinstance(ctype, CTypePointer):
+      must = must_wrap([ctype.ctype.base_type()], seen)
+
+  return must
+
+
 def will_pre_wrap_feilds(ctype):
   global WILL_WRAP_CACHE
   if ctype in WILL_WRAP_CACHE:
@@ -50,3 +78,4 @@ def will_wrap_function(ret_type, arg_types):
     if is_function_pointer(ctype) or is_wrappable_type(ctype):
       return True
   return False
+

@@ -142,17 +142,25 @@ namespace granary {
     }
 
 
+    const static uint16_t num_linear_entries[] = {
+        0,
+        PREDICT_LINEAR_1,
+        PREDICT_LINEAR_2,
+        PREDICT_LINEAR_3
+    };
+
+
     /// Decide how to replace an overwrite prediction table.
     __attribute__((hot))
     static void replace_linear_table(
         cpu_state_handle &cpu,
         prediction_table **table_ptr,
-        const prediction_table *table,
         const app_pc source,
         const app_pc dest,
         const unsigned reads_to_overwrites,
         const unsigned num_entries
     ) throw() {
+        const prediction_table *table(*table_ptr);
         prediction_table *new_table(nullptr);
         linear_prediction_table_ext<PREDICT_LINEAR_1> *table_2(nullptr);
         prediction_entry *new_entries(nullptr);
@@ -185,6 +193,8 @@ namespace granary {
                     cpu, ibl_entry, PREDICT_LINEAR, PREDICT_LINEAR_3));
 
         initialize_linear_table:
+
+            // fill in the entries
             new_entries = &(table_2->entry);
             for(unsigned i(0); i < num_entries; ++i) {
                 memcpy(
@@ -192,8 +202,9 @@ namespace granary {
             }
             new_entries[num_entries].source = source;
             new_entries[num_entries].dest = dest;
-            table_2->num_total_entries = 1 << reads_to_overwrites;
-            table_2->num_used_entries = 2;
+
+            table_2->num_total_entries = num_linear_entries[reads_to_overwrites];
+            table_2->num_used_entries = num_entries + 1;
             table_2->scale_level = reads_to_overwrites;
             new_table = unsafe_cast<prediction_table *>(table_2);
             break;
@@ -251,7 +262,6 @@ namespace granary {
             replace_linear_table(
                 cpu,
                 table_ptr,
-                table_,
                 source,
                 dest,
                 table->scale_level + 1,
@@ -340,7 +350,6 @@ namespace granary {
             replace_linear_table(
                 cpu,
                 table_ptr,
-                table_,
                 source,
                 dest,
                 (total_num_reads + 1) / (num_overwrites + 1),

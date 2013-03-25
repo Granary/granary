@@ -50,6 +50,9 @@ namespace granary {
             IS_TRANSIENT = !!Config::TRANSIENT,
             IS_SHARED = !!Config::SHARED,
 
+            // Minimum alignment for all allocated objects.
+            MIN_ALIGN = Config::MIN_ALIGN,
+
             // Adjusted slab size for allocating executable memory.
             SLAB_SIZE_ = Config::SLAB_SIZE,
             SLAB_SIZE = IF_KERNEL_ELSE(
@@ -182,9 +185,9 @@ namespace granary {
 
             // ensure that all allocations within an executable slab leave the
             // next allocatable address nicely aligned.
-            if(IS_EXECUTABLE) {
-                size += ALIGN_TO(size, 16);
-            }
+            //if(IS_EXECUTABLE) {
+            //    size += ALIGN_TO(size, 16);
+            //}
 
             // very big allocation; requires a custom slab.
             if(size > SLAB_SIZE) {
@@ -265,11 +268,11 @@ namespace granary {
         template <typename T, typename... Args>
         T *allocate(Args&&... args) throw() {
             enum {
-                ALIGN = alignof(T),
-                MIN_ALIGN = ALIGN < 16 && IS_EXECUTABLE ? 16 : ALIGN
+                ALIGN = (unsigned) alignof(T),
+                MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
             };
             acquire();
-            T *ptr(new (allocate_bare(MIN_ALIGN, sizeof(T))) T(args...));
+            T *ptr(new (allocate_bare(MIN_ALIGN_, sizeof(T))) T(args...));
             release();
             return ptr;
         }
@@ -291,17 +294,17 @@ namespace granary {
                 return unsafe_cast<T *>(allocate_bare(16, 1));
             }
 #else
-            return unsafe_cast<T *>(allocate_bare(16, 0));
+            return unsafe_cast<T *>(allocate_bare(MIN_ALIGN, 0));
 #endif
         }
 
         template <typename T>
         array<T> allocate_array(unsigned length) throw() {
             enum {
-                ALIGN = alignof(T),
-                MIN_ALIGN = (ALIGN < 16 && IS_EXECUTABLE) ? 16 : ALIGN
+                ALIGN = (unsigned) alignof(T),
+                MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
             };
-            uint8_t *arena(allocate_bare(MIN_ALIGN, sizeof(T) * length));
+            uint8_t *arena(allocate_bare(MIN_ALIGN_, sizeof(T) * length));
 
             // initialise each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.

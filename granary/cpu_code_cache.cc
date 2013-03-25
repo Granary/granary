@@ -14,14 +14,29 @@ namespace granary {
         MIN_DEFAULT_ENTRIES = 1024
     };
 
+    /// 64-bit mix function from murmurhash3.
+    FORCE_INLINE
+    static uint64_t fmix ( uint64_t k )
+    {
+      k ^= k >> 33;
+      k *= 0xff51afd7ed558ccdULL;
+      k ^= k >> 33;
+      k *= 0xc4ceb9fe1a85ec53ULL;
+      k ^= k >> 33;
+
+      return k;
+    }
+
     /// Find an entry in the CPU-private code cache.
     app_pc cpu_private_code_cache::find(const app_pc key) const throw() {
         if(!entries) {
             return nullptr;
         }
 
-        uint64_t index(reinterpret_cast<uint64_t>(key) & bit_mask);
-        for(int m(0); ++m <= MAX_SCAN; index = (index + 1) & bit_mask) {
+        uint64_t index(fmix(reinterpret_cast<uint64_t>(key)));
+
+        for(int m(0); ++m <= MAX_SCAN; ++index) {
+            index &= bit_mask;
             cpu_private_code_cache_entry &entry(entries[index]);
             if(!entry.source) {
                 break;
@@ -42,11 +57,13 @@ namespace granary {
         app_pc value,
         bool update
     ) throw() {
-        uint64_t index(reinterpret_cast<uint64_t>(key) & bit_mask);
+        uint64_t index(fmix(reinterpret_cast<uint64_t>(key)));
         unsigned scan(0);
         hash_store_state state(HASH_ENTRY_SKIPPED);
 
-        for(;; ++scan, index = (index + 1) & bit_mask) {
+        for(;; ++scan, ++index) {
+            index &= bit_mask;
+
             cpu_private_code_cache_entry &entry(entries[index]);
 
             // insert position

@@ -82,6 +82,9 @@ namespace granary {
 
             return nullptr;
         }
+
+        // in kernel space, we only look up entries in the hash table if they
+        // are known to be part of kernel code.
 #endif
 
         const function_wrapper *wrapper(nullptr);

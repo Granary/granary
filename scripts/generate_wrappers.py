@@ -166,7 +166,6 @@ def wrap_function(ctype, orig_ctype, func):
   if ctype.is_variadic:
     O("    va_list args__;")
     O("    va_start(args__, %s);" % last_arg_name)
-    
   
   # assignment of return value; unattributed_type is used in place of base type
   # so that we don't end up with anonymous structs/unions/enums.
@@ -189,12 +188,13 @@ def wrap_function(ctype, orig_ctype, func):
     if ctype.is_variadic:
       special = True
       O("    // TODO: variadic arguments")
+    O("    D( granary_fault(); )")
     O("    ", a, func, "(", ", ".join(param_names), ");")
 
   if ctype.is_variadic:
     O("    va_end(args__);")
 
-  O("    D( granary::printf(\"function_wrapper(%s) %s\\n\"); )" % (func, special and "*" or ""))
+  #O("    D( granary::printf(\"function_wrapper(%s) %s\\n\"); )" % (func, special and "*" or ""))  
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_WRAP(", r_v, ");")
@@ -337,7 +337,7 @@ if "__main__" == __name__:
       pass
 
     OUT("/* Auto-generated wrappers. */")
-    OUT("#define D(...) ")
+    OUT("#define D(...) __VA_ARGS__ ")
     for var, ctype in parser.vars():
       if var not in IGNORE and var.startswith("v"):
         visit_possible_variadic_def(var, ctype.base_type(), va_list)

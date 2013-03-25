@@ -262,8 +262,8 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
     template <typename T>
-    __attribute__((always_inline))
-    inline void construct_object(T &obj) throw() {
+    FORCE_INLINE
+    void construct_object(T &obj) throw() {
         new (&obj) T;
     }
 #endif
@@ -299,7 +299,7 @@ namespace granary {
     }
 
     template <typename T>
-    inline bool is_app_address(T *addr_) throw() {
+    inline bool is_app_address(T *) throw() {
         return true; // TODO
     }
 
