@@ -19,6 +19,28 @@
 namespace granary {
 
 
+
+#if GRANARY_IN_KERNEL
+    template <enum function_wrapper_id>
+    struct kernel_address;
+
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
+#   define WRAP_FOR_DETACH(func) \
+    template <> \
+    struct kernel_address< DETACH_ID_ ## func > { \
+    public: \
+        enum { \
+            VALUE = DETACH_ADDR_ ## func \
+        }; \
+    };
+#   include "granary/gen/detach.inc"
+#   undef DETACH
+#   undef TYPED_DETACH
+#   undef WRAP_FOR_DETACH
+#endif
+
+
     enum {
         PRE_WRAP_MASK       = (1 << 0),
         POST_WRAP_MASK      = (1 << 1),
@@ -411,8 +433,12 @@ namespace granary {
         static R apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
 
+#if GRANARY_IN_KERNEL
+            func_type *func((func_type *) kernel_address<id>::VALUE);
+#else
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
+#endif
 
             apply_to_values<pre_out_wrap, Args...>::apply(args...);
             R ret(func(args...));
@@ -446,8 +472,12 @@ namespace granary {
         static void apply(Args... args) throw() {
             P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
 
+#if GRANARY_IN_KERNEL
+            func_type *func((func_type *) kernel_address<id>::VALUE);
+#else
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
+#endif
 
             apply_to_values<pre_out_wrap, Args...>::apply(args...);
             func(args...);
@@ -515,7 +545,10 @@ namespace granary {
 
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
             granary::detach();
+#endif
 
             apply_to_values<post_in_wrap, Args...>::apply(args...);
             apply_to_values<return_in_wrap, R>::apply(ret);
@@ -549,7 +582,11 @@ namespace granary {
 
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             func_addr(args...);
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
             detach();
+#endif
+
             apply_to_values<post_in_wrap, Args...>::apply(args...);
         }
     };
@@ -567,25 +604,46 @@ namespace granary {
     app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
 
 
-    /// Return the address of a dynamic wrapper for a function.
+    /// Returns True iff we will will/would dynamic wrap this function.
     template <typename R, typename... Args>
-    R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) throw() {
-        typedef R (func_type)(Args...);
-
+    bool will_dynamic_wrap(R (*app_addr)(Args...)) throw() {
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
 
-        if(!app_addr_pc) {
-            return app_addr;
+        if(!is_valid_address(app_addr_pc)) {
+            return false;
         }
 
         // make sure we're not wrapping libc/kernel code, or double-wrapping a
         // wrapper; and make sure that what we're wrapping is sane, i.e. that
         // we're not trying to wrap some garbage memory (it's an app address).
-        if(is_host_address(app_addr)
+        if(is_host_address(app_addr_pc)
         IF_KERNEL( || is_wrapper_address(app_addr_pc) )
         IF_KERNEL( || !is_app_address(app_addr) )) {
-            return unsafe_cast<func_type *>(app_addr);
+            return false;
         }
+
+        return true;
+    }
+
+
+    /// Return
+    template <typename R, typename... Args>
+    inline bool is_dynamically_wrapped(R (*app_addr)(Args...)) throw() {
+        app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
+        return is_wrapper_address(app_addr_pc);
+    }
+
+
+    /// Return the address of a dynamic wrapper for a function.
+    template <typename R, typename... Args>
+    R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) throw() {
+        typedef R (func_type)(Args...);
+
+        if(!will_dynamic_wrap(app_addr)) {
+            return app_addr;
+        }
+
+        app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
 
         IF_KERNEL( ASSERT(!is_code_cache_address(app_addr_pc)); )
 
@@ -808,6 +866,21 @@ namespace granary {
                 dynamic_wrapper_of(lvalue); \
         } \
     } (void) depth__
+
+#define ABORT_IF_FUNCTION_IS_WRAPPED(lvalue) \
+    { \
+        if(IF_USER_ELSE(false, is_dynamically_wrapped(lvalue))) { \
+            return; \
+        } \
+    }
+
+
+#define ABORT_IF_SUB_FUNCTION_IS_WRAPPED(lvalue, field) \
+    { \
+        if(is_valid_address(lvalue)) { \
+            ABORT_IF_FUNCTION_IS_WRAPPED((lvalue)->field); \
+        } \
+    }
 
 #define PRE_IN_WRAP(lvalue) pre_in_wrap::apply((lvalue), depth__)
 #define POST_IN_WRAP(lvalue) post_in_wrap::apply((lvalue), depth__)

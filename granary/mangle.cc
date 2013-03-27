@@ -270,6 +270,7 @@ namespace granary {
     }
 
 
+#if !CONFIG_ENABLE_DIRECT_RETURN
     /// Checks to see if a return address is in the code cache. If so, it
     /// RETs to the address, otherwise it JMPs to the IBL entry routine.
     app_pc instruction_list_mangler::rbl_entry_routine(
@@ -375,6 +376,7 @@ namespace granary {
 
         return temp;
     }
+#endif
 
 
     /// Address of the CPU-private code cache lookup function.
@@ -1080,10 +1082,11 @@ namespace granary {
             in.replace_with(patchable(mangled(cti_(instr_(start_of_stub)))));
 
         } else if(in.is_return()) {
+#if !CONFIG_ENABLE_DIRECT_RETURN
             // TODO: handle RETn/RETf with a byte count.
             in.replace_with(
                 mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
-
+#endif
         } else {
             in.replace_with(mangled(jmp_(instr_(ibl_entry_stub(
                 *ls,

@@ -164,11 +164,13 @@ namespace granary {
         );
 
 
+#if !CONFIG_ENABLE_DIRECT_RETURN
         /// Checks to see if a return address is in the code cache. If so, it
         /// RETs to the address, otherwise it JMPs to the IBL entry routine.
         app_pc rbl_entry_routine(
             instrumentation_policy policy
         ) throw();
+#endif
 
 
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES

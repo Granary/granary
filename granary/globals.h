@@ -28,6 +28,15 @@
 #endif
 
 
+/// Should the direct return optimisation be enabled? This is not available for
+/// user space code; however, can make a different in kernel space.
+#if GRANARY_IN_KERNEL
+#   define CONFIG_ENABLE_DIRECT_RETURN 1
+#else
+#   define CONFIG_ENABLE_DIRECT_RETURN 0 // can't change in user space
+#endif
+
+
 /// Use an RCU-protected hash table for the global code cache lookups, or use
 /// a global lock?
 #define CONFIG_LOCK_GLOBAL_CODE_CACHE 1
@@ -66,7 +75,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically

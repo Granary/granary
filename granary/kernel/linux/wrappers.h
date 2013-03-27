@@ -81,13 +81,16 @@ TYPE_WRAPPER(struct inode, {
     NO_POST_IN
 
     PRE_OUT {
-        PRE_OUT_WRAP(arg.i_sb);
+        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.i_fop, llseek);
         PRE_OUT_WRAP(arg.i_fop);
+        PRE_OUT_WRAP(arg.i_sb);
     }
 
     POST_OUT {
-        PRE_OUT_WRAP(arg.i_mapping);
+        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.i_op, lookup);
+
         PRE_OUT_WRAP(arg.i_op);
+        PRE_OUT_WRAP(arg.i_mapping);
 
         // at a post-wrap depth of 2, we can generally get away with file
         // systems working with the following special case.
@@ -109,6 +112,8 @@ TYPE_WRAPPER(struct super_block, {
     NO_POST
     NO_PRE_IN
     PRE_OUT {
+        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.s_op, alloc_inode);
+
         PRE_OUT_WRAP(arg.s_op);
         PRE_OUT_WRAP(arg.dq_op);
         PRE_OUT_WRAP(arg.s_qcop);
@@ -133,6 +138,8 @@ TYPE_WRAPPER(struct super_block, {
 TYPE_WRAPPER(struct address_space, {
     NO_PRE_IN
     PRE_OUT {
+        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.a_ops, writepage);
+
         PRE_OUT_WRAP(arg.a_ops);
     }
     NO_POST

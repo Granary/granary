@@ -606,10 +606,12 @@ namespace granary {
                 // when a return targets the code cache by looking for the magic
                 // value that precedes basic block meta info.
                 } else {
-#if CONFIG_ENABLE_WRAPPERS || !CONFIG_TRANSPARENT_RETURN_ADDRESSES
+#if !CONFIG_ENABLE_DIRECT_RETURN
+#   if CONFIG_ENABLE_WRAPPERS || !CONFIG_TRANSPARENT_RETURN_ADDRESSES
                     fall_through_pc = true;
-#endif
+#   endif
                     break;
+#endif
                 }
 
             // between this block and next block we should disable interrupts.

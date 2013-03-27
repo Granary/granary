@@ -23,6 +23,7 @@
 
 #if CONFIG_ENABLE_WRAPPERS
 
+
 /// Wrapper templates.
 #   include "granary/wrapper.h"
 

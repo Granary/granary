@@ -6,11 +6,13 @@ Eventually, all reachable types are visited. Visitors of certain kinds of types
 will emit type wrappers if and only if a wrapper is necessary to maintain
 attach/detach requirements."""
 
+
 from cparser import *
 from cprinter import pretty_print_type
 from ignore import should_ignore
 from wrap import *
 import re
+
 
 def OUT(*args):
   print "".join(map(str, args))
@@ -42,13 +44,33 @@ def pre_wrap_var(ctype, var_name, O, indent="        "):
     O(indent, "PRE_OUT_WRAP(", var_name, ");")
 
 
+def avoid_wrap_fields(ctype, O, pred):
+  num_wrappable_fields = 0
+  for field_ctype, field_name in ctype.fields():
+    if pred(field_ctype):
+      num_wrappable_fields += 1
+
+  if num_wrappable_fields < 2:
+    return
+
+  for field_ctype, field_name in ctype.fields():
+    if is_function_pointer(field_ctype):
+      O("        ABORT_IF_FUNCTION_IS_WRAPPED(arg.", field_name, ");")
+      break
+
 def pre_wrap_fields(ctype, O):
+  avoid_wrap_fields(ctype, O, will_pre_wrap_type)
+
   for field_ctype, field_name in ctype.fields():
     if will_pre_wrap_type(field_ctype):
-      pre_wrap_var(field_ctype, field_name and ("arg.%s" % field_name) or None, O)
+      pre_wrap_var(
+          field_ctype, 
+          field_name and ("arg.%s" % field_name) or None,
+          O)
 
 
 def post_wrap_fields(ctype, O):
+  avoid_wrap_fields(ctype, O, will_post_wrap_type)
   for field_ctype, field_name in ctype.fields():
     if will_post_wrap_type(field_ctype):
       if is_function_pointer(field_ctype):
