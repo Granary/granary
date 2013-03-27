@@ -520,7 +520,6 @@ namespace granary {
 
                     if(detach_app_pc == target_pc) {
                         fall_through_detach = true;
-                        fall_through_pc = false;
                         if(in.is_jump()) {
                             detach_tail_call = true;
                         }
@@ -550,9 +549,6 @@ namespace granary {
                             ls.append(in);
                             if(in.is_unconditional_cti()
                             IF_KERNEL( && !in.is_call() )) {
-
-                                fall_through_pc = false;
-                                fall_through_detach = false;
                                 break;
                             } else {
                                 continue;
@@ -614,6 +610,7 @@ namespace granary {
 #endif
                 }
 
+#if 0
             // between this block and next block we should disable interrupts.
             } else if(dynamorio::OP_cli == in.op_code()) {
                 ls.append(in);
@@ -625,6 +622,7 @@ namespace granary {
                 ls.append(in);
                 fall_through_pc = true; // TODO
                 break;
+#endif
 
             // some other instruction
             } else {

@@ -75,7 +75,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -166,13 +166,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 2
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 3
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 2
+#   define CONFIG_MAX_POST_WRAP_DEPTH 3
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 2
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 3
 #endif
 
 

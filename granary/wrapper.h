@@ -877,7 +877,7 @@ namespace granary {
 
 #define ABORT_IF_SUB_FUNCTION_IS_WRAPPED(lvalue, field) \
     { \
-        if(is_valid_address(lvalue)) { \
+        if(0 < depth__ && is_valid_address(lvalue)) { \
             ABORT_IF_FUNCTION_IS_WRAPPED((lvalue)->field); \
         } \
     }
