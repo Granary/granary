@@ -26,8 +26,15 @@ struct kernel_module {
 
     /// Various module addresses.
     void *address;
+
     void *text_begin;
     void *text_end;
+
+    void *ro_text_begin;
+    void *ro_text_end;
+
+    void *ro_init_begin;
+    void *ro_init_end;
 
     /// The name.
     const char *name;

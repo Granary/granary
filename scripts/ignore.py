@@ -101,4 +101,7 @@ def should_ignore(name):
   elif KERNEL_DEV.search(name):
     return True
 
+  elif "printf" in name or "printk" in name:
+    return True
+    
   return False

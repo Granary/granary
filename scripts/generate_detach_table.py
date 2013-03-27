@@ -54,7 +54,12 @@ def visit_function(name, ctype):
   # detach thing, but also ignoring "hidden" versions of functions
   # that we already have, e.g. logf vs. __logf. 
   if name.startswith("__"):
-    if name[2:] not in FUNCTIONS:
+
+    # TODO: is this check needed? It screws up wrapping for
+    #       block_write_begin and __block_write_begin, which have
+    #       different signatures in the kernel.
+    
+    if True: # if name[2:] not in FUNCTIONS:
       C("#if CAN_WRAP_", name)
       C("#   ifdef DETACH_ADDR_", name)
       C("        WRAP_FOR_DETACH(", name, ")")
@@ -65,7 +70,10 @@ def visit_function(name, ctype):
     return
 
   C("#if CAN_WRAP_", name)
-  C("    WRAP_FOR_DETACH(", name,")")
+  if has_extension_attribute(ctype, "noreturn"):
+    C("    DETACH(", name,")")
+  else:
+    C("    WRAP_FOR_DETACH(", name,")")
   C("#endif")
 
 def visit_var_def(var, ctype):

@@ -23,8 +23,41 @@
 #   undef GRANARY_DONT_INCLUDE_CSTDLIB
 #endif
 
-
 extern "C" {
+
+
+    extern void granary_before_module_init(struct kernel_module *module);
+
+
+    /// Make a special init function that sets certain page permissions before
+    /// executing the module's init function.
+    static int (*make_init_func(
+        int (*init)(void),
+        kernel_module *module
+    ))(void) throw() {
+
+        using namespace granary;
+
+        app_pc init_pc(unsafe_cast<app_pc>(init));
+        app_pc init_cc(code_cache::find(init_pc, START_POLICY));
+
+        // build a dynamic wrapper-like construct that makes sure that certain
+        // data is readable/writable in the module before init() executes.
+        instruction_list ls;
+        ls.append(mov_imm_(reg::arg1, int64_(reinterpret_cast<uint64_t>(module))));
+        ls.append(call_(pc_(unsafe_cast<app_pc>(granary_before_module_init))));
+        ls.append(jmp_(pc_(init_cc)));
+
+        // encode it
+        app_pc wrapped_init_pc = global_state::WRAPPER_ALLOCATOR-> \
+            allocate_array<uint8_t>(ls.encoded_size());
+        ls.encode(wrapped_init_pc);
+
+        return unsafe_cast<int (*)(void)>(wrapped_init_pc);
+    }
+
+
+    /// Notify granary of a state change.
     void notify_module_state_change(struct kernel_module *module) {
         using namespace granary;
 
@@ -36,12 +69,13 @@ extern "C" {
             module->name);
 
         switch(module->state) {
-        case kernel_module::STATE_COMING:
-            *(module->init) = dynamic_wrapper_of(*(module->init));
+        case kernel_module::STATE_COMING: {
+            *(module->init) = make_init_func(*(module->init), module);
             if(module->exit) {
                 *(module->exit) = dynamic_wrapper_of(*(module->exit));
             }
             break;
+        }
 
         case kernel_module::STATE_LIVE:
             break;

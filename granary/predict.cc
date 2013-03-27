@@ -344,6 +344,12 @@ namespace granary {
 #if CONFIG_ENABLE_IBL_LINEAR_TABLE
         // should we change the prediction table type?
         if(prediction_table::HOT_OVERWRITE_COUNT <= num_overwrites) {
+            unsigned reads_to_overwrites(
+                (total_num_reads + 1) / (num_overwrites + 1));
+
+            if(reads_to_overwrites > 3) {
+                reads_to_overwrites = 3;
+            }
 
             // kill the old table and replace it.
             table->kind = PREDICT_DEAD;
@@ -352,7 +358,7 @@ namespace granary {
                 table_ptr,
                 source,
                 dest,
-                (total_num_reads + 1) / (num_overwrites + 1),
+                reads_to_overwrites,
                 1
             );
 

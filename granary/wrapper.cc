@@ -36,10 +36,12 @@
 #       pragma clang diagnostic push
 #       pragma clang diagnostic ignored "-Wshadow"
 #       pragma clang diagnostic ignored "-Wunused-variable"
+#       pragma clang diagnostic ignored "-Wunused-parameter"
 #   elif defined(GCC_VERSION) || defined(__GNUC__)
 #       pragma GCC diagnostic push
 #       pragma GCC diagnostic ignored "-Wshadow"
 #       pragma GCC diagnostic ignored "-Wunused-variable"
+#       pragma GCC diagnostic ignored "-Wunused-parameter"
 #   else
 #       error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
 #   endif

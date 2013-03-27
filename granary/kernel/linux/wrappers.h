@@ -30,7 +30,7 @@
         vsnprintf(&(name_buff[0]), sizeof(name_buff), namefmt, args__);
         struct task_struct *ret = kthread_create_on_node(threadfn, data, node, name_buff);
         va_end(args__);
-        RETURN_WRAP(ret);
+        RETURN_OUT_WRAP(ret);
         return ret;
     })
 #endif
@@ -52,10 +52,92 @@
         vsnprintf(&(name_buff[0]), sizeof(name_buff), namefmt, args__);
         struct task_struct *ret = kthread_create(threadfn, data, name_buff);
         va_end(args__);
-        RETURN_WRAP(ret);
+        RETURN_OUT_WRAP(ret);
         return ret;
     })
 #endif
+
+
+/// Disable wrapping of certain types.
+#define WRAPPER_FOR_struct_tracepoint
+#define WRAPPER_FOR_struct_module
+#define WRAPPER_FOR_struct_gendisk
+#define WRAPPER_FOR_struct_address
+#define WRAPPER_FOR_struct_sk_buff
+#define WRAPPER_FOR_struct_sk_buff_head
+#define WRAPPER_FOR_struct_sched_class
+#define WRAPPER_FOR_struct_nf_bridge_info
+#define WRAPPER_FOR_struct_sock_common
+#define WRAPPER_FOR_struct_sock
+#define WRAPPER_FOR_struct_ctl_table_set
+#define WRAPPER_FOR_struct_net
+#define WRAPPER_FOR_struct_task_struct
+
+
+/// Custom wrapped.
+#define WRAPPER_FOR_struct_inode
+TYPE_WRAPPER(struct inode, {
+    NO_PRE_IN
+    NO_POST_IN
+
+    PRE_OUT {
+        PRE_OUT_WRAP(arg.i_sb);
+        PRE_OUT_WRAP(arg.i_fop);
+    }
+
+    POST_OUT {
+        PRE_OUT_WRAP(arg.i_mapping);
+        PRE_OUT_WRAP(arg.i_op);
+
+        // at a post-wrap depth of 2, we can generally get away with file
+        // systems working with the following special case.
+        if(2 == CONFIG_MAX_POST_WRAP_DEPTH
+        && 1 == depth__
+        && is_valid_address(arg.i_mapping)) {
+            ++depth__;
+            PRE_OUT_WRAP(arg.i_mapping->a_ops);
+        }
+
+    }
+
+    NO_RETURN
+})
+
+
+#define WRAPPER_FOR_struct_super_block
+TYPE_WRAPPER(struct super_block, {
+    NO_POST
+    NO_PRE_IN
+    PRE_OUT {
+        PRE_OUT_WRAP(arg.s_op);
+        PRE_OUT_WRAP(arg.dq_op);
+        PRE_OUT_WRAP(arg.s_qcop);
+        PRE_OUT_WRAP(arg.s_export_op);
+        PRE_OUT_WRAP(arg.s_d_op);
+
+        if(is_valid_address(arg.s_xattr)) {
+            const struct xattr_handler **handlers(arg.s_xattr);
+            const struct xattr_handler *handler(nullptr);
+            for((handler) = *(handlers)++;
+                handler;
+                (handler) = *(handlers)++) {
+                PRE_OUT_WRAP(handler);
+            }
+        }
+    }
+    NO_RETURN
+})
+
+
+#define WRAPPER_FOR_struct_address_space
+TYPE_WRAPPER(struct address_space, {
+    NO_PRE_IN
+    PRE_OUT {
+        PRE_OUT_WRAP(arg.a_ops);
+    }
+    NO_POST
+    NO_RETURN
+})
 
 
 #endif /* granary_KERNEL_OVERRIDE_WRAPPERS_H_ */

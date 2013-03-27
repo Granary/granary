@@ -2149,6 +2149,26 @@ def has_extension_attribute(ctype, attr_name):
   return False
 
 
+def has_attribute(ctype, attr_name):
+  attr = 'is_' + attr_name
+  prev_ctype = None
+  while prev_ctype != ctype:
+    prev_ctype = ctype
+    if hasattr(ctype, attr):
+      return getattr(ctype, attr)
+
+    if isinstance(ctype, CTypeAttributed):
+      if hasattr(ctype.attrs, attr):
+        return getattr(ctype.attrs, attr)
+
+      ctype = ctype.ctype
+
+    else:
+      ctype = ctype.unaliased_type()
+  return False
+
+
+
 # for testing
 if "__main__" == __name__:
   import sys

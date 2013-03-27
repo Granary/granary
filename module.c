@@ -135,6 +135,54 @@ static int granary_device_open = 0;
 static int granary_device_initialised = 0;
 
 
+static void set_page_perms(
+    int (*set_memory_)(unsigned long, int),
+    void *begin,
+    void *end
+) {
+    const uint64_t begin_pfn = PFN_DOWN(((uint64_t) begin));
+    const uint64_t end_pfn = PFN_DOWN(((uint64_t) end));
+
+    if(begin == end) {
+        return;
+    }
+
+    if(end_pfn > begin_pfn) {
+        set_memory_(begin_pfn << PAGE_SHIFT, end_pfn - begin_pfn);
+
+    } else if(end_pfn == begin_pfn) {
+        set_memory_(begin_pfn << PAGE_SHIFT, 1);
+    }
+}
+
+
+/// Set a module's text to be non-executable
+static void module_set_exec_perms(struct kernel_module *module) {
+    set_page_perms(
+        set_memory_nx,
+        module->text_begin,
+        module->text_end
+    );
+}
+
+
+/// A callback that is invoked *immediately* before the module's init function
+/// is invoked.
+void granary_before_module_init(struct kernel_module *module) {
+    set_page_perms(
+        set_memory_rw,
+        module->ro_text_begin,
+        module->ro_text_end
+    );
+
+    set_page_perms(
+        set_memory_rw,
+        module->ro_init_begin,
+        module->ro_init_end
+    );
+}
+
+
 /// C++-implemented function that operates on modules. This is the
 /// bridge from C to C++.
 extern void notify_module_state_change(struct kernel_module *);
@@ -174,9 +222,23 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module->address = vmod;
     module->text_begin = mod->module_core;
     module->text_end = mod->module_core + mod->core_text_size;
+
+    // read-only data sections
+    module->ro_text_begin = module->text_end;
+    module->ro_text_end =
+        module->ro_text_begin + (mod->core_ro_size - mod->core_text_size);
+
+    module->ro_init_begin = mod->module_init + mod->init_text_size;
+    module->ro_init_end =
+        module->ro_init_begin + (mod->init_ro_size - mod->init_text_size);
+
     module->next = NULL;
     module->name = mod->name;
     module->is_instrumented = granary_device_initialised;
+
+    if(!is_granary) {
+        module_set_exec_perms(module);
+    }
 
     // Chain it in and return.
     *next_link = module;
@@ -205,6 +267,11 @@ static int module_load_notifier(
 
     printk("[granary] Got internal representation for module.\n");
     internal_mod->state = mod_state;
+
+    if(mod_state) {
+        module_set_exec_perms(internal_mod);
+    }
+
     printk("[granary] Notifying Granary of the module...\n");
     notify_module_state_change(internal_mod);
     printk("[granary] Notified Granary of the module.\n");
@@ -238,9 +305,6 @@ static void preallocate_executable(void) {
         (module_alloc_t *) DETACH_ADDR_module_alloc_update_bounds;
 
     void *mem = module_alloc_update_bounds(_250_MB);
-    uint64_t begin_pfn = 0;
-    uint64_t end_pfn = 0;
-
     if(!mem) {
         granary_fault();
     }
@@ -248,16 +312,11 @@ static void preallocate_executable(void) {
     EXEC_START = (unsigned long) mem;
     EXEC_END = EXEC_START + _250_MB;
 
-
-    begin_pfn = PFN_DOWN(EXEC_START);
-    end_pfn = PFN_DOWN(EXEC_END);
-
-    if(end_pfn > begin_pfn) {
-        set_memory_x(begin_pfn << PAGE_SHIFT, end_pfn - begin_pfn);
-
-    } else if(end_pfn == begin_pfn) {
-        set_memory_x(begin_pfn << PAGE_SHIFT, 1);
-    }
+    set_page_perms(
+        set_memory_x,
+        (void *) EXEC_START,
+        (void *) EXEC_END
+    );
 
     CODE_CACHE_END = EXEC_START;
     WRAPPER_START = EXEC_END - _1_MB;

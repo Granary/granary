@@ -23,24 +23,38 @@ def NULL(*args):
 VA_LIST_FUNCS = set()
 
 
+def ifdef_name(scoped_name):
+  return scoped_name.replace(" ", "_") \
+        .replace("::", "_") \
+        .replace(".", "_")
+
+
 def pre_wrap_var(ctype, var_name, O, indent="        "):
   intern_ctype = ctype.base_type()
+  if not must_wrap([intern_ctype]):
+    return
   if not var_name:
     if isinstance(intern_ctype, CTypeStruct):
       pre_wrap_fields(intern_ctype, O)
   elif is_function_pointer(intern_ctype):
     O(indent, "WRAP_FUNCTION(", var_name, ");")
-  elif is_wrappable_type(intern_ctype):
-    O(indent, "PRE_WRAP(", var_name, ");")
+  else:
+    O(indent, "PRE_OUT_WRAP(", var_name, ");")
 
 
 def pre_wrap_fields(ctype, O):
   for field_ctype, field_name in ctype.fields():
-    pre_wrap_var(field_ctype, field_name and ("arg.%s" % field_name) or None, O)
+    if will_pre_wrap_type(field_ctype):
+      pre_wrap_var(field_ctype, field_name and ("arg.%s" % field_name) or None, O)
 
 
 def post_wrap_fields(ctype, O):
-  pass
+  for field_ctype, field_name in ctype.fields():
+    if will_post_wrap_type(field_ctype):
+      if is_function_pointer(field_ctype):
+        O("        WRAP_FUNCTION(arg.", field_name, ");")
+      else:
+        O("        PRE_OUT_WRAP(arg.", field_name, ");")
 
 
 def scoped_name(ctype):
@@ -64,7 +78,9 @@ def scoped_name(ctype):
 
 
 def wrap_struct(ctype):
-  if not will_pre_wrap_feilds(ctype):
+  will_pre = will_pre_wrap_fields(ctype)
+  will_post = will_post_wrap_fields(ctype)
+  if not will_pre and not will_post:
     return
 
   # make sure we're not trying to wrap a struct that is
@@ -79,13 +95,28 @@ def wrap_struct(ctype):
   name = scoped_name(ctype)
 
   O = ctype.has_name and OUT or NULL
+  O("#ifndef WRAPPER_FOR_", ifdef_name(name))
   O("TYPE_WRAPPER(", name, ", ", "{")
-  O("    PRE {")
-  pre_wrap_fields(ctype, O)
-  O("    }")
-  O("    NO_POST")
+  
+  if will_pre:
+    O("    NO_PRE_IN")
+    O("    PRE_OUT {")
+    pre_wrap_fields(ctype, O)
+    O("    }")
+  else:
+    O("    NO_PRE")
+
+  if will_post:
+    O("    NO_POST_IN")
+    O("    POST_OUT {")
+    post_wrap_fields(ctype, O)
+    O("    }")
+  else:
+    O("    NO_POST")
   O("    NO_RETURN")
   O("})")
+  O("#endif")
+  O("")
   O("")
 
 
@@ -201,7 +232,7 @@ def wrap_function(ctype, orig_ctype, func):
   #O("    D( granary::printf(\"function_wrapper(%s) %s\\n\"); )" % (func, special and "*" or ""))  
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
-    O("    RETURN_WRAP(", r_v, ");")
+    O("    RETURN_IN_WRAP(", r_v, ");")
 
   if not is_void:
     O("    return ", r_v, ";")
@@ -248,7 +279,7 @@ def visit_typedef(ctype):
   visit_type(ctype.ctype)
 
   inner = ctype.ctype.base_type()
-  if isinstance(inner, CTypeStruct) and will_pre_wrap_feilds(inner):
+  if isinstance(inner, CTypeStruct) and will_pre_wrap_fields(inner):
     if not inner.has_name:
       # todo: make sure some structures are not double wrapped
       wrap_struct(inner, ctype.name)
@@ -342,6 +373,7 @@ if "__main__" == __name__:
 
     OUT("/* Auto-generated wrappers. */")
     OUT("#define D(...) __VA_ARGS__ ")
+    OUT("")
     for var, ctype in parser.vars():
       if not should_ignore(var) and var.startswith("v"):
         visit_possible_variadic_def(var, ctype.base_type(), va_list)

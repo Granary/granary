@@ -157,13 +157,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 3
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 2
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 3
+#   define CONFIG_MAX_POST_WRAP_DEPTH 2
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 3
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 2
 #endif
 
 

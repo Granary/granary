@@ -12,8 +12,7 @@ MUST_WRAP = set([
 
 def is_function_pointer(ctype):
   if isinstance(ctype, CTypePointer):
-    internal = ctype.ctype.unattributed_type()
-    return isinstance(internal, CTypeFunction)
+    return isinstance(ctype.ctype.base_type(), CTypeFunction)
   return False
 
 
@@ -25,8 +24,8 @@ def is_wrappable_type(ctype):
   return isinstance(ctype, CTypeStruct)
 
 
-WILL_WRAP_CACHE = {}
-
+WILL_PRE_WRAP_CACHE = {}
+WILL_POST_WRAP_CACHE = {}
 
 def must_wrap(ctypes, seen_=None):
   seen = seen_ or set()
@@ -56,23 +55,77 @@ def must_wrap(ctypes, seen_=None):
   return must
 
 
-def will_pre_wrap_feilds(ctype):
-  global WILL_WRAP_CACHE
-  if ctype in WILL_WRAP_CACHE:
-    return WILL_WRAP_CACHE[ctype]
+def will_pre_wrap_type(ctype):
+  global WILL_PRE_WRAP_CACHE
+  if ctype in WILL_PRE_WRAP_CACHE:
+    return WILL_PRE_WRAP_CACHE[ctype]
+
+  WILL_PRE_WRAP_CACHE[ctype] = False
+
+  intern_ctype = ctype.base_type()
+  ret = False
+  if not must_wrap([intern_ctype]):
+    ret = False
+  elif has_attribute(ctype, "const"):
+    ret = False
+  elif isinstance(intern_ctype, CTypeStruct):
+    ret = will_pre_wrap_fields(intern_ctype)
+  elif is_function_pointer(intern_ctype):
+    ret = True
+  elif isinstance(intern_ctype, CTypePointer):
+    ret = will_pre_wrap_type(intern_ctype.ctype)
+
+  WILL_PRE_WRAP_CACHE[ctype] = ret
+
+  return ret
+
+
+def will_pre_wrap_fields(ctype):
+  global WILL_PRE_WRAP_CACHE
+  if ctype in WILL_PRE_WRAP_CACHE:
+    return WILL_PRE_WRAP_CACHE[ctype]
 
   ret = False
-  for ctype, field_name in ctype.fields():
-    intern_ctype = ctype.base_type()
-    if not field_name:
-      if isinstance(intern_ctype, CTypeStruct):
-        ret = will_pre_wrap_feilds(intern_ctype)
-    elif is_function_pointer(intern_ctype):
+  for field_ctype, field_name in ctype.fields():
+    if will_pre_wrap_type(field_ctype):
       ret = True
-    elif is_wrappable_type(intern_ctype):
-      ret = True
+      break
   
-  WILL_WRAP_CACHE[ctype] = ret
+  WILL_PRE_WRAP_CACHE[ctype] = ret
+  return ret
+
+
+def will_post_wrap_type(ctype):
+  global WILL_POST_WRAP_CACHE
+  if ctype in WILL_POST_WRAP_CACHE:
+    return WILL_POST_WRAP_CACHE[ctype]
+
+  WILL_POST_WRAP_CACHE[ctype] = False
+  ret = False
+  intern_ctype = ctype.base_type()
+
+  if must_wrap([intern_ctype]):
+    if has_attribute(ctype, "const"):
+      ret = True
+    elif isinstance(intern_ctype, CTypePointer):
+      ret = will_post_wrap_type(intern_ctype.ctype)
+
+  WILL_POST_WRAP_CACHE[ctype] = ret
+  return ret
+
+
+def will_post_wrap_fields(ctype):
+  global WILL_POST_WRAP_CACHE
+  if ctype in WILL_POST_WRAP_CACHE:
+    return WILL_POST_WRAP_CACHE[ctype]
+
+  ret = False
+  for field_ctype, field_name in ctype.fields():
+    if will_post_wrap_type(field_ctype):
+      ret = True
+      break
+  
+  WILL_POST_WRAP_CACHE[ctype] = ret
   return ret
 
 

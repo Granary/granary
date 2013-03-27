@@ -33,9 +33,13 @@ namespace granary {
     struct type_wrapper_base {
     public:
 
-        inline static void pre_wrap(T &, const unsigned /* depth__ */) throw() { }
-        inline static void post_wrap(T &, const unsigned /* depth__ */) throw() { }
-        inline static void return_wrap(T &, const unsigned /* depth__ */) throw() { }
+        inline static void pre_in_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void post_in_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void return_in_wrap(T &, const int /* depth__ */) throw() { }
+
+        inline static void pre_out_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void post_out_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void return_out_wrap(T &, const int /* depth__ */) throw() { }
     };
 
 
@@ -48,19 +52,8 @@ namespace granary {
             /// Does this type have any wrappers? This will be a bitmask of
             /// the pre/post/return wrappers, so we can detect which are
             /// present.
-            HAS_WRAPPER             = 0,
-
-            /// Is there a pre wrapper defined for T? Pre wrappers apply
-            /// before a function call.
-            HAS_PRE_WRAPPER         = 0,
-
-            /// Is there a post wrapper defined for T? Post wrappers apply
-            /// after a function call.
-            HAS_POST_WRAPPER        = 0,
-
-            /// Is there a return wrapper defined for T? Return wrappers apply
-            /// after a function call on the return value of the function.
-            HAS_RETURN_WRAPPER      = 0,
+            HAS_IN_WRAPPER          = 0,
+            HAS_OUT_WRAPPER         = 0,
 
             /// Is a function pointer within T being used to track things (such
             /// as preventing re-wrapping)?
@@ -69,10 +62,151 @@ namespace granary {
     };
 
 
+    /// Specialisations to handle "following" types.
+    template <typename T>
+    struct type_wrapper_base<const T> {
+    public:
+
+#define WRAP_VALUE_(prefix) \
+    inline static void CAT(prefix, _wrap)(const T &val, const int depth) throw() { \
+        type_wrapper<T>::CAT(prefix, _wrap)(const_cast<T &>(val), depth); \
+    }
+
+        WRAP_VALUE_(pre_in)
+        WRAP_VALUE_(pre_out)
+        WRAP_VALUE_(post_in)
+        WRAP_VALUE_(post_out)
+        WRAP_VALUE_(return_in)
+        WRAP_VALUE_(return_out)
+
+#undef WRAP_VALUE_
+    };
+
+
+    /// Specialisations to handle "following" types.
+    template <typename T>
+    struct type_wrapper_base<volatile T> {
+    public:
+
+#define WRAP_VALUE_(prefix) \
+    inline static void CAT(prefix, _wrap)(volatile T &val, const int depth) throw() { \
+        type_wrapper<T>::CAT(prefix, _wrap)(reinterpret_cast<T &>(val), depth); \
+    }
+
+        WRAP_VALUE_(pre_in)
+        WRAP_VALUE_(pre_out)
+        WRAP_VALUE_(post_in)
+        WRAP_VALUE_(post_out)
+        WRAP_VALUE_(return_in)
+        WRAP_VALUE_(return_out)
+
+#undef WRAP_VALUE_
+    };
+
+
+#if GRANARY_IN_KERNEL
+    template <typename T>
+    FORCE_INLINE
+    static bool is_valid_address(T *addr) throw() {
+        // Taken from Documentation/x86/x86_64/mm.txt
+        return ((uint64_t) addr) > 0x00007fffffffffff;
+    }
+#endif
+
+
+    template <typename T>
+    struct type_wrapper_base<T *> {
+    public:
+
+#define WRAP_VALUE_(prefix) \
+    inline static void CAT(prefix, _wrap)(T *&val, const int depth) throw() { \
+        if(IF_USER_ELSE(!val, !is_valid_address(val))) { \
+            return; \
+        } \
+        type_wrapper<T>::CAT(prefix, _wrap)(*val, depth); \
+    }
+
+        WRAP_VALUE_(pre_in)
+        WRAP_VALUE_(pre_out)
+        WRAP_VALUE_(post_in)
+        WRAP_VALUE_(post_out)
+        WRAP_VALUE_(return_in)
+        WRAP_VALUE_(return_out)
+
+#undef WRAP_VALUE_
+    };
+
+
+    /// Check to see if something, or some derivation of that thing, has a
+    /// wrapper.
+    template <typename T>
+    struct has_in_wrapper {
+    public:
+        enum {
+            VALUE = type_wrapper<T>::HAS_IN_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_in_wrapper<T *> {
+    public:
+        enum {
+            VALUE = has_in_wrapper<T>::VALUE | type_wrapper<T *>::HAS_IN_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_in_wrapper<const T> {
+    public:
+        enum {
+            VALUE = has_in_wrapper<T>::VALUE
+                  | type_wrapper<const T>::HAS_IN_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_out_wrapper {
+    public:
+        enum {
+            VALUE = type_wrapper<T>::HAS_OUT_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_out_wrapper<T *> {
+    public:
+        enum {
+            VALUE = has_out_wrapper<T>::VALUE
+                  | type_wrapper<T *>::HAS_OUT_WRAPPER
+        };
+    };
+
+
+    template <typename T>
+    struct has_out_wrapper<const T> {
+    public:
+        enum {
+            VALUE = has_out_wrapper<T>::VALUE
+                  | type_wrapper<const T>::HAS_OUT_WRAPPER
+        };
+    };
+
+
     /// Specialisation to handle tricky cases.
 #define WRAP_BASIC_TYPE_IMPL(basic_type) \
     template <> \
-    struct has_wrapper<basic_type> { \
+    struct has_in_wrapper<basic_type> { \
+    public: \
+        enum { \
+            VALUE = 0 \
+        }; \
+    }; \
+    template <> \
+    struct has_out_wrapper<basic_type> { \
     public: \
         enum { \
             VALUE = 0 \
@@ -83,18 +217,28 @@ namespace granary {
     struct type_wrapper<basic_type> { \
     public: \
         enum { \
-            HAS_WRAPPER             = 0, \
-            HAS_PRE_WRAPPER         = 0, \
-            HAS_POST_WRAPPER        = 0, \
-            HAS_RETURN_WRAPPER      = 0, \
-            HAS_META_INFO_TRACKER   = 0 \
+            HAS_IN_WRAPPER              = 0, \
+            HAS_PRE_IN_WRAPPER          = 0, \
+            HAS_POST_IN_WRAPPER         = 0, \
+            HAS_RETURN_IN_WRAPPER       = 0, \
+            \
+            HAS_OUT_WRAPPER             = 0, \
+            HAS_PRE_OUT_WRAPPER         = 0, \
+            HAS_POST_OUT_WRAPPER        = 0, \
+            HAS_RETURN_OUT_WRAPPER      = 0, \
+            \
+            HAS_META_INFO_TRACKER       = 0 \
         }; \
         \
         typedef basic_type T; \
         \
-        inline static void pre_wrap(T, const unsigned) throw() { } \
-        inline static void post_wrap(T, const unsigned) throw() { } \
-        inline static void return_wrap(T, const unsigned) throw() { } \
+        inline static void pre_in_wrap(T, const int) throw() { } \
+        inline static void post_in_wrap(T, const int) throw() { } \
+        inline static void return_in_wrap(T, const int) throw() { } \
+        \
+        inline static void pre_out_wrap(T, const int) throw() { } \
+        inline static void post_out_wrap(T, const int) throw() { } \
+        inline static void return_out_wrap(T, const int) throw() { } \
     };
 
 
@@ -102,98 +246,7 @@ namespace granary {
     WRAP_BASIC_TYPE_IMPL(basic_type *) \
     WRAP_BASIC_TYPE_IMPL(const basic_type *) \
     WRAP_BASIC_TYPE_IMPL(volatile basic_type *) \
-    WRAP_BASIC_TYPE_IMPL(volatile const basic_type *) \
-
-
-    /// Specialisations to handle "following" types.
-    template <typename T>
-    struct type_wrapper_base<const T> {
-    public:
-
-        inline static void pre_wrap(const T &val, const unsigned depth) throw() {
-            type_wrapper<T>::pre_wrap(const_cast<T &>(val), depth);
-        }
-
-        inline static void post_wrap(const T &val, const unsigned depth) throw() {
-            type_wrapper<T>::post_wrap(const_cast<T &>(val), depth);
-        }
-
-        inline static void return_wrap(const T &val, const unsigned depth) throw() {
-            type_wrapper<T>::return_wrap(const_cast<T &>(val), depth);
-        }
-    };
-
-
-    /// Specialisations to handle "following" types.
-    template <typename T>
-    struct type_wrapper_base<volatile T> {
-    public:
-
-        inline static void pre_wrap(volatile T &val, const unsigned depth) throw() {
-            type_wrapper<T>::pre_wrap(reinterpret_cast<T &>(val), depth);
-        }
-
-        inline static void post_wrap(volatile T &val, const unsigned depth) throw() {
-            type_wrapper<T>::post_wrap(reinterpret_cast<T &>(val), depth);
-        }
-
-        inline static void return_wrap(volatile T &val, const unsigned depth) throw() {
-            type_wrapper<T>::return_wrap(reinterpret_cast<T &>(val), depth);
-        }
-    };
-
-
-    template <typename T>
-    struct type_wrapper_base<T *> {
-    public:
-
-        inline static void pre_wrap(T *&val, const unsigned depth) throw() {
-            if(val) {
-                type_wrapper<T>::pre_wrap(*val, depth);
-            }
-        }
-
-        inline static void post_wrap(T *&val, const unsigned depth) throw() {
-            if(val) {
-                type_wrapper<T>::post_wrap(*val, depth);
-            }
-        }
-
-        inline static void return_wrap(T *&val, const unsigned depth) throw() {
-            if(val) {
-                type_wrapper<T>::return_wrap(*val, depth);
-            }
-        }
-    };
-
-
-    /// Check to see if something, or some derivation of that thing, has a
-    /// wrapper.
-    template <typename T>
-    struct has_wrapper {
-    public:
-        enum {
-            VALUE = type_wrapper<T>::HAS_WRAPPER
-        };
-    };
-
-
-    template <typename T>
-    struct has_wrapper<T *> {
-    public:
-        enum {
-            VALUE = has_wrapper<T>::VALUE | type_wrapper<T *>::HAS_WRAPPER
-        };
-    };
-
-
-    template <typename T>
-    struct has_wrapper<const T> {
-    public:
-        enum {
-            VALUE = has_wrapper<T>::VALUE | type_wrapper<const T>::HAS_WRAPPER
-        };
-    };
+    WRAP_BASIC_TYPE_IMPL(volatile const basic_type *)
 
 
     WRAP_BASIC_TYPE(void)
@@ -222,34 +275,109 @@ namespace granary {
 
 
     /// Wrapping operators.
-    struct pre_wrap {
+    struct pre_in_wrap {
     public:
         template <typename T>
         static inline void apply(T &val) throw() {
-            if(has_wrapper<T>::VALUE | PRE_WRAP_MASK) {
-                type_wrapper<T>::pre_wrap(val, MAX_PRE_WRAP_DEPTH);
+            if(has_in_wrapper<T>::VALUE | PRE_WRAP_MASK) {
+                type_wrapper<T>::pre_in_wrap(val, MAX_PRE_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_in_wrapper<T>::VALUE | PRE_WRAP_MASK) {
+                type_wrapper<T>::pre_in_wrap(val, depth);
             }
         }
     };
 
 
-    struct post_wrap {
+    struct pre_out_wrap {
     public:
         template <typename T>
         static inline void apply(T &val) throw() {
-            if(has_wrapper<T>::VALUE | POST_WRAP_MASK) {
-                type_wrapper<T>::post_wrap(val, MAX_POST_WRAP_DEPTH);
+            if(has_out_wrapper<T>::VALUE | PRE_WRAP_MASK) {
+                type_wrapper<T>::pre_out_wrap(val, MAX_PRE_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_out_wrapper<T>::VALUE | PRE_WRAP_MASK) {
+                type_wrapper<T>::pre_out_wrap(val, depth);
             }
         }
     };
 
 
-    struct return_wrap {
+    struct post_in_wrap {
     public:
         template <typename T>
         static inline void apply(T &val) throw() {
-            if(has_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
-                type_wrapper<T>::return_wrap(val, MAX_RETURN_WRAP_DEPTH);
+            if(has_in_wrapper<T>::VALUE | POST_WRAP_MASK) {
+                type_wrapper<T>::post_in_wrap(val, MAX_POST_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_in_wrapper<T>::VALUE | POST_WRAP_MASK) {
+                type_wrapper<T>::post_in_wrap(val, depth);
+            }
+        }
+    };
+
+
+    struct post_out_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_out_wrapper<T>::VALUE | POST_WRAP_MASK) {
+                type_wrapper<T>::post_out_wrap(val, MAX_POST_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_out_wrapper<T>::VALUE | POST_WRAP_MASK) {
+                type_wrapper<T>::post_out_wrap(val, depth);
+            }
+        }
+    };
+
+
+    struct return_in_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_in_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
+                type_wrapper<T>::return_in_wrap(val, MAX_RETURN_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_in_wrapper<T>::VALUE |RETURN_WRAP_MASK) {
+                type_wrapper<T>::return_in_wrap(val, depth);
+            }
+        }
+    };
+
+
+    struct return_out_wrap {
+    public:
+        template <typename T>
+        static inline void apply(T &val) throw() {
+            if(has_out_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
+                type_wrapper<T>::return_out_wrap(val, MAX_RETURN_WRAP_DEPTH);
+            }
+        }
+
+        template <typename T>
+        static inline void apply(T &val, const int depth) throw() {
+            if(has_out_wrapper<T>::VALUE |RETURN_WRAP_MASK) {
+                type_wrapper<T>::return_out_wrap(val, depth);
             }
         }
     };
@@ -286,10 +414,10 @@ namespace granary {
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
 
-            apply_to_values<pre_wrap, Args...>::apply(args...);
+            apply_to_values<pre_out_wrap, Args...>::apply(args...);
             R ret(func(args...));
-            apply_to_values<post_wrap, Args...>::apply(args...);
-            apply_to_values<return_wrap, R>::apply(ret);
+            apply_to_values<post_out_wrap, Args...>::apply(args...);
+            apply_to_values<return_out_wrap, R>::apply(ret);
             return ret;
         }
     };
@@ -321,9 +449,9 @@ namespace granary {
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
 
-            apply_to_values<pre_wrap, Args...>::apply(args...);
+            apply_to_values<pre_out_wrap, Args...>::apply(args...);
             func(args...);
-            apply_to_values<post_wrap, Args...>::apply(args...);
+            apply_to_values<post_out_wrap, Args...>::apply(args...);
         }
     };
 
@@ -385,12 +513,12 @@ namespace granary {
 
             P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
 
-            apply_to_values<pre_wrap, Args...>::apply(args...);
+            apply_to_values<pre_in_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
             granary::detach();
 
-            apply_to_values<post_wrap, Args...>::apply(args...);
-            apply_to_values<return_wrap, R>::apply(ret);
+            apply_to_values<post_in_wrap, Args...>::apply(args...);
+            apply_to_values<return_in_wrap, R>::apply(ret);
             return ret;
         }
     };
@@ -419,10 +547,10 @@ namespace granary {
 
             P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
 
-            apply_to_values<pre_wrap, Args...>::apply(args...);
+            apply_to_values<pre_in_wrap, Args...>::apply(args...);
             func_addr(args...);
             detach();
-            apply_to_values<post_wrap, Args...>::apply(args...);
+            apply_to_values<post_in_wrap, Args...>::apply(args...);
         }
     };
 
@@ -473,22 +601,36 @@ namespace granary {
     template <typename R, typename... Args>
     struct type_wrapper<R (*)(Args...)> {
         enum {
-            HAS_WRAPPER             = 1,
-            HAS_PRE_WRAPPER         = 1,
-            HAS_POST_WRAPPER        = 0,
-            HAS_RETURN_WRAPPER      = 0,
-            HAS_META_INFO_TRACKER   = 0
+            HAS_IN_WRAPPER              = 1,
+            HAS_PRE_IN_WRAPPER          = 1,
+            HAS_POST_IN_WRAPPER         = 0,
+            HAS_RETURN_IN_WRAPPER       = 0,
+
+            HAS_OUT_WRAPPER             = 1,
+            HAS_PRE_OUT_WRAPPER         = 1,
+            HAS_POST_OUT_WRAPPER        = 0,
+            HAS_RETURN_OUT_WRAPPER      = 0,
+
+            HAS_META_INFO_TRACKER       = 0
         };
 
         typedef R (*T)(Args...);
 
-        inline static void pre_wrap(T &func_ptr, const unsigned) throw() {
+        FORCE_INLINE static void pre_in_wrap(T &func_ptr, const int) throw() {
             func_ptr = dynamic_wrapper_of(func_ptr);
         }
 
-        inline static void post_wrap(T &, const unsigned) throw() { }
+        FORCE_INLINE static void post_in_wrap(T &, const int) throw() { }
 
-        inline static void return_wrap(T &, const unsigned) throw() { }
+        FORCE_INLINE static void return_in_wrap(T &, const int) throw() { }
+
+        FORCE_INLINE static void pre_out_wrap(T &func_ptr, const int) throw() {
+            func_ptr = dynamic_wrapper_of(func_ptr);
+        }
+
+        FORCE_INLINE static void post_out_wrap(T &, const int) throw() { }
+
+        FORCE_INLINE static void return_out_wrap(T &, const int) throw() { }
     };
 
 
@@ -557,6 +699,15 @@ namespace granary {
     };
 }
 
+
+#define TYPE_WRAPPER_FUNCTION(prefix) \
+    FORCE_INLINE static void \
+    CAT(prefix, _wrap)(wrapped_type__ &arg__, int depth__) throw() { \
+        if(0 < depth__) { \
+            impl__::CAT(prefix, _wrap)(arg__, depth__ - 1); \
+        } \
+    } \
+
 #define TYPE_WRAPPER(type_name, wrap_code) \
     namespace granary { \
         template <> \
@@ -568,34 +719,28 @@ namespace granary {
             \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_WRAPPER = impl__::HAS_PRE_WRAPPER, \
-                HAS_POST_WRAPPER = impl__::HAS_POST_WRAPPER, \
-                HAS_RETURN_WRAPPER = impl__::HAS_RETURN_WRAPPER, \
-                HAS_WRAPPER = HAS_PRE_WRAPPER \
-                            | (HAS_POST_WRAPPER << 1) \
-                            | (HAS_RETURN_WRAPPER << 1) \
+                HAS_PRE_IN_WRAPPER = impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_PRE_OUT_WRAPPER = impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_IN_WRAPPER = impl__::HAS_POST_IN_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = impl__::HAS_RETURN_IN_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = impl__::HAS_RETURN_OUT_WRAPPER, \
+                HAS_IN_WRAPPER = 0 \
+                               | (HAS_PRE_IN_WRAPPER << 0) \
+                               | (HAS_POST_IN_WRAPPER << 1) \
+                               | (HAS_RETURN_IN_WRAPPER << 2), \
+                HAS_OUT_WRAPPER = 0 \
+                                | (HAS_PRE_OUT_WRAPPER << 0) \
+                                | (HAS_POST_OUT_WRAPPER << 1) \
+                                | (HAS_RETURN_OUT_WRAPPER << 2) \
             }; \
             \
-            inline static void \
-            pre_wrap(wrapped_type__ &arg__, const unsigned depth__) throw() { \
-                if(depth__) { \
-                    impl__::pre_wrap(arg__, depth__ - 1); \
-                } \
-            } \
-            \
-            inline static void \
-            post_wrap(wrapped_type__ &arg__, const unsigned depth__) throw() { \
-                if(depth__) { \
-                    impl__::post_wrap(arg__, depth__ - 1); \
-                } \
-            } \
-            \
-            inline static void \
-            return_wrap(wrapped_type__ &arg__, const unsigned depth__) throw() { \
-                if(depth__) { \
-                    impl__::return_wrap(arg__, depth__ - 1); \
-                } \
-            } \
+            TYPE_WRAPPER_FUNCTION(pre_in) \
+            TYPE_WRAPPER_FUNCTION(pre_out) \
+            TYPE_WRAPPER_FUNCTION(post_in) \
+            TYPE_WRAPPER_FUNCTION(post_out) \
+            TYPE_WRAPPER_FUNCTION(return_in) \
+            TYPE_WRAPPER_FUNCTION(return_out) \
         }; \
     }
 
@@ -624,7 +769,7 @@ namespace granary {
             static R apply arg_list throw() { \
                 IF_KERNEL(auto function_name((decltype(::function_name) *) \
                     DETACH_ADDR_ ## function_name );) \
-                const unsigned depth__(MAX_PRE_WRAP_DEPTH); \
+                int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
             } \
@@ -648,7 +793,7 @@ namespace granary {
         public: \
             typedef void R; \
             static void apply arg_list throw() { \
-                const unsigned depth__(MAX_PRE_WRAP_DEPTH); \
+                int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
             } \
@@ -657,43 +802,105 @@ namespace granary {
 
 #define WRAP_FUNCTION(lvalue) \
     { \
-        *const_cast<constless<decltype(lvalue)>::type *>(&lvalue) = \
-            dynamic_wrapper_of(lvalue); \
+        decltype(lvalue) new_lvalue__(dynamic_wrapper_of(lvalue)); \
+        if(lvalue != new_lvalue__) { \
+            *const_cast<constless<decltype(lvalue)>::type *>(&lvalue) = \
+                dynamic_wrapper_of(lvalue); \
+        } \
     } (void) depth__
 
-#define PRE_WRAP(lvalue) (void) (lvalue); (void) depth__
-#define POST_WRAP(lvalue) (void) (lvalue); (void) depth__
-#define RETURN_WRAP(lvalue) (void) depth__
+#define PRE_IN_WRAP(lvalue) pre_in_wrap::apply((lvalue), depth__)
+#define POST_IN_WRAP(lvalue) post_in_wrap::apply((lvalue), depth__)
+#define RETURN_IN_WRAP(lvalue) return_in_wrap::apply((lvalue), depth__)
+
+#define PRE_OUT_WRAP(lvalue) pre_out_wrap::apply((lvalue), depth__)
+#define POST_OUT_WRAP(lvalue) post_out_wrap::apply((lvalue), depth__)
+#define RETURN_OUT_WRAP(lvalue) return_out_wrap::apply((lvalue), depth__)
 
 #define NO_PRE \
-    enum { HAS_PRE_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(pre)
+    enum { HAS_PRE_IN_WRAPPER = 0, HAS_PRE_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(pre_in) \
+    EMPTY_WRAP_FUNC_IMPL(pre_out)
+
+#define NO_PRE_IN \
+    enum { HAS_PRE_IN_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(pre_in) \
+
+#define NO_PRE_OUT \
+    enum { HAS_PRE_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(pre_out) \
 
 #define NO_POST \
-    enum { HAS_POST_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(post)
+    enum { HAS_POST_IN_WRAPPER = 0, HAS_POST_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(post_in) \
+    EMPTY_WRAP_FUNC_IMPL(post_out)
+
+#define NO_POST_IN \
+    enum { HAS_POST_IN_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(post_in) \
+
+#define NO_POST_OUT \
+    enum { HAS_POST_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(post_out) \
 
 #define NO_RETURN \
-    enum { HAS_RETURN_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(return)
+    enum { HAS_RETURN_IN_WRAPPER = 0, HAS_RETURN_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(return_in) \
+    EMPTY_WRAP_FUNC_IMPL(return_out)
 
-#define PRE \
-    enum { HAS_PRE_WRAPPER = 1 }; \
-    WRAP_FUNC_IMPL(pre)
+#define NO_RETURN_IN \
+    enum { HAS_RETURN_IN_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(return_in) \
 
-#define POST \
-    enum { HAS_POST_WRAPPER = 1 }; \
-    WRAP_FUNC_IMPL(post)
+#define NO_RETURN_OUT \
+    enum { HAS_RETURN_OUT_WRAPPER = 0 }; \
+    EMPTY_WRAP_FUNC_IMPL(return_out) \
 
-#define RETURN \
-    enum { HAS_RETURN_WRAPPER = 1 }; \
-    WRAP_FUNC_IMPL(return)
+#define PRE_IN \
+    enum { HAS_PRE_IN_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(pre_in)
+
+#define PRE_OUT \
+    enum { HAS_PRE_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(pre_out)
+
+#define PRE_INOUT \
+    enum { HAS_PRE_IN_WRAPPER = 1, HAS_PRE_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(pre_out) { pre_in_wrap(arg, depth__); } \
+    WRAP_FUNC_IMPL(pre_in)
+
+#define POST_IN \
+    enum { HAS_POST_IN_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(post_in)
+
+#define POST_OUT \
+    enum { HAS_POST_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(post_out)
+
+#define POST_INOUT \
+    enum { HAS_POST_IN_WRAPPER = 1, HAS_POST_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(post_out) { post_in_wrap(arg, depth__); } \
+    WRAP_FUNC_IMPL(post_in)
+
+#define RETURN_IN \
+    enum { HAS_RETURN_IN_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(return_in)
+
+#define RETURN_OUT \
+    enum { HAS_RETURN_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(return_out)
+
+#define RETURN_INOUT \
+    enum { HAS_RETURN_IN_WRAPPER = 1, HAS_RETURN_OUT_WRAPPER = 1 }; \
+    WRAP_FUNC_IMPL(return_out) { return_in_wrap(arg, depth__); } \
+    WRAP_FUNC_IMPL(return_in)
+
 
 #define WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(wrapped_type__ &arg, unsigned depth__) throw()
+    static inline void kind ## _wrap(wrapped_type__ &arg, int depth__) throw()
 
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(wrapped_type__ &, unsigned ) throw() { }
+    static inline void kind ## _wrap(wrapped_type__ &, int) throw() { }
 
 #endif /* CONFIG_ENABLE_WRAPPERS */
 #endif /* granary_WRAPPER_H_ */
