@@ -76,6 +76,7 @@
 
 /// Custom wrapped.
 #define WRAPPER_FOR_struct_inode
+#if 0
 TYPE_WRAPPER(struct inode, {
     NO_PRE_IN
     NO_POST_IN
@@ -105,10 +106,13 @@ TYPE_WRAPPER(struct inode, {
 
     NO_RETURN
 })
+#endif
 
 
+/// Custom wrapping for super blocks.
 #define WRAPPER_FOR_struct_super_block
-TYPE_WRAPPER(struct super_block, {
+struct granary_super_block : public super_block { };
+TYPE_WRAPPER(granary_super_block, {
     NO_POST
     NO_PRE_IN
     PRE_OUT {
@@ -146,5 +150,25 @@ TYPE_WRAPPER(struct address_space, {
     NO_RETURN
 })
 
+
+#if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked
+    FUNCTION_WRAPPER(iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
+        granary_super_block *sb_((granary_super_block *) sb);
+        PRE_OUT_WRAP(sb_);
+        inode *inode(iget_locked(sb, ino));
+        PRE_OUT_WRAP(inode->i_mapping);
+        return inode;
+    })
+#endif
+
+
+#if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode
+    FUNCTION_WRAPPER(unlock_new_inode, (void), (struct inode *inode), {
+        PRE_OUT_WRAP(inode->i_op);
+        PRE_OUT_WRAP(inode->i_fop);
+        PRE_OUT_WRAP(inode->i_mapping);
+        unlock_new_inode(inode);
+    })
+#endif
 
 #endif /* granary_KERNEL_OVERRIDE_WRAPPERS_H_ */
