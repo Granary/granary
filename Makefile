@@ -315,78 +315,91 @@ GR_CXX_FLAGS += $(GR_EXTRA_CXX_FLAGS)
 
 # MumurHash3 rules for C++ files
 bin/deps/murmurhash/%.o: deps/murmurhash/%.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/murmurhash/$*.$(GR_OUTPUT_FORMAT)
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/murmurhash/$*.$(GR_OUTPUT_FORMAT)
+	@echo "  CXX [MURMUR] $<"
 
 
 # DynamoRIO rules for C files
 bin/deps/dr/%.o: deps/dr/%.c
-	$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/deps/dr/$*.$(GR_OUTPUT_FORMAT)
+	@$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/deps/dr/$*.$(GR_OUTPUT_FORMAT)
+	@echo "  CC [DR] $<"
 
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
-	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
-	$(GR_PYTHON) scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
-	rm bin/deps/dr/$*.1.S
+	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
+	@$(GR_PYTHON) scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
+	@rm bin/deps/dr/$*.1.S
+	@echo "  AS [DR] $<"
 
 # Itanium C++ ABI rules for C++ files
 bin/deps/icxxabi/%.o: deps/icxxabi/%.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/icxxabi/$*.$(GR_OUTPUT_FORMAT)
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/deps/icxxabi/$*.$(GR_OUTPUT_FORMAT)
+	@echo "  CXX [ABI] $<"
 
 
 # Granary rules for C++ files
 bin/granary/%.o: granary/%.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
-	$(call GR_GENERATE_INIT_FUNC,bin/granary/$*.$(GR_OUTPUT_FORMAT))
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/granary/$*.$(GR_OUTPUT_FORMAT)
+	@$(call GR_GENERATE_INIT_FUNC,bin/granary/$*.$(GR_OUTPUT_FORMAT))
+	@echo "  CXX [GR] $<"
 
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
-	$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
-	$(GR_PYTHON) scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
-	rm bin/granary/x86/$*.1.S
-	$(call GR_COMPILE_ASM,$*)
+	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
+	@$(GR_PYTHON) scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
+	@rm bin/granary/x86/$*.1.S
+	@$(call GR_COMPILE_ASM,$*)
+	@echo "  AS [GR] $<"
 
 
 # Granary rules for client C++ files
 bin/clients/%.o: clients/%.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
-	$(call GR_GENERATE_INIT_FUNC,bin/clients/$*.$(GR_OUTPUT_FORMAT))
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
+	@$(call GR_GENERATE_INIT_FUNC,bin/clients/$*.$(GR_OUTPUT_FORMAT))
+	@echo "  CXX [GR-CLIENT] $<"
 
 # Granary rules for test files
 bin/tests/%.o: tests/%.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/tests/$*.$(GR_OUTPUT_FORMAT)
-	$(call GR_GENERATE_INIT_FUNC,bin/tests/$*.$(GR_OUTPUT_FORMAT))
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/tests/$*.$(GR_OUTPUT_FORMAT)
+	@$(call GR_GENERATE_INIT_FUNC,bin/tests/$*.$(GR_OUTPUT_FORMAT))
+	@echo "  CXX [GR-TEST] $<"
 
 
 # Granary user space "harness" for testing compilation, etc. This is convenient
 # for coding Granary on non-Linux platforms because it allows for debugging the
 # build process, and partial testing of the code generation process.
 bin/main.o: main.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)
+	@echo "  CXX [GR] $<"
 
 
 bin/dlmain.o: dlmain.cc
-	$(GR_CXX) $(GR_CXX_FLAGS) -c dlmain.cc -o bin/dlmain.$(GR_OUTPUT_FORMAT)
+	@$(GR_CXX) $(GR_CXX_FLAGS) -c dlmain.cc -o bin/dlmain.$(GR_OUTPUT_FORMAT)
+	@echo "  CXX [GR] $<"
 
 
 # pre-process then post-process type information; this is used for wrappers,
 # etc.
 types:
-	$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
-	$(GR_PYTHON) scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
-	$(GR_PYTHON) scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)
+	@$(GR_TYPE_CC) $(GR_TYPE_CC_FLAGS) $(GR_TYPE_INCLUDE) -E $(GR_INPUT_TYPES) > /tmp/ppt.h
+	@$(GR_PYTHON) scripts/post_process_header.py /tmp/ppt.h > /tmp/ppt2.h
+	@$(GR_PYTHON) scripts/reorder_header.py /tmp/ppt2.h > $(GR_OUTPUT_TYPES)
+	@echo "  TYPES [GR] $(GR_OUTPUT_TYPES)"
 
 
 # auto-generate wrappers
 wrappers: types
-	$(GR_PYTHON) scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
+	@$(GR_PYTHON) scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
+	@echo "  WRAPPERS [GR] $(GR_OUTPUT_WRAPPERS)"
 
 
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
-	$(GR_PYTHON) scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
-	$(call GR_GET_LD_LIBRARIES)
+	@$(GR_PYTHON) scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
+	@$(call GR_GET_LD_LIBRARIES)
+	@echo "  DETACH [GR] granary/gen/detach.inc"
 
 
 # make the folders where binaries / generated assemblies are stored
