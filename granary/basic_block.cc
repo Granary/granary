@@ -506,6 +506,7 @@ namespace granary {
 
             // TODO: curiosity.
             if(dynamorio::OP_INVALID == in.op_code()) {
+                granary_fault();
                 break;
             }
 

@@ -13,10 +13,10 @@ LOAD_GRANARY = """sudo insmod %s"""
 
 # get sections
 GET_SECTIONS = """
-touch /tmp/granary.sections;
-rm /tmp/granary.sections;
-for x in $(find /sys/module/granary/sections -type f); do 
-  echo $(basename $x),$(sudo cat $x) >> /tmp/granary.sections; 
+touch /tmp/%s.sections;
+rm /tmp/%s.sections;
+for x in $(find /sys/module/%s/sections -type f); do 
+  echo $(basename $x),$(sudo cat $x) >> /tmp/%s.sections; 
 done"""
 
 # get /proc/kallsyms
@@ -26,7 +26,7 @@ GET_SYMBOLS = """sudo cat /proc/kallsyms > %s"""
 COPY_SYMBOLS_REMOTE = """scp -P %s %s %s@%s:%s"""
 
 # copy the sections
-COPY_SECTIONS_REMOTE = """scp -P %s /tmp/granary.sections %s@%s:/tmp/granary.sections"""
+COPY_SECTIONS_REMOTE = """scp -P %s /tmp/%s.sections %s@%s:/tmp/%s.sections"""
 
 
 if "__main__" == __name__:
@@ -64,6 +64,10 @@ if "__main__" == __name__:
   parser.add_argument(
     '--symbols', action='store_true',
     help='Tell Granary to load /proc/kallsyms from the target system. This will not load granary.')
+
+  parser.add_argument(
+    '--module', type=str, default='granary',
+    help='Name of the module for which symbols should be fetched.')
 
   args = parser.parse_args()
 
@@ -108,11 +112,17 @@ if "__main__" == __name__:
             local_granary_file,
             "/tmp/granary.ko"),
           LOAD_GRANARY % "/tmp/granary.ko",
-          GET_SECTIONS,
+          GET_SECTIONS % (
+            args.module,
+            args.module,
+            args.module,
+            args.module),
           COPY_SECTIONS_REMOTE % (
             args.local_port,
+            args.module,
             args.local_user,
-            args.local_host)),
+            args.local_host,
+            args.module)),
         shell=True)
   
   # Running granary on the local machine
@@ -128,7 +138,11 @@ if "__main__" == __name__:
       subprocess.call(
         "%s;%s" % (
           LOAD_GRANARY % local_granary_file,
-          GET_SECTIONS), 
+          GET_SECTIONS % (
+            args.module,
+            args.module,
+            args.module,
+            args.module)), 
         shell=True)
 
   # parse the sections

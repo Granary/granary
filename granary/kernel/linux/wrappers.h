@@ -72,41 +72,9 @@
 #define WRAPPER_FOR_struct_ctl_table_set
 #define WRAPPER_FOR_struct_net
 #define WRAPPER_FOR_struct_task_struct
-
-
-/// Custom wrapped.
+#define WRAPPER_FOR_struct_list_head
+#define WRAPPER_FOR_struct_dentry
 #define WRAPPER_FOR_struct_inode
-#if 0
-TYPE_WRAPPER(struct inode, {
-    NO_PRE_IN
-    NO_POST_IN
-
-    PRE_OUT {
-        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.i_fop, llseek);
-        PRE_OUT_WRAP(arg.i_fop);
-        PRE_OUT_WRAP(arg.i_sb);
-    }
-
-    POST_OUT {
-        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.i_op, lookup);
-
-        PRE_OUT_WRAP(arg.i_op);
-        PRE_OUT_WRAP(arg.i_mapping);
-
-        // at a post-wrap depth of 2, we can generally get away with file
-        // systems working with the following special case.
-        if(2 == CONFIG_MAX_POST_WRAP_DEPTH
-        && 1 == depth__
-        && is_valid_address(arg.i_mapping)) {
-            ++depth__;
-            PRE_OUT_WRAP(arg.i_mapping->a_ops);
-        }
-
-    }
-
-    NO_RETURN
-})
-#endif
 
 
 /// Custom wrapping for super blocks.
@@ -114,8 +82,7 @@ TYPE_WRAPPER(struct inode, {
 struct granary_super_block : public super_block { };
 TYPE_WRAPPER(granary_super_block, {
     NO_POST
-    NO_PRE_IN
-    PRE_OUT {
+    PRE_INOUT {
         ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.s_op, alloc_inode);
 
         PRE_OUT_WRAP(arg.s_op);
@@ -151,7 +118,20 @@ TYPE_WRAPPER(struct address_space, {
 })
 
 
+#define WRAPPER_FOR_struct_file_system_type
+TYPE_WRAPPER(struct file_system_type, {
+    NO_PRE_IN
+    PRE_OUT {
+        WRAP_FUNCTION(arg.mount);
+        WRAP_FUNCTION(arg.kill_sb);
+    }
+    NO_POST
+    NO_RETURN
+})
+
+
 #if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked
+#   define WRAPPER_FOR_iget_locked
     FUNCTION_WRAPPER(iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
         granary_super_block *sb_((granary_super_block *) sb);
         PRE_OUT_WRAP(sb_);
@@ -163,11 +143,37 @@ TYPE_WRAPPER(struct address_space, {
 
 
 #if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode
+#   define WRAPPER_FOR_unlock_new_inode
     FUNCTION_WRAPPER(unlock_new_inode, (void), (struct inode *inode), {
         PRE_OUT_WRAP(inode->i_op);
         PRE_OUT_WRAP(inode->i_fop);
         PRE_OUT_WRAP(inode->i_mapping);
         unlock_new_inode(inode);
+    })
+#endif
+
+
+/// Mount a block device. Make sure that the super block is wrapped when the
+/// dynamic wrapper for `fill_super`
+#if defined(CAN_WRAP_mount_bdev) && CAN_WRAP_mount_bdev
+#   define WRAPPER_FOR_mount_bdev
+    FUNCTION_WRAPPER(mount_bdev, (struct dentry *), (
+        struct file_system_type * fs_type ,
+        int flags ,
+        const char * dev_name ,
+        void * data ,
+        int ( * fill_super ) ( struct super_block * , void * , int )
+    ), {
+        PRE_OUT_WRAP(fs_type);
+
+        typedef int (granary_fill_super_t)(granary_super_block *, void *, int);
+
+        granary_fill_super_t *&fill_super_((granary_fill_super_t *&) fill_super);
+        WRAP_FUNCTION(fill_super);
+
+        struct dentry *ret(mount_bdev(fs_type, flags, dev_name, data, fill_super));
+        RETURN_IN_WRAP(ret);
+        return ret;
     })
 #endif
 
