@@ -26,6 +26,21 @@ make clean KERNEL=0 ; make all KERNEL=0 GR_CC=gcc GR_CXX=g++
 ### Compiling with clang
 Other options for clang are `GR_ASAN` and `GR_LIBCXX`.
 
+
+Instrumenting user space programs
+---------------------------------
+
+### Linux
+```basemake
+LD_PRELOAD=./libgranary.so my_program
+```
+
+### Mac OS X
+```basemake
+DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
+```
+
+
 Compiling for kernel space
 --------------------------
 This will prepare a number of auto-generated source and non-source files
@@ -101,16 +116,3 @@ statistics to the kernel log.
 After Granary is loaded and initialised, modules can be instrumented. To instrument
 a module, simply load it into the kernel. Loading a module is done using either
 `modprobe` or `insmod`.
-
-Instrumenting user space programs
----------------------------------
-
-### Linux
-```basemake
-LD_PRELOAD=./libgranary.so my_program
-```
-
-### Mac OS X
-```basemake
-DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
-```
