@@ -380,9 +380,9 @@ int _ZN7granary18is_wrapper_addressEPh(unsigned long addr) {
 }
 
 
-/// Allocate some executable memory
+/// Allocate some non-executable memory
 static void *allocate(unsigned long size) {
-    void *ret = kmalloc(size, GFP_ATOMIC);
+    void *ret = kmalloc(size, preempt_count() ? GFP_ATOMIC : GFP_KERNEL);
     if(!ret) {
         granary_fault();
     }

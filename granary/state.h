@@ -14,6 +14,10 @@
 
 #include "clients/state.h"
 
+#if GRANARY_IN_KERNEL
+#   include "deps/drk/segment_descriptor.h"
+#endif
+
 namespace granary {
 
 
@@ -61,6 +65,7 @@ namespace granary {
     /// private.
     struct cpu_state_handle {
     private:
+
         cpu_state *state;
 
     public:
@@ -168,6 +173,18 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    namespace detail {
+        struct interrupt_descriptor_table {
+            struct {
+                descriptor_t gate;
+                descriptor_t extra;
+            } vectors[256];
+        } __attribute__((aligned (CACHE_LINE_SIZE)));
+    }
+#endif
+
+
     /// Information maintained by granary about each CPU.
     ///
     /// Note: when in kernel space, we assume that this state
@@ -211,6 +228,10 @@ namespace granary {
         /// A buffer, allocated from the global fragment allocator, that
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
+
+
+        /// Interrupt descriptor table.
+        IF_KERNEL( detail::interrupt_descriptor_table idt; )
     };
 
 

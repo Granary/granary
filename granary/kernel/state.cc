@@ -29,8 +29,29 @@ namespace granary {
     { }
 
 
+    /// Initialise the per-cpu state, including a new interrupt descriptor
+    /// table.
     void init_cpu_state(void *) throw() {
-        new (get_percpu_state(CPU_STATES)) cpu_state;
+        cpu_state *state(new (get_percpu_state(CPU_STATES)) cpu_state);
+
+        system_table_register_t native;
+        system_table_register_t instrumented;
+
+        get_idtr(&native);
+        memcpy(&(state->idt), native.base, sizeof state->idt);
+
+#if 0
+        for(unsigned i(0); i < NUM_INTERRUPT_VECTORS; ++i) {
+            set_gate_target_offset(
+                &(state->idt.vectors[i].gate.gate)
+                );
+        }
+#endif
+
+        instrumented.base = &(state->idt.vectors[0].gate);
+        instrumented.limit = sizeof(detail::interrupt_descriptor_table) - 1;
+
+        //set_idtr(&instrumented);
     }
 
 

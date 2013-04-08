@@ -204,6 +204,10 @@ namespace granary {
         CACHE_LINE_SIZE = CONFIG_MIN_CACHE_LINE_SIZE,
 
 
+        /// Number of interrupt vectors
+        NUM_INTERRUPT_VECTORS = 256,
+
+
         /// Size (in bytes) of the x86-64 user space redzone.
         REDZONE_SIZE = IF_USER_ELSE(128, 0),
 
