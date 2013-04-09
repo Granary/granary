@@ -480,176 +480,6 @@ namespace granary {
     }
 
 
-#if 0
-    /// Declare that instructions form a doubly linked list, where the next/prev
-    /// pointers are embedded in the list structure.
-    template <>
-    struct list_meta<instruction> {
-        enum {
-            HAS_NEXT = 1,
-            HAS_PREV = 1,
-            NEXT_POINTER_OFFSET = offsetof(dynamorio::instr_t, next),
-            PREV_POINTER_OFFSET = offsetof(dynamorio::instr_t, prev)
-        };
-
-        static void *allocate(unsigned) throw() {
-            FAULT;
-            return nullptr;
-        }
-
-        static void free(void *, unsigned) throw() { }
-    };
-
-
-    /// An instruction within a list.
-    template <>
-    struct list_item<instruction> {
-
-        dynamorio::instr_t item;
-
-        inline instruction get_value(void) throw() {
-            FAULT;
-            return instruction(); // hack
-        }
-
-        inline list_item<instruction> *&get_next(void) throw() {
-            dynamorio::instr_t **ptr(&(item.next));
-            return *unsafe_cast<list_item<instruction> **>(ptr);
-        }
-
-        inline list_item<instruction> *&get_prev(void) throw() {
-            dynamorio::instr_t **ptr(&(item.prev));
-            return *unsafe_cast<list_item<instruction> **>(ptr);
-        }
-    };
-
-
-    /// represents a handle to a list item
-    template <>
-    struct list_item_handle<instruction> {
-    protected:
-
-        template <typename> friend struct list;
-
-        list_item<instruction> *handle;
-
-        list_item_handle(list_item<instruction> *handle_) throw()
-            : handle(handle_)
-        { }
-
-    public:
-
-        list_item_handle(void) throw()
-            : handle(nullptr)
-        { }
-
-        inline instruction operator*(void) throw() {
-            return instruction(&(handle->item));
-        }
-
-        inline instruction *operator->(void) throw() {
-            return unsafe_cast<instruction *>(handle);
-        }
-
-        inline bool is_valid(void) const throw() {
-            return nullptr != handle;
-        }
-
-        inline list_item_handle next(void) throw() {
-            return list_item_handle(handle->next);
-        }
-
-        inline list_item_handle prev(void) throw() {
-            return list_item_handle(handle->prev);
-        }
-    };
-
-
-    struct instruction_list : list<instruction> {
-    protected:
-
-        typedef list_item<instruction> item_type;
-        typedef list_item_handle<instruction> handle_type;
-
-        /// allocate a new list item
-        virtual item_type *allocate_(instruction in) throw() {
-            return unsafe_cast<item_type *>(in.instr);
-        }
-
-    public:
-
-        virtual ~instruction_list(void) throw() { }
-
-        /// The encoded size of the instruction list.
-        unsigned encoded_size(void) throw();
-
-        /// encodes an instruction list into a sequence of bytes
-        app_pc encode(app_pc pc) throw();
-
-        /// Performs a staged encoding of an instruction list into a sequence
-        /// of bytes.
-        ///
-        /// Note: This will not do any fancy jump resolution, alignment, etc.
-        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
-    };
-
-
-#if 0
-    /// Oh gawd this is such an ugly hack...
-    /// Originally, instructions were passed around by value, but that used
-    /// way too much stack space. The following partial specialisation is an
-    /// acceptable compromise to make the rest of the code "work".
-
-    /// Partial specialisation for lists of pointers to things that are lists,
-    /// where this list generalizes over the other list.
-    template <>
-    struct list<dynamorio::instr_t *> : public list<instruction> {
-    public:
-
-        typedef instruction T;
-
-        typedef typename list<T>::item_type item_type;
-
-        virtual ~list(void) throw() { }
-
-    protected:
-
-        /// allocate a new list item
-        virtual item_type *allocate_(instruction val) throw() {
-            return unsafe_cast<item_type *>(val.instr);
-        }
-    };
-
-
-    /// Represents a list of Level 3 instructions.
-    struct instruction_list : public list<dynamorio::instr_t *> {
-    public:
-
-        using list<dynamorio::instr_t *>::item_type;
-        using list<dynamorio::instr_t *>::handle_type;
-        using list<dynamorio::instr_t *>::append;
-        using list<dynamorio::instr_t *>::prepend;
-        using list<dynamorio::instr_t *>::insert_before;
-        using list<dynamorio::instr_t *>::insert_after;
-
-        virtual ~instruction_list(void) throw() { }
-
-        /// The encoded size of the instruction list.
-        unsigned encoded_size(void) throw();
-
-        /// encodes an instruction list into a sequence of bytes
-        app_pc encode(app_pc pc) throw();
-
-        /// Performs a staged encoding of an instruction list into a sequence
-        /// of bytes.
-        ///
-        /// Note: This will not do any fancy jump resolution, alignment, etc.
-        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
-    };
-#endif
-#endif
-
-
     /// represents a generic list of T, where the properties of the list are
     /// configured by specializing list_meta<T>.
     struct instruction_list {
@@ -713,11 +543,13 @@ namespace granary {
         instruction prepend(instruction item_) throw();
 
         /// Insert an element before another object in the list.
-        instruction insert_before(instruction after_item_, instruction item_);
+        instruction insert_before(instruction after_item_, instruction item_) throw();
 
+        /// Remove an element from an instruction list.
+        void remove(instruction to_remove) throw();
 
         /// Insert an element after another object in the list
-        instruction insert_after(instruction before_item_, instruction item_);
+        instruction insert_after(instruction before_item_, instruction item_) throw();
 
         /// The encoded size of the instruction list.
         unsigned encoded_size(void) throw();

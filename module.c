@@ -24,6 +24,7 @@
 #include <linux/percpu-defs.h>
 #include <linux/preempt.h>
 #include <linux/version.h>
+#include <linux/gfp.h>
 
 #include <asm/page.h>
 #include <asm/cacheflush.h>
@@ -99,6 +100,12 @@ void granary_break_on_fault(void) {
 int granary_fault(void) {
     __asm__ __volatile__ ("mov 0, %rax;");
     return 1;
+}
+
+
+/// Allocate memory for an interrupt descriptor table (IDT).
+void *granary_allocate_idt(void) {
+    return (void *) __get_free_page(GFP_ATOMIC);
 }
 
 

@@ -176,11 +176,9 @@ namespace granary {
 #if GRANARY_IN_KERNEL
     namespace detail {
         struct interrupt_descriptor_table {
-            struct {
-                descriptor_t gate;
-                descriptor_t extra;
-            } vectors[256];
-        } __attribute__((aligned (CACHE_LINE_SIZE)));
+            descriptor_t vectors[
+                 2 * NUM_INTERRUPT_VECTORS * sizeof(descriptor_t)];
+        } __attribute__((aligned (PAGE_SIZE)));
     }
 #endif
 
@@ -191,6 +189,9 @@ namespace granary {
     /// 	  is only accessed with interrupts disabled.
     struct cpu_state : public client::cpu_state {
     public:
+
+        /// Interrupt descriptor table.
+        IF_KERNEL( detail::interrupt_descriptor_table *idt; )
 
 
         /// The code cache allocator for this CPU.
@@ -228,10 +229,6 @@ namespace granary {
         /// A buffer, allocated from the global fragment allocator, that
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
-
-
-        /// Interrupt descriptor table.
-        IF_KERNEL( detail::interrupt_descriptor_table idt; )
     };
 
 

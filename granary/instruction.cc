@@ -310,6 +310,34 @@ namespace granary {
     }
 
 
+    /// Remove an element from an instruction list.
+    void instruction_list::remove(instruction to_remove) throw() {
+        dynamorio::instr_t *instr(to_remove.instr);
+        if(!instr) {
+            return;
+        }
+
+        ASSERT(0 < length_);
+
+        dynamorio::instr_t *prev(instr->prev);
+        dynamorio::instr_t *next(instr->next);
+
+        if(prev) {
+            prev->next = next;
+        } else {
+            first_ = next;
+        }
+
+        if(next) {
+            next->prev = prev;
+        } else {
+            last_ = prev;
+        }
+
+        --length_;
+    }
+
+
     /// Chain an element into the list.
     instruction instruction_list::chain(
         dynamorio::instr_t *before_item,
