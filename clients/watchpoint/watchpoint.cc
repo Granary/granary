@@ -25,7 +25,7 @@ namespace client {
 		(void)pc;
 
 		dynamorio::opnd_t instr_opnd;
-		client::memory_operand_modifier ops = client::memory_operand_modifier();
+		client::instruction_util ops = client::instruction_util();
 
 		if(is_write){
 			ops.find_dsts_operand(in);
