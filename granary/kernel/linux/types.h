@@ -225,4 +225,15 @@
 #include <linux/kthread.h>
 #include <linux/sched.h>
 
+
+#include <linux/libata.h>
+#include <linux/input.h>
+#include <linux/pnp.h>
+#include <linux/phy.h>
+#include <linux/posix_acl.h>
+/* taken from ext3/ext2*/
+
+//#include <linux/migrate_mode.h>
+
+
 #endif /* GR_KERNEL_TYPES_H_ */
