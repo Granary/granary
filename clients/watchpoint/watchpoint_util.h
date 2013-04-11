@@ -99,6 +99,14 @@ private:
 		src_size = opnd.size;
 	}
 
+	inline void
+	memory_operand_replacer(dynamorio::opnd_t *opnd) {
+	    if(BASE_DISP_kind == opnd->kind) {
+	        const int orig_size = dynamorio::opnd_get_size(*opnd);
+	        *opnd = replacement_operand;
+	        dynamorio::opnd_set_size(opnd, orig_size);
+	    }
+	}
 public:
 	instruction_util():
 		has_memory_operand(false),
@@ -154,6 +162,11 @@ public:
 			memory_dsts_operand_finder(dynamorio::instr_get_dst(instr, i));
 		}
 	}
+
+	inline void replace_dsts_operand(granary::instruction &instr){
+		(void)instr;
+	}
+
 	inline void find_src_operand(granary::instruction &in) {
 		dynamorio::instr_t *instr;
 		instr = (dynamorio::instr_t*)in;
@@ -161,6 +174,10 @@ public:
 		for(i = 0; i < max; ++i) {
 				memory_src_operand_finder(dynamorio::instr_get_src(instr, i));
 		}
+	}
+
+	inline void replace_src_operand(granary::instruction &instr){
+		(void)instr;
 	}
 
 }instruction_util;

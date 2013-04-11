@@ -16,6 +16,25 @@
 namespace client {
 
     struct watchpoint_policy : public granary::instrumentation_policy {
+    private:
+        void instrumentation_base_disp(granary::instruction_list &ls,
+        		granary::instruction &in,
+        		dynamorio::app_pc pc,
+        		client::instruction_util &ops,
+        		bool is_write);
+
+        void instrumentation_far_base_disp(granary::instruction_list &ls,
+        		granary::instruction &in,
+        		dynamorio::app_pc pc,
+        		client::instruction_util &ops,
+        		bool is_write);
+
+        void instrumentation_operand_rep(granary::instruction_list &ls,
+        		granary::instruction &in,
+        		dynamorio::app_pc pc,
+        		client::instruction_util &ops,
+        		bool is_write);
+
     public:
 
         /// Instruction a basic block.
@@ -32,9 +51,19 @@ namespace client {
         		granary::basic_block_state &bb,
         		granary::instruction_list &ls,
         		granary::instruction &in,
-        		dynamorio::app_pc,
+        		dynamorio::app_pc pc,
         		bool is_write);
+
+        enum {
+            WATCHPOINT_INDEX_MASK   = 0xffff800000000000ULL,
+            SHADOW_START_ADDR       = 0xffffffffe0000000ULL,
+            SHADOW_END_ADDR         = 0xffffffffff000000ULL,
+            SHIFT_BIT_COUNT         = 0x30
+        };
+
     };
+
+
 }
 
 
