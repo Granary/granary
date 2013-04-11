@@ -28,6 +28,14 @@
 #endif
 
 
+/// Can client code handle interrupts?
+#if GRANARY_IN_KERNEL
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
+#else
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
+#endif
+
+
 /// Should the direct return optimisation be enabled? This is not available for
 /// user space code; however, can make a different in kernel space.
 #if GRANARY_IN_KERNEL
@@ -189,6 +197,7 @@
 #include "granary/pp.h"
 
 namespace granary {
+
 
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
@@ -357,5 +366,9 @@ extern "C" {
 #include "granary/init.h"
 #include "granary/perf.h"
 #include "granary/printf.h"
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   include "granary/kernel/interrupt.h"
+#endif
 
 #endif /* granary_GLOBALS_H_ */

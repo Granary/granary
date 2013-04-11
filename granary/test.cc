@@ -137,6 +137,22 @@ namespace granary {
     }
 #endif
 
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// Handle an interrupt in module code. Returns true iff the client
+    /// handles the interrupt.
+    bool test_policy::handle_interrupt(
+        cpu_state_handle &,
+        thread_state_handle &,
+        basic_block_state &,
+        interrupt_stack_frame &,
+        interrupt_vector
+    ) throw() {
+        return false;
+    }
+#endif
+
+
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_basic_block(
         cpu_state_handle &,

@@ -1175,11 +1175,13 @@ namespace granary {
         instruction last
     ) throw() {
         if(in.begins_delay_region() && first.is_valid()) {
-            // TODO
+            in.remove_flag(instruction::DELAY_BEGIN);
+            first.add_flag(instruction::DELAY_BEGIN);
         }
 
         if(in.ends_delay_region() && last.is_valid()) {
-            // TODO
+            in.remove_flag(instruction::DELAY_END);
+            last.add_flag(instruction::DELAY_END);
         }
     }
 

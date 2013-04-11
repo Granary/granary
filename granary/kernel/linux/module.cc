@@ -16,7 +16,8 @@
 #include "granary/test.h"
 #include "granary/wrapper.h"
 
-#include "granary/kernel/module.h"
+#include "granary/kernel/linux/module.h"
+
 #include "granary/kernel/printf.h"
 
 #ifdef GRANARY_DONT_INCLUDE_CSTDLIB

@@ -213,7 +213,7 @@ namespace granary {
 
         static typename dynamorio::dcontext_t *DCONTEXT;
 
-        enum {
+        enum instruction_flag {
             DONT_MANGLE     = (1 << 0),
             DELAY_BEGIN     = (1 << 1),
             DELAY_END       = (1 << 2)
@@ -373,6 +373,17 @@ namespace granary {
         }
 
 
+        /// Remove a specific granary flag.
+        inline void remove_flag(instruction_flag flag) throw() {
+            instr->granary_flags &= ~flag;
+        }
+
+        /// Remove a specific granary flag.
+        inline void add_flag(instruction_flag flag) throw() {
+            instr->granary_flags |= flag;
+        }
+
+
         /// Return true iff this instruction begins a delay region.
         inline bool begins_delay_region(void) const throw() {
             return 0 != (DELAY_BEGIN & instr->granary_flags);
@@ -393,7 +404,7 @@ namespace granary {
 
         /// Set the state of the instruction to be mangled.
         inline void set_mangled(void) throw() {
-            instr->granary_flags |= DONT_MANGLE;
+            add_flag(DONT_MANGLE);
         }
 
 

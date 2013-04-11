@@ -267,10 +267,11 @@ else
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
 	
 	# kernel-specific versions of granary functions
-	GR_OBJS += bin/granary/kernel/module.o
+	GR_OBJS += bin/granary/kernel/linux/module.o
+	GR_OBJS += bin/granary/kernel/linux/state.o
+	GR_OBJS += bin/granary/kernel/interrupt.o
 	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o
-	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/init.o
 
 	# Must be last!!!!
@@ -404,35 +405,38 @@ detach: types
 
 # make the folders where binaries / generated assemblies are stored
 install:
-	# Creating folders for binary/assembly files...
-	@-mkdir bin &> /dev/null ||:
-	@-mkdir bin/granary &> /dev/null ||:
-	@-mkdir bin/granary/user &> /dev/null ||:
-	@-mkdir bin/granary/kernel &> /dev/null ||:
-	@-mkdir bin/granary/gen &> /dev/null ||:
-	@-mkdir bin/granary/x86 &> /dev/null ||:
-	@-mkdir bin/clients &> /dev/null ||:
-	@-mkdir bin/tests &> /dev/null ||:
-	@-mkdir bin/deps &> /dev/null ||:
-	@-mkdir bin/deps/icxxabi &> /dev/null ||:
-	@-mkdir bin/deps/dr &> /dev/null ||:
-	@-mkdir bin/deps/dr/x86 &> /dev/null ||:
-	@-mkdir bin/deps/murmurhash &> /dev/null ||:
+	@echo "  [1] Creating directories for binary/assembly files."
+	@-mkdir bin > /dev/null 2>&1 ||:
+	@-mkdir bin/granary > /dev/null 2>&1 ||:
+	@-mkdir bin/granary/user > /dev/null 2>&1 ||:
+	@-mkdir bin/granary/kernel > /dev/null 2>&1 ||:
+	@-mkdir bin/granary/kernel/linux > /dev/null 2>&1 ||:
+	@-mkdir bin/granary/gen > /dev/null 2>&1 ||:
+	@-mkdir bin/granary/x86 > /dev/null 2>&1 ||:
+	@-mkdir bin/clients > /dev/null 2>&1 ||:
+	@-mkdir bin/tests > /dev/null 2>&1 ||:
+	@-mkdir bin/deps > /dev/null 2>&1 ||:
+	@-mkdir bin/deps/icxxabi > /dev/null 2>&1 ||:
+	@-mkdir bin/deps/dr > /dev/null 2>&1 ||:
+	@-mkdir bin/deps/dr/x86 > /dev/null 2>&1 ||:
+	@-mkdir bin/deps/murmurhash > /dev/null 2>&1 ||:
 	
-	# Converting DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into Granary
-	# instruction-building functions...
-	@-mkdir granary/gen &> /dev/null ||:
-	$(GR_PYTHON) scripts/process_instr_create.py
+	@echo "  [2] Converting DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into"
+	@echo "      Granary-compatible instruction-building functions."
+	@-mkdir granary/gen > /dev/null 2>&1 ||:
+	@$(GR_PYTHON) scripts/process_instr_create.py
 
-	# Compile a dummy file to assembly to figure out which assembly syntax
-	# to use for this compiler...
-	$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
-	$(GR_PYTHON) scripts/make_asm_defines.py
+	@echo "  [3] Determining the supported assembly syntax of $(GR_CC)."
+	@$(GR_CC) -g3 -S -c scripts/static/asm.c -o scripts/static/asm.S
+	@$(GR_PYTHON) scripts/make_asm_defines.py
+	
+	@echo "  [.] The current directory is now setup for compiling Granary."
 
 
 # Compile granary
 all: $(GR_OBJS)
 	$(GR_MAKE)
+	@echo "  [.] Granary has been built."
 
 
 # Remove all generated files. This goes and @-touches some file in all of the
@@ -447,6 +451,7 @@ clean:
 	@-touch bin/granary/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/granary/kernel/linux/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/clients/_.$(GR_OUTPUT_FORMAT)
@@ -460,6 +465,7 @@ clean:
 	@-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/granary/kernel/linux/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/clients/*.$(GR_OUTPUT_FORMAT)

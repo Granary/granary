@@ -47,7 +47,7 @@ namespace granary {
         template <typename> friend struct policy_for;
 
 
-        typedef instrumentation_policy (instrumentation_policy::* basic_block_visitor)(
+        typedef instrumentation_policy (*basic_block_visitor)(
             cpu_state_handle &cpu,
             thread_state_handle &thread,
             basic_block_state &bb,
@@ -55,11 +55,27 @@ namespace granary {
         );
 
 
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        typedef bool (*interrupt_visitor)(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state &bb,
+            interrupt_stack_frame &isf,
+            interrupt_vector vector
+        );
+#endif
+
+
         /// Policy basic block visitor functions for each policy. The code
         /// cache will use this array of function pointers (initialised
         /// partially at compile time and partially at run time) to determine
         /// which client-code basic block visitor functions should be called.
         static basic_block_visitor POLICY_FUNCTIONS[];
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        static interrupt_visitor INTERRUPT_FUNCTIONS[];
+#endif
 
 
         /// Policy ID tracker.
@@ -88,12 +104,29 @@ namespace granary {
             NUM_PROPERTIES = !NUM_PROPERTIES_ ? 1 : NUM_PROPERTIES_
         };
 
-        instrumentation_policy missing_policy(
+
+        /// A dummy basic block visitor that faults if invoked. This will be
+        /// invoked if execution somehow enters into an invalid policy.
+        static instrumentation_policy missing_policy(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw();
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        /// A dummy interrupt visitor. This will be invoked if execution
+        /// somehow enters into an invalid policy and is interrupted.
+        static bool missing_interrupt(
+            cpu_state_handle &,
+            thread_state_handle &,
+            basic_block_state &,
+            interrupt_stack_frame &,
+            interrupt_vector
+        ) throw();
+#endif
+
 
         /// Initialise a policy given a policy id. This policy will be
         /// initialised with no properties.
@@ -132,17 +165,34 @@ namespace granary {
 
         /// Invoke client code instrumentation.
         inline instrumentation_policy instrument(
-            granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state &bb,
+            instruction_list &ls
         ) throw() {
             basic_block_visitor visitor(POLICY_FUNCTIONS[id]);
             if(!visitor) {
                 return missing_policy(cpu, thread, bb, ls);
             }
-            return (this->*(visitor))(cpu, thread, bb, ls);
+            return (visitor)(cpu, thread, bb, ls);
         }
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        /// Invoke client code interrupt handler.
+        inline bool handle_interrupt(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state &bb,
+            interrupt_stack_frame &isf,
+            interrupt_vector vector
+        ) throw() {
+            interrupt_visitor visitor(INTERRUPT_FUNCTIONS[id]);
+            if(!visitor) {
+                return false;
+            }
+            return (visitor)(cpu, thread, bb, isf, vector);
+        }
+#endif
 
     public:
 
@@ -317,7 +367,7 @@ namespace granary {
 
 
     static_assert(8 == sizeof(mangled_address),
-        "`granary::mangled_address` is too big.");
+        "`mangled_address` is too big.");
 
 
     /// Gets us the policy for some client policy type.
@@ -340,6 +390,12 @@ namespace granary {
             instrumentation_policy::POLICY_FUNCTIONS[policy_id] = \
                 unsafe_cast<instrumentation_policy::basic_block_visitor>( \
                     &T::visit_basic_block);
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+            instrumentation_policy::INTERRUPT_FUNCTIONS[policy_id] = \
+                unsafe_cast<instrumentation_policy::interrupt_visitor>( \
+                    &T::handle_interrupt);
+#endif
 
             return policy_id;
         }

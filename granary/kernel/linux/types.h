@@ -48,9 +48,11 @@
 
 #include <linux/version.h>
 
-#define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
-#define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
-#define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
+#ifndef LINUX_MAJOR_VERSION
+#   define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
+#   define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
+#   define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
+#endif
 
 #if LINUX_MAJOR_VERSION > 3
 #   include <linux/kconfig.h>

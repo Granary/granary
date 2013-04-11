@@ -191,7 +191,8 @@ namespace granary {
     public:
 
         /// Interrupt descriptor table.
-        IF_KERNEL( detail::interrupt_descriptor_table *idt; )
+        IF_KERNEL( detail::interrupt_descriptor_table *granary_idt; )
+        IF_KERNEL( detail::interrupt_descriptor_table *kernel_idt; )
 
 
         /// The code cache allocator for this CPU.

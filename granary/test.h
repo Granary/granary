@@ -27,12 +27,26 @@ namespace granary {
     public:
 
         /// Instruction a basic block.
-        instrumentation_policy visit_basic_block(
+        static instrumentation_policy visit_basic_block(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw();
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        /// Handle an interrupt in module code. Returns true iff the client
+        /// handles the interrupt.
+        static bool handle_interrupt(
+            cpu_state_handle &cpu,
+            thread_state_handle &thread,
+            basic_block_state &bb,
+            interrupt_stack_frame &isf,
+            interrupt_vector vector
+        ) throw();
+#endif
+
     };
 
 #if CONFIG_RUN_TEST_CASES

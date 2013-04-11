@@ -8,6 +8,7 @@
 
 #include <atomic>
 
+#include "granary/globals.h"
 #include "granary/state.h"
 #include "granary/types.h"
 
@@ -35,40 +36,47 @@ namespace granary {
 
     /// Initialise the per-cpu state, including a new interrupt descriptor
     /// table.
-    void init_cpu_state(void *) throw() {
+    void init_cpu_state(app_pc common_vector_handler) throw() {
+
         cpu_state *state(new (get_percpu_state(CPU_STATES)) cpu_state);
 
         system_table_register_t native;
         system_table_register_t instrumented;
+        detail::interrupt_descriptor_table *idt(granary_allocate_idt());
 
         get_idtr(&native);
-#if 1
-#if 1
-        detail::interrupt_descriptor_table *idt(granary_allocate_idt());
-        state->idt = idt;
-        memcpy(idt, native.base, sizeof *idt);
-#else
-        memset(&(state->idt), 0, sizeof state->idt);
+
+        state->granary_idt = idt;
+        state->kernel_idt = unsafe_cast<detail::interrupt_descriptor_table *>(
+            native.base);
+
+        memcpy(state->granary_idt, state->kernel_idt, sizeof *idt);
+
         for(unsigned i(0); i < NUM_INTERRUPT_VECTORS; ++i) {
-            descriptor_t *i_vec(&(state->idt.vectors[i * 2]));
+            descriptor_t *i_vec(&(idt->vectors[i * 2]));
             descriptor_t *n_vec(&(native.base[i * 2]));
 
-            *i_vec = *n_vec;
+            // update the gate
+            if(GATE_DESCRIPTOR == get_descriptor_kind(i_vec)) {
+                app_pc native_handler(get_gate_target_offset(&(n_vec->gate)));
 
-            if(GATE_DESCRIPTOR == get_descriptor_kind(n_vec)) {
-                set_gate_target_offset(&(i_vec->gate),
-                    get_gate_target_offset(&(n_vec->gate)));
+                if(!is_host_address(native_handler)) {
+                    continue;
+                }
+
+                set_gate_target_offset(
+                    &(i_vec->gate),
+                    emit_interrupt_routine(
+                        i,
+                        native_handler,
+                        common_vector_handler));
             }
         }
-#endif
 
         instrumented.base = &(idt->vectors[0]);
         instrumented.limit = (sizeof *idt) - 1;
 
         set_idtr(&instrumented);
-#endif
-        (void) instrumented;
-        (void) state;
     }
 
 
@@ -78,7 +86,10 @@ namespace granary {
         CPU_STATES = types::__alloc_percpu(
             sizeof(cpu_state), alignof(cpu_state));
 
-        types::on_each_cpu(init_cpu_state, nullptr, 1);
+        types::on_each_cpu(
+            unsafe_cast<void (*)(void *)>(init_cpu_state),
+            emit_common_interrupt_routine(),
+            1);
     }
 
 

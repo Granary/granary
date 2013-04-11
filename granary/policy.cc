@@ -26,6 +26,18 @@ namespace granary {
     };
 
 
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// Per-policy interrupt handlers. These are invoked when an interrupt
+    /// occurs in *non-delayed* instrumented kernel code.
+    instrumentation_policy::interrupt_visitor
+    instrumentation_policy::INTERRUPT_FUNCTIONS[
+        1 << mangled_address::POLICY_NUM_BITS
+    ] = {
+        &instrumentation_policy::missing_interrupt
+    };
+#endif
+
+
     /// Policy ID tracker.
     std::atomic<unsigned> instrumentation_policy::NEXT_POLICY_ID(
         ATOMIC_VAR_INIT(instrumentation_policy::NUM_POLICIES));
@@ -103,6 +115,21 @@ namespace granary {
         granary_fault();
         return policy_for<missing_policy_policy>();
     }
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// A dummy interrupt visitor. This will be invoked if execution
+    /// somehow enters into an invalid policy and is interrupted.
+    bool instrumentation_policy::missing_interrupt(
+        cpu_state_handle &,
+        thread_state_handle &,
+        basic_block_state &,
+        interrupt_stack_frame &,
+        interrupt_vector
+    ) throw() {
+        return false; // let the kernel handle the interrupt.
+    }
+#endif
 
 
     instrumentation_policy START_POLICY;
