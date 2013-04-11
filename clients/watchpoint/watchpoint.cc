@@ -84,29 +84,101 @@ namespace client {
 		(void)pc;
 	}
 
-    void watchpoint_policy::instrumentation_far_base_disp(granary::instruction_list &ls,
-    		granary::instruction &in,
+    void watchpoint_policy::instrumentation_far_base_disp(
+    		granary::instruction_list &ilist,
+    		granary::instruction &instr,
     		dynamorio::app_pc pc,
     		client::instruction_util &ops,
     		bool is_write){
-    	(void)in;
-    	(void)pc;
-    	(void)ops;
-    	(void)is_write;
-    	(void)ls;
+
+		dynamorio::reg_id_t reg_mask, reg_instr;
+		granary::instruction cursor;
+		granary::instruction emulated_instr, begin_instrumenting;
+		dynamorio::opnd_t opnd_reg_mask, opnd_reg_instr, opnd_instr;
+
+		ops.instruction_collect_regs(instr);
+		//ops.instruction_collect_reg(dynamorio::DR_REG_RCX);
+
+		reg_mask = ops.instruction_get_next_free_reg();
+		opnd_reg_mask = dynamorio::opnd_create_reg(reg_mask);
+
+	    if(is_write == true){
+	        opnd_instr = dynamorio::instr_get_dst(instr, 0);
+	    } else {
+	        opnd_instr = dynamorio::instr_get_src(instr, 0);
+	    }
+
+	    reg_instr = dynamorio::opnd_get_base(opnd_instr);
+	    opnd_reg_instr = dynamorio::opnd_create_reg(reg_instr);
+
+	    begin_instrumenting = granary::label_();
+
+        ilist.insert_before(instr, begin_instrumenting);
+        ilist.insert_before(instr, granary::push_(opnd_reg_instr));
+        ilist.insert_before(instr, granary::push_(opnd_reg_mask));
+        ilist.insert_before(instr, granary::pushf_());
+        ilist.insert_before(instr, granary::mov_imm_(opnd_reg_mask,
+        		dynamorio::opnd_create_immed_int(WATCHPOINT_INDEX_MASK, sizeof(reg_t))));
+
+        ilist.insert_before(instr, granary::or_(opnd_reg_instr, opnd_reg_mask));
+
+        //emulated_instr = instruction(instr_clone(granary::instruction::DCONTEXT, instr));
+        ilist.insert_before(instr, granary::popf_());
+
+        cursor = ilist.insert_after(instr, granary::pop_(opnd_reg_mask));
+        cursor = ilist.insert_after(cursor, granary::pop_(opnd_reg_instr));
+
+        (void)pc;
+        (void)emulated_instr;
 
     }
 
-    void watchpoint_policy::instrumentation_operand_rep(granary::instruction_list &ls,
-    		granary::instruction &in,
+    void watchpoint_policy::instrumentation_operand_rep(
+    		granary::instruction_list &ilist,
+    		granary::instruction &instr,
     		dynamorio::app_pc pc,
     		client::instruction_util &ops,
     		bool is_write){
-    	(void)in;
-    	(void)pc;
-    	(void)ops;
-    	(void)is_write;
-    	(void)ls;
+
+		dynamorio::reg_id_t reg_mask, reg_instr;
+		granary::instruction cursor;
+		granary::instruction emulated_instr, begin_instrumenting;
+		dynamorio::opnd_t opnd_reg_mask, opnd_reg_instr, opnd_instr;
+
+		ops.instruction_collect_regs(instr);
+		ops.instruction_collect_reg(dynamorio::DR_REG_RCX);
+
+		reg_mask = ops.instruction_get_next_free_reg();
+		opnd_reg_mask = dynamorio::opnd_create_reg(reg_mask);
+
+	    if(is_write == true){
+	        opnd_instr = dynamorio::instr_get_dst(instr, 0);
+	    } else {
+	        opnd_instr = dynamorio::instr_get_src(instr, 0);
+	    }
+
+	    reg_instr = dynamorio::opnd_get_base(opnd_instr);
+	    opnd_reg_instr = dynamorio::opnd_create_reg(reg_instr);
+
+	    begin_instrumenting = granary::label_();
+
+        ilist.insert_before(instr, begin_instrumenting);
+        ilist.insert_before(instr, granary::push_(opnd_reg_instr));
+        ilist.insert_before(instr, granary::push_(opnd_reg_mask));
+        ilist.insert_before(instr, granary::pushf_());
+        ilist.insert_before(instr, granary::mov_imm_(opnd_reg_mask,
+        		dynamorio::opnd_create_immed_int(WATCHPOINT_INDEX_MASK, sizeof(reg_t))));
+
+        ilist.insert_before(instr, granary::or_(opnd_reg_instr, opnd_reg_mask));
+
+        //emulated_instr = instruction(instr_clone(granary::instruction::DCONTEXT, instr));
+        ilist.insert_before(instr, granary::popf_());
+
+        cursor = ilist.insert_after(instr, granary::pop_(opnd_reg_mask));
+        cursor = ilist.insert_after(cursor, granary::pop_(opnd_reg_instr));
+
+        (void)pc;
+        (void)emulated_instr;
     }
 
 	void watchpoint_policy::watchpoint_memory_operations(
