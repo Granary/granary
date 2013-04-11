@@ -49,13 +49,9 @@ namespace granary {
         VECTOR_SIMD_FLOATING_POINT = 19,
         VECTOR_SECURITY_EXCEPTION = 20,
 
-        // special case, at least for AMD. Security exceptions (related to
-        // SVM) dispatch to gate 30.
-        VECTOR_SECURITY_EXCEPTION_DEFER = 30,
-
         VECTOR_EXCEPTION_END = VECTOR_SECURITY_EXCEPTION,
-        VECTOR_INTERRUPT_START = VECTOR_EXCEPTION_END + 1,
-        VECTOR_INTERRUPT_END = 256,
+        VECTOR_INTERRUPT_START = 32,
+        VECTOR_INTERRUPT_END = 255,
         VECTOR_END = VECTOR_INTERRUPT_END
     };
 

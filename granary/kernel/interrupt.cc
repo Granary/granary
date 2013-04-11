@@ -47,8 +47,8 @@ namespace granary {
         case 18: // #MC: machine check exception
         case 19: // #XF: SIMD floating point exception
             return false;
-        case 20: // #SX: security exception fault (svm); dispatches to vector 30
-        case 30:
+        case 20: // #SX: security exception fault (svm);
+                 // TODO: dispatches to vector 30 on amd64?
             return true;
         default:
             return false;
