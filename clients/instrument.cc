@@ -24,26 +24,26 @@ namespace client {
 
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
-    bool null_policy::handle_interrupt(
+    granary::interrupt_handled_state null_policy::handle_interrupt(
         granary::cpu_state_handle &,
         granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {
-        return false;
+        return granary::INTERRUPT_DEFER;
     }
 
 
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
-    bool handle_kernel_interrupt(
+    granary::interrupt_handled_state handle_kernel_interrupt(
         granary::cpu_state_handle &,
         granary::thread_state_handle &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {
-        return false;
+        return granary::INTERRUPT_DEFER;
     }
 
 #endif

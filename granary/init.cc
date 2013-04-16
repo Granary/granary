@@ -48,9 +48,7 @@ namespace granary {
         }
 
         // initialise for kernel or user space.
-        IF_KERNEL(init_kernel());
-        IF_USER(init_user());
+        IF_USER_ELSE(init_user(), init_kernel());
     }
-
 }
 

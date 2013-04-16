@@ -8,7 +8,24 @@
 #ifndef INTERRUPT_H_
 #define INTERRUPT_H_
 
+#include "deps/drk/segment_descriptor.h"
+
 namespace granary {
+
+
+    /// Signify to what extent Granary handled this interrupt.
+    enum interrupt_handled_state : int64_t {
+
+        // Return from this interrupt as if it were just another function call.
+        INTERRUPT_RETURN = -1,
+
+        // Defer to the kernel's interrupt handlers for this interrupt.
+        INTERRUPT_DEFER = 0,
+
+        // We've handled this interrupt, perform an iret to return from the
+        // interrupt.
+        INTERRUPT_IRET = 1
+    };
 
 
     /// Represents an interrupt stack frame that is automatically pushed on the
@@ -17,7 +34,7 @@ namespace granary {
         uint64_t error_code;
         app_pc instruction_pointer;
         uint64_t segment_cs;
-        uint64_t flags;
+        eflags flags;
         uint64_t *stack_pointer;
         uint64_t segment_ss;
     };
@@ -56,18 +73,8 @@ namespace granary {
     };
 
 
-    /// Emit an interrupt entry routine. This routine dispatches to a common
-    /// vector entry routine, which does proper handling of the interrupt.
-    app_pc emit_interrupt_routine(
-        unsigned vector_num,
-        app_pc original_routine,
-        app_pc common_interrupt_routine
-    ) throw();
-
-
-    /// Emit a common interrupt entry routine. This routine handles the full
-    /// interrupt.
-    app_pc emit_common_interrupt_routine() throw();
+    /// Emit a version of the IDT that first gives control to Granary.
+    system_table_register_t emit_idt(void) throw();
 }
 
 

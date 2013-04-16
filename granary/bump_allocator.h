@@ -183,12 +183,6 @@ namespace granary {
             return ret;
 #else
 
-            // ensure that all allocations within an executable slab leave the
-            // next allocatable address nicely aligned.
-            //if(IS_EXECUTABLE) {
-            //    size += ALIGN_TO(size, 16);
-            //}
-
             // very big allocation; requires a custom slab.
             if(size > SLAB_SIZE) {
                 allocate_custom_slab(size + ALIGN_TO(size, SLAB_SIZE));

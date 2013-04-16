@@ -18,6 +18,7 @@ namespace granary {
 
     /// Forward declarations.
     struct operand;
+    struct segment;
     struct operand_base_disp;
     struct operand_ref;
     struct instruction;
@@ -585,11 +586,32 @@ namespace granary {
     };
 
 
-    /// registers
+    /// Registers
 #define MAKE_REG(name, upper_name) extern operand name;
+#define MAKE_SEG(name, upper_name)
     namespace reg {
 #   include "granary/inc/registers.h"
     }
+#undef MAKE_SEG
+#undef MAKE_REG
+
+
+    /// Segment registers.
+#define MAKE_REG(name, upper_name)
+#define MAKE_SEG(name, upper_name) \
+    inline operand name(operand op) throw() { \
+        op.seg.segment = dynamorio::DR_ ## upper_name ; \
+        return op;\
+    } \
+    inline operand name(operand_base_disp op_) throw() { \
+        operand op(op_); \
+        op.seg.segment = dynamorio::DR_ ## upper_name ; \
+        return op;\
+    }
+    namespace seg {
+#   include "granary/inc/registers.h"
+    }
+#undef MAKE_SEG
 #undef MAKE_REG
 }
 

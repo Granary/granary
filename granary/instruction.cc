@@ -484,19 +484,21 @@ namespace granary {
 
 
 #define MAKE_REG(name, upper_name) operand name;
-
+#define MAKE_SEG(name, upper_name)
     namespace reg {
 #   include "granary/inc/registers.h"
     }
-
+#undef MAKE_SEG
 #undef MAKE_REG
+
+
 #define MAKE_REG(name, upper_name) \
-    STATIC_INITIALISE_ID(register, { \
+    STATIC_INITIALISE_ID(register_ ## name, { \
         reg::name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name); \
     })
-
+#define MAKE_SEG(name, upper_name)
 #include "granary/inc/registers.h"
-
+#undef MAKE_SEG
 #undef MAKE_REG
 
 }

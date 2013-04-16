@@ -178,6 +178,16 @@ namespace granary {
             app_pc generating_pc,
             app_pc generated_pc
         ) throw();
+
+
+    public:
+
+        /// Return a pointer to the basic block state structure of this basic
+        /// block.
+        inline basic_block_state *state(void) const throw() {
+            return reinterpret_cast<basic_block_state *>(
+                reinterpret_cast<int64_t>(info) + info->rel_state_addr);
+        }
     };
 
 }

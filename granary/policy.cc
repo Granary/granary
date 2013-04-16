@@ -120,14 +120,14 @@ namespace granary {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
     /// A dummy interrupt visitor. This will be invoked if execution
     /// somehow enters into an invalid policy and is interrupted.
-    bool instrumentation_policy::missing_interrupt(
+    interrupt_handled_state instrumentation_policy::missing_interrupt(
         cpu_state_handle &,
         thread_state_handle &,
         basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector
     ) throw() {
-        return false; // let the kernel handle the interrupt.
+        return INTERRUPT_DEFER; // let the kernel handle the interrupt.
     }
 #endif
 

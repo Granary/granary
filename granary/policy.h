@@ -26,6 +26,15 @@ namespace granary {
     template <typename> struct policy_for;
 
 
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// Forward declaration.
+    interrupt_handled_state handle_interrupt(
+        interrupt_stack_frame *isf,
+        interrupt_vector vector
+    ) throw();
+#endif
+
+
     /// Represents a handle on an instrumentation policy.
     struct instrumentation_policy {
     private:
@@ -56,13 +65,37 @@ namespace granary {
 
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        typedef bool (*interrupt_visitor)(
+        /// Global interrupt handler. Dispatches to client-specific interrupt
+        /// handler functions.
+        friend interrupt_handled_state handle_interrupt(
+            interrupt_stack_frame *isf,
+            interrupt_vector vector
+        ) throw();
+
+
+        /// Type of a client-specific interrupt handler.
+        typedef interrupt_handled_state (*interrupt_visitor)(
             cpu_state_handle &cpu,
             thread_state_handle &thread,
             basic_block_state &bb,
             interrupt_stack_frame &isf,
             interrupt_vector vector
         );
+
+
+        /// Client-specific interrupt handler functions.
+        static interrupt_visitor INTERRUPT_FUNCTIONS[];
+
+
+        /// Dummy interrupt handler. This will be invoked if execution
+        /// somehow enters into an invalid policy and is interrupted.
+        static interrupt_handled_state missing_interrupt(
+            cpu_state_handle &,
+            thread_state_handle &,
+            basic_block_state &,
+            interrupt_stack_frame &,
+            interrupt_vector
+        ) throw();
 #endif
 
 
@@ -71,11 +104,6 @@ namespace granary {
         /// partially at compile time and partially at run time) to determine
         /// which client-code basic block visitor functions should be called.
         static basic_block_visitor POLICY_FUNCTIONS[];
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-        static interrupt_visitor INTERRUPT_FUNCTIONS[];
-#endif
 
 
         /// Policy ID tracker.
@@ -113,19 +141,6 @@ namespace granary {
             basic_block_state &,
             instruction_list &
         ) throw();
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-        /// A dummy interrupt visitor. This will be invoked if execution
-        /// somehow enters into an invalid policy and is interrupted.
-        static bool missing_interrupt(
-            cpu_state_handle &,
-            thread_state_handle &,
-            basic_block_state &,
-            interrupt_stack_frame &,
-            interrupt_vector
-        ) throw();
-#endif
 
 
         /// Initialise a policy given a policy id. This policy will be
@@ -179,7 +194,7 @@ namespace granary {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Invoke client code interrupt handler.
-        inline bool handle_interrupt(
+        inline interrupt_handled_state handle_interrupt(
             cpu_state_handle &cpu,
             thread_state_handle &thread,
             basic_block_state &bb,
@@ -188,7 +203,7 @@ namespace granary {
         ) throw() {
             interrupt_visitor visitor(INTERRUPT_FUNCTIONS[id]);
             if(!visitor) {
-                return false;
+                return INTERRUPT_DEFER;
             }
             return (visitor)(cpu, thread, bb, isf, vector);
         }

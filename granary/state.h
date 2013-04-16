@@ -190,9 +190,9 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
-        /// Interrupt descriptor table.
-        IF_KERNEL( detail::interrupt_descriptor_table *granary_idt; )
-        IF_KERNEL( detail::interrupt_descriptor_table *kernel_idt; )
+        /// A region of executable code that is overwritten as necessary to
+        /// delay interrupts.
+        IF_KERNEL( app_pc interrupt_delay_handler; )
 
 
         /// The code cache allocator for this CPU.
