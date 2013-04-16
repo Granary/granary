@@ -252,6 +252,9 @@ namespace granary {
         // the stack pointer (at the time of the interrupt). We will RET to the
         // return address in the ISF, which has been manipulated to be in the
         // position of previous stack pointer plus one.
+        //
+        // TODO: if a NMI comes when there is some funky stack manipulation then
+        //       there will be an issue.
         ls.append(ret);
         {
             // make a mask for interrupts.
