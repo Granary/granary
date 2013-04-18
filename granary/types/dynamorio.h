@@ -528,7 +528,7 @@ struct _opnd_t {
     } value;
 };
 
-enum {
+enum op_kind_type {
     NULL_kind,
     IMMED_INTEGER_kind,
     IMMED_FLOAT_kind,

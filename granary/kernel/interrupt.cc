@@ -59,20 +59,234 @@ namespace granary {
             return true;
         case 18: // #MC: machine check exception
         case 19: // #XF: SIMD floating point exception
-            return false;
         case 20: // #SX: security exception fault (svm);
-                 // TODO: dispatches to vector 30 on amd64?
-            return true;
+                 // TODO: does amd64 and intel docs disagree about vec20 ec?
         default:
             return false;
         }
     }
 
 
+    /// Handers for the various interrupt vectors.
+    static app_pc VECTOR_HANDLER[256] = {nullptr};
+
+
+    /// Offsets used to align the stack pointer.
+    static uint8_t STACK_ALIGN[256] = {0};
+
+
+    /// Initialise the stack alignment table. Note: the stack grows down, and
+    /// we will use this table with XLATB to align the pseudo stack pointer in
+    /// one shot.
+    STATIC_INITIALISE_ID(stack_align_table, {
+        for(unsigned i(0); i < 256; ++i) {
+            STACK_ALIGN[i] = i - (i % 16);
+        }
+    })
+
+
+    /// Mangle a delayed instruction. We make several basic assumptions:
+    ///     i)  Code in a delay region does not fault.
+    ///     ii) Eliding cli/sti in a delay region is safe because the code
+    ///         within the delay region (given assumption 1) must have been
+    ///         interrupted before the 'cli' or after the 'sti'.
+    ///     iii) If a delay region contains control-flow instructions then
+    ///          the targets of those instructions will remain within the
+    ///          delay region. This restrics delay regions to not containing
+    ///          any indirect control-flow instructions, as correctness cannot
+    ///          be guaranteed for such instructions.
+    ///
+    /// Mangling this code is tricky for two reasons:
+    ///     i) POPFs cannot be allowed to restore interrupts, as code in
+    ///        a delayed interrupt region is not re-entrant.
+    ///     ii) Control flow within the delay region stays within the delay
+    ///         region.
+    __attribute__((hot))
+    static void mangle_delayed_instruction(
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        switch(in.op_code()) {
+
+        // Elide these instructions. This does make a minor second assumption.
+        case dynamorio::OP_cli:
+        case dynamorio::OP_sti: {
+
+            // make sure any CTIs can correctly be resolved to the elided
+            // instruction.
+            instruction place(ls.append(label_()));
+            place.set_pc(in.pc());
+            return;
+        }
+
+        // Pop the flags, but first force interrupts to remain disabled.
+        case dynamorio::OP_popf: {
+            eflags mask;
+            mask.value = 0ULL;
+            mask.interrupt = true;
+            instruction first(ls.append(push_(reg::rax)));
+            ls.append(mov_imm_(reg::rax, int64_(~(mask.value))));
+            ls.append(and_(reg::rsp[8], reg::rax));
+            ls.append(pop_(reg::rax));
+            ls.append(in); // popf_
+
+            // make sure any CTIs can correctly be resolved to the expanded
+            // instruction.
+            first.set_pc(in.pc());
+            in.set_pc(nullptr);
+
+            break;
+        }
+
+        default:
+            ls.append(in);
+            break;
+        }
+    }
+
+
+    /// Mangle a CTI within the instruction list. This tries to redirect the
+    /// CTI to point back within the delay region.
+    static void mangle_cti(instruction_list &ls, instruction cti) throw() {
+        if(cti.is_return()) {
+            return;
+        }
+
+        operand target(cti.cti_target());
+        if(!dynamorio::opnd_is_pc(target)) {
+            return;
+        }
+
+        const app_pc target_pc(target.value.pc);
+        for(instruction in(ls.first()); in; in = in.next()) {
+            if(in.pc() == target_pc) {
+                cti.set_cti_target(instr_(in));
+                return;
+            }
+        }
+
+        FAULT;
+    }
+
+
     /// Emit the code needed to reconstruct this interrupt after executing the
     /// code within the delay region.
-    static app_pc emit_delay_interrupt(void) {
-        return nullptr;
+    ///
+    /// Returns the app_pc for the instruction where execution should resume.
+    __attribute__((hot))
+    app_pc emit_delayed_interrupt(
+        cpu_state_handle cpu,
+        interrupt_stack_frame *isf,
+        interrupt_vector vector,
+        app_pc delay_begin,
+        app_pc delay_end
+    ) {
+        instruction_list ls;
+        instruction delay_in;
+
+        const bool has_ec(has_error_code(vector));
+
+        IF_PERF( perf::visit_delayed_interrupt(); )
+
+        unsigned num_ctis(0);
+        for(; delay_begin < delay_end; ) {
+            if(isf->instruction_pointer == delay_begin) {
+                delay_in = ls.append(label_());
+            }
+
+            instruction in(instruction::decode(&delay_begin));
+            if(in.is_cti()) {
+                ++num_ctis;
+            }
+            mangle_delayed_instruction(ls, in);
+        }
+
+        // redirect internal CTIs.
+        if(num_ctis) {
+            for(instruction in(ls.first()); num_ctis-- && in; in = in.next()) {
+                if(in.is_cti()) {
+                    mangle_cti(ls, in);
+                }
+            }
+        }
+
+        // Spill RAX and RBX to their designated CPU-private spill slots so
+        // that we can align the stack pointer (for the ISF) without modifying
+        // the flags.
+        ls.append(push_(reg::rax));
+        ls.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(&(cpu->spill[0])))));
+        ls.append(mov_st_(reg::rax[8], reg::rbx));
+        ls.append(pop_(reg::rbx)); // RBX now holds original value of RAX
+        ls.append(mov_st_(*reg::rax, reg::rbx));
+
+        // Align the new stack pointer (RAX) to a 16-byte boundary using a
+        // lookup table (so we don't corrupt the flags).
+        ls.append(mov_st_(reg::rax, reg::rsp));
+        ls.append(mov_imm_(
+            reg::rbx,
+            int64_(reinterpret_cast<uint64_t>(STACK_ALIGN))));
+        ls.append(xlat_());
+
+        // save the old stack pointer into RBX, update the stack pointer.
+        ls.append(mov_st_(reg::rbx, reg::rsp));
+        ls.append(mov_st_(reg::rsp, reg::rax));
+
+        // SS
+        ls.append(mov_imm_(reg::rax, int64_(isf->segment_ss)));
+        ls.append(push_(reg::rax));
+
+        // RSP (old stack pointer)
+        ls.append(push_(reg::rbx));
+
+        // RFLAGS at the end of the delay region; we'll assume that delay regions
+        // are smart enough not to corrupt the flags. We also need to be careful
+        // about re-enabling interrupts.
+        ls.append(pushf_());
+
+        // emit code to re-enable interrupts (when the flags are restored),
+        // assuming they were previously enabled.
+        //
+        // TODO: this assumes that code in a delay region will not fault!!!
+        if(isf->flags.interrupt) {
+            eflags mask;
+            mask.value = 0ULL;
+            mask.interrupt = true;
+            ls.append(mov_imm_(reg::rax, int64_(mask.value)));
+            ls.append(or_(*reg::rsp, reg::rax));
+        }
+
+        // CS
+        ls.append(mov_imm_(reg::rax, int64_(isf->segment_cs)));
+        ls.append(push_(reg::rax));
+
+        // RIP (instruction pointer), points to next instruction in the basic
+        // block after the delay region.
+        ls.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(delay_end))));
+        ls.append(push_(reg::rax));
+
+        // Error Code, if any.
+        if(has_ec) {
+            ls.append(mov_imm_(reg::rax, int64_(isf->error_code)));
+            ls.append(push_(reg::rax));
+        }
+
+        // restore RAX and RBX.
+        ls.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(&(cpu->spill[0])))));
+        ls.append(mov_ld_(reg::rbx, reg::rax[8]));
+        ls.append(mov_ld_(reg::rax, *reg::rax));
+
+        // jump to the interrupt handler
+        ls.append(jmp_(pc_(VECTOR_HANDLER[vector])));
+
+        ls.encode(cpu->interrupt_delay_handler);
+
+        return delay_in.pc();
     }
 
 
@@ -80,17 +294,28 @@ namespace granary {
     /// false if the interrupt should be handled by the kernel. This also
     /// decides when an interrupt must be delayed, and invokes the necessary
     /// functionality to delay the interrupt.
+    GRANARY_ENTRYPOINT
+    __attribute__((hot))
     interrupt_handled_state handle_interrupt(
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
+        kernel_preempt_disable();
+
+        cpu_state_handle cpu;
+        thread_state_handle thread;
+        granary::enter(cpu, thread);
+
         app_pc pc(isf->instruction_pointer);
+
+        IF_PERF( perf::visit_interrupt(); )
 
         if(is_code_cache_address(pc)) {
             basic_block bb(pc);
 
             // the patch stub code at the head of a basic block was interrupted
             if(bb.cache_pc_start > pc) {
+                kernel_preempt_enable();
                 return INTERRUPT_DEFER;
             }
 
@@ -102,37 +327,55 @@ namespace granary {
             // the interrupt.
             if(!bb.get_interrupt_delay_range(delay_begin, delay_end)) {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-                cpu_state_handle cpu;
-                thread_state_handle thread;
                 basic_block_state *bb_state(bb.state());
                 instrumentation_policy policy(bb.policy);
 
-                return policy.handle_interrupt(
-                    cpu, thread, *bb_state, *isf, vector);
+                interrupt_handled_state ret(policy.handle_interrupt(
+                    cpu, thread, *bb_state, *isf, vector));
+
+                kernel_preempt_enable();
+                return ret;
 
 #else
-                return false;
+                kernel_preempt_enable();
+                return INTERRUPT_DEFER;
 #endif
             }
 
             // we need to delay
-            interrupt_stack_frame orig_isf(*isf);
-            (void) orig_isf;
+            isf->instruction_pointer = emit_delayed_interrupt(
+                cpu, isf, vector, delay_begin, delay_end);
+
+            kernel_preempt_enable();
             return INTERRUPT_RETURN;
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         } else if(is_host_address(pc)) {
-            cpu_state_handle cpu;
-            thread_state_handle thread;
-            return client::handle_kernel_interrupt(
+            interrupt_handled_state ret(client::handle_kernel_interrupt(
                 cpu,
                 thread,
                 *isf,
-                vector);
+                vector));
+
+            kernel_preempt_enable();
+            return ret;
 #endif
         } else {
-            return INTERRUPT_DEFER;
+            // Detect an exception within a delayed interrupt handler. This
+            // is really bad.
+            //
+            // TODO: if the vector is an exception, then perhaps an okay
+            //       strategy is to force execution to the next instruction.
+            const app_pc delayed_begin(cpu->interrupt_delay_handler);
+            const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
+            if(delayed_begin <= pc && pc < delayed_end) {
+                IF_PERF( perf::visit_recursive_interrupt(); )
+                FAULT;
+                //return INTERRUPT_IRET;
+            }
         }
+
+        kernel_preempt_enable();
         return INTERRUPT_DEFER;
     }
 
@@ -146,16 +389,16 @@ namespace granary {
     ) throw() {
         instruction_list ls;
 
+        // this makes it convenient to find top of the ISF from the common
+        // interrupt handler
+        ls.append(push_(reg::rsp));
         if(!has_error_code(vector_num)) {
-            ls.append(push_(reg::rsp));
             ls.append(push_(seg::ss(*reg::rsp)));
-        } else {
-            ls.append(push_(reg::rsp));
         }
 
         ls.append(push_(reg::arg1));
         ls.append(push_(reg::arg2));
-        ls.append(mov_ld_(reg::arg1, seg::ss(reg::rsp[16])));
+        ls.append(lea_(reg::arg1, seg::ss(reg::rsp[24])));
         ls.append(mov_imm_(reg::arg2, int64_(vector_num)));
         ls.append(call_(pc_(common_interrupt_routine)));
         ls.append(pop_(reg::arg2));
@@ -163,10 +406,10 @@ namespace granary {
         ls.append(pop_(reg::rsp));
         ls.append(jmp_(pc_(original_routine)));
 
-        app_pc routine(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size() + 16));
+        app_pc routine(reinterpret_cast<app_pc>(
+            global_state::FRAGMENT_ALLOCATOR-> \
+                allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
 
-        routine += ALIGN_TO(reinterpret_cast<uint64_t>(routine), 16);
         ls.encode(routine);
 
         return routine;
@@ -189,7 +432,7 @@ namespace granary {
         // save the return value as it will be clobbered by handle_interrupt
         ls.append(push_(reg::ret));
 
-        // check for a privilege level change; OR together CS and SS, then
+        // check for a privilege level change: OR together CS and SS, then
         // inspect the low order bits. If they are both zero then we were
         // interrupted in kernel space.
         ls.append(mov_ld_(reg::ret,
@@ -197,11 +440,10 @@ namespace granary {
         ls.append(or_(reg::ret,
             seg::ss(isf_ptr[offsetof(interrupt_stack_frame, segment_ss)])));
         ls.append(and_(reg::ret, int8_(0x3)));
+        ls.append(jz_(instr_(in_kernel)));
 
-        // CASE 1: not in kernel; set reg::ret to zero to signal that the
-        // interrupt was not handled by Granary.
+        // CASE 1: not in kernel
         {
-            ls.append(jz_(instr_(in_kernel)));
             ls.append(pop_(reg::ret));
             ls.append(lea_(reg::rsp, seg::ss(reg::rsp[8])));
             ls.append(ret_());
@@ -226,10 +468,11 @@ namespace granary {
             unsafe_cast<app_pc>(handle_interrupt), // target
             true, reg::ret, // clobber reg
             CTI_CALL);
-        in = insert_restore_old_stack_alignment_after(ls, in);
+        insert_restore_old_stack_alignment_after(ls, in);
 
         // check to see if the interrupt was handled or not
-        ls.append(test_(reg::ret, reg::ret));
+        ls.append(xor_(isf_ptr, isf_ptr));
+        ls.append(cmp_(reg::ret, isf_ptr));
         ls.append(pop_(reg::ret));
 
         instruction ret(label_());
@@ -251,10 +494,8 @@ namespace granary {
         // interrupt stack frame might not be adjacent to the previous value of
         // the stack pointer (at the time of the interrupt). We will RET to the
         // return address in the ISF, which has been manipulated to be in the
-        // position of previous stack pointer plus one.
-        //
-        // TODO: if a NMI comes when there is some funky stack manipulation then
-        //       there will be an issue.
+        // position of previous stack pointer plus one. This is also tricky
+        // because it must be safe w.r.t. NMIs.
         ls.append(ret);
         {
             // make a mask for interrupts.
@@ -263,36 +504,40 @@ namespace granary {
             flags.value = 0ULL;
             flags.interrupt = true;
 
-            // restore the flags, but leave interrupts disabled. Assumes that
-            // instrumentation code does not inspect the interrupt bit.
             ls.append(pop_(isf_ptr));
+            ls.append(push_(reg::rax)); // will serve as a temp stack ptr
+
+            // use rax as a stack pointer
+            ls.append(mov_ld_(
+                reg::rax,
+                isf_ptr[offsetof(interrupt_stack_frame, stack_pointer)]));
+
+            // put the return address on the stack
+            ls.append(mov_ld_(
+                reg::arg2,
+                isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)]));
+            ls.append(mov_st_(reg::rax[-8], reg::arg2));
+
+            // put the flags on the stack, with interrupts disabled.
             ls.append(mov_imm_(reg::arg2, int64_(~(flags.value))));
             ls.append(and_(
                 reg::arg2,
                 isf_ptr[offsetof(interrupt_stack_frame, flags)]));
-            ls.append(push_(reg::arg2));
+            ls.append(mov_st_(reg::rax[-16], reg::arg2));
+
+            // move the saved rax to a different location
+            ls.append(mov_ld_(reg::arg2, *reg::rsp));
+            ls.append(mov_st_(reg::rax[-24], reg::arg2));
+
+            // compute the new stack pointer, restore arg1, arg2, rsp, and rax.
+            ls.append(lea_(reg::rax, reg::rax[-24]));
+            ls.append(mov_ld_(reg::arg2, reg::rsp[16]));
+            ls.append(mov_ld_(reg::arg1, reg::rsp[24]));
+            ls.append(mov_ld_(reg::rsp, reg::rax));
+            ls.append(pop_(reg::rax));
+
+            // restore flags, and return
             ls.append(popf_());
-
-            // restore the old stack pointer, then allocate space on the stack
-            // for the return address.
-            ls.append(mov_ld_(
-                reg::rsp,
-                isf_ptr[offsetof(interrupt_stack_frame, stack_pointer)]));
-            ls.append(lea_(reg::rsp, reg::rsp[-8]));
-
-            // copy the return address of the ISF onto the top of the
-            // (now changed) stack.
-            ls.append(mov_ld_(
-                reg::arg2,
-                isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)]));
-            ls.append(mov_st_(*reg::rsp, reg::arg2));
-
-            // restore arg2 and arg1.
-            ls.append(mov_ld_(reg::arg2, isf_ptr[-16]));
-            ls.append(mov_ld_(reg::arg1, isf_ptr[-8]));
-
-            // return, as if the interrupt was a function, with interrupts
-            // disabled.
             ls.append(ret_());
         }
 
@@ -317,7 +562,7 @@ namespace granary {
 
     /// Create a Granary version of the interrupt descriptor table. This
     /// assumes that the IDT for all CPUs is the same.
-    system_table_register_t emit_idt(void) throw() {
+    system_table_register_t create_idt(void) throw() {
 
         system_table_register_t native;
         system_table_register_t instrumented;
@@ -346,12 +591,23 @@ namespace granary {
                     continue;
                 }
 
-                set_gate_target_offset(
-                    &(i_vec->gate),
-                    emit_interrupt_routine(
+                app_pc target(nullptr);
+
+                if(VECTOR_NMI == i || VECTOR_DEBUG == i) {
+                    target = native_handler;
+                } else {
+                    target = emit_interrupt_routine(
                         i,
                         native_handler,
-                        common_vector_handler));
+                        common_vector_handler);
+                }
+
+
+                VECTOR_HANDLER[i] = target;
+
+                set_gate_target_offset(
+                    &(i_vec->gate),
+                    target);
             }
         }
 

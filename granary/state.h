@@ -73,6 +73,7 @@ namespace granary {
         __attribute__((hot))
         cpu_state_handle(void) throw();
 
+
         FORCE_INLINE
         cpu_state *operator->(void) throw() {
             return state;
@@ -193,6 +194,10 @@ namespace granary {
         /// A region of executable code that is overwritten as necessary to
         /// delay interrupts.
         IF_KERNEL( app_pc interrupt_delay_handler; )
+
+
+        /// Spilled registers needed for interrupt delaying.
+        IF_KERNEL( uint64_t spill[2]; )
 
 
         /// The code cache allocator for this CPU.

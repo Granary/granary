@@ -385,9 +385,16 @@ namespace granary {
         }
 
 
+#if GRANARY_IN_KERNEL
         /// Return true iff this instruction begins a delay region.
         inline bool begins_delay_region(void) const throw() {
             return 0 != (DELAY_BEGIN & instr->granary_flags);
+        }
+
+
+        /// Set this instruction to begin a delay region.
+        inline void begin_delay_region(void) throw() {
+            instr->granary_flags |= DELAY_BEGIN;
         }
 
 
@@ -396,6 +403,12 @@ namespace granary {
             return 0 != (DELAY_END & instr->granary_flags);
         }
 
+
+        /// Set this instruction to end a delay region.
+        inline void end_delay_region(void) throw() {
+            instr->granary_flags |= DELAY_END;
+        }
+#endif
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {

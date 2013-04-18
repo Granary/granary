@@ -266,9 +266,12 @@ else
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
 	
+	# kernel-specific test cases
+	GR_OBJS += bin/tests/test_interrupt_delay.o
+	
 	# kernel-specific versions of granary functions
 	GR_OBJS += bin/granary/kernel/linux/module.o
-	GR_OBJS += bin/granary/kernel/linux/state.o
+	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/interrupt.o
 	GR_OBJS += bin/granary/kernel/allocator.o
 	GR_OBJS += bin/granary/kernel/printf.o

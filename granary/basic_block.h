@@ -26,12 +26,12 @@ namespace granary {
 
 
     /// different states of bytes in the code cache.
-    typedef enum {
+    enum code_cache_byte_state {
         BB_BYTE_NATIVE         = (1 << 0),
         BB_BYTE_DELAY_BEGIN    = (1 << 1),
         BB_BYTE_DELAY_CONT     = (1 << 2),
         BB_BYTE_DELAY_END      = (1 << 3)
-    } code_cache_byte_state;
+    };
 
 
     /// Defines the meta-information block that ends each basic block in the
@@ -85,24 +85,43 @@ namespace granary {
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
         /// follows the info block in memory.
-        IF_KERNEL(uint8_t *pc_byte_states;)
+        IF_KERNEL( uint8_t *pc_byte_states; )
 
-        /// the meta information for the specific basic block.
+
+        /// The meta information for the specific basic block.
         basic_block_info *info;
+
 
     public:
 
-        /// the policy of this basic block.
+
+        /// The instrumentation policy of used to translate the code for this
+        /// basic block.
         instrumentation_policy policy;
 
-        /// location information about this basic block
+
+        /// Beginning on native/instrumented instructions within the basic
+        /// block. This skips past any emitted stub instructions at the
+        /// beginning of the basic block.
         app_pc cache_pc_start;
+
+
+        /// The current instruction within the basic block. This is the
+        /// instruction that was used to "find" and "rebuild" this information
+        /// about the basic block from the code cache.
         app_pc cache_pc_current;
+
+
+        /// The end of the instructions within the basic block. This includes
+        /// illegal instructions emitted at the end of the basic block.
         app_pc cache_pc_end;
+
 
         /// construct a basic block from a pc that points into the code cache.
         basic_block(app_pc current_pc_) throw();
 
+
+#if GRANARY_IN_KERNEL
         /// Returns true iff this interrupt must be delayed. If the interrupt
         /// must be delayed then the arguments are updated in place with the
         /// range of code that must be copied and re-relativised in order to
@@ -110,14 +129,18 @@ namespace granary {
         /// [begin, end), where the `end` address is the next code cache address
         /// to execute after the interrupt has been handled.
         bool get_interrupt_delay_range(app_pc &, app_pc &) const throw();
+#endif
+
 
         /// Compute the size of a basic block given an instruction list. This
         /// computes the size of each instruction, the amount of padding, meta
         /// information, etc.
         static unsigned size(instruction_list &) throw();
 
+
         /// Compute the size of an existing basic block.
         unsigned size(void) const throw();
+
 
         /// Call the code within the basic block as if is a function.
         template <typename R, typename... Args>
@@ -130,7 +153,9 @@ namespace granary {
             return func.yield();
         }
 
+
     protected:
+
 
         typedef void (client_instrumenter)(
             cpu_state_handle &cpu,
@@ -138,11 +163,8 @@ namespace granary {
             basic_block_state *bb,
             instruction_list &ls);
 
+
         /// Decode and translate a single basic block of application/module code.
-        ///
-        /// TODO: I don't like that I need to pass in an argument to pass out
-        ///       for pre-populating the code cache with return addresses back
-        ///       into basic blocks.
         static basic_block translate(
             instrumentation_policy policy,
             cpu_state_handle &cpu,

@@ -73,8 +73,8 @@ namespace granary {
     };
 
 
-    /// Emit a version of the IDT that first gives control to Granary.
-    system_table_register_t emit_idt(void) throw();
+    /// Replace the IDT with one that Granary controls.
+    system_table_register_t create_idt(void) throw();
 }
 
 

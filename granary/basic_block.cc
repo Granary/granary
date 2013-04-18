@@ -50,35 +50,42 @@ namespace granary {
     /// Get the state of a byte in the basic block.
     inline static code_cache_byte_state
     get_state(uint8_t *states, unsigned i) throw() {
+        enum {
+            MASK = (BB_BYTE_STATES_PER_BYTE - 1)
+        };
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
         const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
         return static_cast<code_cache_byte_state>(
-                1 << ((states[j] >> k) & 0x03));
+                1 << ((states[j] >> k) & MASK));
     }
 
 
-    /// Set one of the states into a trit.
+    /// Set one of the states into a counting set.
     static void set_state(
         uint8_t *pc_byte_states,
         unsigned i,
         code_cache_byte_state state
     ) throw() {
 
+        enum {
+            MASK = (BB_BYTE_STATES_PER_BYTE - 1)
+        };
+
         static uint8_t state_to_mask[] = {
-                0xFF,
-                0,  /* BB_BYTE_NATIVE:      1 << 0 */
-                1,  /* BB_BYTE_DELAY_BEGIN: 1 << 1 */
-                0xFF,
-                2,  /* BB_BYTE_DELAY_CONT:  1 << 2 */
-                0xFF,
-                0xFF,
-                0xFF,
-                3   /* BB_BYTE_DELAY_END:   1 << 3 */
+            0xFF,
+            0,  /* BB_BYTE_NATIVE:      1 << 0 */
+            1,  /* BB_BYTE_DELAY_BEGIN: 1 << 1 */
+            0xFF,
+            2,  /* BB_BYTE_DELAY_CONT:  1 << 2 */
+            0xFF,
+            0xFF,
+            0xFF,
+            3   /* BB_BYTE_DELAY_END:   1 << 3 */
         };
 
         const unsigned j(i / BB_BYTE_STATES_PER_BYTE); // byte offset
         const unsigned k(2 * (i % BB_BYTE_STATES_PER_BYTE)); // bit offset
-        pc_byte_states[j] &= ~(0x3 << k);
+        pc_byte_states[j] &= ~(MASK << k);
         pc_byte_states[j] |= state_to_mask[state] << k;
     }
 
@@ -128,38 +135,38 @@ namespace granary {
     static unsigned
     initialise_state_bytes(
         basic_block_info *info,
-        instruction_list &ls,
+        instruction in,
         app_pc pc
     ) throw() {
 
-        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+        unsigned num_instruction_bits(
+            (info->num_bytes - info->num_patch_bytes) * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
-        // initialise all state bytes to have their states as padding bytes
-        memset(
-            reinterpret_cast<void *>(pc),
-            static_cast<int>(BB_PADDING_LONG),
-            num_state_bytes);
+        // initialise all state bytes to have their states as native
+        memset(pc, 0, num_state_bytes);
 
-        instruction in(ls.first());
         unsigned byte_offset(0);
         unsigned prev_byte_offset(0);
 
         // for each instruction
-        code_cache_byte_state prev_state(code_cache_byte_state::BB_BYTE_NATIVE);
+        code_cache_byte_state prev_state(BB_BYTE_NATIVE);
         unsigned num_delayed_instructions(0);
         unsigned prev_num_delayed_instructions(0);
-        for(unsigned i = 0, max = ls.length(); i < max; ++i) {
+
+        for(; in; in = in.next()) {
+
             code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
+
             unsigned num_bytes(in.encoded_size());
 
-            if(code_cache_byte_state::BB_BYTE_NATIVE != stored_state) {
+            if(BB_BYTE_NATIVE != stored_state) {
                 if(num_bytes) {
                     ++num_delayed_instructions;
                 }
-                stored_state = code_cache_byte_state::BB_BYTE_DELAY_CONT;
+                stored_state = BB_BYTE_DELAY_CONT;
             } else {
                 prev_num_delayed_instructions = num_delayed_instructions;
                 num_delayed_instructions = 0;
@@ -170,7 +177,7 @@ namespace granary {
             // no sense).
             if(1 == prev_num_delayed_instructions) {
                 for(unsigned j(prev_byte_offset); j < byte_offset; ++j) {
-                    set_state(pc, j, code_cache_byte_state::BB_BYTE_NATIVE);
+                    set_state(pc, j, BB_BYTE_NATIVE);
                 }
             }
 
@@ -180,18 +187,18 @@ namespace granary {
             }
 
             // update so that we have byte accuracy on begin/end.
-            if(code_cache_byte_state::BB_BYTE_DELAY_BEGIN == state) {
-                set_state(pc, byte_offset, code_cache_byte_state::BB_BYTE_DELAY_BEGIN);
-            } else if(code_cache_byte_state::BB_BYTE_DELAY_END == state) {
+            if(BB_BYTE_DELAY_BEGIN == state) {
+                set_state(pc, byte_offset, BB_BYTE_DELAY_BEGIN);
+            } else if(BB_BYTE_DELAY_END == state) {
                 set_state(
                     pc,
                     byte_offset + num_bytes - 1,
-                    code_cache_byte_state::BB_BYTE_DELAY_END);
+                    BB_BYTE_DELAY_END);
             }
 
             prev_byte_offset = byte_offset;
             byte_offset += num_bytes;
-            in = in.next();
+            prev_state = state;
         }
 
         return num_state_bytes;
@@ -254,8 +261,7 @@ namespace granary {
             pc_byte_states, current_offset));
 
         enum {
-            SAFE_INTERRUPT_STATE = code_cache_byte_state::BB_BYTE_NATIVE
-                                 | code_cache_byte_state::BB_BYTE_DELAY_BEGIN
+            SAFE_INTERRUPT_STATE = BB_BYTE_NATIVE | BB_BYTE_DELAY_BEGIN
         };
 
         if(SAFE_INTERRUPT_STATE & byte_state) {
@@ -264,23 +270,26 @@ namespace granary {
             return false;
         }
 
-        // Scan forward. Assumes that the byte states are correctly structured.
-        for(unsigned i(current_offset + 1), j(1); ; ++i, ++j) {
-            byte_state = get_state(pc_byte_states, i);
-            if(code_cache_byte_state::BB_BYTE_DELAY_END == byte_state) {
-                end = cache_pc_current + j + 1;
+        for(unsigned i(current_offset); ; ++i) {
+            if(BB_BYTE_DELAY_END == get_state(pc_byte_states, i)) {
+                end = cache_pc_start + i + 1;
                 break;
             }
         }
 
-        // scan backward.
-        for(unsigned i(current_offset - 1), j(1); ; --i, ++j) {
-            byte_state = get_state(pc_byte_states, i);
-            if(code_cache_byte_state::BB_BYTE_DELAY_BEGIN == byte_state) {
-                begin = cache_pc_current - j;
-                break;
+        for(unsigned i(0); i < current_offset; ++i) {
+            if(SAFE_INTERRUPT_STATE & get_state(pc_byte_states, i)) {
+                begin = cache_pc_start + i;
             }
         }
+
+        /*
+        for(int64_t i(current_offset - 1); 0 <= i; --i) {
+            if(BB_BYTE_DELAY_BEGIN == get_state(pc_byte_states, i)) {
+                begin = cache_pc_start + i;
+                break;
+            }
+        }*/
 
         return true;
     }
@@ -761,7 +770,7 @@ namespace granary {
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
-        IF_KERNEL( pc += initialise_state_bytes(info, ls, pc); )
+        IF_KERNEL( pc += initialise_state_bytes(info, bb_begin, pc); )
 
         return start_pc;
     }

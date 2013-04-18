@@ -24,7 +24,7 @@
 
 
 #ifndef GRANARY_IN_KERNEL
-#   define GRANARY_IN_KERNEL 0
+#   define GRANARY_IN_KERNEL 1
 #endif
 
 
@@ -83,7 +83,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -215,7 +215,7 @@ namespace granary {
 
         /// Number of interrupt vectors
         NUM_INTERRUPT_VECTORS = 256,
-        INTERRUPT_DELAY_CODE_SIZE = 256,
+        INTERRUPT_DELAY_CODE_SIZE = 2048,
 
 
         /// Size (in bytes) of the x86-64 user space redzone.

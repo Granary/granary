@@ -555,7 +555,7 @@ namespace granary {
 
         ibl.append(push_(reg_compare_addr));
 
-        // on qthe stack:
+        // on the stack:
         //      redzone
         //      reg_target_addr         (saved: arg1)
         //      reg_predict_table_ptr   (saved: arg2)
@@ -1170,10 +1170,11 @@ namespace granary {
     /// instructions then we need to change which instruction logically begins
     /// the interrupt delay region's begin/end bounds.
     void instruction_list_mangler::propagate_delay_region(
-        instruction in,
-        instruction first,
-        instruction last
+        instruction IF_KERNEL(in),
+        instruction IF_KERNEL(first),
+        instruction IF_KERNEL(last)
     ) throw() {
+#if GRANARY_IN_KERNEL
         if(in.begins_delay_region() && first.is_valid()) {
             in.remove_flag(instruction::DELAY_BEGIN);
             first.add_flag(instruction::DELAY_BEGIN);
@@ -1183,6 +1184,7 @@ namespace granary {
             in.remove_flag(instruction::DELAY_END);
             last.add_flag(instruction::DELAY_END);
         }
+#endif
     }
 
 

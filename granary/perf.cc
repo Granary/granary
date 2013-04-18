@@ -62,6 +62,12 @@ namespace granary {
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_HIT(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_MISS(ATOMIC_VAR_INIT(0U));
 
+#if GRANARY_IN_KERNEL
+    static std::atomic<unsigned long> NUM_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
+    static std::atomic<unsigned> NUM_RECURSIVE_INTERRUPTS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned long> NUM_DELAYED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
+#endif
+
 
     void perf::visit_address_lookup(void) throw() {
         NUM_ADDRESS_LOOKUPS.fetch_add(1);
@@ -147,6 +153,28 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    void perf::visit_interrupt(void) throw() {
+        NUM_INTERRUPTS.fetch_add(1);
+    }
+
+
+    void perf::visit_delayed_interrupt(void) throw() {
+        NUM_DELAYED_INTERRUPTS.fetch_add(1);
+    }
+
+
+    void perf::visit_recursive_interrupt(void) throw() {
+        NUM_RECURSIVE_INTERRUPTS.fetch_add(1);
+    }
+
+
+    unsigned long perf::num_delayed_interrupts(void) throw() {
+        return NUM_DELAYED_INTERRUPTS.load();
+    }
+#endif
+
+
     void perf::report(void) throw() {
 
         printf("Number of decoded instructions: %u\n",
@@ -198,6 +226,15 @@ namespace granary {
             NUM_ADDRESS_LOOKUPS_CPU_HIT.load());
         printf("Number misses in the cpu code cache(s): %u\n\n",
             NUM_ADDRESS_LOOKUPS_CPU_MISS.load());
+
+#if GRANARY_IN_KERNEL
+        printf("Number of interrupts: %lu\n",
+            NUM_INTERRUPTS.load());
+        printf("Number of delayed interrupts: %lu\n",
+            NUM_DELAYED_INTERRUPTS.load());
+        printf("Number of recursive interrupts (these are bad): %u\n\n",
+            NUM_RECURSIVE_INTERRUPTS.load());
+#endif
     }
 }
 

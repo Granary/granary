@@ -44,6 +44,13 @@ namespace granary {
         static void visit_address_lookup_hit(void) throw();
         static void visit_address_lookup_cpu(bool) throw();
 
+#if GRANARY_IN_KERNEL
+        static void visit_interrupt(void) throw();
+        static void visit_recursive_interrupt(void) throw();
+        static void visit_delayed_interrupt(void) throw();
+        static unsigned long num_delayed_interrupts(void) throw();
+#endif
+
         static void report(void) throw();
     };
 

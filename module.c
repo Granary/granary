@@ -23,6 +23,7 @@
 #include <linux/percpu.h>
 #include <linux/percpu-defs.h>
 #include <linux/preempt.h>
+#include <linux/compiler.h>
 #include <linux/version.h>
 #include <linux/gfp.h>
 
@@ -59,12 +60,15 @@ MODULE_LICENSE("GPL");
 
 
 /// Get access to per-CPU Granary state.
-void *get_percpu_state(void *ptr) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 33)
-    return this_cpu_ptr(ptr);
-#else
-    return per_cpu_ptr(ptr, smp_processor_id());
-#endif
+__attribute__((hot))
+void **kernel_get_cpu_state(void *ptr[]) {
+    return &(ptr[smp_processor_id()]);
+}
+
+
+/// Run a function on each CPU.
+void kernel_run_on_each_cpu(void (*func)(void *), void *thunk) {
+    on_each_cpu(func, thunk, 1);
 }
 
 
@@ -105,8 +109,10 @@ void *granary_allocate_idt(void) {
 
 /// Notify the kernel that pre-emption is disabled. Granary does this even
 /// when interrupts are disabled.
+__attribute__((hot))
 void kernel_preempt_disable(void) {
-    preempt_disable();
+    inc_preempt_count();
+    barrier();
 }
 
 
@@ -114,8 +120,10 @@ void kernel_preempt_disable(void) {
 /// when interrupts remain disabled, with the understanding that Granary won't
 /// do anything "interesting" (i.e. call kernel functions that might inspect
 /// the pre-emption state) until it re-enabled interrupts.
+__attribute__((hot))
 void kernel_preempt_enable(void) {
-    preempt_enable();
+    barrier();
+    dec_preempt_count();
 }
 
 
