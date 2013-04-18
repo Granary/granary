@@ -704,7 +704,7 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.\
             allocate_array<uint8_t>(basic_block::size(ls));
 
-        IF_TEST( app_pc emitted_pc =) emit(
+        IF_TEST( app_pc emitted_pc = ) emit(
             policy, ls, bb_begin, block_storage, start_pc, generated_pc);
 
         // If this isn't the case, then there there was likely a buffer

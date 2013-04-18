@@ -1317,8 +1317,8 @@ namespace granary {
     void instruction_list_mangler::mangle_far_memory_refs(
         instruction in
     ) throw() {
+        IF_TEST( const bool was_atomic(in.is_atomic()); )
 
-        const bool was_atomic(in.is_atomic());
         bool has_far_op(false);
         operand far_op;
 

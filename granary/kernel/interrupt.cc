@@ -85,7 +85,9 @@ namespace granary {
     })
 
 
-    /// Mangle a delayed instruction. We make several basic assumptions:
+    /// Mangle a delayed instruction.
+    ///
+    /// We make several basic assumptions:
     ///     i)  Code in a delay region does not fault.
     ///     ii) Eliding cli/sti in a delay region is safe because the code
     ///         within the delay region (given assumption 1) must have been
@@ -145,8 +147,9 @@ namespace granary {
     }
 
 
-    /// Mangle a CTI within the instruction list. This tries to redirect the
-    /// CTI to point back within the delay region.
+    /// Mangle a CTI within the delay region. This tries to redirect a CTI to
+    /// point back within the delay region. This code will fault if the CTI
+    /// cannot be redirected.
     static void mangle_cti(instruction_list &ls, instruction cti) throw() {
         if(cti.is_return()) {
             return;
@@ -170,7 +173,12 @@ namespace granary {
 
 
     /// Emit the code needed to reconstruct this interrupt after executing the
-    /// code within the delay region.
+    /// code within the delay region. Interrupt delaying works by copying and
+    /// re-relativizing all of the code within a interrupt delay region into a
+    /// CPU-private location. After this, code is emitted to re-build the
+    /// interrupt stack frame, but with `delay_end` as the return address for
+    /// the interrupt. The interrupt is then re-issued to Granary (and then
+    /// likely to the kernel).
     ///
     /// Returns the app_pc for the instruction where execution should resume.
     __attribute__((hot))

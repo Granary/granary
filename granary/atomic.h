@@ -35,7 +35,7 @@ namespace granary {
             : val(val_)
         { }
 
-        inline bool compare_exchange_strong(T &expected, T desired) throw() {
+        inline bool compare_exchange_strong(T & IF_TEST( expected ), T desired) throw() {
             ASSERT(val == expected)
             val = desired;
             return true;

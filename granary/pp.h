@@ -126,7 +126,7 @@
 #if !CONFIG_RUN_TEST_CASES
 #   define IF_TEST(...)
 #   define ADD_TEST(func, desc)
-#   define ASSERT(cond) if(false && (cond)) { }
+#   define ASSERT(cond)
 #else
 #   define IF_TEST(...) __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
