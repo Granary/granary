@@ -35,8 +35,21 @@ namespace test {
 
             in = ls.insert_after(in, push_(reg::rax));
             in.begin_delay_region();
+
+            // disable interrupts. Note: this is not necessary within a delay
+            // regions. Disabling interrupts here exists to test the delay-specific
+            // mangling of potential interrupt-state changing instructions like
+            // cli, sti, and popf.
+            //
+            // Interrupts are also delayed here in the hopes that if we don't get
+            // a timer interrupt then we might get something else (e.g. some level-
+            // triggered interrupt) that will hit immediately when interrupts are
+            // re-enabled.
             in = ls.insert_after(in, pushf_());
             in = ls.insert_after(in, cli_());
+            
+            // number of loop iterations. If run natively, this should probably be
+            // increased by another order of magnitude.
             in = ls.insert_after(in, mov_imm_(reg::rax, int32_(100000)));
             in = ls.insert_after(in, loop_head);
 
@@ -69,8 +82,9 @@ namespace test {
     };
 
 
-    /// Tight loop; instrumentation will add a lot of NOPs, so we hope it will
-    /// (eventually) be interrupted.
+    /// Tight loop; instrumentation will add enough things in here that we
+    /// hope that an interrupt will occur in at least one of the basic block's
+    /// delay regions.
     static void tight_loop(void) throw() {
         while(!interrupted) {
             ASM("nop;");
