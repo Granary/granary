@@ -258,9 +258,12 @@ namespace granary {
         //
         // TODO: this assumes that code in a delay region will not fault!!!
         if(isf->flags.interrupt) {
+
+            // TODO: maybe XOR with old flags?
             eflags mask;
             mask.value = 0ULL;
             mask.interrupt = true;
+
             ls.append(mov_imm_(reg::rax, int64_(mask.value)));
             ls.append(or_(*reg::rsp, reg::rax));
         }
@@ -419,7 +422,6 @@ namespace granary {
                 allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
 
         ls.encode(routine);
-
         return routine;
     }
 
@@ -468,8 +470,7 @@ namespace granary {
         rm.revive(reg::ret);
 
         // call out to the handler
-        instruction in(ls.append(label_()));
-        in = save_and_restore_registers(rm, ls, in);
+        instruction in(save_and_restore_registers(rm, ls, in_kernel));
         in = insert_align_stack_after(ls, in);
         in = insert_cti_after(
             ls, in, // instruction
@@ -504,10 +505,13 @@ namespace granary {
         // return address in the ISF, which has been manipulated to be in the
         // position of previous stack pointer plus one. This is also tricky
         // because it must be safe w.r.t. NMIs.
+        //
+        // TODO: unaligned RET issue? Potentially consider RETn.
         ls.append(ret);
         {
             // make a mask for interrupts.
-            // TODO: trap flag? virtual interrupt flag?
+            // TODO: trap flag? virtual interrupt flag? Maybe do a XOR of the
+            //       old flags?
             eflags flags;
             flags.value = 0ULL;
             flags.interrupt = true;
@@ -521,6 +525,7 @@ namespace granary {
                 isf_ptr[offsetof(interrupt_stack_frame, stack_pointer)]));
 
             // put the return address on the stack
+            // TODO: unaligned RET?
             ls.append(mov_ld_(
                 reg::arg2,
                 isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)]));
@@ -558,12 +563,11 @@ namespace granary {
         }
 
         // encode.
-        app_pc routine(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size() + 16));
+        app_pc routine(reinterpret_cast<app_pc>(
+            global_state::FRAGMENT_ALLOCATOR-> \
+                allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
 
-        routine += ALIGN_TO(reinterpret_cast<uint64_t>(routine), 16);
         ls.encode(routine);
-
         return routine;
     }
 

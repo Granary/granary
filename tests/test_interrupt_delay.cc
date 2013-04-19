@@ -21,7 +21,7 @@ namespace test {
     struct interrupt_nop_policy : public granary::instrumentation_policy {
     public:
 
-        /// Instruction a basic block.
+        /// Instrument a basic block.
         static granary::instrumentation_policy visit_basic_block(
             granary::cpu_state_handle &,
             granary::thread_state_handle &,
