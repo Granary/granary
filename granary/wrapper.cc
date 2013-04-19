@@ -48,6 +48,9 @@
 #   endif
 
 #   if GRANARY_IN_KERNEL
+#		if CLIENT_POLICY_WATCHPOINT
+#			include "clients/watchpoint/wrappers/linux/wrapper_allocator.h"
+#		endif
 #       include "granary/kernel/linux/wrappers.h"
 #       include "granary/gen/kernel_wrappers.h"
 #   else
