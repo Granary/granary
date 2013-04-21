@@ -539,49 +539,25 @@ namespace granary {
             // do_instr:    cmps ....
             //              lea -1(%[er]cx), %[er]cx
             // try_loop:    j[er]cxz <after>
-            //              jnz <after>
+            //              j[n]z <after>
             //              jmp <do_instr>
             // after:
             case dynamorio::OP_rep_cmps:
-            case dynamorio::OP_rep_scas: {
-                instruction after(label_());
-                instruction do_instr(label_());
-                operand counter(rep_counter(in));
-                instruction skip(jmp_(instr_(after)));
-
-                try_skip = ls.insert_before(in, rep_jrcxz_(skip, counter));
-                ls.insert_before(in, jmp_(instr_(do_instr)));
-                ls.insert_before(in, skip);
-                ls.insert_before(in, do_instr);
-
-                ls.insert_after(in, after);
-                ls.insert_before(after, lea_(counter, counter[-1]));
-                ls.insert_before(after, rep_jrcxz_(after, counter));
-                ls.insert_before(after, mangled(jnz_(instr_(after))));
-                ls.insert_before(after, mangled(jmp_(instr_(do_instr))));
-
-                goto common_REP_tail;
-            }
-
-            // Based on condition codes. This converts something like
-            // `repne cmps ...` into:
-            //
-            // try_skip:    j[er]cxz <skip>
-            //              jmp <do_instr>
-            // skip:        jmp <after>
-            // do_instr:    cmps ....
-            //              lea -1(%[er]cx), %[er]cx
-            // try_loop:    j[er]cxz <after>
-            //              jz <after>
-            //              jmp <do_instr>
-            // after:
             case dynamorio::OP_repne_cmps:
+            case dynamorio::OP_rep_scas:
             case dynamorio::OP_repne_scas: {
                 instruction after(label_());
                 instruction do_instr(label_());
                 operand counter(rep_counter(in));
                 instruction skip(jmp_(instr_(after)));
 
+                // conditional termination condition
+                instruction (*jcc_)(dynamorio::opnd_t) = jnz_;
+                if(dynamorio::OP_repne_cmps == in.op_code()
+                || dynamorio::OP_repne_scas == in.op_code()) {
+                    jcc_ = jz_;
+                }
+
                 try_skip = ls.insert_before(in, rep_jrcxz_(skip, counter));
                 ls.insert_before(in, jmp_(instr_(do_instr)));
                 ls.insert_before(in, skip);
@@ -590,7 +566,7 @@ namespace granary {
                 ls.insert_after(in, after);
                 ls.insert_before(after, lea_(counter, counter[-1]));
                 ls.insert_before(after, rep_jrcxz_(after, counter));
-                ls.insert_before(after, mangled(jz_(instr_(after))));
+                ls.insert_before(after, mangled(jcc_(instr_(after))));
                 ls.insert_before(after, mangled(jmp_(instr_(do_instr))));
 
                 goto common_REP_tail;
