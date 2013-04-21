@@ -45,8 +45,12 @@
 #endif
 
 
+/// Do pre-mangling of instructions with the REP prefix?
+#define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 1
+
+
 /// Use an RCU-protected hash table for the global code cache lookups, or use
-/// a global lock?
+/// a global lock? If 1, then a lock will be used.
 #define CONFIG_LOCK_GLOBAL_CODE_CACHE 1
 
 

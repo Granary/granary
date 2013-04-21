@@ -1684,56 +1684,6 @@ instr_t *convert_to_near_rel_common(dcontext_t *dcontext,
                                     instrlist_t *ilist,
                                     instr_t *instr);
 
-instrlist_t * instrlist_create(dcontext_t * dcontext);
-
-void instrlist_init(instrlist_t * ilist);
-
-void instrlist_destroy(dcontext_t * dcontext, instrlist_t * ilist);
-
-void instrlist_clear(dcontext_t * dcontext, instrlist_t * ilist);
-
-void instrlist_clear_and_destroy(dcontext_t * dcontext, instrlist_t * ilist);
-
-bool instrlist_set_fall_through_target(instrlist_t * bb, app_pc tgt);
-
-app_pc instrlist_get_fall_through_target(instrlist_t * bb);
-
-bool instrlist_set_return_target(instrlist_t * bb, app_pc tgt);
-
-app_pc instrlist_get_return_target(instrlist_t * bb);
-
-void instrlist_set_translation_target(instrlist_t * ilist, app_pc pc);
-
-app_pc instrlist_get_translation_target(instrlist_t * ilist);
-
-void instrlist_set_our_mangling(instrlist_t * ilist, bool ours);
-
-bool instrlist_get_our_mangling(instrlist_t * ilist);
-
-instr_t * instrlist_first(instrlist_t * ilist);
-
-instr_t * instrlist_last(instrlist_t * ilist);
-
-void instrlist_append(instrlist_t * ilist, instr_t * inst);
-
-void instrlist_prepend(instrlist_t * ilist, instr_t * inst);
-
-void instrlist_preinsert(instrlist_t * ilist, instr_t * where, instr_t * inst);
-
-void instrlist_postinsert(instrlist_t * ilist, instr_t * where, instr_t * inst);
-
-instr_t * instrlist_replace(instrlist_t * ilist, instr_t * oldinst,
-        instr_t * newinst);
-
-void instrlist_remove(instrlist_t * ilist, instr_t * inst);
-
-instrlist_t * instrlist_clone(dcontext_t * dcontext, instrlist_t * old);
-
-void instrlist_prepend_instrlist(dcontext_t * dcontext, instrlist_t * ilist,
-        instrlist_t * prependee);
-
-void instrlist_append_instrlist(dcontext_t * dcontext, instrlist_t * ilist,
-        instrlist_t * appendee);
 
 dcontext_t * get_thread_private_dcontext(void);
 

@@ -428,6 +428,28 @@ namespace granary {
     }
 
 
+#if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
+    /// Get the counter operand for a REP instruction.
+    operand rep_counter(instruction in) throw() {
+        return in.instr->u.o.dsts[in.instr->num_dsts - 1];
+    }
+
+
+    /// Create a jrcxz/jecxz/jcxz instruction for operating on a REP-prefixed
+    /// instruction.
+    instruction rep_jrcxz_(instruction label, const operand &counter) throw() {
+        switch(dynamorio::opnd_get_size(counter)) {
+        case dynamorio::OPSZ_8:
+            return mangled(jrcxz_(instr_(label)));
+        case dynamorio::OPSZ_4:
+            return mangled(jecxz_(instr_(label)));
+        default:
+            return mangled(jcxz_(instr_(label)));
+        }
+    }
+#endif
+
+
     /// Translate any loop instructions into a 3- or 4-instruction form, and
     /// return the number of loop instructions found. This is done here instead
     /// of at mangle time so that we can potentially benefit from
@@ -470,16 +492,17 @@ namespace granary {
                 break;
             }
 
+#if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
             // Based on ECX/RCX; these instructions are such that for each rep_
             // version, the non-rep version is OP_rep_* - 1.
             //
             // This converts something like `rep ins <...>` into:
             //
             // try_skip:    j[er]?cxz <done>
-            //              lea -1(%[er]?cx), %[er]?cx
             //              jmp <do_instr>
             // done:        jmp <after>
             //              ins ...
+            //              lea -1(%[er]?cx), %[er]?cx
             //              jmp <try_loop>
             // after:
 
@@ -493,25 +516,16 @@ namespace granary {
                 instruction after(label_());
                 instruction done(mangled(jmp_(instr_(after))));
                 instruction do_instr(label_());
-                operand counter;
+                operand counter(rep_counter(in));
 
-                if(in.instr->prefixes & PREFIX_REX_W) {
-                    try_skip = mangled(jrcxz_(instr_(done)));
-                    counter = reg::rcx;
-                } else {
-                    // TODO: handle case where CX is used?
-                    try_skip = mangled(jecxz_(instr_(done)));
-                    counter = reg::ecx;
-                }
-
-                ls.insert_before(in, try_skip);
-                ls.insert_before(in, lea_(counter, counter[-1]));
+                try_skip = ls.insert_before(in, rep_jrcxz_(done, counter));
                 ls.insert_before(in, mangled(jmp_(instr_(do_instr))));
                 ls.insert_before(in, done);
                 ls.insert_before(in, do_instr);
 
                 ls.insert_after(in, after);
-                ls.insert_after(in, mangled(jmp_(instr_(try_skip))));
+                ls.insert_before(after, lea_(counter, counter[-1]));
+                ls.insert_before(after, mangled(jmp_(instr_(try_skip))));
 
                 goto common_REP_tail;
             }
@@ -519,21 +533,32 @@ namespace granary {
             // Based on condition codes. This converts something like
             // `repe cmps ...` into:
             //
-            // try_skip:    jne <after>
+            // try_skip:    j[er]cxz <skip>
+            //              jmp <do_instr>
+            // skip:        jmp <after>
             // do_instr:    cmps ....
-            // try_loop:    je <do_instr>
+            //              lea -1(%[er]cx), %[er]cx
+            // try_loop:    j[er]cxz <after>
+            //              jnz <after>
+            //              jmp <do_instr>
             // after:
             case dynamorio::OP_rep_cmps:
             case dynamorio::OP_rep_scas: {
                 instruction after(label_());
                 instruction do_instr(label_());
-                try_skip = mangled(jnz_(instr_(after)));
-                instruction try_loop(mangled(jz_(instr_(do_instr))));
+                operand counter(rep_counter(in));
+                instruction skip(jmp_(instr_(after)));
 
-                ls.insert_before(in, try_skip);
+                try_skip = ls.insert_before(in, rep_jrcxz_(skip, counter));
+                ls.insert_before(in, jmp_(instr_(do_instr)));
+                ls.insert_before(in, skip);
                 ls.insert_before(in, do_instr);
+
                 ls.insert_after(in, after);
-                ls.insert_after(in, try_loop);
+                ls.insert_before(after, lea_(counter, counter[-1]));
+                ls.insert_before(after, rep_jrcxz_(after, counter));
+                ls.insert_before(after, mangled(jnz_(instr_(after))));
+                ls.insert_before(after, mangled(jmp_(instr_(do_instr))));
 
                 goto common_REP_tail;
             }
@@ -541,23 +566,34 @@ namespace granary {
             // Based on condition codes. This converts something like
             // `repne cmps ...` into:
             //
-            // try_skip:    je <after>
+            // try_skip:    j[er]cxz <skip>
+            //              jmp <do_instr>
+            // skip:        jmp <after>
             // do_instr:    cmps ....
-            // try_loop:    jne <do_instr>
+            //              lea -1(%[er]cx), %[er]cx
+            // try_loop:    j[er]cxz <after>
+            //              jz <after>
+            //              jmp <do_instr>
             // after:
             case dynamorio::OP_repne_cmps:
             case dynamorio::OP_repne_scas: {
                 instruction after(label_());
                 instruction do_instr(label_());
-                try_skip = mangled(jz_(instr_(after)));
-                instruction try_loop(mangled(jnz_(instr_(do_instr))));
+                operand counter(rep_counter(in));
+                instruction skip(jmp_(instr_(after)));
 
-                ls.insert_before(in, try_skip);
+                try_skip = ls.insert_before(in, rep_jrcxz_(skip, counter));
+                ls.insert_before(in, jmp_(instr_(do_instr)));
+                ls.insert_before(in, skip);
                 ls.insert_before(in, do_instr);
-                ls.insert_after(in, after);
-                ls.insert_after(in, try_loop);
 
-                // fall-through
+                ls.insert_after(in, after);
+                ls.insert_before(after, lea_(counter, counter[-1]));
+                ls.insert_before(after, rep_jrcxz_(after, counter));
+                ls.insert_before(after, mangled(jz_(instr_(after))));
+                ls.insert_before(after, mangled(jmp_(instr_(do_instr))));
+
+                goto common_REP_tail;
             }
 
             common_REP_tail: {
@@ -570,6 +606,7 @@ namespace granary {
                 ++num_loops;
                 break;
             }
+#endif
 
             default: break;
             }
