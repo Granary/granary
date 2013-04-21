@@ -2890,6 +2890,7 @@ void
 instr_set_our_mangling(instr_t *instr, bool ours);
 
 
+#ifndef GRANARY
 DR_API
 /**
  * Returns NULL if none of \p instr's operands is a memory reference.
@@ -2937,7 +2938,7 @@ instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
                               OUT app_pc *addr, OUT bool *write, OUT uint *pos);
-
+#endif
 DR_API
 /**
  * Calculates the size, in bytes, of the memory read or write of \p instr.
@@ -3057,11 +3058,13 @@ DR_API
  * 0 routine, and can thus be called on Level 0 routines.  
  */
 #endif
+#ifndef GRANARY
 bool 
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc);
 
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target);
+#endif
 
 DR_API
 /**

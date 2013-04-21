@@ -161,7 +161,7 @@ namespace granary {
         }
 
         const app_pc target_pc(target.value.pc);
-        for(instruction in(ls.first()); in; in = in.next()) {
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             if(in.pc() == target_pc) {
                 cti.set_cti_target(instr_(in));
                 return;
@@ -211,7 +211,13 @@ namespace granary {
 
         // redirect internal CTIs.
         if(num_ctis) {
-            for(instruction in(ls.first()); num_ctis-- && in; in = in.next()) {
+            instruction next_in;
+
+            for(instruction in(ls.first());
+                num_ctis-- && in.is_valid();
+                in = next_in) {
+                next_in = in.next();
+
                 if(in.is_cti()) {
                     mangle_cti(ls, in);
                 }

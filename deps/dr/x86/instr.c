@@ -1663,12 +1663,18 @@ reg_get_size(reg_id_t reg)
 instr_t*
 instr_create(dcontext_t *dcontext)
 {
+#ifdef GRANARY
     instr_t *instr = dcontext->allocated_instr;
     if(!instr) {
         instr = (instr_t*) heap_alloc(
             dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    } else {
         dcontext->allocated_instr = 0;
     }
+#else
+    instr_t *instr = (instr_t*) heap_alloc(
+        dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
+#endif
 
     /* everything initialises to 0, even flags, to indicate
      * an uninitialised instruction */
@@ -2155,7 +2161,7 @@ instr_set_target(instr_t *instr, opnd_t target)
     /* if we're modifying operands, don't use original bits to encode,
      * except for jecxz/loop*
      */
-    instr_being_modified(instr, instr_is_cti_short_rewrite(instr, NULL));
+    instr_being_modified(instr, IF_GRANARY_ELSE(false, instr_is_cti_short_rewrite(instr, NULL)));
     /* assume all operands are valid */
     instr_set_operands_valid(instr, true);
 }
@@ -3527,6 +3533,7 @@ instr_set_our_mangling(instr_t *instr, bool ours)
         instr->flags &= ~INSTR_OUR_MANGLING;
 }
 
+#ifndef GRANARY
 /* Emulates instruction to find the address of the index-th memory operand.
  * Either or both OUT variables can be NULL.
  */
@@ -3617,6 +3624,7 @@ instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
     /* only supports GPRs so we ignore mc.size */
     return instr_compute_address_priv(instr, dr_mcontext_as_priv_mcontext(mc));
 }
+#endif
 
 /* Calculates the size, in bytes, of the memory read or write of instr
  * If instr does not reference memory, or is invalid, returns 0
@@ -3955,6 +3963,7 @@ instr_is_cti_loop(instr_t *instr)
     return (opc >= OP_loopne && opc <= OP_jecxz);
 }
 
+#ifndef GRANARY
 /* Checks whether instr is a jecxz/loop* that was originally an app instruction.
  * All such app instructions are mangled into a jecxz/loop*,jmp_short,jmp sequence.
  * If pc != NULL, pc is expected to point the the beginning of the encoding of
@@ -4010,7 +4019,7 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
         return false;
     return true;
 }
-
+#endif
 
 bool
 instr_is_interrupt(instr_t *instr)
@@ -4492,7 +4501,7 @@ instr_invert_cbr(instr_t *instr)
 {
     int opc = instr_get_opcode(instr);
     CLIENT_ASSERT(instr_is_cbr(instr), "instr_invert_cbr: instr not a cbr");
-    if (instr_is_cti_short_rewrite(instr, NULL)) {
+    if (IF_GRANARY_ELSE(false, instr_is_cti_short_rewrite(instr, NULL))) {
         /* these all look like this:
                      jcxz cx_zero
                      jmp-short cx_nonzero

@@ -2171,8 +2171,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         /* 8-bit offset */
         ptr_int_t offset;
         /* handled w/ mangled bytes */
-        CLIENT_ASSERT(!instr_is_cti_short_rewrite(instr, NULL),
-                      "encode_cti error: jecxz/loop already mangled");
+        IF_NOT_GRANARY( CLIENT_ASSERT(!instr_is_cti_short_rewrite(instr, NULL),
+                      "encode_cti error: jecxz/loop already mangled"); )
         /* offset is from start of next instr */
         offset = target - ((ptr_int_t)(pc + 1 - copy_pc + final_pc));
         if (check_reachable && !(offset >= INT8_MIN && offset <= INT8_MAX)) {
@@ -2219,7 +2219,8 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
      * in decode_sizeof(): or only in decode_cti()?
      */
     /* For PR 251646 we have special support for mangled jecxz/loop* */
-    if (instr_is_cti_short_rewrite(instr, NULL)) {
+    if (IF_GRANARY_ELSE(false, instr_is_cti_short_rewrite(instr, NULL))) {
+#ifndef GRANARY
         app_pc target;
         CLIENT_ASSERT(opnd_is_pc(instr_get_target(instr)),
                       "cti_short_rewrite: must have pc target");
@@ -2231,6 +2232,7 @@ copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
             return NULL;
         }
         *((int *)dst_pc) = (int) (target - (final_pc + instr->length));
+#endif
     }
 #ifdef X64
     /* We test the flag directly to support cases where the raw bits are

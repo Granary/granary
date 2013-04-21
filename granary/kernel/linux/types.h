@@ -170,9 +170,7 @@
 #include <linux/blockgroup_lock.h>
 #include <linux/percpu_counter.h>
 #include <crypto/hash.h>
-#ifdef __KERNEL__
 #include <linux/compat.h>
-#endif
 
 /* Taken from btrfs */
 #include <linux/blkdev.h>

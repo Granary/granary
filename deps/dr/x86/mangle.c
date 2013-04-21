@@ -449,6 +449,7 @@ convert_to_near_rel(dcontext_t *dcontext, instr_t *instr)
     convert_to_near_rel_common(dcontext, NULL, instr);
 }
 
+#ifndef GRANARY
 /* For jecxz and loop*, we create 3 instructions in a single
  * instr that we treat like a single conditional branch.
  * On re-decoding our own output we need to recreate that instr.
@@ -489,6 +490,7 @@ remangle_short_rewrite(dcontext_t *dcontext,
     instr_set_operands_valid(instr, true);
     return (pc+mangled_sz);
 }
+#endif
 
 /***************************************************************************/
 #if !defined(STANDALONE_DECODER)

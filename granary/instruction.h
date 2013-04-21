@@ -360,6 +360,16 @@ namespace granary {
         }
 
 
+        /// Copy the operands of another instruction.
+        inline void copy_raw_operands(instruction in) throw() {
+            instr->num_dsts = in.instr->num_dsts;
+            instr->num_srcs = in.instr->num_srcs;
+            instr->u.o.src0 = in.instr->u.o.src0;
+            instr->u.o.srcs = in.instr->u.o.srcs;
+            instr->u.o.dsts = in.instr->u.o.dsts;
+        }
+
+
         /// Return the original code program counter from the instruction (if
         /// it exists).
         inline app_pc pc(void) const throw() {
@@ -471,8 +481,14 @@ namespace granary {
 
         /// Apply a function to all of the destination operands and then all
         /// of the source operands.
-        template <typename... Args>
-        void for_each_operand(void (*func)(operand_ref, Args&...), Args&... args) throw() {
+        template <typename OpRef, typename... Args>
+        void for_each_operand(void (*func)(OpRef, Args&...), Args&... args) throw() {
+            static_assert(
+                std::is_same<operand_ref, typename std::remove_const<OpRef>::type>::value,
+                "Callback of `for_each_operand` must take either an "
+                "`operand_ref` or `const operand_ref` instance as its first "
+                "argument.");
+
             if(instr->num_dsts) {
                 for(int i(0); i < instr->num_dsts; ++i) {
                     func(operand_ref(instr, &(instr->u.o.dsts[i])), args...);

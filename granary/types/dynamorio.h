@@ -48,7 +48,40 @@
 #define PREFIX_LOCK           0x1 /**< Makes the instruction's memory accesses atomic. */
 #define PREFIX_JCC_NOT_TAKEN  0x2 /**< Branch hint: conditional branch is taken. */
 #define PREFIX_JCC_TAKEN      0x4 /**< Branch hint: conditional branch is not taken. */
+/* These are used only in the decoding tables.  We decode the
+ * information into the operands.
+ * For encoding these properties are specified in the operands,
+ * with our encoder auto-adding the appropriate prefixes.
+ */
+#define PREFIX_DATA           0x0008
+#define PREFIX_ADDR           0x0010
+#define PREFIX_REX_W          0x0020
+#define PREFIX_REX_R          0x0040
+#define PREFIX_REX_X          0x0080
+#define PREFIX_REX_B          0x0100
+#define PREFIX_REX_GENERAL    0x0200 /* 0x40: only matters for SPL...SDL vs AH..BH */
+#define PREFIX_REX_ALL        (PREFIX_REX_W|PREFIX_REX_R|PREFIX_REX_X|PREFIX_REX_B|\
+                               PREFIX_REX_GENERAL)
+#define PREFIX_SIZE_SPECIFIERS (PREFIX_DATA|PREFIX_ADDR|PREFIX_REX_ALL)
 
+/* Unused except in decode tables (we encode the prefix into the opcodes) */
+#define PREFIX_REP            0x0400
+#define PREFIX_REPNE          0x0800
+
+/* PREFIX_SEG_* is set by decode or decode_cti and is only a hint
+ * to the caller.  Is ignored by encode in favor of the segment
+ * reg specified in the applicable opnds.  We rely on it being set during
+ * bb building.
+ */
+#define PREFIX_SEG_FS         0x1000
+#define PREFIX_SEG_GS         0x2000
+
+/* First two are only used during initial decode so if running out of
+ * space could replace w/ byte value compare.
+ */
+#define PREFIX_VEX_2B    0x000004000
+#define PREFIX_VEX_3B    0x000008000
+#define PREFIX_VEX_L     0x000010000
 
 #ifdef __cplusplus
 namespace dynamorio {

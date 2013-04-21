@@ -78,59 +78,65 @@
 
 
 /// Custom wrapping for super blocks.
-#define WRAPPER_FOR_struct_super_block
-struct granary_super_block : public super_block { };
-TYPE_WRAPPER(granary_super_block, {
-    NO_POST
-    PRE_INOUT {
-        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.s_op, alloc_inode);
+#ifndef WRAPPER_FOR_struct_super_block
+#   define WRAPPER_FOR_struct_super_block
+    struct granary_super_block : public super_block { };
+    TYPE_WRAPPER(granary_super_block, {
+        NO_POST
+        PRE_INOUT {
+            ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.s_op, alloc_inode);
 
-        PRE_OUT_WRAP(arg.s_op);
-        PRE_OUT_WRAP(arg.dq_op);
-        PRE_OUT_WRAP(arg.s_qcop);
-        PRE_OUT_WRAP(arg.s_export_op);
-        PRE_OUT_WRAP(arg.s_d_op);
+            PRE_OUT_WRAP(arg.s_op);
+            PRE_OUT_WRAP(arg.dq_op);
+            PRE_OUT_WRAP(arg.s_qcop);
+            PRE_OUT_WRAP(arg.s_export_op);
+            PRE_OUT_WRAP(arg.s_d_op);
 
-        if(is_valid_address(arg.s_xattr)) {
-            const struct xattr_handler **handlers(arg.s_xattr);
-            const struct xattr_handler *handler(nullptr);
-            for((handler) = *(handlers)++;
-                handler;
-                (handler) = *(handlers)++) {
-                PRE_OUT_WRAP(handler);
+            if(is_valid_address(arg.s_xattr)) {
+                const struct xattr_handler **handlers(arg.s_xattr);
+                const struct xattr_handler *handler(nullptr);
+                for((handler) = *(handlers)++;
+                    handler;
+                    (handler) = *(handlers)++) {
+                    PRE_OUT_WRAP(handler);
+                }
             }
         }
-    }
-    NO_RETURN
-})
+        NO_RETURN
+    })
+#endif
 
 
-#define WRAPPER_FOR_struct_address_space
-TYPE_WRAPPER(struct address_space, {
-    NO_PRE_IN
-    PRE_OUT {
-        ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.a_ops, writepage);
+#ifndef WRAPPER_FOR_struct_address_space
+#   define WRAPPER_FOR_struct_address_space
+    TYPE_WRAPPER(struct address_space, {
+        NO_PRE_IN
+        PRE_OUT {
+            ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.a_ops, writepage);
 
-        PRE_OUT_WRAP(arg.a_ops);
-    }
-    NO_POST
-    NO_RETURN
-})
-
-
-#define WRAPPER_FOR_struct_file_system_type
-TYPE_WRAPPER(struct file_system_type, {
-    NO_PRE_IN
-    PRE_OUT {
-        WRAP_FUNCTION(arg.mount);
-        WRAP_FUNCTION(arg.kill_sb);
-    }
-    NO_POST
-    NO_RETURN
-})
+            PRE_OUT_WRAP(arg.a_ops);
+        }
+        NO_POST
+        NO_RETURN
+    })
+#endif
 
 
-#if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked
+#ifndef WRAPPER_FOR_struct_file_system_type
+#   define WRAPPER_FOR_struct_file_system_type
+    TYPE_WRAPPER(struct file_system_type, {
+        NO_PRE_IN
+        PRE_OUT {
+            WRAP_FUNCTION(arg.mount);
+            WRAP_FUNCTION(arg.kill_sb);
+        }
+        NO_POST
+        NO_RETURN
+    })
+#endif
+
+
+#if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(WRAPPER_FOR_iget_locked)
 #   define WRAPPER_FOR_iget_locked
     FUNCTION_WRAPPER(iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
         granary_super_block *sb_((granary_super_block *) sb);
@@ -142,7 +148,7 @@ TYPE_WRAPPER(struct file_system_type, {
 #endif
 
 
-#if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode
+#if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode && !defined(WRAPPER_FOR_unlock_new_inode)
 #   define WRAPPER_FOR_unlock_new_inode
     FUNCTION_WRAPPER(unlock_new_inode, (void), (struct inode *inode), {
         PRE_OUT_WRAP(inode->i_op);
@@ -155,14 +161,14 @@ TYPE_WRAPPER(struct file_system_type, {
 
 /// Mount a block device. Make sure that the super block is wrapped when the
 /// dynamic wrapper for `fill_super`
-#if defined(CAN_WRAP_mount_bdev) && CAN_WRAP_mount_bdev
+#if defined(CAN_WRAP_mount_bdev) && CAN_WRAP_mount_bdev && !defined(WRAPPER_FOR_mount_bdev)
 #   define WRAPPER_FOR_mount_bdev
     FUNCTION_WRAPPER(mount_bdev, (struct dentry *), (
         struct file_system_type * fs_type ,
         int flags ,
-        const char * dev_name ,
-        void * data ,
-        int ( * fill_super ) ( struct super_block * , void * , int )
+        const char *dev_name ,
+        void *data ,
+        int (*fill_super)(struct super_block *, void *, int)
     ), {
         PRE_OUT_WRAP(fs_type);
 
@@ -176,5 +182,6 @@ TYPE_WRAPPER(struct file_system_type, {
         return ret;
     })
 #endif
+
 
 #endif /* granary_KERNEL_OVERRIDE_WRAPPERS_H_ */

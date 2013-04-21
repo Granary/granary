@@ -151,8 +151,6 @@ GR_OBJS += bin/granary/gen/instruction.o
 
 # Client code dependencies
 GR_OBJS += bin/clients/instrument.o
-GR_OBJS += bin/clients/watchpoint/watchpoint.o
-GR_OBJS += bin/clients/watchpoint/watchpoint_descriptors.o
 
 # C++ ABI-specific stuff
 GR_OBJS += bin/deps/icxxabi/icxxabi.o

@@ -283,14 +283,6 @@ namespace granary {
             }
         }
 
-        /*
-        for(int64_t i(current_offset - 1); 0 <= i; --i) {
-            if(BB_BYTE_DELAY_BEGIN == get_state(pc_byte_states, i)) {
-                begin = cache_pc_start + i;
-                break;
-            }
-        }*/
-
         return true;
     }
 #endif
@@ -367,9 +359,11 @@ namespace granary {
     /// targets to local instructions. The net effect is to turn CTIs with pc
     /// targets into instructions with instr targets (so long as one of the
     /// instructions in the block has a pc that is targets by one of the CTIs).
-    void resolve_local_branches(instrumentation_policy policy,
-                                cpu_state_handle &cpu,
-                                instruction_list &ls) throw() {
+    void resolve_local_branches(
+        instrumentation_policy policy,
+        cpu_state_handle &cpu,
+        instruction_list &ls
+    ) throw() {
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
 
         instruction in(ls.first());
@@ -434,38 +428,151 @@ namespace granary {
     }
 
 
-    /// Translate any loop instructions into a 3-instruction form, and return
-    /// the number of loop instructions found. This is done here instead of
-    /// at mangle time so that we can potentially benefit from `resolve_local_
-    /// branches`.
-    ///
-    /// This turns an instruction like `jecxz <foo>` or `loop <foo>` into:
-    ///         jmp <try_loop>
-    /// do_loop:jmp <foo>
-    ///         loop <do_loop>
+    /// Translate any loop instructions into a 3- or 4-instruction form, and
+    /// return the number of loop instructions found. This is done here instead
+    /// of at mangle time so that we can potentially benefit from
+    /// `resolve_local_branches`. Also, we do this before mangling so that if
+    /// complex memory-operand-related instrumentation is needed, then that
+    /// instrumentation does not have to special-case instructions with a REP
+    /// prefix.
     static unsigned translate_loops(instruction_list &ls) throw() {
 
         instruction in(ls.first());
-        const unsigned max(ls.length());
+        instruction next_in;
+        instruction try_skip;
         unsigned num_loops(0);
 
-        for(unsigned i(0); i < max; ++i) {
-            if(dynamorio::instr_is_cti_loop(in.instr)) {
+        for(; in.is_valid(); in = next_in) {
+            next_in = in.next();
+
+            switch(in.op_code()) {
+
+            // This turns an instruction like `jecxz <foo>` or `loop <foo>` into:
+            //              jmp <try_loop>
+            // do_loop:     jmp <foo>
+            // try_loop:    loop <do_loop>
+            case dynamorio::OP_loopne:
+            case dynamorio::OP_loope:
+            case dynamorio::OP_loop:
+            case dynamorio::OP_jecxz: {
                 ++num_loops;
 
                 operand target(in.cti_target());
                 instruction in_first(ls.insert_before(in,
-                    jmp_(instr_(in))));
-                instruction in_second(ls.insert_before(in,
-                    jmp_(target)));
+                    mangled(jmp_(instr_(in)))));
+
+                instruction in_second(ls.insert_before(in, jmp_(target)));
 
                 in_first.set_pc(in.pc());
                 in.set_cti_target(instr_(in_second));
                 in.set_pc(nullptr);
                 in.set_mangled();
+                break;
             }
 
-            in = in.next();
+            // Based on ECX/RCX; these instructions are such that for each rep_
+            // version, the non-rep version is OP_rep_* - 1.
+            //
+            // This converts something like `rep ins <...>` into:
+            //
+            // try_skip:    j[er]?cxz <done>
+            //              lea -1(%[er]?cx), %[er]?cx
+            //              jmp <do_instr>
+            // done:        jmp <after>
+            //              ins ...
+            //              jmp <try_loop>
+            // after:
+
+            // after:
+            case dynamorio::OP_rep_ins:
+            case dynamorio::OP_rep_outs:
+            case dynamorio::OP_rep_movs:
+            case dynamorio::OP_rep_stos:
+            case dynamorio::OP_rep_lods: {
+
+                instruction after(label_());
+                instruction done(mangled(jmp_(instr_(after))));
+                instruction do_instr(label_());
+                operand counter;
+
+                if(in.instr->prefixes & PREFIX_REX_W) {
+                    try_skip = mangled(jrcxz_(instr_(done)));
+                    counter = reg::rcx;
+                } else {
+                    // TODO: handle case where CX is used?
+                    try_skip = mangled(jecxz_(instr_(done)));
+                    counter = reg::ecx;
+                }
+
+                ls.insert_before(in, try_skip);
+                ls.insert_before(in, lea_(counter, counter[-1]));
+                ls.insert_before(in, mangled(jmp_(instr_(do_instr))));
+                ls.insert_before(in, done);
+                ls.insert_before(in, do_instr);
+
+                ls.insert_after(in, after);
+                ls.insert_after(in, mangled(jmp_(instr_(try_skip))));
+
+                goto common_REP_tail;
+            }
+
+            // Based on condition codes. This converts something like
+            // `repe cmps ...` into:
+            //
+            // try_skip:    jne <after>
+            // do_instr:    cmps ....
+            // try_loop:    je <do_instr>
+            // after:
+            case dynamorio::OP_rep_cmps:
+            case dynamorio::OP_rep_scas: {
+                instruction after(label_());
+                instruction do_instr(label_());
+                try_skip = mangled(jnz_(instr_(after)));
+                instruction try_loop(mangled(jz_(instr_(do_instr))));
+
+                ls.insert_before(in, try_skip);
+                ls.insert_before(in, do_instr);
+                ls.insert_after(in, after);
+                ls.insert_after(in, try_loop);
+
+                goto common_REP_tail;
+            }
+
+            // Based on condition codes. This converts something like
+            // `repne cmps ...` into:
+            //
+            // try_skip:    je <after>
+            // do_instr:    cmps ....
+            // try_loop:    jne <do_instr>
+            // after:
+            case dynamorio::OP_repne_cmps:
+            case dynamorio::OP_repne_scas: {
+                instruction after(label_());
+                instruction do_instr(label_());
+                try_skip = mangled(jz_(instr_(after)));
+                instruction try_loop(mangled(jnz_(instr_(do_instr))));
+
+                ls.insert_before(in, try_skip);
+                ls.insert_before(in, do_instr);
+                ls.insert_after(in, after);
+                ls.insert_after(in, try_loop);
+
+                // fall-through
+            }
+
+            common_REP_tail: {
+                app_pc without_rep(in.pc() + 1);
+                in.instr->flags = 0;
+                in.replace_with(instruction::decode(&without_rep));
+                in.instr->translation = nullptr;
+                try_skip.instr->translation = without_rep;
+
+                ++num_loops;
+                break;
+            }
+
+            default: break;
+            }
         }
 
         return num_loops;

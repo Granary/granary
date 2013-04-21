@@ -421,12 +421,11 @@ namespace granary {
             return staged_pc;
         }
 
-        instruction item(first());
-        for(unsigned i = 0, max = length(); i < max; ++i) {
+        instruction in(first());
+        for(; in.is_valid(); in = in.next()) {
             app_pc prev_staged_pc(staged_pc);
-            staged_pc = item.stage_encode(staged_pc, final_pc);
+            staged_pc = in.stage_encode(staged_pc, final_pc);
             final_pc += staged_pc - prev_staged_pc;
-            item = item.next();
         }
 
         return staged_pc;
@@ -475,9 +474,8 @@ namespace granary {
     unsigned instruction_list::encoded_size(void) throw() {
         auto in = first();
         unsigned size(0U);
-        for(unsigned i = 0, max = length(); i < max; ++i) {
+        for(; in.is_valid(); in = in.next()) {
             size += in.encoded_size();
-            in = in.next();
         }
         return size;
     }

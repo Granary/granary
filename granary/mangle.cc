@@ -1194,7 +1194,7 @@ namespace granary {
     /// Find a far memory operand and its size. If we've already found one in
     /// this instruction then don't repeat the check.
     static void find_far_operand(
-        operand_ref op,
+        const operand_ref op,
         app_pc &estimator_pc,
         operand &far_op,
         bool &has_far_op
@@ -1416,7 +1416,7 @@ namespace granary {
         instruction next_in;
 
         // go mangle instructions; note: indirect CTI mangling happens here.
-        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
+        for(; in.is_valid(); in = next_in) {
             const bool is_mangled(in.is_mangled());
             const bool can_skip(nullptr == in.pc() || is_mangled);
             next_in = in.next();
