@@ -8,7 +8,7 @@
 #ifndef WATCHPOINT_UTIL_H_
 #define WATCHPOINT_UTIL_H_
 
-#include "granary/types/dynamorio.h"
+#include "granary/dynamorio.h"
 
 using namespace dynamorio;
 

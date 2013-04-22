@@ -3,48 +3,47 @@ instruction creation API for use by Granary."""
 
 import re
 
+
+# Generated source files.
 code = open('granary/gen/instruction.cc', 'w')
-#direct_ctis = open('granary/gen/mangle_direct_cti.cc', 'w')
 header = open('granary/gen/instruction.h', 'w')
 
+
+# Locate the argument used to pass a pointer do a dcontext_t
+# within the parameter list of a function-like macro.
 DC = re.compile(r"([ (,])dc([ ),])")
 
+
+# Output code to the `gen/instruction.cc` source code file.
 def C(*args):
   global code
   code.write("%s\n" % "".join(map(str, args)))
 
-PRE_D_LINES, D_LINES = [], []
 
-def D(*args):
-  return
-  global D_LINES
-  D_LINES.append("%s\n" % "".join(map(str, args)))
-
-def pre_D(*args):
-  return
-  global PRE_D_LINES
-  PRE_D_LINES.append("%s\n" % "".join(map(str, args)))
-
-def write_D():
-  return
-  global direct_ctis, PRE_D_LINES, D_LINES
-  direct_ctis.write("".join(PRE_D_LINES))
-  direct_ctis.write("".join(D_LINES))
-
+# Output code to the `gen/instruction.h` header file.
 def H(*args):
   global header
   header.write("%s\n" % "".join(map(str, args)))
 
-CREATE_MACRO = re.compile(r"#\s*define\s+(INSTR|OPND)_CREATE_([a-zA-Z0-9_]+)\((.*?)\)")
+
+# Locate a instruction/operand-creation macro.
+CREATE_MACRO = re.compile(
+    r"#\s*define\s+(INSTR|OPND)_CREATE_([a-zA-Z0-9_]+)\((.*?)\)")
 AFTER_CREATE_MACRO = re.compile(r"(.*?)\)(.*)")
 MACRO_USE = re.compile(r"INSTR_CREATE_([a-zA-Z0-9_]+)")
 MACRO_DEF = re.compile(r"^#\s*define")
 OPCODE_USE = re.compile(r"::OP_([a-zA-Z0-9_]+)", re.MULTILINE)
 SEEN_OPCODES = set(["jmpe", "jmpe_abs"])
 
+
+# Format a line and make it safe for inclusion into a Granary
+# C++ file.
 def format_line(line):
   return format_line_ns(line.strip("\r\n\t \\"))
 
+
+# Convert various DynamoRIO-specific names into namespaced
+# versions of themselves.
 def format_line_ns(line):
   line = line.replace("dcontext_t", "dynamorio::dcontext_t")
   line = line.replace("reg_id_t", "dynamorio::reg_id_t")
@@ -59,8 +58,11 @@ def format_line_ns(line):
   line = line.replace("instr_create_", "dynamorio::instr_create_")
   return line
 
+
+# Collect and format the lines of the macro. Returns those lines as
+# a tuple of the list of strings, and the next line number to be
+# parsed.
 def collect_macro_lines(lines, i):
-  # collect the lines needed for the function
   sub_lines = [format_line(AFTER_CREATE_MACRO.match(lines[i]).group(2)), ]
   while i < len(lines):
     line = lines[i].rstrip("\r\n\t ")
@@ -72,14 +74,27 @@ def collect_macro_lines(lines, i):
   sub_lines = filter(None, sub_lines)
   return sub_lines, i + 1
 
+
+# Given a function applied to the macro parameter names, return a string
+# representing a valid type parameter list, or `void` if there are no
+# parameters.
 def build_typed_arg_list(typing_func, args):
   arg_list = "void"
   if len(args):
     arg_list = ", ".join(map(typing_func, enumerate(args)))
   return arg_list
 
+
+# Set of instructions whose DynamoRIO macro form must be emitted.
+MUST_EMIT_INSTR_MACRO = set([
+  "nop", "mov_st", "lea", "RAW_nop", "jcc"
+])
+
+
+# Emit the a Granary-form of instruction creation, which is a C++
+# function.
 def emit_instr_function(lines, i, instr, args):
-  emit_to_code = True #"nop" in instr or "mov_st" in instr or "lea" in instr
+  emit_to_code = instr in MUST_EMIT_INSTR_MACRO
   sub_lines, i = collect_macro_lines(lines, i)
 
   if emit_to_code:
@@ -119,7 +134,11 @@ def emit_instr_function(lines, i, instr, args):
 
   if len(args) and "dc" == args[0]:
     copied_code = DC.sub(r"\1(instruction::DCONTEXT)\2", copied_code)
-  C("   return ", copied_code)
+  
+  ret = "return "
+  if "return" in copied_code:
+    ret = ""
+  C("   ", ret, copied_code)
   
   C("}")
 
@@ -130,13 +149,20 @@ def emit_instr_function(lines, i, instr, args):
       if "call" == opcode or "j" in opcode or "loop" in opcode:
         if opcode not in SEEN_OPCODES:
           SEEN_OPCODES.add(opcode)
-          pre_D("        extern void granary_asm_direct_branch_", opcode, "(void);")
-          D("        DIRECT_CTI_TARGETS[dynamorio::OP_", opcode, "] = &granary_asm_direct_branch_", opcode, ";")
 
   return i
 
+
+# Set of operands whose DynamoRIO macro form must be emitted.
+MUST_EMIT_OPND_MACRO = set([
+  "INT8", "INT32", "INT16", "MEM_lea"
+])
+
+
+# Emit the a Granary-form of operand creation, which is a C++
+# function.
 def emit_opnd_function(lines, i, opnd, args):
-  emit_to_code = True
+  emit_to_code = opnd in MUST_EMIT_OPND_MACRO
   sub_lines, i = collect_macro_lines(lines, i)
   if emit_to_code:
     C("#define OPND_CREATE_", opnd, "(", ",".join(args), ") \\")
@@ -156,24 +182,20 @@ def emit_opnd_function(lines, i, opnd, args):
   arg_list = build_typed_arg_list(typed_arg, args)
   H("    operand ", opnd.lower(), "_(", arg_list, ");")
   C("    operand ", opnd.lower(), "_(", arg_list, ") {")
-  C("    return ", "\n    ".join(sub_lines))
+  content = "\n    ".join(sub_lines)
+  ret = "return "
+  if "return" in content:
+    ret = ""
+  C("    ", ret, content)
   C("    }")
 
   return i
 
 with open("deps/dr/x86/instr_create.h") as lines_:
-
-  D('#include "granary/mangle.h"')
-  D("namespace granary {")
-  D("    direct_cti_patch_func *DIRECT_CTI_TARGETS[dynamorio::OP_LAST];")
-  D("    STATIC_INITIALISE({")
-
-  pre_D("extern \"C\" {")
-
   C('#include <math.h>')
   C('#include <limits.h>')
   C('#include <stdint.h>')
-  C('#include "granary/types/dynamorio.h"')
+  C('#include "granary/dynamorio.h"')
   C('#include "granary/instruction.h"')
   C('#ifndef GRANARY')
   C('#  define GRANARY')
@@ -182,7 +204,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   C("#   define X64")
   C('#endif')  
   C('#define IF_X64_ELSE(t,f) (t)')
-  C('extern "C" {')
+  C('namespace granary {')
   
   H('#ifndef GRANARY')
   H('#  define GRANARY')
@@ -195,6 +217,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   H('    inline operand instr_(dynamorio::instr_t *instr) { return dynamorio::opnd_create_instr(instr); }')
   H('    inline operand far_instr_(uint16_t sel, dynamorio::instr_t *instr) { return dynamorio::opnd_create_far_instr(sel, instr); }')
   H('    operand mem_pc_(app_pc *);')
+
   lines = list(lines_)
   i = 0
   while i < len(lines):
@@ -202,10 +225,10 @@ with open("deps/dr/x86/instr_create.h") as lines_:
     line = lines[i]
     m = CREATE_MACRO.match(line)
 
-    # didn't match a specific macro def; emit the same line out
-    if not m:
-      C(format_line_ns(line.rstrip("\r\n\t ")))
-      i = i + 1
+    # didn't match a specific macro def or has a special macro
+    # used to signal that this line should be ignored.
+    if not m or "GRANARY_IGNORE" in line:
+      i += 1
       continue
 
     emitter = None
@@ -217,13 +240,9 @@ with open("deps/dr/x86/instr_create.h") as lines_:
       emitter = emit_instr_function
     else:
       emitter = emit_opnd_function
-
-    C('}')
-    C('namespace granary {')
+    
     i = emitter(lines, i, func_name, args)
-    C('}')
-    C('extern "C" {')
-
+  
   C('}')
   C()
 
@@ -231,11 +250,3 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   H('}')
   H('#endif /* GRANARY_GEN_INSTRUCTION_H_ */')
   H()
-
-  D("    }) /* end of static init */")
-  D("} /* end of granary */")
-  D()
-
-  pre_D("} /* end of extern C */")
-
-  write_D()

@@ -549,7 +549,7 @@ namespace granary {
                 instruction after(label_());
                 instruction do_instr(label_());
                 operand counter(rep_counter(in));
-                instruction skip(jmp_(instr_(after)));
+                instruction skip(mangled(jmp_(instr_(after))));
 
                 // conditional termination condition
                 instruction (*jcc_)(dynamorio::opnd_t) = jnz_;
@@ -559,7 +559,7 @@ namespace granary {
                 }
 
                 try_skip = ls.insert_before(in, rep_jrcxz_(skip, counter));
-                ls.insert_before(in, jmp_(instr_(do_instr)));
+                ls.insert_before(in, mangled(jmp_(instr_(do_instr))));
                 ls.insert_before(in, skip);
                 ls.insert_before(in, do_instr);
 

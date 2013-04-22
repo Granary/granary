@@ -87,7 +87,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -197,7 +197,7 @@
 #endif
 
 
-#include "granary/types/dynamorio.h"
+#include "granary/dynamorio.h"
 #include "granary/pp.h"
 
 namespace granary {

@@ -165,11 +165,25 @@ namespace granary {
         dynamorio::instr_t *instr;
         operand *op;
 
-        operand_ref(void) = delete;
+    public:
 
-        operand_ref(dynamorio::instr_t *instr_, dynamorio::opnd_t *op_) throw();
+        bool is_source;
+
+    private:
+
+        operand_ref(
+            dynamorio::instr_t *instr_,
+            dynamorio::opnd_t *op_,
+            bool is_source_
+        ) throw();
 
     public:
+
+        inline operand_ref(void) throw()
+            : instr(nullptr)
+            , op(nullptr)
+            , is_source(false)
+        { }
 
         /// Const accesses of a field of the op are seen as rvalues and need
         /// not invalidate the bits of the instruction.
@@ -186,6 +200,10 @@ namespace granary {
         /// of the instruction.
         operand_ref &operator=(operand that) throw();
         operand_ref &operator=(operand_base_disp that) throw();
+
+        inline bool is_valid(void) const throw() {
+            return nullptr != instr;
+        }
 
         inline operator uint64_t(void) const throw() {
             return op->value.immed_int;
@@ -482,24 +500,41 @@ namespace granary {
         /// Apply a function to all of the destination operands and then all
         /// of the source operands.
         template <typename OpRef, typename... Args>
-        void for_each_operand(void (*func)(OpRef, Args&...), Args&... args) throw() {
+        void for_each_operand(
+            void (*func)(OpRef, Args&...),
+            Args&... args
+        ) throw() {
+
+            // make sure that OpRef is one of:
+            //  `operand_ref`           `operand_ref &`
+            //  `const operand_ref`     `const operand_ref &`
             static_assert(
-                std::is_same<operand_ref, typename std::remove_const<OpRef>::type>::value,
+                std::is_same<
+                    operand_ref,
+                    typename std::remove_reference<
+                        typename std::remove_const<OpRef>::type
+                    >::type
+                >::value,
                 "Callback of `for_each_operand` must take either an "
                 "`operand_ref` or `const operand_ref` instance as its first "
                 "argument.");
 
+            operand_ref op;
+
             if(instr->num_dsts) {
                 for(int i(0); i < instr->num_dsts; ++i) {
-                    func(operand_ref(instr, &(instr->u.o.dsts[i])), args...);
+                    op = operand_ref(instr, &(instr->u.o.dsts[i]), false);
+                    func(op, args...);
                 }
             }
 
             if(instr->num_srcs) {
-                func(operand_ref(instr, &(instr->u.o.src0)), args...);
+                op = operand_ref(instr, &(instr->u.o.src0), true);
+                func(op, args...);
 
                 for(int i(0); i < (instr->num_srcs - 1); ++i) {
-                    func(operand_ref(instr, &(instr->u.o.srcs[i])), args...);
+                    op = operand_ref(instr, &(instr->u.o.srcs[i]), true);
+                    func(op, args...);
                 }
             }
         }
@@ -619,7 +654,7 @@ namespace granary {
 #define MAKE_REG(name, upper_name) extern operand name;
 #define MAKE_SEG(name, upper_name)
     namespace reg {
-#   include "granary/inc/registers.h"
+#   include "granary/x86/registers.h"
     }
 #undef MAKE_SEG
 #undef MAKE_REG
@@ -638,7 +673,7 @@ namespace granary {
         return op;\
     }
     namespace seg {
-#   include "granary/inc/registers.h"
+#   include "granary/x86/registers.h"
     }
 #undef MAKE_SEG
 #undef MAKE_REG

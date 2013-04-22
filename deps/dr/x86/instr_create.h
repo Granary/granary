@@ -37,6 +37,8 @@
 #ifndef _INSTR_CREATE_H_
 #define _INSTR_CREATE_H_ 1
 
+#define GRANARY_IGNORE
+
 #ifndef GRANARY
 
 /* DR_API EXPORT TOFILE dr_ir_macros.h */
@@ -72,10 +74,10 @@ extern bool get_x86_mode(dcontext_t *);
 #else
 
 static inline instr_t *
-INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg);
+INSTR_CREATE_nop2byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
 
 static inline instr_t *
-INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg);
+INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
 
 #endif /* GRANARY */
 
@@ -115,9 +117,9 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg);
   opnd_create_rel_addr(addr, size)
 #else
 /** Create a base+disp pointer-sized operand. */
-# define OPND_CREATE_MEMPTR OPND_CREATE_MEM32
+# define OPND_CREATE_MEMPTR OPND_CREATE_MEM32 GRANARY_IGNORE
 /** Create an absolute address operand. */
-# define OPND_CREATE_ABSMEM(addr, size) \
+# define OPND_CREATE_ABSMEM(addr, size) GRANARY_IGNORE \
   opnd_create_abs_addr(addr, size)
 #endif 
 
@@ -452,9 +454,9 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg);
 
 #ifdef IA32_ON_IA64
 /* DR_API EXPORT BEGIN */
-#define INSTR_CREATE_jmpe(dc, t) \
+#define INSTR_CREATE_jmpe(dc, t) GRANARY_IGNORE \
   instr_create_0dst_1src((dc), OP_jmpe, (t))
-#define INSTR_CREATE_jmpe_abs(dc, t) \
+#define INSTR_CREATE_jmpe_abs(dc, t) GRANARY_IGNORE \
   instr_create_0dst_1src((dc), OP_jmpe_abs, (t))
 #endif
 
@@ -3363,9 +3365,34 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg);
  * the OP_nop_modrm encoding (though should work on PPro+).
  * \param dc The void * dcontext used to allocate memory for the instr_t.
  */
-#define INSTR_CREATE_nop1byte(dc) INSTR_CREATE_nop(dc)
-#define INSTR_CREATE_nop2byte(dc) INSTR_CREATE_nop2byte_reg(dc, DR_REG_XDI)
-#define INSTR_CREATE_nop3byte(dc) INSTR_CREATE_nop3byte_reg(dc, DR_REG_XDI)
+#if 1
+
+#define INSTR_CREATE_nop1byte(dc) GRANARY_IGNORE INSTR_CREATE_nop(dc)
+#define INSTR_CREATE_nop2byte(dc) GRANARY_IGNORE INSTR_CREATE_nop2byte_reg(dc, DR_REG_XDI)
+#define INSTR_CREATE_nop3byte(dc) GRANARY_IGNORE INSTR_CREATE_nop3byte_reg(dc, DR_REG_XDI)
+
+#else
+
+/* Granary-specific versions, only meant to be visible to the instruction
+ * create parser.
+ */
+
+#define INSTR_CREATE_nop1byte(dc) nop_()
+#define INSTR_CREATE_nop2byte(dc) nop2byte_reg_()
+#define INSTR_CREATE_nop3byte(dc) nop3byte_reg_()
+
+#define INSTR_CREATE_nop2byte_reg(dc) \
+    instr_t *in = instr_build_bits((instruction::DCONTEXT), OP_nop, 2); \
+    instr_set_raw_byte(in, 0, 0x66); \
+    instr_set_raw_byte(in, 1, 0x90); \
+    instr_set_operands_valid(in, true); \
+    return in;
+
+#define INSTR_CREATE_nop3byte_reg(dc) \
+    lea_(opnd_create_reg(DR_REG_XDI), \
+        OPND_CREATE_MEM_lea(DR_REG_XDI, DR_REG_NULL, 0, 0))
+#endif
+
 /* @} */ /* end doxygen group */
 /** @name 2-byte reg nops */
 /* @{ */ /* doxygen start group; w/ DISTRIBUTE_GROUP_DOC=YES, one comment suffices. */
@@ -3454,10 +3481,10 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg)
 # define INSTR_CREATE_RAW_nop2byte(dc) instr_create_raw_2bytes(dc, 0x66, 0x90)
 # define INSTR_CREATE_RAW_nop3byte(dc) instr_create_raw_3bytes(dc, 0x48, 0x8d, 0x3f)
 #else
-# define INSTR_CREATE_RAW_nop2byte(dc) instr_create_raw_2bytes(dc, 0x8b, 0xff)
-# define INSTR_CREATE_RAW_nop3byte(dc) instr_create_raw_3bytes(dc, 0x8d, 0x7f, 0x00)
+# define INSTR_CREATE_RAW_nop2byte(dc) GRANARY_IGNORE instr_create_raw_2bytes(dc, 0x8b, 0xff)
+# define INSTR_CREATE_RAW_nop3byte(dc) GRANARY_IGNORE instr_create_raw_3bytes(dc, 0x8d, 0x7f, 0x00)
 #endif
-#define INSTR_CREATE_RAW_nopNbyte(dc, n) instr_create_nbyte_nop(dc, n, true)
+#define INSTR_CREATE_RAW_nopNbyte(dc, n) GRANARY_IGNORE instr_create_nbyte_nop(dc, n, true)
 #ifdef UNSUPPORTED_API
 /* DR_API EXPORT END */
 #endif

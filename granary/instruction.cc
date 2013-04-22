@@ -171,9 +171,14 @@ namespace granary {
 
 
     /// Initialise the operand ref with an instruction and operand pointer
-    operand_ref::operand_ref(dynamorio::instr_t *instr_, dynamorio::opnd_t *op_) throw()
+    operand_ref::operand_ref(
+        dynamorio::instr_t *instr_,
+        dynamorio::opnd_t *op_,
+        bool is_source_
+    ) throw()
         : instr(instr_)
         , op(unsafe_cast<operand *>(op_))
+        , is_source(is_source_)
     { }
 
 
@@ -484,7 +489,7 @@ namespace granary {
 #define MAKE_REG(name, upper_name) operand name;
 #define MAKE_SEG(name, upper_name)
     namespace reg {
-#   include "granary/inc/registers.h"
+#   include "granary/x86/registers.h"
     }
 #undef MAKE_SEG
 #undef MAKE_REG
@@ -495,7 +500,7 @@ namespace granary {
         reg::name = dynamorio::opnd_create_reg(dynamorio::DR_ ## upper_name); \
     })
 #define MAKE_SEG(name, upper_name)
-#include "granary/inc/registers.h"
+#include "granary/x86/registers.h"
 #undef MAKE_SEG
 #undef MAKE_REG
 

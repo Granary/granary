@@ -18,7 +18,7 @@ namespace client {
     public:
 
 
-        /// Instruction a basic block.
+        /// Instrument a basic block.
         static granary::instrumentation_policy visit_basic_block(
             granary::cpu_state_handle &cpu,
             granary::thread_state_handle &thread,

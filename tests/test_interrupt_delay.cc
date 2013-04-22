@@ -7,7 +7,7 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES && GRANARY_IN_KERNEL && CONFIG_CLIENT_HANDLE_INTERRUPT && CONFIG_ENABLE_PERF_COUNTS
+#if 0 && CONFIG_RUN_TEST_CASES && GRANARY_IN_KERNEL && CONFIG_CLIENT_HANDLE_INTERRUPT && CONFIG_ENABLE_PERF_COUNTS
 
 namespace test {
 
@@ -50,7 +50,7 @@ namespace test {
             
             // number of loop iterations. If run natively, this should probably be
             // increased by another order of magnitude.
-            in = ls.insert_after(in, mov_imm_(reg::rax, int32_(100000)));
+            in = ls.insert_after(in, mov_imm_(reg::rax, int32_(1000000)));
             in = ls.insert_after(in, loop_head);
 
             // make this a slow loop ;-)
