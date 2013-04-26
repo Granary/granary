@@ -1,5 +1,6 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
- * heap.h
+ * allocator.h
  *
  *  Created on: 2012-11-09
  *      Author: pag

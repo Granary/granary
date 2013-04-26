@@ -1,5 +1,9 @@
 """Generate the macros mapping kernel functions to their addresses
-memory."""
+memory.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 SYMBOLS = set()
 FOUND_SYMBOLS = {}

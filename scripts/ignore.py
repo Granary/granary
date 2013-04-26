@@ -1,3 +1,8 @@
+"""Define which symbols should be ignored when wrapping functions.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import re
 

@@ -30,7 +30,7 @@ supposed other module) for perfectly matching object layouts with what the
 targeted compiler would generate.
 
 Author:       Peter Goodman (peter.goodman@gmail.com)
-Copyright:    Copyright 2012 Peter Goodman, all rights reserved.
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
 

@@ -1,5 +1,9 @@
 """Get debugging information about the Granary module, as loaded in
-a VM."""
+a VM.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import sys
 import os

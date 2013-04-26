@@ -3,7 +3,11 @@ the end of the detach table. This improves re-entrancy of Granary in user
 space because it is typical for internal libc functions to be invoked, and
 those functions are sometimes non-reentrant (and are indirectly invoked by
 Granary). Many symbols resolved through this process will be looked up
-using dlsym."""
+using dlsym.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import re
 import fileinput

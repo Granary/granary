@@ -1,9 +1,5 @@
-/*
- * registers.h
- *
- *   Copyright: Copyright 2012 Peter Goodman, REG_all rights reserved.
- *      Author: Peter Goodman
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
+
 
 MAKE_REG(rax, REG_RAX)
 MAKE_REG(rcx, REG_RCX)

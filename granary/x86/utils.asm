@@ -1,9 +1,4 @@
-/*
- * cpu.asm
- *
- *   Copyright: Copyright 2012 Peter Goodman, all rights reserved.
- *      Author: Peter Goodman
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 
 #include "granary/x86/asm_defines.asm"
 

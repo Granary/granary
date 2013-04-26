@@ -1,10 +1,4 @@
-/*
- * asm_helpers.asm
- *
- *  Created on: 2012-11-27
- *      Author: pag
- *     Version: $Id$
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 
 #ifndef Granary_ASM_HELPERS_ASM_
 #define Granary_ASM_HELPERS_ASM_

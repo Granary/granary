@@ -1,6 +1,10 @@
 """Generate macros and code for use in the detach hash table function(s).
 
-Each function is associated with a unique id."""
+Each function is associated with a unique id.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 from cparser import *
 from ignore import should_ignore

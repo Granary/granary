@@ -1,5 +1,9 @@
 """Common functions used by generate_wrappers and generate_detach_table
-for figuring out what should be wrapped."""
+for figuring out what should be wrapped.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 
 from cparser import *

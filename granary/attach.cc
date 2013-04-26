@@ -1,9 +1,4 @@
-/*
- * attach.cc
- *
- *   Copyright: Copyright 2013 Peter Goodman, all rights reserved.
- *      Author: Peter Goodman
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 
 #include "granary/attach.h"
 #include "granary/globals.h"

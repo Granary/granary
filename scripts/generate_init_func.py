@@ -2,7 +2,11 @@
 include 'KERNEL_INIT_VAR_', as these are the names of special functions
 used to initialise global variables. Calls to these functions will be
 emitted to an assembly routine that can be called from C to initialise
-all of Granary's static data structures."""
+all of Granary's static data structures.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import re
 import sys

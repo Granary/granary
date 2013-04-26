@@ -4,7 +4,11 @@ This works by iterating over all functions, and for each function, visiting the
 types of its arguments and return value. Type visitors are transitive.
 Eventually, all reachable types are visited. Visitors of certain kinds of types
 will emit type wrappers if and only if a wrapper is necessary to maintain
-attach/detach requirements."""
+attach/detach requirements.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 
 from cparser import *

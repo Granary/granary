@@ -1,7 +1,7 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
  * init.cc
  *
- *   Copyright: Copyright 2012 Peter Goodman, all rights reserved.
  *      Author: Peter Goodman
  */
 

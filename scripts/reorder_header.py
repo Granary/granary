@@ -1,5 +1,9 @@
 """Reorder the declarations in a header so that all dependencies
-are met."""
+are met.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import sys
 import collections

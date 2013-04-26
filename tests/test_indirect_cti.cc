@@ -1,3 +1,4 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
  * test_indirect_cti.cc
  *

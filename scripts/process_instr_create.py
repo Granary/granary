@@ -1,5 +1,9 @@
 """Process DynamoRIO's instr_create.h file and generate a simplied
-instruction creation API for use by Granary."""
+instruction creation API for use by Granary.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import re
 

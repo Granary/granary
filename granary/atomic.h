@@ -1,8 +1,9 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
  * atomic.h
  *
  *  Created on: Nov 20, 2012
- *      Author: pag
+ *      Author: pgoodman
  */
 
 #ifndef GR_ATOMIC_H_

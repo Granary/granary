@@ -1,5 +1,6 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
- * state.cc
+ * list.cc
  *
  *  Created on: 2013-01-13
  *      Author: pag

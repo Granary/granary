@@ -1,6 +1,10 @@
-"""Post-process an assembly file and do simple symbol concatenation (in case
-the assembly pre-processor does not support it) and replace the @N@ symbol
-with a new line."""
+"""Post-process an assembly file and do simple symbol concatenation 
+(in case the assembly pre-processor does not support it) and replace
+the @N@ symbol with a new line.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 import sys
 import re

@@ -1,3 +1,4 @@
+# Copyright 2012-2013 Peter Goodman, all rights reserved.
 
 KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)

@@ -1,9 +1,4 @@
-/*
- * attach.asm
- *
- *   Copyright: Copyright 2013 Peter Goodman, all rights reserved.
- *      Author: Peter Goodman
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 
 #include "granary/x86/asm_defines.asm"
 #include "granary/x86/asm_helpers.asm"

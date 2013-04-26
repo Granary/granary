@@ -1,5 +1,9 @@
-# Module for pretty-printing CType instances.
-#
+"""Module for pretty-printing CType instances.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
+
 # Note: some of this isn't 100% right, especially where function pointers are
 #       concerned.
 

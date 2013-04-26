@@ -1,9 +1,4 @@
-/*
- * direct_branch.asm
- *
- *  Created on: Nov 21, 2012
- *      Author: pag
- */
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 
 #include "granary/x86/asm_defines.asm"
 #include "granary/x86/asm_helpers.asm"

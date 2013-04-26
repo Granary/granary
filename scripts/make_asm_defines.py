@@ -1,6 +1,10 @@
 """Parse a compiler-generated assembly so that we can see what
 kinds of assembly syntax the compiler being used uses, so that certain
-assembly macros can be customized to those compilers."""
+assembly macros can be customized to those compilers.
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+"""
 
 PREFIX_WITH_UNDERSCORE = False
 USE_GLOBL = False

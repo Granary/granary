@@ -1,5 +1,6 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
- * CODE_CACHE->cc
+ * code_cache.cc
  *
  *  Created on: 2012-11-28
  *      Author: pag

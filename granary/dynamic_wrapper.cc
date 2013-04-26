@@ -1,3 +1,4 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
  * dynamic_wrapper.cc
  *

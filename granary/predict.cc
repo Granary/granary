@@ -1,7 +1,7 @@
+/* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
  * predict.cc
  *
- *   Copyright: Copyright 2013 Peter Goodman, all rights reserved.
  *      Author: Peter Goodman
  */
 

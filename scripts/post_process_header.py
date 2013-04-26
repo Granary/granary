@@ -1,5 +1,8 @@
 """Process a C-pre-processed file and remove extraneous pre-processor
 directives, get rid of C++-isms, and do a bit of other "cleaning up".
+
+Author:       Peter Goodman (peter.goodman@gmail.com)
+Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
 import sys
