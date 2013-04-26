@@ -1,9 +1,16 @@
 Granary
 =======
 
-Note: you can substitute gcc/g++ for clang/clang++; however, make sure that
-you're running an up-to-date version of both compilers as Granary depends on
-several C++11 features.
+Copyright Notice
+----------------
+Copyright (c) 2012-2013 Peter Goodman. All rights reserved.
+
+Getting Started
+---------------
+ * You will need a recent version of the GCC (>= gcc/g++ 4.7), or a
+   recent version of Clang (>= clang/clang++ 3.2).
+ * You will need Python 2.7 or above, but not Python 3.
+ * You will need `make`/`gmake`.
 
 Installing
 ----------
