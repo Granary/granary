@@ -5,7 +5,7 @@
  *      Author: pag
  */
 
-#include "clients/instrument.h"
+#include "clients/null_policy.h"
 
 namespace client {
 

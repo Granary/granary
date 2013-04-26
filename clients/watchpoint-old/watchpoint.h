@@ -9,7 +9,7 @@
 #define WATCHPOINT_H_
 
 #include "granary/client.h"
-#include "clients/watchpoint/watchpoint_util.h"
+#include "clients/watchpoint-old/watchpoint_util.h"
 
 //#define GRANARY_INIT_POLICY (client::watchpoint_policy())
 

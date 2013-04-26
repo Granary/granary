@@ -83,6 +83,38 @@
 #define PREFIX_VEX_3B    0x000008000
 #define PREFIX_VEX_L     0x000010000
 
+/****************************************************************************
+ * EFLAGS
+ */
+/* we only care about these 11 flags, and mostly only about the first 6
+ * we consider an undefined effect on a flag to be a write
+ */
+#define EFLAGS_READ_CF   0x00000001 /**< Reads CF (Carry Flag). */
+#define EFLAGS_READ_PF   0x00000002 /**< Reads PF (Parity Flag). */
+#define EFLAGS_READ_AF   0x00000004 /**< Reads AF (Auxiliary Carry Flag). */
+#define EFLAGS_READ_ZF   0x00000008 /**< Reads ZF (Zero Flag). */
+#define EFLAGS_READ_SF   0x00000010 /**< Reads SF (Sign Flag). */
+#define EFLAGS_READ_TF   0x00000020 /**< Reads TF (Trap Flag). */
+#define EFLAGS_READ_IF   0x00000040 /**< Reads IF (Interrupt Enable Flag). */
+#define EFLAGS_READ_DF   0x00000080 /**< Reads DF (Direction Flag). */
+#define EFLAGS_READ_OF   0x00000100 /**< Reads OF (Overflow Flag). */
+#define EFLAGS_READ_NT   0x00000200 /**< Reads NT (Nested Task). */
+#define EFLAGS_READ_RF   0x00000400 /**< Reads RF (Resume Flag). */
+#define EFLAGS_WRITE_CF  0x00000800 /**< Writes CF (Carry Flag). */
+#define EFLAGS_WRITE_PF  0x00001000 /**< Writes PF (Parity Flag). */
+#define EFLAGS_WRITE_AF  0x00002000 /**< Writes AF (Auxiliary Carry Flag). */
+#define EFLAGS_WRITE_ZF  0x00004000 /**< Writes ZF (Zero Flag). */
+#define EFLAGS_WRITE_SF  0x00008000 /**< Writes SF (Sign Flag). */
+#define EFLAGS_WRITE_TF  0x00010000 /**< Writes TF (Trap Flag). */
+#define EFLAGS_WRITE_IF  0x00020000 /**< Writes IF (Interrupt Enable Flag). */
+#define EFLAGS_WRITE_DF  0x00040000 /**< Writes DF (Direction Flag). */
+#define EFLAGS_WRITE_OF  0x00080000 /**< Writes OF (Overflow Flag). */
+#define EFLAGS_WRITE_NT  0x00100000 /**< Writes NT (Nested Task). */
+#define EFLAGS_WRITE_RF  0x00200000 /**< Writes RF (Resume Flag). */
+
+#define EFLAGS_READ_ALL  0x000007ff /**< Reads all flags. */
+#define EFLAGS_WRITE_ALL 0x003ff800 /**< Writes all flags. */
+
 #ifdef __cplusplus
 namespace dynamorio {
 extern "C" {

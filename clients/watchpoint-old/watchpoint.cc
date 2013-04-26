@@ -5,7 +5,7 @@
  *      Author: akshayk
  */
 
-#include "clients/watchpoint/watchpoint.h"
+#include "clients/watchpoint-old/watchpoint.h"
 
 using namespace dynamorio;
 using namespace granary;

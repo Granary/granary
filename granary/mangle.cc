@@ -1210,7 +1210,7 @@ namespace granary {
         // if the operand is too far away then we will need to indirectly load
         // the operand through its absolute address.
         has_far_op = true;
-        far_op = op;
+        far_op = *op;
     }
 
 

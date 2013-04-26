@@ -16,5 +16,6 @@
 #include "granary/emit_utils.h"
 #include "granary/register.h"
 #include "granary/printf.h"
+#include "granary/dynamorio.h"
 
 #endif /* GRANARY_CLIENT_H_ */

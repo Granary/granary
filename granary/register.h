@@ -113,6 +113,19 @@ namespace granary {
         bool has_dead(void) throw();
 
 
+        /// Returns true iff a particular register is alive.
+        bool is_live(dynamorio::reg_id_t) throw();
+
+
+        /// Returns true iff a particular register is dead.
+        bool is_dead(dynamorio::reg_id_t) throw();
+
+
+        /// Returns true iff a particular register is a walker, i.e.
+        /// living or a zombie!
+        bool is_undead(dynamorio::reg_id_t) throw();
+
+
         /// Returns the next 64-bit "free" dead register.
         dynamorio::reg_id_t get_zombie(void) throw();
 

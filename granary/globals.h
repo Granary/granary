@@ -147,7 +147,7 @@
 
 /// Set the 1 iff we should run test cases (before doing anything else).
 #ifdef GRANARY_USE_PIC
-#   define CONFIG_RUN_TEST_CASES 0
+#   define CONFIG_RUN_TEST_CASES 1
 #else
 #   define CONFIG_RUN_TEST_CASES 1
 #endif

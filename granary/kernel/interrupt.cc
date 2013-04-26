@@ -44,7 +44,7 @@ namespace granary {
             return false;
         case 8: // #DF: double fault
             return true;
-        case 9: // coprocessor segment overrun
+        case 9: // co-processor segment overrun
             return false;
         case 10: // #TS: invalid TSS
         case 11: // #NP: segment not present
@@ -611,7 +611,9 @@ namespace granary {
 
                 app_pc target(nullptr);
 
-                if(VECTOR_NMI == i || VECTOR_DEBUG == i) {
+                if(VECTOR_NMI == i
+                || VECTOR_DEBUG == i
+                || VECTOR_BREAKPOINT == i) {
                     target = native_handler;
                 } else {
                     target = emit_interrupt_routine(

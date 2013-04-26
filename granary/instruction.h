@@ -191,6 +191,10 @@ namespace granary {
             return op;
         }
 
+        inline operand operator*(void) const throw() {
+            return *op;
+        }
+
         /// Assume that a non-const access of a field of the op will be used
         /// as an lvalue in an assignment; invalidate the raw bits.
         operand *operator->(void) throw();
@@ -205,6 +209,7 @@ namespace granary {
             return nullptr != instr;
         }
 
+        /*
         inline operator uint64_t(void) const throw() {
             return op->value.immed_int;
         }
@@ -220,6 +225,7 @@ namespace granary {
         inline operator typename dynamorio::opnd_t(void) const throw() {
             return *op;
         }
+        */
     };
 
 
@@ -279,6 +285,16 @@ namespace granary {
 
         inline bool operator!(void) const throw() {
             return nullptr == instr;
+        }
+
+
+        inline bool operator==(const instruction &that) const throw() {
+            return instr == that.instr;
+        }
+
+
+        inline bool operator!=(const instruction &that) const throw() {
+            return instr != that.instr;
         }
 
 
@@ -511,13 +527,13 @@ namespace granary {
             static_assert(
                 std::is_same<
                     operand_ref,
-                    typename std::remove_reference<
-                        typename std::remove_const<OpRef>::type
+                    typename std::remove_const<
+                        typename std::remove_reference<OpRef>::type
                     >::type
                 >::value,
                 "Callback of `for_each_operand` must take either an "
-                "`operand_ref` or `const operand_ref` instance as its first "
-                "argument.");
+                "`operand_ref` or `const operand_ref` instance/reference "
+                "as its first argument.");
 
             operand_ref op;
 

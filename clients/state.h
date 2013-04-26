@@ -23,9 +23,9 @@ namespace client {
 
     /// Extensions to Granary's internal CPU-local storage.
     struct cpu_state {
-    #if GRANARY_IN_KERNEL
+#if GRANARY_IN_KERNEL
 
-    #endif
+#endif
     };
 
 
