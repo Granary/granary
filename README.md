@@ -3,7 +3,7 @@ Granary
 
 Copyright Notice
 ----------------
-Copyright (c) 2012-2013 Peter Goodman. All rights reserved.
+Copyright &copy; 2012-2013 Peter Goodman. All rights reserved.
 
 Getting Started
 ---------------
