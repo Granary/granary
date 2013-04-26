@@ -152,7 +152,7 @@ namespace client { namespace wp {
 
     /// Get a register of a particular scale that can be clobbered.
     dynamorio::reg_id_t watchpoint_tracker::get_zombie(
-        dynamorio::reg_id_t scale
+        register_scale scale
     ) throw() {
         dynamorio::reg_id_t reg;
 
@@ -176,7 +176,7 @@ namespace client { namespace wp {
 
     /// Get a register of a particular scale that can be spilled.
     dynamorio::reg_id_t watchpoint_tracker::get_spill(
-        dynamorio::reg_id_t scale
+        register_scale scale
     ) throw() {
         return used_regs.get_zombie(scale);
     }
@@ -209,6 +209,9 @@ namespace client { namespace wp {
             // we need to spill a register to emulate the PUSH.
             } else {
                 spill_reg = tracker.get_spill();
+
+                ASSERT(spill_reg);
+
                 const operand dead_reg(spill_reg);
 
                 ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
@@ -258,6 +261,20 @@ namespace client { namespace wp {
     }
 
 
+    enum {
+        REG_8_OFFSET = dynamorio::DR_REG_AL - 1,
+        REG_16_OFFSET = dynamorio::DR_REG_AX - 1,
+        REG_OFFSET = (8 == NUM_HIGH_ORDER_BITS
+            ? REG_8_OFFSET
+            : REG_16_OFFSET)
+    };
+
+
+    static constexpr register_scale REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
+        ? REG_8
+        : REG_16);
+
+
     /// Save the carry flag, if needed. We use the carry flag extensively. For
     /// example, the BT instruction can detect a watched address, and that sets
     /// the carry flag. Big enough rotations of RCL and RCR only modify the
@@ -276,18 +293,19 @@ namespace client { namespace wp {
             return carry_flag;
         }
 
-        carry_flag = tracker.get_zombie(dynamorio::DR_REG_AL);
+        carry_flag = tracker.get_zombie(REG_8);
         if(!carry_flag) {
-            carry_flag = tracker.get_spill(dynamorio::DR_REG_AL);
+            carry_flag = tracker.get_spill(REG_8);
+            ASSERT(carry_flag);
             ls.insert_before(before,
-                push_(operand(carry_flag - (dynamorio::DR_REG_AL - 1))));
+                push_(operand(carry_flag - REG_8_OFFSET)));
             spilled_carry_flag = true;
         }
 
         ls.insert_before(before,
-            setcc_(dynamorio::OP_setg, operand(carry_flag)));
+            setcc_(dynamorio::OP_setb, operand(carry_flag)));
 
-        return carry_flag;
+        return carry_flag - REG_8_OFFSET;
     }
 
 
@@ -316,17 +334,6 @@ namespace client { namespace wp {
         bool spilled_op_reg[MAX_NUM_OPERANDS];
         dynamorio::reg_id_t op_reg[MAX_NUM_OPERANDS];
 
-        enum {
-            REG_8_OFFSET = dynamorio::DR_REG_AL - 1,
-            REG_16_OFFSET = dynamorio::DR_REG_AX - 1,
-            REG_OFFSET = (8 == NUM_HIGH_ORDER_BITS
-                ? REG_8_OFFSET
-                : REG_16_OFFSET),
-            REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
-                ? dynamorio::DR_REG_AL
-                : dynamorio::DR_REG_AX)
-        };
-
         // constructor for the immediate value that is used to mask the watched
         // address.
         operand (*mov_mask_imm_)(uint64_t) = (8 == NUM_HIGH_ORDER_BITS
@@ -338,6 +345,9 @@ namespace client { namespace wp {
         instruction (*jmp_around_)(dynamorio::opnd_t t) = (DISTINGUISHING_BIT
             ? jnb_
             : jb_);
+
+        // mask for removing a watchpoint descriptor
+        const uint64_t mask_away_descriptor(DISTINGUISHING_BIT ? 0ULL : ~0ULL);
 
         for(unsigned i(0); i < tracker.num_ops; ++i) {
             const operand_ref &op(tracker.ops[i]);
@@ -369,8 +379,8 @@ namespace client { namespace wp {
             if(can_change) {
                 const_cast<operand_ref &>(op) = *addr;
 
-            } else if(!op->value.base_disp.base_reg) {
-                FAULT; // unknown condition.
+            } else {
+                ASSERT(op->value.base_disp.base_reg);
             }
 
             // the resolved (potentially) watchpoint address.
@@ -408,46 +418,19 @@ namespace client { namespace wp {
             // mask the high order bits
             operand unwatched_addr(unwatched_addr_reg);
             ls.insert_before(before, bswap_(unwatched_addr));
-            if(DISTINGUISHING_BIT) {
-                ls.insert_before(before, mov_imm_(
-                    operand(unwatched_addr_reg + REG_OFFSET),
-                    mov_mask_imm_(0)));
-            } else {
-                ls.insert_before(before, mov_imm_(
-                    operand(unwatched_addr_reg + REG_OFFSET),
-                    mov_mask_imm_(-1)));
-            }
+            ls.insert_before(before, mov_imm_(
+                operand(unwatched_addr_reg + REG_OFFSET),
+                mov_mask_imm_(mask_away_descriptor)));
             ls.insert_before(before, bswap_(unwatched_addr));
 
-#if 0
-            // mask / unwatch the address before the instruction is executed.
-            // need to shift by `NUM_HIGH_ORDER_BITS + 1` so that we can mask
-            // the watchpoint index.
-            ls.insert_before(before, rcl_(
-                unwatched_addr, int8_(NUM_HIGH_ORDER_BITS + 1)));
-
-            if(DISTINGUISHING_BIT) {
-                ls.insert_before(before, clc_());
-                ls.insert_before(before, mov_imm_(
-                    operand(unwatched_addr_reg + REG_16_OFFSET),
-                    int16_(0)));
-            } else {
-                ls.insert_before(before, stc_());
-                ls.insert_before(before, mov_imm_(
-                    operand(unwatched_addr_reg + REG_16_OFFSET),
-                    int16_(-1)));
-            }
-
-            ls.insert_before(before, rcr_(
-                unwatched_addr, int8_(NUM_HIGH_ORDER_BITS + 1)));
-#endif
-
+            // target of the jump if this isn't a watched address.
             ls.insert_before(before, not_a_watchpoint);
         }
 
         // restore the carry flag before executing the instruction.
         if(tracker.restore_carry_flag_before) {
-            ls.insert_before(before, rcl_(operand(carry_flag), int8_(64)));
+            ls.insert_before(before,
+                bt_(operand(carry_flag + REG_16_OFFSET), int8_(0)));
         }
 
         // restore any spilled registers / clobbered registers.
@@ -470,11 +453,11 @@ namespace client { namespace wp {
 
         // restore the carry flag after executing the instruction.
         if(tracker.restore_carry_flag_after) {
-            ls.insert_before(after, rcl_(operand(carry_flag), int8_(64)));
+            ls.insert_before(after,
+                bt_(operand(carry_flag + REG_16_OFFSET), int8_(0)));
         }
 
         if(spilled_carry_flag) {
-            carry_flag -= (dynamorio::DR_REG_AL - 1);
             ls.insert_before(after, pop_(operand(carry_flag)));
         }
     }

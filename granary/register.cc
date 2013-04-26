@@ -97,21 +97,22 @@ namespace granary {
 
 
     STATIC_INITIALISE_ID(always_live_registers, {
-        FORCE_LIVE = (1 << (dynamorio::DR_REG_RSP - 1));
+
+        FORCE_LIVE = (1U << (dynamorio::DR_REG_RSP - 1));
 
         MASK_8BIT = (
-            (1 << (dynamorio::DR_REG_RAX - 1))
-          | (1 << (dynamorio::DR_REG_RCX - 1))
-          | (1 << (dynamorio::DR_REG_RDX - 1))
-          | (1 << (dynamorio::DR_REG_RBX - 1))
-          | (1 << (dynamorio::DR_REG_R8 - 1))
-          | (1 << (dynamorio::DR_REG_R9 - 1))
-          | (1 << (dynamorio::DR_REG_R10 - 1))
-          | (1 << (dynamorio::DR_REG_R11 - 1))
-          | (1 << (dynamorio::DR_REG_R12 - 1))
-          | (1 << (dynamorio::DR_REG_R13 - 1))
-          | (1 << (dynamorio::DR_REG_R14 - 1))
-          | (1 << (dynamorio::DR_REG_R15 - 1))
+            (1U << (dynamorio::DR_REG_RAX - 1))
+          | (1U << (dynamorio::DR_REG_RCX - 1))
+          | (1U << (dynamorio::DR_REG_RDX - 1))
+          | (1U << (dynamorio::DR_REG_RBX - 1))
+          | (1U << (dynamorio::DR_REG_R8 - 1))
+          | (1U << (dynamorio::DR_REG_R9 - 1))
+          | (1U << (dynamorio::DR_REG_R10 - 1))
+          | (1U << (dynamorio::DR_REG_R11 - 1))
+          | (1U << (dynamorio::DR_REG_R12 - 1))
+          | (1U << (dynamorio::DR_REG_R13 - 1))
+          | (1U << (dynamorio::DR_REG_R14 - 1))
+          | (1U << (dynamorio::DR_REG_R15 - 1))
         );
     })
 
@@ -403,38 +404,44 @@ namespace granary {
 
     /// Returns the next "free" dead register that is at the same scale as
     /// another register/operand.
-    dynamorio::reg_id_t register_manager::get_zombie(dynamorio::reg_id_t scale) throw() {
+    dynamorio::reg_id_t register_manager::get_zombie(register_scale scale) throw() {
 
-        if(dynamorio::DR_REG_AL <= scale && scale <= dynamorio::DR_REG_R15L) {
+        switch(scale) {
+        case REG_8: {
             // get_zombie looks into (live | undead); need to mask either so
             // that certain bits are ignored because 8-bit regs don't all map
             // to their 64-bit counterparts.
             uint16_t old_live(live);
-            live |= MASK_8BIT;
+            live |= ~MASK_8BIT;
             dynamorio::reg_id_t zombie(get_zombie());
             live = old_live;
 
-            return zombie + (dynamorio::DR_REG_AL - 1);
-        } else {
-            dynamorio::reg_id_t zombie(get_zombie());
             if(!zombie) {
                 return zombie;
             }
 
-            if(dynamorio::DR_REG_RAX <= scale && scale <= dynamorio::DR_REG_R15) {
+            return zombie + (dynamorio::DR_REG_AL - 1);
+        }
+        case REG_16: {
+            dynamorio::reg_id_t zombie(get_zombie());
+            if(!zombie) {
                 return zombie;
             }
-
-            if(dynamorio::DR_REG_EAX <= scale && scale <= dynamorio::DR_REG_R15D) {
-                return zombie + (dynamorio::DR_REG_EAX - 1);
-            }
-
-            if(dynamorio::DR_REG_AX <= scale && scale <= dynamorio::DR_REG_R15W) {
-                return zombie + (dynamorio::DR_REG_AX - 1);
-            }
+            return zombie + (dynamorio::DR_REG_AX - 1);
         }
-
-        return dynamorio::DR_REG_NULL;
+        case REG_32: {
+            dynamorio::reg_id_t zombie(get_zombie());
+            if(!zombie) {
+                return zombie;
+            }
+            return zombie + (dynamorio::DR_REG_EAX - 1);
+        }
+        case REG_64: {
+            return get_zombie();
+        }
+        default:
+            return dynamorio::DR_REG_NULL;
+        }
     }
 
 
@@ -482,6 +489,7 @@ namespace granary {
             return 0 != (mask & ~live);
         }
     }
+
 
     /// Returns true iff a particular register is a walker, i.e.
     /// living or a zombie!

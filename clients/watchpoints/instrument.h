@@ -112,10 +112,10 @@ namespace client {
             bool restore_carry_flag_after;
 
             dynamorio::reg_id_t get_zombie(void) throw();
-            dynamorio::reg_id_t get_zombie(dynamorio::reg_id_t scale) throw();
+            dynamorio::reg_id_t get_zombie(granary::register_scale scale) throw();
 
             dynamorio::reg_id_t get_spill(void) throw();
-            dynamorio::reg_id_t get_spill(dynamorio::reg_id_t scale) throw();
+            dynamorio::reg_id_t get_spill(granary::register_scale scale) throw();
         };
 
 

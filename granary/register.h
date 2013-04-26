@@ -20,6 +20,14 @@ namespace granary {
     struct operand;
 
 
+    enum register_scale {
+        REG_8,
+        REG_16,
+        REG_32,
+        REG_64
+    };
+
+
     /// A class for managing spill registers, dead registers, etc.
     ///
     /// This class can be used to track dead registers in an instruction list
@@ -137,7 +145,7 @@ namespace granary {
 
         /// Returns the next "free" dead register that is at the same scale as
         /// another register/operand.
-        dynamorio::reg_id_t get_zombie(dynamorio::reg_id_t scale) throw();
+        dynamorio::reg_id_t get_zombie(register_scale) throw();
 
 
     private:

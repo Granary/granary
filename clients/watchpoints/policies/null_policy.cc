@@ -54,7 +54,8 @@ namespace client { namespace wp {
     ) throw() {
         return INTERRUPT_DEFER;
     }
-
+#else
+} /* wp namespace */
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 
 } /* client namespace */
