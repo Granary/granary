@@ -148,6 +148,21 @@ namespace test {
     }
 
 
+    /// Test that a dead register that can't scale to 8 bits is not restored at
+    /// a bad time. This is only relevant for watchpoints that use 8 bits of
+    /// taints.
+    static uint64_t unwatched_mov_from_mem_dead_8(void) throw() {
+        register uint64_t ret asm("rax");
+        ASM(
+            "movq $WP_MOV_FOO, %%rsi;"
+            "movq (%%rsi), %%rsi;"
+            "movq %%rsi, %0;"
+            : "=r"(ret)
+        );
+        return ret;
+    }
+
+
     /// Test that MOV instructions are correctly watched.
     static void mov_watched_correctly(void) {
         (void) WP_MOV_MASK;
@@ -232,6 +247,14 @@ namespace test {
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead.call<uint64_t>());
+
+        /// Test that a dead register is not restored at a bad time.
+        granary::app_pc mov_dead8((granary::app_pc) unwatched_mov_from_mem_dead_8);
+        granary::basic_block call_mov_dead8(granary::code_cache::find(
+            mov_dead8, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0xDEADBEEF;
+        ASSERT(0xDEADBEEF == call_mov_dead8.call<uint64_t>());
     }
 
 

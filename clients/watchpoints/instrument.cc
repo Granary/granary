@@ -117,14 +117,12 @@ namespace client { namespace wp {
         // Read-after-write dependency.
         if(eflags & EFLAGS_READ_CF) {
             next_reads_carry_flag = true;
-
             tracker.restore_carry_flag_before = true;
             tracker.restore_carry_flag_after = false;
 
         // Output dependency.
         } else if(eflags & EFLAGS_WRITE_CF) {
             next_reads_carry_flag = false;
-
             tracker.restore_carry_flag_before = false;
             tracker.restore_carry_flag_after = false;
 
@@ -338,8 +336,7 @@ namespace client { namespace wp {
         register_manager dest_regs,
         register_manager after_regs
     ) throw() {
-        return dest_regs.is_dead(reg)
-            || after_regs.is_dead(reg);
+        return dest_regs.is_dead(reg) || after_regs.is_dead(reg);
     }
 
 
@@ -365,6 +362,7 @@ namespace client { namespace wp {
         register_manager dest_regs;
         dest_regs.visit_dests(in);
         bool will_restore_op[MAX_NUM_OPERANDS];
+        bool can_scale_op[MAX_NUM_OPERANDS];
 
         // Save the carry flag.
         bool spilled_carry_flag(false);
@@ -390,28 +388,36 @@ namespace client { namespace wp {
                 will_restore_op[i] = !reg_is_dead(
                     op->value.base_disp.base_reg, dest_regs, tracker.live_regs);
 
+                can_scale_op[i] = reg_can_scale(
+                    op->value.base_disp.base_reg, REG_SCALE);
+
             } else if(!op->value.base_disp.base_reg) {
                 will_restore_op[i] = !reg_is_dead(
                     op->value.base_disp.index_reg, dest_regs, tracker.live_regs);
 
+                can_scale_op[i] = reg_can_scale(
+                    op->value.base_disp.index_reg, REG_SCALE);
             } else {
                 will_restore_op[i] = true;
+                can_scale_op[i] = true;
             }
 
             // get a register where we can compute the watched address, store
             // the base or index reg of the operand, and potentially do other
             // things.
             //
-            // We get 16-bit compatible regs so that we can set their bits to
-            // all 1 or 0 (depending on user/kernel space) to mask the high
+            // We get 8 or 16-bit compatible regs so that we can set their bits
+            // to all 1 or 0 (depending on user/kernel space) to mask the high
             // order bits of the address.
-            if(!will_restore_op[i]) {
+            bool using_original_op(true);
+            if(!will_restore_op[i] && can_scale_op[i]) {
                 if(!can_change || !op->value.base_disp.index_reg) {
                     op_reg[i] = op->value.base_disp.base_reg + REG_OFFSET;
                 } else {
                     op_reg[i] = op->value.base_disp.index_reg + REG_OFFSET;
                 }
             } else {
+                using_original_op = false;
                 op_reg[i] = tracker.get_zombie(REG_SCALE);
             }
 
@@ -430,12 +436,12 @@ namespace client { namespace wp {
 
             // leave the original register alone and replace the operand in the
             // instruction.
-            if(can_change && will_restore_op[i]) {
+            if(can_change && !using_original_op) {
                 const_cast<operand_ref &>(op) = *addr;
             }
 
             // the resolved (potentially) watchpoint address.
-            if(will_restore_op[i]) {
+            if(!using_original_op) {
                 ls.insert_before(before, lea_(addr, ref_to_op));
             }
 

@@ -476,6 +476,9 @@ clean:
 	@-touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/clients/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/clients/watchpoints/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/clients/watchpoints/tests/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/clients/watchpoints/policies/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/tests/_.$(GR_OUTPUT_FORMAT)
 	
 	@-rm bin/*.$(GR_OUTPUT_FORMAT)
@@ -490,6 +493,9 @@ clean:
 	@-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/clients/watchpoints/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/clients/watchpoints/tests/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/clients/watchpoints/policies/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
 
 	@-rm granary/gen/kernel_init.S ||:
