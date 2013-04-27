@@ -35,6 +35,7 @@ namespace client { namespace wp {
 
         // make sure we've got at least one general purpose register
         dynamorio::reg_id_t reg(rm.get_zombie());
+        const dynamorio::reg_id_t first_reg(reg);
         if(!reg) {
             return;
         }
@@ -65,7 +66,7 @@ namespace client { namespace wp {
         // (one of the specialised general purpose regs). Note: this depends on
         // the ordering of regs in the enum. Specifically, this looks for
         // R8-R15 as being okay to alter.
-        } else if(dynamorio::DR_REG_RDI < reg) {
+        } else if(dynamorio::DR_REG_RDI < first_reg) {
             tracker.can_replace[tracker.num_ops] = true;
 
         // If either of the scale or index are non-zero, then it's not an
