@@ -379,15 +379,6 @@ namespace client { namespace wp {
             ? int8_
             : int16_);
 
-        // constructor for the instruction to jump around the watchpoint
-        // instrumentation if a watched address isn't detected
-        instruction (*jmp_around_)(dynamorio::opnd_t t) = (DISTINGUISHING_BIT
-            ? jnb_
-            : jb_);
-
-        // mask for removing a watchpoint descriptor
-        const uint64_t mask_away_descriptor(DISTINGUISHING_BIT ? 0ULL : ~0ULL);
-
         for(unsigned i(0); i < tracker.num_ops; ++i) {
             const operand_ref &op(tracker.ops[i]);
             const operand ref_to_op(*op);
@@ -453,7 +444,7 @@ namespace client { namespace wp {
 
             instruction not_a_watchpoint(label_());
             ls.insert_before(before,
-                mangled(jmp_around_(instr_(not_a_watchpoint))));
+                mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
 
             // we've found a watchpoint; note: we assume that watchpoint-
             // implementation instrumentation will not clobber the operands
@@ -481,7 +472,7 @@ namespace client { namespace wp {
             ls.insert_before(before, bswap_(unwatched_addr));
             ls.insert_before(before, mov_imm_(
                 operand(unwatched_addr_reg + REG_OFFSET),
-                mov_mask_imm_(mask_away_descriptor)));
+                mov_mask_imm_(IF_USER_ELSE(0ULL, ~0ULL))));
             ls.insert_before(before, bswap_(unwatched_addr));
 
             // target of the jump if this isn't a watched address.
