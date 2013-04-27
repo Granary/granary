@@ -134,6 +134,20 @@ namespace test {
         );
     }
 
+
+    /// Test that a dead register is not restored at a bad time.
+    static uint64_t unwatched_mov_from_mem_dead(void) throw() {
+        register uint64_t ret asm("rax");
+        ASM(
+            "movq $WP_MOV_FOO, %%rax;"
+            "movq (%%rax), %%rax;"
+            "movq %%rax, %0;"
+            : "=r"(ret)
+        );
+        return ret;
+    }
+
+
     /// Test that MOV instructions are correctly watched.
     static void mov_watched_correctly(void) {
         (void) WP_MOV_MASK;
@@ -210,6 +224,14 @@ namespace test {
         WP_MOV_FOO = 0;
         call_wdcmov.call<void>();
         ASSERT(0xDEADBEEF == WP_MOV_FOO);
+
+        /// Test that a dead register is not restored at a bad time.
+        granary::app_pc mov_dead((granary::app_pc) unwatched_mov_from_mem_dead);
+        granary::basic_block call_mov_dead(granary::code_cache::find(
+            mov_dead, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0xDEADBEEF;
+        ASSERT(0xDEADBEEF == call_mov_dead.call<uint64_t>());
     }
 
 

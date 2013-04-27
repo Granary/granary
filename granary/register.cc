@@ -194,6 +194,22 @@ namespace granary {
     }
 
 
+    /// Visit the destination operands of an instruction. This will kill
+    /// register destinations and revive registers that are used in base/
+    /// disp operands.
+    void register_manager::visit_dests(dynamorio::instr_t *in) throw() {
+        unsigned num_dests(dynamorio::instr_num_dsts(in));
+        for(unsigned i(0); i < num_dests; i++) {
+            dynamorio::opnd_t opnd(dynamorio::instr_get_dst(in, i));
+            if(dynamorio::REG_kind == opnd.kind) {
+                kill(opnd);
+            } else {
+                revive(opnd);
+            }
+        }
+    }
+
+
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
     void register_manager::visit(dynamorio::instr_t *in) throw() {
@@ -228,18 +244,7 @@ namespace granary {
             return;
         }
 
-        // only kill registers written to; base/disp types are actually
-        // sources.
-        unsigned num_dests(dynamorio::instr_num_dsts(in));
-        for(unsigned i(0); i < num_dests; i++) {
-            dynamorio::opnd_t opnd(dynamorio::instr_get_dst(in, i));
-            if(dynamorio::REG_kind == opnd.kind) {
-                kill(opnd);
-            } else {
-                revive(opnd);
-            }
-        }
-
+        visit_dests(in);
         revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
     }
 

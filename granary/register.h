@@ -60,6 +60,14 @@ namespace granary {
             return visit(in.instr);
         }
 
+        /// Visit the destination operands of an instruction. This will kill
+        /// register destinations and revive registers that are used in base/
+        /// disp operands.
+        void visit_dests(dynamorio::instr_t *in) throw();
+        inline void visit_dests(instruction in) throw() {
+            return visit_dests(in.instr);
+        }
+
 
         /// Forcibly kill all registers used within an instruction.
         ///
