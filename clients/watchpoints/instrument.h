@@ -230,9 +230,11 @@ namespace client {
                 // read or written to.
                 for(unsigned i(0); i < tracker.num_ops; ++i) {
                     const operand_ref &op(tracker.ops[i]);
-                    if(op.is_source) {
+                    if(SOURCE_OPERAND & op.kind) {
                         Watcher::visit_read(cpu, thread, bb, ls, tracker, i);
-                    } else {
+                    }
+
+                    if(DEST_OPERAND & op.kind) {
                         Watcher::visit_write(cpu, thread, bb, ls, tracker, i);
                     }
                 }

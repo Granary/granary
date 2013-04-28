@@ -156,6 +156,15 @@ namespace granary {
     };
 
 
+    /// Kind of an operand.
+    enum operand_kind {
+        SOURCE_OPERAND          = (1 << 0),
+        DEST_OPERAND            = (1 << 1),
+        SOURCE_DEST_OPERAND     = SOURCE_OPERAND | DEST_OPERAND,
+        UNKNOWN
+    };
+
+
     /// Represents a reference to an operand in an instruction. Useful for
     struct operand_ref {
     private:
@@ -164,17 +173,18 @@ namespace granary {
 
         dynamorio::instr_t *instr;
         operand *op;
+        mutable operand *op2;
 
     public:
 
-        bool is_source;
+        mutable operand_kind kind;
 
     private:
 
         operand_ref(
             dynamorio::instr_t *instr_,
             dynamorio::opnd_t *op_,
-            bool is_source_
+            operand_kind kind_
         ) throw();
 
     public:
@@ -182,7 +192,8 @@ namespace granary {
         inline operand_ref(void) throw()
             : instr(nullptr)
             , op(nullptr)
-            , is_source(false)
+            , op2(nullptr)
+            , kind(UNKNOWN)
         { }
 
         /// Const accesses of a field of the op are seen as rvalues and need
@@ -209,23 +220,13 @@ namespace granary {
             return nullptr != instr;
         }
 
-        /*
-        inline operator uint64_t(void) const throw() {
-            return op->value.immed_int;
-        }
+        /// Augment this `operand_ref` to a `SOURCE_DEST_OPERAND` if possible
+        /// by combining this operand with another.
+        void combine(const operand_ref &that) const throw();
 
-        inline operator app_pc(void) const throw() {
-            return op->value.pc;
-        }
 
-        inline operator typename dynamorio::reg_id_t(void) const throw() {
-            return op->value.reg;
-        }
-
-        inline operator typename dynamorio::opnd_t(void) const throw() {
-            return *op;
-        }
-        */
+        /// Returns true iff two `operand_refs` can be combined.
+        bool can_combine(const operand_ref &that) const throw();
     };
 
 
@@ -539,17 +540,17 @@ namespace granary {
 
             if(instr->num_dsts) {
                 for(int i(0); i < instr->num_dsts; ++i) {
-                    op = operand_ref(instr, &(instr->u.o.dsts[i]), false);
+                    op = operand_ref(instr, &(instr->u.o.dsts[i]), DEST_OPERAND);
                     func(op, args...);
                 }
             }
 
             if(instr->num_srcs) {
-                op = operand_ref(instr, &(instr->u.o.src0), true);
+                op = operand_ref(instr, &(instr->u.o.src0), SOURCE_OPERAND);
                 func(op, args...);
 
                 for(int i(0); i < (instr->num_srcs - 1); ++i) {
-                    op = operand_ref(instr, &(instr->u.o.srcs[i]), true);
+                    op = operand_ref(instr, &(instr->u.o.srcs[i]), SOURCE_OPERAND);
                     func(op, args...);
                 }
             }

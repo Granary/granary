@@ -174,17 +174,19 @@ namespace granary {
     operand_ref::operand_ref(
         dynamorio::instr_t *instr_,
         dynamorio::opnd_t *op_,
-        bool is_source_
+        operand_kind kind_
     ) throw()
         : instr(instr_)
         , op(unsafe_cast<operand *>(op_))
-        , is_source(is_source_)
+        , op2(nullptr)
+        , kind(kind_)
     { }
 
 
     /// Assume that a non-const access of a field of the op will be used
     /// as an lvalue in an assignment; invalidate the raw bits.
     operand *operand_ref::operator->(void) throw() {
+        ASSERT(!op2);
         instruction(instr).invalidate_raw_bits();
         return op;
     }
@@ -195,14 +197,41 @@ namespace granary {
     /// of the instruction.
     operand_ref &operand_ref::operator=(operand that) throw() {
         *op = that;
+        if(op2) {
+            *op2 = that;
+        }
         instruction(instr).invalidate_raw_bits();
         return *this;
     }
 
     operand_ref &operand_ref::operator=(operand_base_disp that) throw() {
         *op = operand(that);
+        if(op2) {
+            *op2 = *op;
+        }
         instruction(instr).invalidate_raw_bits();
         return *this;
+    }
+
+
+    /// Augment this `operand_ref` to a `SOURCE_DEST_OPERAND` if possible
+    /// by combining this operand with another.
+    void operand_ref::combine(const operand_ref &that) const throw() {
+        ASSERT(can_combine(that));
+        kind = SOURCE_DEST_OPERAND;
+        op2 = that.op;
+    }
+
+
+    /// Returns true iff two `operand_refs` can be combined.
+    bool operand_ref::can_combine(const operand_ref &that) const throw() {
+        return instr == that.instr
+            && op != that.op
+            && op2 == that.op2
+            && nullptr == op2
+            && kind != that.kind
+            && nullptr != op
+            && 0 == memcmp(op, that.op, sizeof *op);
     }
 
 

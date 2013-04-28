@@ -7,25 +7,9 @@
  */
 
 #include "granary/test.h"
+
 #include "clients/watchpoints/policies/null_policy.h"
-
-
-#define PUSH_LAST_REG(reg) \
-    "push %" #reg ";"
-
-#define PUSH_REG(reg, rest) \
-    PUSH_LAST_REG(reg) \
-    rest
-
-#define POP_LAST_REG(reg) \
-    "pop %" #reg ";"
-
-#define POP_REG(reg, rest) \
-    rest \
-    POP_LAST_REG(reg)
-
-#define PUSHA ALL_REGS(PUSH_REG, PUSH_LAST_REG)
-#define POPA ALL_REGS(POP_REG, POP_LAST_REG)
+#include "clients/watchpoints/tests/pp.h"
 
 namespace test {
 

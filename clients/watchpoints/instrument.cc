@@ -83,8 +83,15 @@ namespace client { namespace wp {
             tracker.can_replace[tracker.num_ops] = false;
         }
 
-        tracker.ops[tracker.num_ops] = op;
+        // Try to combine this op with an existing one.
+        for(unsigned i(0); i < tracker.num_ops; ++i) {
+            if(tracker.ops[i].can_combine(op)) {
+                tracker.ops[i].combine(op);
+                return;
+            }
+        }
 
+        tracker.ops[tracker.num_ops] = op;
         ++(tracker.num_ops);
     }
 
@@ -481,9 +488,11 @@ namespace client { namespace wp {
             // implementation instrumentation will not clobber the operands
             // from sources/dests.
             tracker.labels[i] = ls.insert_before(before, label_());
-            if(op.is_source) {
+            if(SOURCE_OPERAND & op.kind) {
                 tracker.sources[i] = addr;
-            } else {
+            }
+
+            if(DEST_OPERAND & op.kind) {
                 tracker.dests[i] = addr;
             }
 
