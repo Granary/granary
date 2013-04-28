@@ -147,6 +147,19 @@ namespace test {
         return ret;
     }
 
+    static uint64_t watched_mov_from_mem_dead(void) throw() {
+        register uint64_t ret asm("rax");
+        ASM(
+            "movq WP_MOV_MASK, %%rax;"
+            MASK_OP " $WP_MOV_FOO, %%rax;" // mask the address of FOO
+            "clc;" // set CF=0
+            "movq (%%rax), %%rax;"
+            "movq %%rax, %0;"
+            : "=r"(ret)
+        );
+        return ret;
+    }
+
 
     /// Test that a dead register that can't scale to 8 bits is not restored at
     /// a bad time. This is only relevant for watchpoints that use 8 bits of
@@ -157,6 +170,51 @@ namespace test {
             "movq $WP_MOV_FOO, %%rsi;"
             "movq (%%rsi), %%rsi;"
             "movq %%rsi, %0;"
+            : "=r"(ret)
+        );
+        return ret;
+    }
+
+
+    /// Test MOV instructions that use the index register instead of the base
+    /// register.
+
+    static void unwatched_mov_to_mem_index(void) throw() {
+        ASM(
+            "movq $WP_MOV_FOO, %rax;"
+            "movq $0xDEADBEEF, %rbx;"
+            "movq %rbx, (,%rax,1);"
+        );
+    }
+
+    static void watched_mov_to_mem_index(void) throw() {
+        ASM(
+            "movq WP_MOV_MASK, %rax;"
+            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq $0xDEADBEEF, %rbx;"
+            "movq %rbx, (,%rax,1);"
+        );
+    }
+
+    static uint64_t unwatched_mov_from_mem_dead_index(void) throw() {
+        register uint64_t ret asm("rax");
+        ASM(
+            "movq $WP_MOV_FOO, %%rax;"
+            "movq (,%%rax,1), %%rax;"
+            "movq %%rax, %0;"
+            : "=r"(ret)
+        );
+        return ret;
+    }
+
+    static uint64_t watched_mov_from_mem_dead_index(void) throw() {
+        register uint64_t ret asm("rax");
+        ASM(
+            "movq WP_MOV_MASK, %%rax;"
+            MASK_OP " $WP_MOV_FOO, %%rax;" // mask the address of FOO
+            "clc;" // set CF=0
+            "movq (,%%rax,1), %%rax;"
+            "movq %%rax, %0;"
             : "=r"(ret)
         );
         return ret;
@@ -240,7 +298,7 @@ namespace test {
         call_wdcmov.call<void>();
         ASSERT(0xDEADBEEF == WP_MOV_FOO);
 
-        /// Test that a dead register is not restored at a bad time.
+        // Test that a dead register is not restored at a bad time.
         granary::app_pc mov_dead((granary::app_pc) unwatched_mov_from_mem_dead);
         granary::basic_block call_mov_dead(granary::code_cache::find(
             mov_dead, granary::policy_for<client::watchpoint_null_policy>()));
@@ -248,13 +306,54 @@ namespace test {
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead.call<uint64_t>());
 
-        /// Test that a dead register is not restored at a bad time.
+
+        // Test that a dead register is not restored at a bad time, and that it
+        // works when the memory is watched.
+        granary::app_pc wmov_dead((granary::app_pc) watched_mov_from_mem_dead);
+        granary::basic_block call_wmov_dead(granary::code_cache::find(
+            wmov_dead, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0xDEADBEEF;
+        ASSERT(0xDEADBEEF == call_wmov_dead.call<uint64_t>());
+
+
+        // Test that a dead register is not restored at a bad time.
         granary::app_pc mov_dead8((granary::app_pc) unwatched_mov_from_mem_dead_8);
         granary::basic_block call_mov_dead8(granary::code_cache::find(
             mov_dead8, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead8.call<uint64_t>());
+
+        granary::app_pc mov_index((granary::app_pc) unwatched_mov_to_mem_index);
+        granary::basic_block call_mov_index(granary::code_cache::find(
+            mov_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0;
+        call_mov_index.call<void>();
+        ASSERT(0xDEADBEEF == WP_MOV_FOO);
+
+        granary::app_pc wmov_index((granary::app_pc) watched_mov_to_mem_index);
+        granary::basic_block call_wmov_index(granary::code_cache::find(
+            wmov_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0;
+        call_wmov_index.call<void>();
+        ASSERT(0xDEADBEEF == WP_MOV_FOO);
+
+        granary::app_pc mov_dead_index((granary::app_pc) unwatched_mov_from_mem_dead_index);
+        granary::basic_block call_mov_dead_index(granary::code_cache::find(
+                mov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0xDEADBEEF;
+        ASSERT(0xDEADBEEF == call_mov_dead_index.call<uint64_t>());
+
+        granary::app_pc wmov_dead_index((granary::app_pc) watched_mov_from_mem_dead_index);
+        granary::basic_block call_wmov_dead_index(granary::code_cache::find(
+            wmov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0xDEADBEEF;
+        ASSERT(0xDEADBEEF == call_wmov_dead_index.call<uint64_t>());
     }
 
 
