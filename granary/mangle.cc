@@ -888,7 +888,8 @@ namespace granary {
         // around:
         //      i)  Doesn't screw around with the return address predictor.
         //      ii) Works with user space red zones.
-        patch_ls.insert_after(patch, mangled(jmp_(instr_(patched_in))));
+        patch_ls.insert_after(patch,
+            mangled(jmp_(instr_(mangled(patched_in)))));
 
         IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
     }

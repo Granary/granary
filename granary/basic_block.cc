@@ -480,13 +480,15 @@ namespace granary {
                 ++num_loops;
 
                 operand target(in.cti_target());
-                instruction in_first(ls.insert_before(in,
-                    mangled(jmp_(instr_(in)))));
+                instruction try_loop(ls.insert_before(in, label_()));
+                instruction jmp_try_loop(ls.insert_before(try_loop,
+                    mangled(jmp_(instr_(try_loop)))));
 
-                instruction in_second(ls.insert_before(in, jmp_(target)));
+                instruction do_loop(ls.insert_before(try_loop, label_()));
+                ls.insert_before(try_loop, jmp_(target));
 
-                in_first.set_pc(in.pc());
-                in.set_cti_target(instr_(in_second));
+                jmp_try_loop.set_pc(in.pc());
+                in.set_cti_target(instr_(do_loop));
                 in.set_pc(nullptr);
                 in.set_mangled();
                 break;

@@ -202,7 +202,8 @@ namespace client {
                 // Ignore two special purpose instructions which have memory-
                 // like operands but don't actually touch memory.
                 if(dynamorio::OP_lea == in.op_code()
-                || dynamorio::OP_nop_modrm == in.op_code()) {
+                || dynamorio::OP_nop_modrm == in.op_code()
+                || in.is_mangled()) {
                     continue;
                 }
 

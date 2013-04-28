@@ -358,6 +358,18 @@ opnd_t
 opnd_create_instr(instr_t *instr)
 {
     opnd_t opnd IF_GRANARY(= {0});
+#ifdef GRANARY
+    // Make sure that instr operands go to labels or mangled instructions. This
+    // is to encourage better coding practices on Granary developers/maintainers
+    // and instrumentation writers. For example, if two instrumentations are
+    // stacked, and they both operate on the same instruction (e.g. by placing
+    // code before the instruction), and if one does a JMP direct to the
+    // instruction, then the second instrumentation might not behave correctly.
+    // Using labels avoids such problems.
+    if(!((OP_LABEL == instr->opcode) || (1 & instr->granary_flags))) {
+        FAULT;
+    }
+#endif
     opnd.kind = INSTR_kind;
     opnd.value.instr = instr;
     return opnd;
