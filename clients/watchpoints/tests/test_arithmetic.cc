@@ -91,7 +91,7 @@ namespace test {
             add, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_add.call<uint64_t>();
+        call_add.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
 
         granary::app_pc wadd((granary::app_pc) watched_add);
@@ -99,7 +99,7 @@ namespace test {
             wadd, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_wadd.call<uint64_t>();
+        call_wadd.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
 
         granary::app_pc xadd((granary::app_pc) unwatched_xadd);
@@ -107,7 +107,7 @@ namespace test {
             xadd, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_xadd.call<uint64_t>();
+        call_xadd.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
 
         granary::app_pc wxadd((granary::app_pc) watched_xadd);
@@ -115,7 +115,7 @@ namespace test {
             wxadd, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_wxadd.call<uint64_t>();
+        call_wxadd.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
 
         granary::app_pc inc((granary::app_pc) unwatched_inc);
@@ -123,7 +123,7 @@ namespace test {
             inc, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_inc.call<uint64_t>();
+        call_inc.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
 
         granary::app_pc winc((granary::app_pc) unwatched_inc);
@@ -131,7 +131,7 @@ namespace test {
             winc, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
-        call_winc.call<uint64_t>();
+        call_winc.call<void>();
         ASSERT(1 == WP_ARITH_FOO);
     }
 
