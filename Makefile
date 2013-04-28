@@ -163,6 +163,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/policies/null_policy.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_mov.o
+	GR_OBJS += bin/clients/watchpoints/tests/test_xlat.o
 endif
 
 # C++ ABI-specific stuff

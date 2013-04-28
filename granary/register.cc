@@ -233,10 +233,24 @@ namespace granary {
 
         } else if(dynamorio::instr_is_return(in)) {
             kill_all();
-            revive_64(dynamorio::DR_REG_RAX);
+            revive_64(dynamorio::DR_REG_RAX); // return values
             revive_64(dynamorio::DR_REG_RDX);
-            revive_xmm(dynamorio::DR_REG_XMM0);
+            revive_xmm(dynamorio::DR_REG_XMM0); // FP return values
             revive_xmm(dynamorio::DR_REG_XMM1);
+
+            // normally callee-saved registers; try to handle leaf functions
+            // where instrumentation might try to clobber these registers.
+            revive_64(dynamorio::DR_REG_RBX);
+            revive_64(dynamorio::DR_REG_RBP);
+            /*
+            revive_64(dynamorio::DR_REG_R8);
+            revive_64(dynamorio::DR_REG_R9);
+            revive_64(dynamorio::DR_REG_R10);
+            revive_64(dynamorio::DR_REG_R11);
+            revive_64(dynamorio::DR_REG_R12);
+            revive_64(dynamorio::DR_REG_R13);
+            revive_64(dynamorio::DR_REG_R14);
+            revive_64(dynamorio::DR_REG_R15);*/
             return;
 
         } else if(dynamorio::instr_is_cti(in)) {
@@ -268,10 +282,8 @@ namespace granary {
     /// Forcibly kill all registers used in a particular operand.
     void register_manager::kill(dynamorio::opnd_t op) throw() {
         if(dynamorio::BASE_DISP_kind == op.kind) {
-            if(dynamorio::DR_REG_NULL == op.seg.segment) {
-                kill(op.value.base_disp.base_reg);
-                kill(op.value.base_disp.index_reg);
-            }
+            kill(op.value.base_disp.base_reg);
+            kill(op.value.base_disp.index_reg);
         } else if(dynamorio::REG_kind == op.kind) {
             kill(op.value.reg);
         }

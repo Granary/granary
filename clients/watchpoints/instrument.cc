@@ -416,8 +416,16 @@ namespace client { namespace wp {
                 } else {
                     op_reg[i] = op->value.base_disp.index_reg + REG_OFFSET;
                 }
+
             } else {
                 using_original_op = false;
+                op_reg[i] = tracker.get_zombie(REG_SCALE);
+            }
+
+            // special case for XLAT; don't want the slow path to overwrite
+            // RBX.
+            if(dynamorio::OP_xlat == in.op_code()
+            && (dynamorio::DR_REG_RBX + REG_OFFSET) == op_reg[i]) {
                 op_reg[i] = tracker.get_zombie(REG_SCALE);
             }
 
@@ -442,16 +450,32 @@ namespace client { namespace wp {
 
             // the resolved (potentially) watchpoint address.
             if(!using_original_op) {
-                ls.insert_before(before, lea_(addr, ref_to_op));
+                if(dynamorio::OP_xlat != in.op_code()) {
+                    ls.insert_before(before, lea_(addr, ref_to_op));
+                } else {
+                    ls.insert_before(before, mov_st_(addr, reg::rbx));
+                }
             }
 
             // check for a watchpoint.
-            ls.insert_before(before,
-                bt_(addr, int8_(DISTINGUISHING_BIT_OFFSET)));
+            if(dynamorio::OP_xlat == in.op_code()) {
+                ls.insert_before(before,
+                    bt_(reg::rbx, int8_(DISTINGUISHING_BIT_OFFSET)));
+            } else {
+                ls.insert_before(before,
+                    bt_(addr, int8_(DISTINGUISHING_BIT_OFFSET)));
+            }
 
             instruction not_a_watchpoint(label_());
             ls.insert_before(before,
                 mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
+
+            // if this was an XLAT, then we didn't resolve the full watched
+            // address into `addr`. Do it now.
+            if(dynamorio::OP_xlat == in.op_code()) {
+                ls.insert_before(before, movzx_(addr, reg::al));
+                ls.insert_before(before, lea_(addr, addr + reg::rbx));
+            }
 
             // we've found a watchpoint; note: we assume that watchpoint-
             // implementation instrumentation will not clobber the operands
@@ -472,6 +496,12 @@ namespace client { namespace wp {
                 unwatched_addr_reg = op->value.base_disp.base_reg;
                 ls.insert_before(before, mov_st_(
                     addr, operand(op->value.base_disp.base_reg)));
+            }
+
+            // force the BSWAP operand to be RBX if the opcode is XLAT. This is
+            // so that XLAT where RBX is dead still works.
+            if(dynamorio::OP_xlat == in.op_code()) {
+                unwatched_addr_reg = dynamorio::DR_REG_RBX;
             }
 
             // mask the high order bits

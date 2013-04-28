@@ -127,7 +127,7 @@
 #if !CONFIG_RUN_TEST_CASES
 #   define IF_TEST(...)
 #   define ADD_TEST(func, desc)
-#   define ASSERT(cond)
+#   define ASSERT(...)
 #else
 #   define IF_TEST(...) __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
@@ -137,7 +137,7 @@
         test__.desc = test_desc; \
         granary::static_test_list::append(test__); \
     })
-#   define ASSERT(cond) {if(!(cond)) { FAULT; }}
+#   define ASSERT(...) {if(!(__VA_ARGS__)) { FAULT; }}
 #endif
 
 #define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
