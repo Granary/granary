@@ -347,7 +347,7 @@ namespace test {
 
         granary::app_pc mov_dead_index((granary::app_pc) unwatched_mov_from_mem_dead_index);
         granary::basic_block call_mov_dead_index(granary::code_cache::find(
-                mov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead_index.call<uint64_t>());

@@ -42,12 +42,15 @@ namespace granary { namespace smp {
 
             for(;;) {
                 if(is_locked.load(std::memory_order_acquire)) {
+                    ASM("pause;");
                     continue;
                 }
 
                 if(!is_locked.exchange(true, std::memory_order_acquire)) {
                     break;
                 }
+
+                ASM("pause;");
             }
         }
 

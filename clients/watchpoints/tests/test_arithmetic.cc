@@ -62,6 +62,23 @@ namespace test {
         );
     }
 
+    static void unwatched_inc(void) throw() {
+        ASM(
+            "movq $WP_ARITH_FOO, %rax;"
+            "incq (%rax);"
+            PUSHA POPA // ensure all regs are live
+        );
+    }
+
+    static void watched_inc(void) throw() {
+        ASM(
+            "movq WP_ARITH_MASK, %rax;"
+            MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
+            "incq (%rax);"
+            PUSHA POPA // ensure all regs are live
+        );
+    }
+
     /// Test that arithmetic instructions are correctly watched.
     static void arithmetic_watched_correctly(void) {
         (void) WP_ARITH_FOO;
@@ -77,7 +94,7 @@ namespace test {
         call_add.call<uint64_t>();
         ASSERT(1 == WP_ARITH_FOO);
 
-        granary::app_pc wadd((granary::app_pc) unwatched_add);
+        granary::app_pc wadd((granary::app_pc) watched_add);
         granary::basic_block call_wadd(granary::code_cache::find(
             wadd, granary::policy_for<client::watchpoint_null_policy>()));
 
@@ -85,7 +102,7 @@ namespace test {
         call_wadd.call<uint64_t>();
         ASSERT(1 == WP_ARITH_FOO);
 
-        granary::app_pc xadd((granary::app_pc) unwatched_add);
+        granary::app_pc xadd((granary::app_pc) unwatched_xadd);
         granary::basic_block call_xadd(granary::code_cache::find(
             xadd, granary::policy_for<client::watchpoint_null_policy>()));
 
@@ -93,12 +110,28 @@ namespace test {
         call_xadd.call<uint64_t>();
         ASSERT(1 == WP_ARITH_FOO);
 
-        granary::app_pc wxadd((granary::app_pc) unwatched_add);
+        granary::app_pc wxadd((granary::app_pc) watched_xadd);
         granary::basic_block call_wxadd(granary::code_cache::find(
             wxadd, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_ARITH_FOO = 0;
         call_wxadd.call<uint64_t>();
+        ASSERT(1 == WP_ARITH_FOO);
+
+        granary::app_pc inc((granary::app_pc) unwatched_inc);
+        granary::basic_block call_inc(granary::code_cache::find(
+            inc, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_ARITH_FOO = 0;
+        call_inc.call<uint64_t>();
+        ASSERT(1 == WP_ARITH_FOO);
+
+        granary::app_pc winc((granary::app_pc) unwatched_inc);
+        granary::basic_block call_winc(granary::code_cache::find(
+            winc, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_ARITH_FOO = 0;
+        call_winc.call<uint64_t>();
         ASSERT(1 == WP_ARITH_FOO);
     }
 
