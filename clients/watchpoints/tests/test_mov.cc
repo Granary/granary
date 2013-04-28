@@ -220,6 +220,26 @@ namespace test {
         return ret;
     }
 
+    /// Test MOV instructions that use both the base and index registers.
+    static void unwatched_mov_to_mem_base_index(void) throw() {
+        ASM(
+            "movq $WP_MOV_FOO, %rax;"
+            "movq $0, %rsi;"
+            "movq $0xDEADBEEF, %rbx;"
+            "movq %rbx, (%rax,%rsi,1);"
+        );
+    }
+
+    static void watched_mov_to_mem_base_index(void) throw() {
+        ASM(
+            "movq WP_MOV_MASK, %rax;"
+            "movq $0, %rsi;"
+            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq $0xDEADBEEF, %rbx;"
+            "movq %rbx, (%rax,%rsi,1);"
+        );
+    }
+
 
     /// Test that MOV instructions are correctly watched.
     static void mov_watched_correctly(void) {
@@ -354,6 +374,22 @@ namespace test {
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_wmov_dead_index.call<uint64_t>());
+
+        granary::app_pc mov_base_index((granary::app_pc) unwatched_mov_to_mem_base_index);
+        granary::basic_block call_mov_base_index(granary::code_cache::find(
+            mov_base_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0;
+        call_mov_base_index.call<void>();
+        ASSERT(0xDEADBEEF == WP_MOV_FOO);
+
+        granary::app_pc wmov_base_index((granary::app_pc) watched_mov_to_mem_base_index);
+        granary::basic_block call_wmov_base_index(granary::code_cache::find(
+            wmov_base_index, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_MOV_FOO = 0;
+        call_wmov_base_index.call<void>();
+        ASSERT(0xDEADBEEF == WP_MOV_FOO);
     }
 
 
