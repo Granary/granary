@@ -39,6 +39,10 @@ def visit_function(name, ctype):
       will_wrap = must_wrap(
           [func_ctype.ret_type] + func_ctype.param_types)
 
+      # kthread_create_on_node is an issue here...
+      #if has_extension_attribute(ctype, "printf"):
+      #  will_wrap = False
+
     if will_wrap and has_extension_attribute(ctype, "deprecated"):
       will_wrap = False
 

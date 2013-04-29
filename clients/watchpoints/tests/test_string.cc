@@ -8,6 +8,8 @@
 
 #include "granary/test.h"
 
+#if CONFIG_RUN_TEST_CASES
+
 #include "clients/watchpoints/policies/null_policy.h"
 #include "clients/watchpoints/tests/pp.h"
 
@@ -200,4 +202,4 @@ namespace test {
         "Test that string instructions are correctly watched.")
 }
 
-
+#endif /* CONFIG_RUN_TEST_CASES */

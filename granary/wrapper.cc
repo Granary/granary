@@ -78,7 +78,11 @@ namespace granary {
         #func },
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
-#   include "granary/gen/detach.inc"
+#   if GRANARY_IN_KERNEL
+#       include "granary/gen/kernel_detach.inc"
+#   else
+#       include "granary/gen/user_detach.inc"
+#   endif
         {nullptr, nullptr, nullptr},
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
@@ -92,7 +96,11 @@ namespace granary {
         nullptr, \
         #func },
 #   define TYPED_DETACH(func) DETACH(func)
-#   include "granary/gen/detach.inc"
+#   if GRANARY_IN_KERNEL
+#       include "granary/gen/kernel_detach.inc"
+#   else
+#       include "granary/gen/user_detach.inc"
+#   endif
         {nullptr, nullptr, nullptr}
 #   undef WRAP_FOR_DETACH
 #   undef DETACH

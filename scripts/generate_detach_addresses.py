@@ -5,6 +5,8 @@ Author:       Peter Goodman (peter.goodman@gmail.com)
 Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
+import sys
+
 SYMBOLS = set()
 FOUND_SYMBOLS = {}
 
@@ -13,7 +15,7 @@ if "__main__" == __name__:
   prefix_len = len(prefix)
   lines = []
 
-  with open("granary/gen/detach.inc", "r") as lines_:
+  with open(sys.argv[1], "r") as lines_:
     for line in lines_:
       lines.append(line)
       line = line.strip(" \r\n\t")
@@ -32,7 +34,7 @@ if "__main__" == __name__:
       if sym in SYMBOLS:
         FOUND_SYMBOLS[sym] = parts[0]
 
-  with open("granary/gen/detach.inc", "w") as f:
+  with open(sys.argv[1], "w") as f:
     new_lines = []
     for sym, addr in FOUND_SYMBOLS.items():
       new_lines.append("#ifndef DETACH_ADDR_%s\n" % sym)

@@ -34,7 +34,11 @@ namespace granary {
             VALUE = DETACH_ADDR_ ## func \
         }; \
     };
-#   include "granary/gen/detach.inc"
+#   if GRANARY_IN_KERNEL
+#       include "granary/gen/kernel_detach.inc"
+#   else
+#       include "granary/gen/user_detach.inc"
+#   endif
 #   undef DETACH
 #   undef TYPED_DETACH
 #   undef WRAP_FOR_DETACH

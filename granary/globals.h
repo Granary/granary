@@ -32,7 +32,7 @@
 #if GRANARY_IN_KERNEL
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
 #else
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
 
 
@@ -66,8 +66,6 @@
 /// private hash table. If IBL entry stubs are not used, then generic IBL
 /// entries are used.
 #define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
-
-
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
 
     /// Should single overwrite prediction tables be used? If set to zero, then
@@ -79,7 +77,6 @@
     /// Should linear prediction tables be used?
 #   define CONFIG_ENABLE_IBL_LINEAR_TABLE 1
 
-
 #endif /* CONFIG_ENABLE_IBL_PREDICTION_STUBS */
 
 
@@ -87,7 +84,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -128,7 +125,7 @@
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.
 #if GRANARY_IN_KERNEL
-#   define CONFIG_TRACK_XMM_REGS 0
+#   define CONFIG_TRACK_XMM_REGS 0 // can't change in kernel space.
 #else
 #   define CONFIG_TRACK_XMM_REGS 1
 #endif
@@ -136,7 +133,11 @@
 /// Save only the arithmetic flags instead of all flags when doing indirect
 /// branch lookup. This only affects user space because in kernel space all
 /// flags will be saved in order to disable interrupts.
-#define CONFIG_IBL_SAVE_ALL_FLAGS 0
+#if GRANARY_IN_KERNEL
+#   define CONFIG_IBL_SAVE_ALL_FLAGS 1 // can't change in kernel space.
+#else
+#   define CONFIG_IBL_SAVE_ALL_FLAGS 0
+#endif
 
 
 /// Use "precise" memory allocation, i.e. no pool allocators. This makes it
@@ -147,7 +148,7 @@
 
 /// Set the 1 iff we should run test cases (before doing anything else).
 #ifdef GRANARY_USE_PIC
-#   define CONFIG_RUN_TEST_CASES 1
+#   define CONFIG_RUN_TEST_CASES 0
 #else
 #   define CONFIG_RUN_TEST_CASES 1
 #endif

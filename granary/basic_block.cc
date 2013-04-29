@@ -23,27 +23,27 @@ namespace granary {
 
     enum {
 
-        BB_PADDING      = 0xEA,
-        BB_PADDING_LONG = 0xEAEAEAEAEAEAEAEA,
-        BB_ALIGN        = 16,
+        BB_PADDING              = 0xEA,
+        BB_PADDING_LONG         = 0xEAEAEAEAEAEAEAEA,
+        BB_ALIGN                = 16,
 
         /// Maximum size in bytes of a decoded basic block. This relates to
         /// *decoding* only and not the resulting size of a basic block after
         /// translation.
-        BB_MAX_SIZE_BYTES = (PAGE_SIZE / 4),
+        BB_MAX_SIZE_BYTES       = (PAGE_SIZE / 4),
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
         BB_BYTE_STATES_PER_BYTE = 4,
 
         /// byte and 32-bit alignment of basic block info structs in memory
-        BB_INFO_BYTE_ALIGNMENT = 8,
+        BB_INFO_BYTE_ALIGNMENT  = 8,
         BB_INFO_INT32_ALIGNMENT = 2,
 
         /// misc.
-        BITS_PER_BYTE = 8,
-        BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
-        BITS_PER_QWORD = BITS_PER_BYTE * 8,
+        BITS_PER_BYTE   = 8,
+        BITS_PER_STATE  = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
+        BITS_PER_QWORD  = BITS_PER_BYTE * 8,
     };
 
 
@@ -136,16 +136,15 @@ namespace granary {
     initialise_state_bytes(
         basic_block_info *info,
         instruction in,
-        app_pc pc
+        app_pc bytes
     ) throw() {
 
-        unsigned num_instruction_bits(
-            (info->num_bytes - info->num_patch_bytes) * BITS_PER_STATE);
+        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
         // initialise all state bytes to have their states as native
-        memset(pc, 0, num_state_bytes);
+        memset(bytes, 0, num_state_bytes);
 
         unsigned byte_offset(0);
         unsigned prev_byte_offset(0);
@@ -177,21 +176,21 @@ namespace granary {
             // no sense).
             if(1 == prev_num_delayed_instructions) {
                 for(unsigned j(prev_byte_offset); j < byte_offset; ++j) {
-                    set_state(pc, j, BB_BYTE_NATIVE);
+                    set_state(bytes, j, BB_BYTE_NATIVE);
                 }
             }
 
             // for each byte of each instruction
             for(unsigned j(byte_offset); j < (byte_offset + num_bytes); ++j) {
-                set_state(pc, j, stored_state);
+                set_state(bytes, j, stored_state);
             }
 
             // update so that we have byte accuracy on begin/end.
             if(BB_BYTE_DELAY_BEGIN == state) {
-                set_state(pc, byte_offset, BB_BYTE_DELAY_BEGIN);
+                set_state(bytes, byte_offset, BB_BYTE_DELAY_BEGIN);
             } else if(BB_BYTE_DELAY_END == state) {
                 set_state(
-                    pc,
+                    bytes,
                     byte_offset + num_bytes - 1,
                     BB_BYTE_DELAY_END);
             }
@@ -255,8 +254,9 @@ namespace granary {
         app_pc &begin,
         app_pc &end
     ) const throw() {
+        app_pc start_with_stub(cache_pc_start - info->num_patch_bytes);
+        const unsigned current_offset(cache_pc_current - start_with_stub);
 
-        const unsigned current_offset(cache_pc_current - cache_pc_start);
         code_cache_byte_state byte_state(get_state(
             pc_byte_states, current_offset));
 
@@ -272,14 +272,14 @@ namespace granary {
 
         for(unsigned i(current_offset); ; ++i) {
             if(BB_BYTE_DELAY_END == get_state(pc_byte_states, i)) {
-                end = cache_pc_start + i + 1;
+                end = start_with_stub + i + 1;
                 break;
             }
         }
 
         for(unsigned i(0); i < current_offset; ++i) {
             if(SAFE_INTERRUPT_STATE & get_state(pc_byte_states, i)) {
-                begin = cache_pc_start + i;
+                begin = start_with_stub + i;
             }
         }
 
@@ -892,7 +892,7 @@ namespace granary {
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
-        IF_KERNEL( pc += initialise_state_bytes(info, bb_begin, pc); )
+        IF_KERNEL( pc += initialise_state_bytes(info, ls.first(), pc); )
 
         return start_pc;
     }

@@ -182,11 +182,12 @@ GR_OBJS += bin/tests/test_direct_rec.o
 GR_OBJS += bin/tests/test_indirect_cti.o
 
 # user space
-ifneq ($(KERNEL),1)
+ifeq ($(KERNEL),0)
 
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
+	GR_DETACH_FILE = granary/gen/user_detach.inc
 	
 	# user-specific versions of granary functions
 	GR_OBJS += bin/granary/user/allocator.o
@@ -256,7 +257,7 @@ endef
 	# This is so that we can augment the detach table with internal libc symbols,
 	# etc.
 	define GR_GET_LD_LIBRARIES
-		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) scripts/generate_dll_detach_table.py >> granary/gen/detach.inc)
+		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) scripts/generate_dll_detach_table.py >> $(GR_DETACH_FILE))
 endef
 
 # kernel space
@@ -283,6 +284,7 @@ else
 	GR_INPUT_TYPES = granary/kernel/linux/types.h
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
+	GR_DETACH_FILE = granary/gen/kernel_detach.inc
 	
 	# kernel-specific test cases
 	GR_OBJS += bin/tests/test_interrupt_delay.o
@@ -327,7 +329,7 @@ endef
 
 	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
-		$$($(GR_PYTHON) scripts/generate_detach_addresses.py)
+		$$($(GR_PYTHON) scripts/generate_detach_addresses.py $(GR_DETACH_FILE))
 endef
 endif
 
@@ -421,8 +423,8 @@ wrappers: types
 
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
-	@echo "  DETACH [GR] granary/gen/detach.inc"
-	@$(GR_PYTHON) scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) granary/gen/detach.inc 
+	@echo "  DETACH [GR] $(GR_DETACH_FILE)"
+	@$(GR_PYTHON) scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) $(GR_DETACH_FILE)
 	@$(call GR_GET_LD_LIBRARIES)
 
 

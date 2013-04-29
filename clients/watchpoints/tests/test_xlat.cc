@@ -8,6 +8,9 @@
 
 
 #include "granary/test.h"
+
+#if CONFIG_RUN_TEST_CASES
+
 #include "clients/watchpoints/policies/null_policy.h"
 
 namespace test {
@@ -148,3 +151,5 @@ namespace test {
     ADD_TEST(xlat_watched_correctly,
         "Test that XLAT instructions are correctly watched.")
 }
+
+#endif /* CONFIG_RUN_TEST_CASES */

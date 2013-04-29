@@ -450,9 +450,11 @@ namespace client { namespace wp {
             operand addr(op_reg[i]);
 
             // leave the original register alone and replace the operand in the
-            // instruction.
+            // instruction. Note: this needs
             if(can_change && !using_original_op) {
-                const_cast<operand_ref &>(op) = *addr;
+                operand op_replacement(*addr);
+                op_replacement.size = op->size;
+                const_cast<operand_ref &>(op) = op_replacement;
             }
 
             // the resolved (potentially) watchpoint address.

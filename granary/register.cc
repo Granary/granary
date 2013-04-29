@@ -216,21 +216,7 @@ namespace granary {
 
         // according to Linux / Mac OS X calling conventions.
         if(dynamorio::instr_is_call(in)) {
-            kill_all();
-            revive_64(dynamorio::DR_REG_RDI);
-            revive_64(dynamorio::DR_REG_RSI);
-            revive_64(dynamorio::DR_REG_RDX);
-            revive_64(dynamorio::DR_REG_R8);
-            revive_64(dynamorio::DR_REG_R9);
-            revive_xmm(dynamorio::DR_REG_XMM0);
-            revive_xmm(dynamorio::DR_REG_XMM1);
-            revive_xmm(dynamorio::DR_REG_XMM2);
-            revive_xmm(dynamorio::DR_REG_XMM3);
-            revive_xmm(dynamorio::DR_REG_XMM4);
-            revive_xmm(dynamorio::DR_REG_XMM5);
-            revive_xmm(dynamorio::DR_REG_XMM6);
-            revive_xmm(dynamorio::DR_REG_XMM7);
-
+            revive_all();
         } else if(dynamorio::instr_is_return(in)) {
             kill_all();
             revive_64(dynamorio::DR_REG_RAX); // return values

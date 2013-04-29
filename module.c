@@ -38,10 +38,11 @@
 
 #include "granary/kernel/linux/module.h"
 
-#   define WRAP_FOR_DETACH(func)
-#   define DETACH(func)
-#   define TYPED_DETACH(func)
-#include "granary/gen/detach.inc"
+#define WRAP_FOR_DETACH(func)
+#define DETACH(func)
+#define TYPED_DETACH(func)
+
+#include "granary/gen/kernel_detach.inc"
 
 #ifndef DETACH_ADDR_module_alloc_update_bounds
 #   error "Unable to compile; need to be able to allocate module memory."

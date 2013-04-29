@@ -202,6 +202,10 @@ namespace granary {
             target.value.base_disp.disp += stack_offset;
         }
 
+        // make a "fake" basic block so that we can also instrument / mangle
+        // the memory loads needed to complete this indirect call or jump.
+        instruction_list tail_bb;
+
         // load the target address into `reg_target_addr`. This might be a
         // normal base/disp kind, or a relative address, or an absolute
         // address.
@@ -213,18 +217,55 @@ namespace granary {
 
                 // do an indirect load using abs address
                 if(is_far_away(target_addr, estimator_pc)) {
-                    in = ibl.insert_after(in, mov_imm_(
+                    tail_bb.append(mov_imm_(
                         reg_target_addr,
                         int64_(reinterpret_cast<uint64_t>(target_addr))));
                     target = *reg_target_addr;
                 }
             }
 
-            in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
+            tail_bb.append(mov_ld_(reg_target_addr, target));
 
         // target is in a register
         } else if(reg_target_addr.value.reg != target.value.reg) {
-            in = ibl.insert_after(in, mov_ld_(reg_target_addr, target));
+            tail_bb.append(mov_ld_(reg_target_addr, target));
+        }
+
+        // instrument the memory instructions needed to complete this CALL
+        // or JMP.
+        instruction tail_bb_end(tail_bb.append(label_()));
+        if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
+            instrumentation_policy tail_policy(policy);
+
+            // kill this registers so that the instrumentation can use it.
+            IF_IBL_PREDICT( tail_bb.append(
+                mangled(mov_imm_(reg_predict_table_ptr, int64_(0)))); )
+
+            // kill all flags so that the instrumentation can use them if
+            // possible.
+            if(IBL_ENTRY_CALL == ibl_kind) {
+                tail_bb.append(mangled(popf_()));
+            }
+
+            // make sure all other registers appear live.
+            tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
+
+            tail_policy.instrument(cpu, thread, *bb, tail_bb);
+            mangle(tail_bb);
+        }
+
+        // add the instructions back into the stub.
+        for(instruction tail_in(tail_bb.first()), next_tail_in;
+            tail_in.is_valid();
+            tail_in = next_tail_in) {
+
+            if(tail_in == tail_bb_end) {
+                break;
+            }
+
+            next_tail_in = tail_in.next();
+            tail_bb.remove(tail_in);
+            in = ibl.insert_after(in, tail_in);
         }
 
         switch(ibl_kind) {
@@ -1411,6 +1452,7 @@ namespace granary {
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
     void instruction_list_mangler::mangle(instruction_list &ls_) throw() {
+        instruction_list *prev_ls(ls);
 
         ls = &ls_;
 
@@ -1506,6 +1548,8 @@ namespace granary {
                 align += forward_align;
             }
         }
+
+        ls = prev_ls;
     }
 
 

@@ -203,7 +203,8 @@ namespace client {
                 // like operands but don't actually touch memory.
                 if(dynamorio::OP_lea == in.op_code()
                 || dynamorio::OP_nop_modrm == in.op_code()
-                || in.is_mangled()) {
+                || in.is_mangled()
+                || in.is_cti()) {
                     continue;
                 }
 

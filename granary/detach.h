@@ -57,7 +57,11 @@ namespace granary {
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
     enum function_wrapper_id {
-#   include "granary/gen/detach.inc"
+#   if GRANARY_IN_KERNEL
+#       include "granary/gen/kernel_detach.inc"
+#   else
+#       include "granary/gen/user_detach.inc"
+#   endif
         LAST_DETACH_ID
     };
 #   undef WRAP_FOR_DETACH

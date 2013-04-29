@@ -358,12 +358,14 @@ namespace granary {
 
         if(prev) {
             prev->next = next;
+            instr->prev = nullptr;
         } else {
             first_ = next;
         }
 
         if(next) {
             next->prev = prev;
+            instr->next = nullptr;
         } else {
             last_ = prev;
         }

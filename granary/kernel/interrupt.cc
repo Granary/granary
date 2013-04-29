@@ -330,13 +330,6 @@ namespace granary {
 
         if(is_code_cache_address(pc)) {
             basic_block bb(pc);
-
-            // the patch stub code at the head of a basic block was interrupted
-            if(bb.cache_pc_start > pc) {
-                kernel_preempt_enable();
-                return INTERRUPT_DEFER;
-            }
-
             app_pc delay_begin(nullptr);
             app_pc delay_end(nullptr);
 
