@@ -168,6 +168,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_string.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_atomic.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_cti.o
+	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
 endif
 
 # C++ ABI-specific stuff
@@ -201,8 +202,8 @@ ifeq ($(KERNEL),0)
 		GR_OBJS += bin/dlmain.o
 		GR_ASM_FLAGS += -fPIC
 		GR_LD_PREFIX_FLAGS += -fPIC
-		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden
-		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC -fvisibility=hidden
+		GR_CC_FLAGS += -fPIC -DGRANARY_USE_PIC=1 -fvisibility=hidden
+		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC=1 -fvisibility=hidden
 		GR_CXX_FLAGS += -fvisibility-inlines-hidden
 		GR_OUTPUT_PREFIX = lib
 		

@@ -27,6 +27,9 @@
 #   define GRANARY_IN_KERNEL 1
 #endif
 
+#ifndef GRANARY_USE_PIC
+#   define GRANARY_USE_PIC 0
+#endif
 
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
@@ -147,7 +150,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#ifdef GRANARY_USE_PIC
+#if GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
 #   define CONFIG_RUN_TEST_CASES 1
