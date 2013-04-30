@@ -18,9 +18,6 @@ namespace granary {
     static uint16_t FORCE_LIVE(0);
 
 
-    /// Registers that can be converted between 8 and 64 bit.
-    static uint16_t MASK_8BIT(0);
-
     /// We use a lookup table, primary because of the 8-bit registers,
     /// which don't map directly (using subtraction) to their 64-bit
     /// counterparts.
@@ -81,10 +78,10 @@ namespace granary {
         dynamorio::DR_REG_RCX,
         dynamorio::DR_REG_RDX,
         dynamorio::DR_REG_RBX,
-        dynamorio::DR_REG_RAX,
-        dynamorio::DR_REG_RCX,
-        dynamorio::DR_REG_RDX,
-        dynamorio::DR_REG_RBX,
+        dynamorio::DR_REG_RAX, // DR_REG_AH
+        dynamorio::DR_REG_RCX, // DR_REG_CH
+        dynamorio::DR_REG_RDX, // DR_REG_DH
+        dynamorio::DR_REG_RBX, // DR_REG_BH
         dynamorio::DR_REG_R8,
         dynamorio::DR_REG_R9,
         dynamorio::DR_REG_R10,
@@ -92,28 +89,251 @@ namespace granary {
         dynamorio::DR_REG_R12,
         dynamorio::DR_REG_R13,
         dynamorio::DR_REG_R14,
-        dynamorio::DR_REG_R15
+        dynamorio::DR_REG_R15,
+
+        dynamorio::DR_REG_RSP,
+        dynamorio::DR_REG_RBP,
+        dynamorio::DR_REG_RSI,
+        dynamorio::DR_REG_RDI
+    };
+
+
+    static dynamorio::reg_id_t REG_TO_REG32[] = {
+        dynamorio::DR_REG_NULL,
+        dynamorio::DR_REG_EAX,
+        dynamorio::DR_REG_ECX,
+        dynamorio::DR_REG_EDX,
+        dynamorio::DR_REG_EBX,
+        dynamorio::DR_REG_ESP,
+        dynamorio::DR_REG_EBP,
+        dynamorio::DR_REG_ESI,
+        dynamorio::DR_REG_EDI,
+        dynamorio::DR_REG_R8D,
+        dynamorio::DR_REG_R9D,
+        dynamorio::DR_REG_R10D,
+        dynamorio::DR_REG_R11D,
+        dynamorio::DR_REG_R12D,
+        dynamorio::DR_REG_R13D,
+        dynamorio::DR_REG_R14D,
+        dynamorio::DR_REG_R15D,
+
+        dynamorio::DR_REG_EAX,
+        dynamorio::DR_REG_ECX,
+        dynamorio::DR_REG_EDX,
+        dynamorio::DR_REG_EBX,
+        dynamorio::DR_REG_ESP,
+        dynamorio::DR_REG_EBP,
+        dynamorio::DR_REG_ESI,
+        dynamorio::DR_REG_EDI,
+        dynamorio::DR_REG_R8D,
+        dynamorio::DR_REG_R9D,
+        dynamorio::DR_REG_R10D,
+        dynamorio::DR_REG_R11D,
+        dynamorio::DR_REG_R12D,
+        dynamorio::DR_REG_R13D,
+        dynamorio::DR_REG_R14D,
+        dynamorio::DR_REG_R15D,
+
+        dynamorio::DR_REG_EAX,
+        dynamorio::DR_REG_ECX,
+        dynamorio::DR_REG_EDX,
+        dynamorio::DR_REG_EBX,
+        dynamorio::DR_REG_ESP,
+        dynamorio::DR_REG_EBP,
+        dynamorio::DR_REG_ESI,
+        dynamorio::DR_REG_EDI,
+        dynamorio::DR_REG_R8D,
+        dynamorio::DR_REG_R9D,
+        dynamorio::DR_REG_R10D,
+        dynamorio::DR_REG_R11D,
+        dynamorio::DR_REG_R12D,
+        dynamorio::DR_REG_R13D,
+        dynamorio::DR_REG_R14D,
+        dynamorio::DR_REG_R15D,
+
+        dynamorio::DR_REG_EAX,
+        dynamorio::DR_REG_ECX,
+        dynamorio::DR_REG_EDX,
+        dynamorio::DR_REG_EBX,
+        dynamorio::DR_REG_EAX, // DR_REG_AH
+        dynamorio::DR_REG_ECX, // DR_REG_CH
+        dynamorio::DR_REG_EDX, // DR_REG_DH
+        dynamorio::DR_REG_EBX, // DR_REG_BH
+        dynamorio::DR_REG_R8D,
+        dynamorio::DR_REG_R9D,
+        dynamorio::DR_REG_R10D,
+        dynamorio::DR_REG_R11D,
+        dynamorio::DR_REG_R12D,
+        dynamorio::DR_REG_R13D,
+        dynamorio::DR_REG_R14D,
+        dynamorio::DR_REG_R15D,
+
+        dynamorio::DR_REG_ESP,
+        dynamorio::DR_REG_EBP,
+        dynamorio::DR_REG_ESI,
+        dynamorio::DR_REG_EDI
+    };
+
+
+    static dynamorio::reg_id_t REG_TO_REG16[] = {
+        dynamorio::DR_REG_NULL,
+        dynamorio::DR_REG_AX,
+        dynamorio::DR_REG_CX,
+        dynamorio::DR_REG_DX,
+        dynamorio::DR_REG_BX,
+        dynamorio::DR_REG_SP,
+        dynamorio::DR_REG_BP,
+        dynamorio::DR_REG_SI,
+        dynamorio::DR_REG_DI,
+        dynamorio::DR_REG_R8W,
+        dynamorio::DR_REG_R9W,
+        dynamorio::DR_REG_R10W,
+        dynamorio::DR_REG_R11W,
+        dynamorio::DR_REG_R12W,
+        dynamorio::DR_REG_R13W,
+        dynamorio::DR_REG_R14W,
+        dynamorio::DR_REG_R15W,
+
+        dynamorio::DR_REG_AX,
+        dynamorio::DR_REG_CX,
+        dynamorio::DR_REG_DX,
+        dynamorio::DR_REG_BX,
+        dynamorio::DR_REG_SP,
+        dynamorio::DR_REG_BP,
+        dynamorio::DR_REG_SI,
+        dynamorio::DR_REG_DI,
+        dynamorio::DR_REG_R8W,
+        dynamorio::DR_REG_R9W,
+        dynamorio::DR_REG_R10W,
+        dynamorio::DR_REG_R11W,
+        dynamorio::DR_REG_R12W,
+        dynamorio::DR_REG_R13W,
+        dynamorio::DR_REG_R14W,
+        dynamorio::DR_REG_R15W,
+
+        dynamorio::DR_REG_AX,
+        dynamorio::DR_REG_CX,
+        dynamorio::DR_REG_DX,
+        dynamorio::DR_REG_BX,
+        dynamorio::DR_REG_SP,
+        dynamorio::DR_REG_BP,
+        dynamorio::DR_REG_SI,
+        dynamorio::DR_REG_DI,
+        dynamorio::DR_REG_R8W,
+        dynamorio::DR_REG_R9W,
+        dynamorio::DR_REG_R10W,
+        dynamorio::DR_REG_R11W,
+        dynamorio::DR_REG_R12W,
+        dynamorio::DR_REG_R13W,
+        dynamorio::DR_REG_R14W,
+        dynamorio::DR_REG_R15W,
+
+        dynamorio::DR_REG_AX,
+        dynamorio::DR_REG_CX,
+        dynamorio::DR_REG_DX,
+        dynamorio::DR_REG_BX,
+        dynamorio::DR_REG_AX, // DR_REG_AH
+        dynamorio::DR_REG_CX, // DR_REG_CH
+        dynamorio::DR_REG_DX, // DR_REG_DH
+        dynamorio::DR_REG_BX, // DR_REG_BH
+        dynamorio::DR_REG_R8W,
+        dynamorio::DR_REG_R9W,
+        dynamorio::DR_REG_R10W,
+        dynamorio::DR_REG_R11W,
+        dynamorio::DR_REG_R12W,
+        dynamorio::DR_REG_R13W,
+        dynamorio::DR_REG_R14W,
+        dynamorio::DR_REG_R15W,
+
+        dynamorio::DR_REG_SP,
+        dynamorio::DR_REG_BP,
+        dynamorio::DR_REG_SI,
+        dynamorio::DR_REG_DI
+    };
+
+
+    static dynamorio::reg_id_t REG_TO_REG8[] = {
+        dynamorio::DR_REG_NULL,
+        dynamorio::DR_REG_AL,
+        dynamorio::DR_REG_CL,
+        dynamorio::DR_REG_DL,
+        dynamorio::DR_REG_BL,
+        dynamorio::DR_REG_SPL,
+        dynamorio::DR_REG_BPL,
+        dynamorio::DR_REG_SIL,
+        dynamorio::DR_REG_DIL,
+        dynamorio::DR_REG_R8L,
+        dynamorio::DR_REG_R9L,
+        dynamorio::DR_REG_R10L,
+        dynamorio::DR_REG_R11L,
+        dynamorio::DR_REG_R12L,
+        dynamorio::DR_REG_R13L,
+        dynamorio::DR_REG_R14L,
+        dynamorio::DR_REG_R15L,
+
+        dynamorio::DR_REG_AL,
+        dynamorio::DR_REG_CL,
+        dynamorio::DR_REG_DL,
+        dynamorio::DR_REG_BL,
+        dynamorio::DR_REG_SPL,
+        dynamorio::DR_REG_BPL,
+        dynamorio::DR_REG_SIL,
+        dynamorio::DR_REG_DIL,
+        dynamorio::DR_REG_R8L,
+        dynamorio::DR_REG_R9L,
+        dynamorio::DR_REG_R10L,
+        dynamorio::DR_REG_R11L,
+        dynamorio::DR_REG_R12L,
+        dynamorio::DR_REG_R13L,
+        dynamorio::DR_REG_R14L,
+        dynamorio::DR_REG_R15L,
+
+        dynamorio::DR_REG_AL,
+        dynamorio::DR_REG_CL,
+        dynamorio::DR_REG_DL,
+        dynamorio::DR_REG_BL,
+        dynamorio::DR_REG_SPL,
+        dynamorio::DR_REG_BPL,
+        dynamorio::DR_REG_SIL,
+        dynamorio::DR_REG_DIL,
+        dynamorio::DR_REG_R8L,
+        dynamorio::DR_REG_R9L,
+        dynamorio::DR_REG_R10L,
+        dynamorio::DR_REG_R11L,
+        dynamorio::DR_REG_R12L,
+        dynamorio::DR_REG_R13L,
+        dynamorio::DR_REG_R14L,
+        dynamorio::DR_REG_R15L,
+
+        dynamorio::DR_REG_AL,
+        dynamorio::DR_REG_CL,
+        dynamorio::DR_REG_DL,
+        dynamorio::DR_REG_BL,
+
+        // annoying inconsistency
+        dynamorio::DR_REG_AH, // DR_REG_AH
+        dynamorio::DR_REG_CH, // DR_REG_CH
+        dynamorio::DR_REG_DH, // DR_REG_DH
+        dynamorio::DR_REG_BH, // DR_REG_BH
+        dynamorio::DR_REG_R8L,
+        dynamorio::DR_REG_R9L,
+        dynamorio::DR_REG_R10L,
+        dynamorio::DR_REG_R11L,
+        dynamorio::DR_REG_R12L,
+        dynamorio::DR_REG_R13L,
+        dynamorio::DR_REG_R14L,
+        dynamorio::DR_REG_R15L,
+
+        dynamorio::DR_REG_SPL,
+        dynamorio::DR_REG_BPL,
+        dynamorio::DR_REG_SIL,
+        dynamorio::DR_REG_DIL
     };
 
 
     STATIC_INITIALISE_ID(always_live_registers, {
 
         FORCE_LIVE = (1U << (dynamorio::DR_REG_RSP - 1));
-
-        MASK_8BIT = (
-            (1U << (dynamorio::DR_REG_RAX - 1))
-          | (1U << (dynamorio::DR_REG_RCX - 1))
-          | (1U << (dynamorio::DR_REG_RDX - 1))
-          | (1U << (dynamorio::DR_REG_RBX - 1))
-          | (1U << (dynamorio::DR_REG_R8 - 1))
-          | (1U << (dynamorio::DR_REG_R9 - 1))
-          | (1U << (dynamorio::DR_REG_R10 - 1))
-          | (1U << (dynamorio::DR_REG_R11 - 1))
-          | (1U << (dynamorio::DR_REG_R12 - 1))
-          | (1U << (dynamorio::DR_REG_R13 - 1))
-          | (1U << (dynamorio::DR_REG_R14 - 1))
-          | (1U << (dynamorio::DR_REG_R15 - 1))
-        );
     })
 
 
@@ -124,6 +344,25 @@ namespace granary {
         , live_xmm(~0)
         , undead_xmm(0)
     { }
+
+
+    /// Scale a register.
+    dynamorio::reg_id_t register_manager::scale(
+        dynamorio::reg_id_t reg,
+        register_scale scale
+    ) throw() {
+        if(dynamorio::DR_REG_MM0 <= reg) {
+            return dynamorio::DR_REG_NULL;
+        }
+
+        switch(scale) {
+        case REG_8:     return REG_TO_REG8[reg];
+        case REG_16:    return REG_TO_REG16[reg];
+        case REG_32:    return REG_TO_REG32[reg];
+        case REG_64:    return REG_TO_REG64[reg];
+        default:        return dynamorio::DR_REG_NULL;
+        }
+    }
 
 
     /// Kill all registers.
@@ -290,7 +529,7 @@ namespace granary {
     /// Scale a register to become a 64-bit register. This returns a valid
     /// reg_id_t type, i.e. where 0 = null, 1 = rax, etc.
     static uint8_t reg_to_reg64(dynamorio::reg_id_t reg) throw() {
-        if(reg < dynamorio::DR_REG_SPL) {
+        if(reg < dynamorio::DR_REG_MM0) {
             return REG_TO_REG64[reg];
         }
         return dynamorio::DR_REG_NULL;
@@ -402,49 +641,6 @@ namespace granary {
             }
         }
         return dynamorio::DR_REG_NULL;
-    }
-
-
-    /// Returns the next "free" dead register that is at the same scale as
-    /// another register/operand.
-    dynamorio::reg_id_t register_manager::get_zombie(register_scale scale) throw() {
-
-        switch(scale) {
-        case REG_8: {
-            // get_zombie looks into (live | undead); need to mask either so
-            // that certain bits are ignored because 8-bit regs don't all map
-            // to their 64-bit counterparts.
-            uint16_t old_live(live);
-            live |= ~MASK_8BIT;
-            dynamorio::reg_id_t zombie(get_zombie());
-            live = old_live;
-
-            if(!zombie) {
-                return zombie;
-            }
-
-            return zombie + (dynamorio::DR_REG_AL - 1);
-        }
-        case REG_16: {
-            dynamorio::reg_id_t zombie(get_zombie());
-            if(!zombie) {
-                return zombie;
-            }
-            return zombie + (dynamorio::DR_REG_AX - 1);
-        }
-        case REG_32: {
-            dynamorio::reg_id_t zombie(get_zombie());
-            if(!zombie) {
-                return zombie;
-            }
-            return zombie + (dynamorio::DR_REG_EAX - 1);
-        }
-        case REG_64: {
-            return get_zombie();
-        }
-        default:
-            return dynamorio::DR_REG_NULL;
-        }
     }
 
 

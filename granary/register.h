@@ -153,7 +153,16 @@ namespace granary {
 
         /// Returns the next "free" dead register that is at the same scale as
         /// another register/operand.
-        dynamorio::reg_id_t get_zombie(register_scale) throw();
+        inline dynamorio::reg_id_t get_zombie(register_scale scale_) throw() {
+            return scale(get_zombie(), scale_);
+        }
+
+
+        /// Scale a register.
+        static dynamorio::reg_id_t scale(
+            dynamorio::reg_id_t,
+            register_scale
+        ) throw();
 
 
     private:

@@ -267,39 +267,11 @@ namespace client { namespace wp {
     }
 
 
-    enum {
-        REG_8_OFFSET = dynamorio::DR_REG_AL - 1,
-        REG_16_OFFSET = dynamorio::DR_REG_AX - 1,
-        REG_OFFSET = (8 == NUM_HIGH_ORDER_BITS
-            ? REG_8_OFFSET
-            : REG_16_OFFSET)
-    };
-
-
     /// The scale of registers that will be used to mask the tainted bits of a
     /// watched address.
     static constexpr register_scale REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
         ? REG_8
         : REG_16);
-
-
-    /// Returns true iff a register can scale / be converted to/from a 64-bit
-    /// register and a register of the desired scale.
-    ///
-    /// Assumes that the input register `reg` is a 64-bit register.
-    static bool reg_can_scale(
-        dynamorio::reg_id_t reg,
-        register_scale scale
-    ) throw() {
-        switch(scale) {
-        case REG_8:
-            return reg < dynamorio::DR_REG_RSP || dynamorio::DR_REG_RDI < reg;
-        case REG_16:
-        case REG_32:
-        case REG_64: return true;
-        default: return false;
-        }
-    }
 
 
     /// Save the carry flag, if needed. We use the carry flag extensively. For
@@ -315,24 +287,32 @@ namespace client { namespace wp {
     ) throw() {
 
         dynamorio::reg_id_t carry_flag(0);
+        dynamorio::reg_id_t carry_flag_64(0);
+
         if(!tracker.restore_carry_flag_before
         && !tracker.restore_carry_flag_after) {
-            return carry_flag;
+            return carry_flag_64;
         }
 
         carry_flag = tracker.get_zombie(REG_8);
         if(!carry_flag) {
             carry_flag = tracker.get_spill(REG_8);
+            carry_flag_64 = register_manager::scale(carry_flag, REG_64);
+
             ASSERT(carry_flag);
+
             ls.insert_before(before,
-                push_(operand(carry_flag - REG_8_OFFSET)));
+                push_(operand(carry_flag_64)));
             spilled_carry_flag = true;
+
+        } else {
+            carry_flag_64 = register_manager::scale(carry_flag, REG_64);
         }
 
         ls.insert_before(before,
             setcc_(dynamorio::OP_setb, operand(carry_flag)));
 
-        return carry_flag - REG_8_OFFSET;
+        return carry_flag_64;
     }
 
 
@@ -347,6 +327,36 @@ namespace client { namespace wp {
     }
 
 
+#if !GRANARY_IN_KERNEL
+    /// Add in a user space redzone guard if necessary. This looks for a PUSH
+    /// instruction anywhere between `first` and `last` and if it finds one then
+    /// it guards the entire instrumented block with a redzone shift.
+    void guard_redzone(
+        instruction_list &ls,
+        instruction first,
+        instruction last
+    ) throw() {
+        bool has_push(false);
+        for(instruction in(first.next());
+            in != last && in.is_valid();
+            in = in.next()) {
+
+            if(dynamorio::OP_push == in.op_code()) {
+                has_push = true;
+                break;
+            }
+        }
+
+        if(!has_push) {
+            return;
+        }
+
+        ls.insert_after(first, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+        ls.insert_before(last, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+    }
+#endif
+
+
     /// Replace/update operands around the memory instruction. This will
     /// update the `labels` field of the `operand_tracker` with labels in
     /// instruction stream so that a `Watcher` can inject its own specific
@@ -355,8 +365,8 @@ namespace client { namespace wp {
     /// `Watcher`s read/write visitors can access operands containing the
     /// watched addresses.
     void visit_operands(
-        granary::instruction_list &ls,
-        granary::instruction in,
+        instruction_list &ls,
+        instruction in,
         watchpoint_tracker &tracker
     ) throw() {
 
@@ -369,7 +379,6 @@ namespace client { namespace wp {
         register_manager dest_regs;
         dest_regs.visit_dests(in);
         bool will_restore_op[MAX_NUM_OPERANDS];
-        bool can_scale_op[MAX_NUM_OPERANDS];
 
         // Save the carry flag.
         bool spilled_carry_flag(false);
@@ -377,7 +386,8 @@ namespace client { namespace wp {
             ls, before, tracker, spilled_carry_flag));
 
         bool spilled_op_reg[MAX_NUM_OPERANDS];
-        dynamorio::reg_id_t op_reg[MAX_NUM_OPERANDS];
+        dynamorio::reg_id_t op_reg_64[MAX_NUM_OPERANDS];
+        dynamorio::reg_id_t op_reg_small[MAX_NUM_OPERANDS];
 
         // constructor for the immediate value that is used to mask the watched
         // address.
@@ -395,18 +405,11 @@ namespace client { namespace wp {
                 will_restore_op[i] = !reg_is_dead(
                     op->value.base_disp.base_reg, dest_regs, tracker.live_regs);
 
-                can_scale_op[i] = reg_can_scale(
-                    op->value.base_disp.base_reg, REG_SCALE);
-
             } else if(!op->value.base_disp.base_reg) {
                 will_restore_op[i] = !reg_is_dead(
                     op->value.base_disp.index_reg, dest_regs, tracker.live_regs);
-
-                can_scale_op[i] = reg_can_scale(
-                    op->value.base_disp.index_reg, REG_SCALE);
             } else {
                 will_restore_op[i] = true;
-                can_scale_op[i] = true;
             }
 
             // get a register where we can compute the watched address, store
@@ -417,37 +420,41 @@ namespace client { namespace wp {
             // to all 1 or 0 (depending on user/kernel space) to mask the high
             // order bits of the address.
             bool using_original_op(true);
-            if(!will_restore_op[i] && can_scale_op[i]) {
+            if(!will_restore_op[i]) {
                 if(!can_change || !op->value.base_disp.index_reg) {
-                    op_reg[i] = op->value.base_disp.base_reg + REG_OFFSET;
+                    op_reg_64[i] = op->value.base_disp.base_reg;
                 } else {
-                    op_reg[i] = op->value.base_disp.index_reg + REG_OFFSET;
+                    op_reg_64[i] = op->value.base_disp.index_reg;
                 }
+
+                op_reg_small[i] = register_manager::scale(
+                    op_reg_small[i], REG_SCALE);
 
             } else {
                 using_original_op = false;
-                op_reg[i] = tracker.get_zombie(REG_SCALE);
+                op_reg_small[i] = tracker.get_zombie(REG_SCALE);
+                op_reg_64[i] = register_manager::scale(op_reg_small[i], REG_64);
             }
 
             // special case for XLAT; don't want the slow path to overwrite
             // RBX.
             if(dynamorio::OP_xlat == in.op_code()
-            && (dynamorio::DR_REG_RBX + REG_OFFSET) == op_reg[i]) {
-                op_reg[i] = tracker.get_zombie(REG_SCALE);
+            && dynamorio::DR_REG_RBX == op_reg_64[i]) {
+                op_reg_small[i] = tracker.get_zombie(REG_SCALE);
+                op_reg_64[i] = register_manager::scale(op_reg_small[i], REG_64);
             }
 
-            if(!op_reg[i]) {
-                op_reg[i] = tracker.get_spill(REG_SCALE);
-                op_reg[i] -= REG_OFFSET;
+            if(!op_reg_64[i]) {
+                op_reg_small[i] = tracker.get_spill(REG_SCALE);
+                op_reg_64[i] = register_manager::scale(op_reg_small[i], REG_64);
                 spilled_op_reg[i] = true;
 
-                ls.insert_before(before, push_(operand(op_reg[i])));
+                ls.insert_before(before, push_(operand(op_reg_64[i])));
             } else {
-                op_reg[i] -= REG_OFFSET;
                 spilled_op_reg[i] = false;
             }
 
-            operand addr(op_reg[i]);
+            operand addr(op_reg_64[i]);
 
             // leave the original register alone and replace the operand in the
             // instruction. Note: this needs
@@ -502,7 +509,7 @@ namespace client { namespace wp {
             // original operand. If we can change the operand, then we already
             // have, so we don't need to worry about index/displacement of
             // this operand.
-            dynamorio::reg_id_t unwatched_addr_reg(op_reg[i]);
+            dynamorio::reg_id_t unwatched_addr_reg(op_reg_64[i]);
             if(!can_change && will_restore_op[i]) {
                 unwatched_addr_reg = op->value.base_disp.base_reg;
                 ls.insert_before(before, mov_st_(
@@ -519,7 +526,7 @@ namespace client { namespace wp {
             operand unwatched_addr(unwatched_addr_reg);
             ls.insert_before(before, bswap_(unwatched_addr));
             ls.insert_before(before, mov_imm_(
-                operand(unwatched_addr_reg + REG_OFFSET),
+                operand(register_manager::scale(unwatched_addr_reg, REG_SCALE)),
                 mov_mask_imm_(IF_USER_ELSE(0ULL, ~0ULL))));
             ls.insert_before(before, bswap_(unwatched_addr));
 
@@ -530,14 +537,15 @@ namespace client { namespace wp {
         // restore the carry flag before executing the instruction.
         if(tracker.restore_carry_flag_before) {
             ls.insert_before(before,
-                bt_(operand(carry_flag + REG_16_OFFSET), int8_(0)));
+                bt_(operand(register_manager::scale(carry_flag, REG_16)),
+                    int8_(0)));
         }
 
         // restore any spilled registers / clobbered registers.
         for(int i(tracker.num_ops); i --> 0; ) {
             const operand_ref &op(tracker.ops[i]);
             const bool can_change(tracker.can_replace[i]);
-            operand addr(op_reg[i]);
+            operand addr(op_reg_64[i]);
 
             // restore the original register
             if(!can_change && will_restore_op[i]) {
@@ -554,7 +562,8 @@ namespace client { namespace wp {
         // restore the carry flag after executing the instruction.
         if(tracker.restore_carry_flag_after) {
             ls.insert_before(after,
-                bt_(operand(carry_flag + REG_16_OFFSET), int8_(0)));
+                bt_(operand(register_manager::scale(carry_flag, REG_16)),
+                    int8_(0)));
         }
 
         if(spilled_carry_flag) {

@@ -128,6 +128,16 @@ namespace client {
         ) throw();
 
 
+        /// Add in a user space redzone guard if necessary. This looks for a PUSH
+        /// instruction anywhere between `first` and `last` and if it finds one then
+        /// it guards the entire instrumented block with a redzone shift.
+        void guard_redzone(
+            granary::instruction_list &ls,
+            granary::instruction first,
+            granary::instruction last
+        ) throw();
+
+
         /// Replace/update operands around the memory instruction. This will
         /// update the `labels` field of the `operand_tracker` with labels in
         /// instruction stream so that a `Watcher` can inject its own specific
@@ -222,6 +232,9 @@ namespace client {
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
+                IF_USER( instruction first(ls.insert_before(in, label_())); )
+                IF_USER( instruction last(ls.insert_after(in, label_())); )
+
                 // apply generic watchpoint instrumentation to the necessary
                 // operands.
                 wp::visit_operands(ls, in, tracker);
@@ -240,6 +253,8 @@ namespace client {
                         Watcher::visit_write(cpu, thread, bb, ls, tracker, i);
                     }
                 }
+
+                IF_USER( wp::guard_redzone(ls, first, last); )
             }
 
             return policy_for<watchpoints<Watcher>>();
