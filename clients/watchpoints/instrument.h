@@ -229,6 +229,7 @@ namespace client {
                 instruction old_in(in);
                 in = wp::mangle(ls, in, tracker);
                 if(in != old_in) {
+                    tracker.num_ops = 0;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 

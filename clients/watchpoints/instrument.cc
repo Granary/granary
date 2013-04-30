@@ -106,8 +106,8 @@ namespace client { namespace wp {
     ) throw() {
         const unsigned eflags(dynamorio::instr_get_eflags(in));
 
-        // assume flags do not propagate through RETs.
-        if(in.is_return()) {
+        // assume flags do not propagate through RETs or CALLs.
+        if(in.is_return() || in.is_call()) {
             next_reads_carry_flag = false;
             tracker.restore_carry_flag_before = false;
             tracker.restore_carry_flag_after = false;
@@ -203,14 +203,13 @@ namespace client { namespace wp {
 
         case dynamorio::OP_push: {
             dynamorio::reg_id_t spill_reg(tracker.get_zombie());
-            operand op = *tracker.ops[0];
+            operand op = *(tracker.ops[0]);
 
             // a dead register is available.
             if(spill_reg) {
                 const operand dead_reg(spill_reg);
-                ret = ls.insert_before(in, mov_ld_(dead_reg, *op));
+                ret = ls.insert_before(in, mov_ld_(dead_reg, op));
                 ls.insert_before(in, push_(dead_reg));
-                ret.set_pc(in.pc());
 
             // we need to spill a register to emulate the PUSH.
             } else {
@@ -220,12 +219,45 @@ namespace client { namespace wp {
 
                 const operand dead_reg(spill_reg);
 
+                // don't need to protect from the userspace redzone on a push.
                 ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
                 ret.set_pc(in.pc());
                 ls.insert_before(in, push_(dead_reg));
-                ret = ls.insert_before(in, mov_ld_(dead_reg, *op));
+                ret = ls.insert_before(in, mov_ld_(dead_reg, op));
                 ls.insert_before(in, mov_st_(reg::rsp[8], dead_reg));
                 ls.insert_before(in, pop_(dead_reg));
+            }
+
+            ls.remove(in);
+            break;
+        }
+
+        case dynamorio::OP_pop: {
+            dynamorio::reg_id_t spill_reg(tracker.get_zombie());
+            operand op = *tracker.ops[0];
+
+            // a dead register is available.
+            if(spill_reg) {
+                const operand dead_reg(spill_reg);
+                ret = ls.insert_before(in, pop_(dead_reg));
+                ret.set_pc(in.pc());
+                ret = ls.insert_before(in, mov_st_(op, dead_reg));
+
+            // we need to spill a register to emulate the POP.
+            } else {
+                spill_reg = tracker.get_spill();
+
+                ASSERT(spill_reg);
+
+                const operand dead_reg(spill_reg);
+
+                // don't need to protect from the userspace redzone on a pop.
+                ret = ls.insert_before(in, push_(dead_reg));
+                ret.set_pc(in.pc());
+                ls.insert_before(in, mov_ld_(dead_reg, reg::rsp[8]));
+                ret = ls.insert_before(in, mov_st_(op, dead_reg));
+                ls.insert_before(in, pop_(dead_reg));
+                ls.insert_before(in, lea_(reg::rsp, reg::rsp[8]));
             }
 
             ls.remove(in);
