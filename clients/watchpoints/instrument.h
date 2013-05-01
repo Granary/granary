@@ -77,14 +77,12 @@ namespace client {
         /// instrumentation.
         struct watchpoint_tracker {
 
+            /// Current instruction
+            granary::instruction in;
+
             /// Tracks which registers are live at the current instruction
             /// that we are instrumenting.
             granary::register_manager live_regs;
-
-            /// Tracks which registers have been used by the watchpoint
-            /// translation so that one step doesn't clobber another. Tracking
-            /// this is necessary when there are no live registers.
-            granary::register_manager used_regs;
 
             /// Direct references to the operands within an instruction.
             granary::operand_ref ops[MAX_NUM_OPERANDS];
@@ -110,12 +108,6 @@ namespace client {
             /// Track the carry flag.
             bool restore_carry_flag_before;
             bool restore_carry_flag_after;
-
-            dynamorio::reg_id_t get_zombie(void) throw();
-            dynamorio::reg_id_t get_zombie(granary::register_scale scale) throw();
-
-            dynamorio::reg_id_t get_spill(void) throw();
-            dynamorio::reg_id_t get_spill(granary::register_scale scale) throw();
         };
 
 
@@ -168,6 +160,15 @@ namespace client {
             granary::instruction,
             bool &
         ) throw();
+
+
+        /// Need to make sure that registers (that are not used in memory
+        /// operands) but that are used as both sources and dests (e.g.
+        /// RAX in CMPXCHG) are treated as live.
+        void revive_matching_operand_regs(
+            granary::register_manager &rm,
+            granary::instruction in
+        ) throw();
     }
 
 
@@ -197,8 +198,26 @@ namespace client {
 
                 memset(&tracker, 0, sizeof tracker);
                 tracker.live_regs = next_live_regs;
-                tracker.used_regs.kill_all();
-                tracker.used_regs.revive(in);
+
+                // Special case for XLAT; to expose the "full" watched address
+                // to higher-level instrumentation, we need to compute the full
+                // address, but doing so risks clobbering RBX or RAX if either
+                // is dead (RAX is guaranteed dead).
+                if(dynamorio::OP_xlat == in.op_code()) {
+                    tracker.live_regs.revive(dynamorio::DR_REG_RBX);
+                    tracker.live_regs.revive(dynamorio::DR_REG_RAX);
+
+                // Kill the destination regs of this instruction so that we can
+                // can take advantage of those.
+                //
+                // Note: this operates in the reverse order as
+                //       `register_manager::visit` so that we can make sure we
+                //       don't clobber source registers while still being able
+                //       to use destination registers.
+                } else {
+                    tracker.live_regs.visit_sources(in);
+                    tracker.live_regs.visit_dests(in);
+                }
 
                 // track the carry flag. The carry flag will be used to detect
                 // watched addresses.
@@ -218,7 +237,10 @@ namespace client {
                     continue;
                 }
 
+                wp::revive_matching_operand_regs(tracker.live_regs, in);
+
                 // try to find memory operations.
+                tracker.in = in;
                 in.for_each_operand(wp::find_memory_operand, tracker);
                 if(!tracker.num_ops) {
                     continue;
@@ -230,6 +252,7 @@ namespace client {
                 in = wp::mangle(ls, in, tracker);
                 if(in != old_in) {
                     tracker.num_ops = 0;
+                    tracker.in = in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 

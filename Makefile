@@ -169,6 +169,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_atomic.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_cti.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
+	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
 endif
 
 # C++ ABI-specific stuff

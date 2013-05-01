@@ -9,11 +9,17 @@
 #ifndef granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 #define granary_USER_POSIX_OVERRIDE_WRAPPERS_H_
 
+
 /// Disable wrapping of some Mac OS X types.
 #define WRAPPER_FOR_struct___sFILE
 #define WRAPPER_FOR_struct_malloc_introspection_t
 #define WRAPPER_FOR_struct__malloc_zone_t
 #define WRAPPER_FOR_glob_t
+
+
+/// Disable wrapping of some Linux types.
+#define WRAPPER_FOR_glob64_t
+#define WRAPPER_FOR__IO_cookie_io_functions_t
 
 #define EXECL_ARG(num, last_arg, seen_null, args_arr, args_list) \
     (args_arr)[num] = va_arg((args_list), char *); \

@@ -56,12 +56,37 @@ namespace test {
     }
 
 
+    static void unwatched_pop(void) throw() {
+        ASM(
+            "movq $WP_PP_FOO, %%rax;"
+            "movq $0xDEADBEEF, %%rbx;"
+            "pushq %%rbx;"
+            "popq (%%rax);"
+            :
+            :
+            : "%rax", "%rbx"
+        );
+    }
+
+
+    static void watched_pop(void) throw() {
+        ASM(
+            "movq WP_PP_MASK, %%rax;"
+            MASK_OP " $WP_PP_FOO, %%rax;" // mask the address of FOO
+            "movq $0xDEADBEEF, %%rbx;"
+            "pushq %%rbx;"
+            "popq (%%rax);"
+            :
+            :
+            : "%rax", "%rbx"
+        );
+    }
+
+
     /// Test that PUSH and POP instructions are correctly watched.
     static void push_pop_watched_correctly(void) {
         (void) WP_PP_FOO;
         (void) WP_PP_MASK;
-
-        // Simple un/watched, no flags dependencies, no register dependencies.
 
         granary::app_pc push((granary::app_pc) unwatched_push);
         granary::basic_block call_push(granary::code_cache::find(
@@ -76,6 +101,24 @@ namespace test {
 
         WP_PP_FOO = 0xBEEFDEAD;
         ASSERT(0xBEEFDEAD == call_wpush.call<uint64_t>());
+
+
+        granary::app_pc pop((granary::app_pc) unwatched_pop);
+        granary::basic_block call_pop(granary::code_cache::find(
+            pop, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_PP_FOO = 0;
+        call_pop.call<void>();
+        ASSERT(0xDEADBEEF == WP_PP_FOO);
+
+        granary::app_pc wpop((granary::app_pc) watched_pop);
+        granary::basic_block call_wpop(granary::code_cache::find(
+            wpop, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_PP_FOO = 0;
+        call_wpop.call<void>();
+        ASSERT(0xDEADBEEF == WP_PP_FOO);
+
     }
 
     ADD_TEST(push_pop_watched_correctly,

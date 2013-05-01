@@ -69,6 +69,15 @@ namespace granary {
         }
 
 
+        /// Visit the source operands of an instruction. This will kill
+        /// register destinations and revive registers that are used in base/
+        /// disp operands.
+        void visit_sources(dynamorio::instr_t *in) throw();
+        inline void visit_sources(instruction in) throw() {
+            return visit_sources(in.instr);
+        }
+
+
         /// Forcibly kill all registers used within an instruction.
         ///
         /// Note: if the instruction is a call, then all scratch registers are
