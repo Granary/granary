@@ -22,14 +22,16 @@ namespace test {
     /// From: python-dbg, _PyObject_DebugDumpAddress+581
     static uint32_t test_movzbl(void) throw() {
         register uint32_t ret = 0;
+        register uint64_t addr(granary::unsafe_cast<uint64_t>(&WP_R_TEST));
+        WP_R_TEST = ~0ULL;
         ASM(
-            "movq $WP_R_TEST, %%rax;"
+            "movq %1, %%rax;"
             "movzbl (%%rax), %%eax;"
             "cmp $0xfb, %%al;"
             "jmp 1f;"
          "1: mov %%eax, %0;"
             : "=r"(ret)
-            :
+            : "r"(addr)
             : "%rax"
         );
         return ret;
@@ -45,7 +47,6 @@ namespace test {
         granary::basic_block call_movzbl(granary::code_cache::find(
             movzbl, granary::policy_for<client::watchpoint_null_policy>()));
 
-        WP_R_TEST = ~0ULL;
         ASSERT(0xFF == call_movzbl.call<uint32_t>());
     }
 

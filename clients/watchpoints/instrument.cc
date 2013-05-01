@@ -50,7 +50,7 @@ namespace client { namespace wp {
             }
         }
 
-        // Special case: XLAT uses a un-encodeable `(RBX, AL)` operand.
+        // Special case: XLAT uses an un-encodeable `(RBX, AL)` operand.
         if(dynamorio::OP_xlat == tracker.in.op_code()) {
             tracker.can_replace[tracker.num_ops] = false;
 
@@ -256,10 +256,9 @@ namespace client { namespace wp {
 
 
     /// Save the carry flag, if needed. We use the carry flag extensively. For
-    /// example, the BT instruction can detect a watched address, and that sets
-    /// the carry flag. Big enough rotations of RCL and RCR only modify the
-    /// carry flag (which can be used to mask the tainted bits), and STC and CLC
-    /// can set/clear the carry flag, respectively.
+    /// example, the BT instruction is used to both detect (and thus clobber
+    /// CF) watchpoints, as well as to restore the carry flag, by testing the
+    /// bit set with `SETcf` (`SETcc` variant).
     static dynamorio::reg_id_t save_carry_flag(
         instruction_list &ls,
         instruction before,
@@ -304,7 +303,12 @@ namespace client { namespace wp {
     }
 
 
-    /// Revive certain registers.
+    /// Revive certain registers. This is special-purposed to look for matching
+    /// register operands in an instruction (e.g. `RAX` in `CMPXCHG`), and allow
+    /// us to ensure that `RAX` is not seen as dead (as would be the case if we
+    /// only visited destination operands). The issue at play here is that `RAX`
+    /// is an implicit operand, and the other infrastructure for handling
+    /// implicits looks for memory operands and not register operands.
     static void kill_register_op(
         const operand_ref &op,
         register_manager &sources,
