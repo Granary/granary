@@ -428,29 +428,49 @@ namespace client { namespace wp {
             const bool can_change(tracker.can_replace[i]);
 
             // Spill the register if necessary.
-            op_reg[i] = tracker.live_regs.get_zombie();
-            if(!op_reg[i]) {
-                op_reg[i] = in_regs.get_zombie();
-                op_reg_was_spilled[i] = true;
-                ls.insert_before(before, push_(operand(op_reg[i])));
-            }
+            bool using_original_reg(false);
+            bool try_get_op_reg(false);
+
+            do {
+                try_get_op_reg = false;
+                op_reg[i] = tracker.live_regs.get_zombie();
+
+                if(!op_reg[i]) {
+                    op_reg[i] = in_regs.get_zombie();
+                    op_reg_was_spilled[i] = true;
+                    using_original_reg = false;
+                    ls.insert_before(before, push_(operand(op_reg[i])));
+                } else {
+
+                    // Try to detect of op_reg[i] is actually one of the
+                    // registers used in the operand.
+                    if(!op->value.base_disp.index_reg) {
+                        using_original_reg = op_reg[i] == register_manager::scale(
+                            op->value.base_disp.base_reg, REG_64);
+
+                    } else if(!op->value.base_disp.base_reg) {
+                        using_original_reg = op_reg[i] == register_manager::scale(
+                            op->value.base_disp.index_reg, REG_64);
+                    }
+
+                    // The `op_reg` is killed in the instruction, but live after
+                    // the instruction. `!using_original_reg` is a necessary
+                    // condition for checking if we need to save/restore the
+                    // original reg's (inside the operand) value.
+                    if(!using_original_reg
+                    && !is_xlat
+                    && tracker.live_regs.is_dead(op_reg[i])
+                    && tracker.live_regs_after.is_live(op_reg[i])) {
+                        try_get_op_reg = true;
+                    }
+                }
+            } while(try_get_op_reg);
 
             dynamorio::reg_id_t op_reg_to_test(op_reg[i]);
 
-            // Try to detect of op_reg[i] is actually one of the registers used
-            // in the operand.
-            bool using_original_reg(false);
-            if(!op->value.base_disp.index_reg) {
-                using_original_reg = op_reg[i] == register_manager::scale(
-                    op->value.base_disp.base_reg, REG_64);
-
-            } else if(!op->value.base_disp.base_reg) {
-                using_original_reg = op_reg[i] == register_manager::scale(
-                    op->value.base_disp.index_reg, REG_64);
-
             // Note: we are guaranteed that op_reg[i] != RAX or RBX. See
             // instrument.h.
-            } else if(is_xlat) {
+            if(is_xlat) {
                 using_original_reg = true;
                 op_reg_to_test = dynamorio::DR_REG_RBX;
             }
@@ -507,47 +527,47 @@ namespace client { namespace wp {
             // original operand. If we can change the operand, then we already
             // have, so we don't need to worry about index/displacement of
             // this operand.
-            dynamorio::reg_id_t unwatched_addr_reg(op_reg[i]);
-            bool try_save_unwatched_addr_reg(true);
+            dynamorio::reg_id_t original_addr_reg(op_reg[i]);
+            bool try_save_original_addr_reg(true);
             bool restore_unwatched_reg(false);
 
             // Can't be changed and the register that we clobbered isn't the
             // one that's part of the instruction.
             if(!can_change && !using_original_reg) {
-                unwatched_addr_reg = op->value.base_disp.base_reg;
+                original_addr_reg = op->value.base_disp.base_reg;
 
             // XLAT's don't use their original reg; we need to specifically
             // save RBX because it will be clobbered.
             } else if(is_xlat) {
-                unwatched_addr_reg = dynamorio::DR_REG_RBX;
+                original_addr_reg = dynamorio::DR_REG_RBX;
 
             // Don't need to save the register that we might clobber for later.
             } else {
-                try_save_unwatched_addr_reg = false;
+                try_save_original_addr_reg = false;
             }
 
             // Try to see
-            operand unwatched_addr(unwatched_addr_reg);
-            if(try_save_unwatched_addr_reg
-            && tracker.live_regs.is_live(unwatched_addr_reg)) {
+            operand original_addr(original_addr_reg);
+            if(try_save_original_addr_reg
+            && tracker.live_regs.is_live(original_addr_reg)) {
                 restore_unwatched_reg = true;
-                ASSERT( dest_regs.is_live(unwatched_addr_reg) )
-                ls.insert_before(before, mov_st_(addr, unwatched_addr));
+                ASSERT( dest_regs.is_live(original_addr_reg) )
+                ls.insert_before(before, mov_st_(addr, original_addr));
             }
 
             // mask the high order bits.
-            ls.insert_before(before, bswap_(unwatched_addr));
+            ls.insert_before(before, bswap_(original_addr));
             ls.insert_before(before, mov_imm_(
-                operand(register_manager::scale(unwatched_addr_reg, REG_SCALE)),
+                operand(register_manager::scale(original_addr_reg, REG_SCALE)),
                 mov_mask_imm_(IF_USER_ELSE(0ULL, ~0ULL))));
-            ls.insert_before(before, bswap_(unwatched_addr));
+            ls.insert_before(before, bswap_(original_addr));
 
             // target of the jump if this isn't a watched address.
             ls.insert_before(before, not_a_watchpoint);
 
             // Restore a register after the operand if necessary.
             if(restore_unwatched_reg) {
-                ls.insert_before(after, mov_ld_(unwatched_addr, addr));
+                ls.insert_before(after, mov_ld_(original_addr, addr));
             }
         }
 

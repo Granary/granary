@@ -677,22 +677,33 @@ namespace granary {
                     // cache, but in user space we don't attempt such detection.
                     } else IF_USER( if(!in.is_call()) ) {
                         mangled_address am(target_pc, policy);
-                        if(cpu->code_cache.find(am.as_address)) {
+                        app_pc resolved_target_pc(
+                            cpu->code_cache.find(am.as_address));
+
+                        if(resolved_target_pc) {
+                            in.set_cti_target(pc_(resolved_target_pc));
+                            in.set_mangled();
                             ls.append(in);
+
                             if(in.is_unconditional_cti()
                             IF_KERNEL( && !in.is_call() )) {
                                 break;
-                            } else {
+                            } else if(in.is_call()) {
                                 continue;
+                            } else {
+#   if CONFIG_BB_PATCH_LOCAL_BRANCHES
+                                continue;
+#   else
+                                fall_through_pc = true;
+                                break;
+#   endif
                             }
                         }
-#endif
+#endif /* CONFIG_USE_ONLY_ONE_POLICY */
                     }
 
-
 #if CONFIG_BB_PATCH_LOCAL_BRANCHES
-
-                    // if it is local back edge then keep control within the
+                    // If it is local back edge then keep control within the
                     // same basic block. Note: the policy of this basic block
                     // must match the policy of the destination basic block.
                     if(start_pc <= target_pc
@@ -706,7 +717,7 @@ namespace granary {
                             in.set_cti_target(target);
                         }
                     }
-#endif
+#endif /* CONFIG_BB_PATCH_LOCAL_BRANCHES */
                 }
 
                 instruction added_in(ls.append(in));
@@ -726,7 +737,7 @@ namespace granary {
                         continue;
 #else
                         fall_through_pc = true;
-#endif
+#endif /* CONFIG_BB_EXTEND_BBS_PAST_CBRS */
                     }
                     break;
 
@@ -739,7 +750,7 @@ namespace granary {
                     fall_through_pc = true;
 #   endif
                     break;
-#endif
+#endif /* !CONFIG_ENABLE_DIRECT_RETURN */
                 }
 
 #if 0
@@ -765,13 +776,13 @@ namespace granary {
                     policy.in_xmm_context();
                     uses_xmm = true;
                 }
-#endif
+#endif /* CONFIG_TRACK_XMM_REGS */
 
                 ls.append(in);
             }
         }
 
-        // invoke client code instrumentation on the basic block; the client
+        // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect
         // of this is that if we are in policy P1, and the client returns policy
         // P2, then we will emit a block to P1's code cache that jumps us into
@@ -784,11 +795,21 @@ namespace granary {
 
         client_policy.inherit_properties(policy);
 
-        // add in a trailing jump if the last instruction in the basic
+        // Add in a trailing jump if the last instruction in the basic
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
+#if CONFIG_USE_ONLY_ONE_POLICY
+            mangled_address am(*pc, policy);
+            app_pc resolved_fall_through_pc(cpu->code_cache.find(am.as_address));
+            if(resolved_fall_through_pc) {
+                ls.append(mangled(jmp_(pc_(resolved_fall_through_pc))));
+            } else {
+                ls.append(jmp_(pc_(*pc)));
+            }
+#else
             ls.append(jmp_(pc_(*pc)));
+#endif
 
         /// Add in a trailing (emulated) jmp or ret if we are detaching.
         } else if(fall_through_detach) {
@@ -801,7 +822,7 @@ namespace granary {
             }
         }
 
-        // translate loops and resolve local branches into jmps to instructions.
+        // Translate loops and resolve local branches into jmps to instructions.
         // done before mangling, as mangling removes the opportunity to do this
         // type of transformation.
         num_direct_branches += translate_loops(ls);
@@ -811,7 +832,7 @@ namespace granary {
 
         instruction bb_begin(ls.prepend(label_()));
 
-        // prepare the instructions for final execution; this does instruction-
+        // Prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
         // mangling uses `client_policy` as opposed to `policy` so that CTIs
         // are mangled to transfer control to the (potentially different) client
@@ -820,7 +841,7 @@ namespace granary {
             cpu, thread, block_storage, client_policy);
         mangler.mangle(ls);
 
-        // re-calculate the size and re-allocate; if our earlier
+        // Re-calculate the size and re-allocate; if our earlier
         // guess was too small then we need to re-instrument the
         // instruction list
         generated_pc = cpu->fragment_allocator.\

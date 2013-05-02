@@ -83,6 +83,7 @@ namespace client {
             /// Tracks which registers are live at the current instruction
             /// that we are instrumenting.
             granary::register_manager live_regs;
+            granary::register_manager live_regs_after;
 
             /// Direct references to the operands within an instruction.
             granary::operand_ref ops[MAX_NUM_OPERANDS];
@@ -198,6 +199,14 @@ namespace client {
 
                 memset(&tracker, 0, sizeof tracker);
                 tracker.live_regs = next_live_regs;
+                tracker.live_regs_after = next_live_regs;
+
+#define NARROW 1
+
+#if NARROW
+                // TODO: remove me
+                register_manager old_next_live_regs(next_live_regs);
+#endif
 
                 // Special case for XLAT; to expose the "full" watched address
                 // to higher-level instrumentation, we need to compute the full
@@ -256,6 +265,102 @@ namespace client {
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
+#if NARROW
+                // narrow down step 1:
+                /*
+                bool skip(false);
+                for(unsigned i(0); i < tracker.num_ops; ++i) {
+                    const operand_ref &op(tracker.ops[i]);
+                    if((SOURCE_OPERAND & op.kind)) {
+                        skip = true;
+                    }
+                }
+                if(skip) {
+                    continue;
+                }
+                */
+
+                // narrow step 2:
+                if(tracker.num_ops == 1) {
+                    continue;
+                }
+
+                // narrow step 3:
+                const operand_ref &op2(tracker.ops[0]);
+                (void) op2;
+                /*
+                if(!op2->value.base_disp.base_reg) {
+                    continue;
+                }
+
+                // narrow step 4:
+                if(op2->value.base_disp.index_reg) {
+                    continue;
+                }
+
+                // narrow step 5:
+                if(op2->value.base_disp.disp) {
+                    continue;
+                }
+                */
+                (void) old_next_live_regs;
+                /*
+                if(!tracker.live_regs.is_live(op2->value.base_disp.base_reg)) {
+                    continue;
+                }
+
+                if(!old_next_live_regs.is_live(op2->value.base_disp.base_reg)) {
+                    continue;
+                }
+
+                if(!in.pc()) {
+                    continue;
+                }
+
+                if(dynamorio::OP_mov_st == in.op_code()) {
+                    continue;
+                }
+                */
+                /*
+                if(55 == in.op_code()) {
+                    continue;
+                }
+
+                if(14 == in.op_code()) {
+                    continue;
+                }
+
+                if(190 == in.op_code()) {
+                    continue;
+                }
+
+                if(16 == in.op_code()) {
+                    continue;
+                }
+
+                if(10 == in.op_code()) {
+                    continue;
+                }
+                */
+
+                // 195 - potentially solved
+                /*
+                if(in != old_in) {
+                    continue;
+                }*/
+
+                // only one operand
+                // memory operand is a source
+                // has a base reg
+                // no index reg
+                // no displacement
+                // base reg is killed by the instruction
+                // base reg is live after the instruction
+                // instruction wasn't pre-mangled
+                // not a mangled PUSH/POP
+                // not a MOV
+                printf("%p %u\n", in.pc(), in.op_code());
+#endif
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )
 

@@ -15,14 +15,14 @@ namespace granary {
 
 
     /// Registers that are forced to always be alive.
-    static uint16_t FORCE_LIVE =
+    static const uint16_t FORCE_LIVE =
         (1U << (dynamorio::DR_REG_RSP - 1));
 
 
     /// We use a lookup table, primary because of the 8-bit registers,
     /// which don't map directly (using subtraction) to their 64-bit
     /// counterparts.
-    static dynamorio::reg_id_t REG_TO_REG64[] = {
+    static const dynamorio::reg_id_t REG_TO_REG64[] = {
         dynamorio::DR_REG_NULL,
 
         dynamorio::DR_REG_RAX,
@@ -100,7 +100,7 @@ namespace granary {
     };
 
 
-    static dynamorio::reg_id_t REG_TO_REG32[] = {
+    static const dynamorio::reg_id_t REG_TO_REG32[] = {
         dynamorio::DR_REG_NULL,
 
         dynamorio::DR_REG_EAX,
@@ -178,7 +178,7 @@ namespace granary {
     };
 
 
-    static dynamorio::reg_id_t REG_TO_REG16[] = {
+    static const dynamorio::reg_id_t REG_TO_REG16[] = {
         dynamorio::DR_REG_NULL,
         dynamorio::DR_REG_AX,
         dynamorio::DR_REG_CX,
@@ -255,7 +255,7 @@ namespace granary {
     };
 
 
-    static dynamorio::reg_id_t REG_TO_REG8[] = {
+    static const dynamorio::reg_id_t REG_TO_REG8[] = {
         dynamorio::DR_REG_NULL,
         dynamorio::DR_REG_AL,
         dynamorio::DR_REG_CL,
@@ -577,10 +577,12 @@ namespace granary {
 
     /// Forcibly kill a particular 64-bit register. Here we do something
     /// special in that we don't consider a register dead unless we
-    /// are actually using the full 64-bit register.
+    /// are actually using the full 64-bit register. This is because something
+    /// like `MOV AL, CL`, while looking like it kills `RCX`, is only killing
+    /// the low 8 bytes of `RCX`, and the other bytes might still be live.
     void register_manager::kill_64(dynamorio::reg_id_t reg) throw() {
         const uint8_t reg64(REG_TO_REG64[reg]);
-        if(reg64) {
+        if(reg64 && (reg64 == reg || REG_TO_REG32[reg] == reg)) {
             const uint16_t mask(1U << (reg64 - 1));
             undead &= ~mask;
             live &= ~mask;
