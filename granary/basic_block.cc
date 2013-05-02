@@ -660,7 +660,6 @@ namespace granary {
                     // a very simple optimisation to keep more code in a basic
                     // block is to inline the calls that will detach.
                     } else if(find_detach_target(target_pc)) {
-
                         if(in.is_call() || !in.is_unconditional_cti()) {
                             ls.append(in);
                             continue;
@@ -677,26 +676,13 @@ namespace granary {
                     // cache, but in user space we don't attempt such detection.
                     } else IF_USER( if(!in.is_call()) ) {
                         mangled_address am(target_pc, policy);
-                        app_pc resolved_target_pc(
-                            cpu->code_cache.find(am.as_address));
-
-                        if(resolved_target_pc) {
-                            in.set_cti_target(pc_(resolved_target_pc));
-                            in.set_mangled();
+                        if(cpu->code_cache.find(am.as_address)) {
                             ls.append(in);
-
                             if(in.is_unconditional_cti()
                             IF_KERNEL( && !in.is_call() )) {
                                 break;
-                            } else if(in.is_call()) {
-                                continue;
                             } else {
-#   if CONFIG_BB_PATCH_LOCAL_BRANCHES
                                 continue;
-#   else
-                                fall_through_pc = true;
-                                break;
-#   endif
                             }
                         }
 #endif /* CONFIG_USE_ONLY_ONE_POLICY */
@@ -799,17 +785,7 @@ namespace granary {
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
-#if CONFIG_USE_ONLY_ONE_POLICY
-            mangled_address am(*pc, policy);
-            app_pc resolved_fall_through_pc(cpu->code_cache.find(am.as_address));
-            if(resolved_fall_through_pc) {
-                ls.append(mangled(jmp_(pc_(resolved_fall_through_pc))));
-            } else {
-                ls.append(jmp_(pc_(*pc)));
-            }
-#else
             ls.append(jmp_(pc_(*pc)));
-#endif
 
         /// Add in a trailing (emulated) jmp or ret if we are detaching.
         } else if(fall_through_detach) {

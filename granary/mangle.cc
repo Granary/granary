@@ -1015,6 +1015,15 @@ namespace granary {
         if(detach_target_pc) {
             target.value.pc = detach_target_pc;
             in.set_cti_target(target);
+
+#if !GRANARY_IN_KERNEL
+            // Just in case the previous instruction was a call, and this is the
+            // JMP to the next BB, or in case this is a call, and the next
+            // instruction is a JMP to the next BB.
+            if(!in.next().is_valid() || in.is_call()) {
+                in.set_patchable();
+            }
+#endif
             return;
         }
 
