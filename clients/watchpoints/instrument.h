@@ -279,7 +279,7 @@ namespace client {
                     continue;
                 }
                 */
-
+                // TODO: remove this after fixing REP MOVS issue.
                 // narrow step 2:
                 if(tracker.num_ops == 1) {
                     continue;
