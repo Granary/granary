@@ -201,11 +201,12 @@ namespace client {
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
 
-#define NARROW 0
+#define NARROW 1
 
 #if NARROW
                 // TODO: remove me
                 register_manager old_next_live_regs(next_live_regs);
+                (void) old_next_live_regs;
 #endif
 
                 // Special case for XLAT; to expose the "full" watched address
@@ -282,10 +283,10 @@ namespace client {
                 */
                 // TODO: remove this after fixing REP MOVS issue.
                 // narrow step 2:
-                if(tracker.num_ops != 1) {
+                if(tracker.num_ops == 1) {
                     continue;
                 }
-
+#if 0
                 if(56 != in.op_code()) {
                     continue;
                 }
@@ -354,7 +355,7 @@ namespace client {
                 if(in != old_in) {
                     continue;
                 }*/
-
+#endif
                 // only one operand
                 // memory operand is a source
                 // has a base reg
