@@ -31,7 +31,7 @@ namespace test {
             "movq $WP_ARITH_FOO, %rax;"
             "movq $1, %rbx;"
             "add %rbx, (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -41,7 +41,7 @@ namespace test {
             MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
             "movq $1, %rbx;"
             "add %rbx, (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -50,7 +50,7 @@ namespace test {
             "movq $WP_ARITH_FOO, %rax;"
             "movq $1, %rbx;"
             "xadd %rbx, (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -60,7 +60,7 @@ namespace test {
             MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
             "movq $1, %rbx;"
             "xadd %rbx, (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -68,7 +68,7 @@ namespace test {
         ASM(
             "movq $WP_ARITH_FOO, %rax;"
             "incq (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -77,7 +77,7 @@ namespace test {
             "movq WP_ARITH_MASK, %rax;"
             MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
             "incq (%rax);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 

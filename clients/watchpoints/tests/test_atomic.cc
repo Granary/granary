@@ -41,7 +41,7 @@ namespace test {
             "movq $1, %rcx;"
             "movq $0, %rax;"
             "cmpxchg %rcx, (%rbx);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -52,7 +52,7 @@ namespace test {
             "movq $1, %rcx;"
             "movq $0, %rax;"
             "cmpxchg %rcx, (%rbx);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -75,7 +75,7 @@ namespace test {
             "movq $0, %rdx;"
 
             "lock; cmpxchg8b (%r8);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -91,7 +91,7 @@ namespace test {
             "movq $0, %rdx;"
 
             "lock; cmpxchg8b (%r8);"
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 

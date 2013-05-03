@@ -24,6 +24,7 @@ namespace test {
     extern "C" {
         uint64_t WP_STRING_FOO = 0;
         uint64_t WP_STRING_FOO_ARRAY[2] = {0};
+        uint64_t WP_STRING_FOO_ARRAY_DEST[2] = {0};
         uint64_t WP_STRING_MASK = client::wp::DISTINGUISHING_BIT_MASK;
     }
 
@@ -54,7 +55,7 @@ namespace test {
             "movq $1, %rax;"
             "stosq;"
 
-            PUSHA POPA
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -67,7 +68,7 @@ namespace test {
             "movq $1, %rax;"
             "stosq;"
 
-            PUSHA POPA
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -104,7 +105,7 @@ namespace test {
             "movq $1, %rax;"
             "rep stosq;"
 
-            PUSHA POPA
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -118,7 +119,48 @@ namespace test {
             "movq $1, %rax;"
             "rep stosq;"
 
-            PUSHA POPA
+            "jmp 1f; 1: nop;" // ensure all regs are live
+        );
+    }
+
+
+    /* REP MOVS m64, m64   Move RCX quadwords from [RSI] to [RDI].*/
+
+    static void unwatched_rep_movs(void) throw() {
+        ASM(
+            "movq $WP_STRING_FOO_ARRAY, %rsi;"
+            "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
+            "movq $2, %rcx;"
+            "rep movsq %ds:(%rsi),%es:(%rdi);"
+            "jmp 1f; 1: nop;" // ensure all regs are live
+        );
+    }
+
+
+    // modification of code from memmove$VARIANT$sse3x so as to maintain
+    // the same dependencies, but not have any meaningful side-effects.
+    static void unwatched_rep_movs_memmove(void) throw() {
+        ASM(
+            "movq $WP_STRING_FOO_ARRAY, %rsi;"
+            "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
+            "movq $2, %rcx;"
+            "rep movsq %ds:(%rsi),%es:(%rdi);"
+
+            "mov %rdx,%rcx;"
+            "mov %esi,%eax;"
+            "and $0x3f,%edx;"
+            "and $0xf,%eax;"
+            "and $-64,%rcx;"
+            "movq $WP_STRING_FOO,%r8;"
+            "add %rcx,%rsi;"
+            "add %rcx,%rsi;"
+            "add %rcx,%rdi;"
+            "mov $0, %rax;"
+            "mov (%r8,%rax,4),%eax;"
+            "neg %rcx;"
+            "add %r8,%rax;"
+
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -196,6 +238,35 @@ namespace test {
         WP_STRING_FOO_ARRAY[1] = 0;
         call_rep_wstos_dep.call<void>();
         ASSERT(1 == WP_STRING_FOO_ARRAY[0] && 1 == WP_STRING_FOO_ARRAY[1]);
+
+
+        granary::app_pc rep_movs((granary::app_pc) unwatched_rep_movs);
+        granary::basic_block call_rep_movs(granary::code_cache::find(
+            rep_movs, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_STRING_FOO_ARRAY[0] = ~0ULL;
+        WP_STRING_FOO_ARRAY[1] = ~0ULL;
+        WP_STRING_FOO_ARRAY_DEST[0] = 0ULL;
+        WP_STRING_FOO_ARRAY_DEST[1] = 0ULL;
+        call_rep_movs.call<void>();
+        ASSERT(~0ULL == WP_STRING_FOO_ARRAY[0]
+            && ~0ULL == WP_STRING_FOO_ARRAY[1]
+            && ~0ULL == WP_STRING_FOO_ARRAY_DEST[1]
+            && ~0ULL == WP_STRING_FOO_ARRAY_DEST[1]);
+
+        granary::app_pc rep_movs_memmove((granary::app_pc) unwatched_rep_movs_memmove);
+        granary::basic_block call_rep_movs_memmove(granary::code_cache::find(
+            rep_movs_memmove, granary::policy_for<client::watchpoint_null_policy>()));
+
+        WP_STRING_FOO_ARRAY[0] = ~0ULL;
+        WP_STRING_FOO_ARRAY[1] = ~0ULL;
+        WP_STRING_FOO_ARRAY_DEST[0] = 0ULL;
+        WP_STRING_FOO_ARRAY_DEST[1] = 0ULL;
+        call_rep_movs_memmove.call<void>();
+        ASSERT(~0ULL == WP_STRING_FOO_ARRAY[0]
+            && ~0ULL == WP_STRING_FOO_ARRAY[1]
+            && ~0ULL == WP_STRING_FOO_ARRAY_DEST[1]
+            && ~0ULL == WP_STRING_FOO_ARRAY_DEST[1]);
     }
 
     ADD_TEST(string_watched_correctly,

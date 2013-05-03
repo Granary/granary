@@ -53,7 +53,7 @@ namespace test {
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
 
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -64,7 +64,7 @@ namespace test {
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
 
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
         );
     }
 
@@ -101,7 +101,7 @@ namespace test {
             "movq $WP_MOV_FOO, %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
             "cmovc %rax, %rbx;" // should be a NOP, iff CF was restored to 0
             "movq %rbx, (%rax);"
         );
@@ -114,7 +114,7 @@ namespace test {
             "clc;" // set CF=0
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
-            PUSHA POPA // ensure all regs are live
+            "jmp 1f; 1: nop;" // ensure all regs are live
             "cmovc %rax, %rbx;" // should be a NOP, iff CF was restored to 0
             "movq %rbx, (%rax);"
         );

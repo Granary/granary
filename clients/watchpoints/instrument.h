@@ -201,7 +201,7 @@ namespace client {
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
 
-#define NARROW 1
+#define NARROW 0
 
 #if NARROW
                 // TODO: remove me
