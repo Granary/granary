@@ -33,6 +33,7 @@ namespace test {
         ASM(
             "movq $WP_STRING_FOO, %rdi;"
             "movq $1, %rax;"
+            "cld;"
             "stosq;"
         );
     }
@@ -43,6 +44,7 @@ namespace test {
             "movq WP_STRING_MASK, %rdi;"
             MASK_OP " $WP_STRING_FOO, %rdi;" // mask the address of FOO
 
+            "cld;"
             "movq $1, %rax;"
             "stosq;"
         );
@@ -53,6 +55,7 @@ namespace test {
         ASM(
             "movq $WP_STRING_FOO, %rdi;"
             "movq $1, %rax;"
+            "cld;"
             "stosq;"
 
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -66,6 +69,7 @@ namespace test {
             MASK_OP " $WP_STRING_FOO, %rdi;" // mask the address of FOO
 
             "movq $1, %rax;"
+            "cld;"
             "stosq;"
 
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -81,6 +85,7 @@ namespace test {
             "movq $WP_STRING_FOO_ARRAY, %rdi;"
             "movq $2, %rcx;"
             "movq $1, %rax;"
+            "cld;"
             "rep stosq;"
         );
     }
@@ -93,6 +98,7 @@ namespace test {
 
             "movq $2, %rcx;"
             "movq $1, %rax;"
+            "cld;"
             "rep stosq;"
         );
     }
@@ -103,6 +109,7 @@ namespace test {
             "movq $WP_STRING_FOO_ARRAY, %rdi;"
             "movq $2, %rcx;"
             "movq $1, %rax;"
+            "cld;"
             "rep stosq;"
 
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -117,6 +124,7 @@ namespace test {
 
             "movq $2, %rcx;"
             "movq $1, %rax;"
+            "cld;"
             "rep stosq;"
 
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -131,6 +139,7 @@ namespace test {
             "movq $WP_STRING_FOO_ARRAY, %rsi;"
             "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
             "movq $2, %rcx;"
+            "cld;"
             "rep movsq %ds:(%rsi),%es:(%rdi);"
             "jmp 1f; 1: nop;" // ensure all regs are live
         );
@@ -144,6 +153,7 @@ namespace test {
             "movq $WP_STRING_FOO_ARRAY, %rsi;"
             "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
             "movq $2, %rcx;"
+            "cld;"
             "rep movsq %ds:(%rsi),%es:(%rdi);"
 
             "mov %rdx,%rcx;"

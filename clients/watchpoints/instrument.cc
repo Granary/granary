@@ -435,6 +435,16 @@ namespace client { namespace wp {
             const operand_ref &op(tracker.ops[i]);
             const bool can_change(tracker.can_replace[i]);
 
+            // Try to figure out if this operand is a base/disp type that is
+            // "simple", i.e. `(R)`, or `(,R,1)`.
+            bool op_is_simple_reg(false);
+            if(!op->value.base_disp.index_reg) {
+                op_is_simple_reg = !op->value.base_disp.disp;
+            } else if(!op->value.base_disp.base_reg) {
+                op_is_simple_reg = !op->value.base_disp.disp
+                                && (1 >= op->value.base_disp.scale);
+            }
+
             // Spill the register if necessary.
             bool using_original_reg(false);
             bool try_get_op_reg(false);
@@ -496,40 +506,11 @@ namespace client { namespace wp {
                     op_replacement.size = op->size;
                     const_cast<operand_ref &>(op) = op_replacement;
                 }
-
-            // In the case of XLAT, we (unfortunately) still need to save RBX
-            // to the clobbered reg so that in the fast path we can restore it,
-            // thus making the fast and slow paths uniform.
-            } else if(is_xlat) {
-                ls.insert_before(before, mov_st_(addr, reg::rbx));
             }
 
-            // Test for a watchpoint.
+            // Test for a watched address.
             ls.insert_before(before,
                 bt_(operand(op_reg_to_test), int8_(DISTINGUISHING_BIT_OFFSET)));
-
-            instruction not_a_watchpoint(label_());
-            ls.insert_before(before,
-                mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
-
-            // if this was an XLAT, then we didn't resolve the full watched
-            // address into `addr`. Do it now.
-            if(is_xlat) {
-                ls.insert_before(before, movzx_(addr, reg::al));
-                ls.insert_before(before, lea_(addr, addr + reg::rbx));
-            }
-
-            // we've found a watchpoint; note: we assume that watchpoint-
-            // implementation instrumentation will not clobber the operands
-            // from sources/dests.
-            tracker.labels[i] = ls.insert_before(before, label_());
-            if(SOURCE_OPERAND & op.kind) {
-                tracker.sources[i] = addr;
-            }
-
-            if(DEST_OPERAND & op.kind) {
-                tracker.dests[i] = addr;
-            }
 
             // save the original register value if we're not modifying the
             // original operand. If we can change the operand, then we already
@@ -554,13 +535,52 @@ namespace client { namespace wp {
                 try_save_original_addr_reg = false;
             }
 
-            // Try to see
+            // Try to see if we need to save, and thus restore, the original
+            // value of the register.
             operand original_addr(original_addr_reg);
             if(try_save_original_addr_reg
-            && tracker.live_regs.is_live(original_addr_reg)) {
+            && tracker.live_regs_after.is_live(original_addr_reg)) {
                 restore_unwatched_reg = true;
                 ASSERT( dest_regs.is_live(original_addr_reg) )
-                ls.insert_before(before, mov_st_(addr, original_addr));
+
+                // Only save the register if the LEA doesn't effect a save of
+                // the register's original value for us.
+                if(!op_is_simple_reg) {
+                    ls.insert_before(before, mov_st_(addr, original_addr));
+                }
+            }
+
+            // Jump around the slow path if a watched address is detected.
+            instruction not_a_watchpoint(label_());
+            ls.insert_before(before,
+                mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
+
+            // if this was an XLAT, then we didn't resolve the full watched
+            // address into `addr`. Do it now.
+            if(is_xlat) {
+                ls.insert_before(before, movzx_(addr, reg::al));
+                ls.insert_before(before, lea_(addr, addr + reg::rbx));
+            }
+
+            // we've found a watchpoint; note: we assume that watchpoint-
+            // implementation instrumentation will not clobber the operands
+            // from sources/dests.
+            tracker.labels[i] = ls.insert_before(before, label_());
+            if(SOURCE_OPERAND & op.kind) {
+                tracker.sources[i] = addr;
+            }
+
+            if(DEST_OPERAND & op.kind) {
+                tracker.dests[i] = addr;
+            }
+
+            // In the case of XLAT, we (unfortunately) still need to save
+            // RBX to the clobbered reg so that in the fast path we can
+            // restore it, thus making the fast and slow paths uniform. This is
+            // because above we re-clobber `addr` with the computed XLAT address
+            // so that we can expose it to higher-level instrumentation.
+            if(is_xlat && restore_unwatched_reg) {
+                ls.insert_before(before, mov_st_(addr, reg::rbx));
             }
 
             // mask the high order bits.
