@@ -29,6 +29,14 @@ namespace client { namespace wp {
             return;
         }
 
+        // Guard against RSP up here as it will never be returned by get_zombie
+        // (as a preventive measure for preventing the stack pointer from being
+        // clobbered). Also, treat all stack addresses as unwatched.
+        if(dynamorio::DR_REG_RSP == op->value.base_disp.base_reg
+        || dynamorio::DR_REG_RSP == op->value.base_disp.index_reg) {
+            return;
+        }
+
         register_manager rm;
         const operand ref_to_op(*op);
         rm.kill(ref_to_op);
@@ -41,14 +49,14 @@ namespace client { namespace wp {
             return;
         }
 
-        const unsigned num_regs(regs[1] ? 2 : 1);
-
-        for(unsigned i(0); i < 2; ++i) {
-            if(dynamorio::DR_REG_RSP == regs[i]
-            IF_WP_IGNORE_FRAME_POINTER( || dynamorio::DR_REG_RBP == regs[i])) {
-                return;
-            }
+        // If we consider RBP as a frame pointer then prevent it from being
+        // clobbered as well. Also, treat all stack addresses as unwatched.
+#if WP_IGNORE_FRAME_POINTER
+        if(dynamorio::DR_REG_RBP == regs[0]
+        || dynamorio::DR_REG_RBP == regs[1]) {
+            return;
         }
+#endif /* WP_IGNORE_FRAME_POINTER */
 
         // Special case: XLAT uses an un-encodeable `(RBX, AL)` operand.
         if(dynamorio::OP_xlat == tracker.in.op_code()) {
@@ -57,7 +65,7 @@ namespace client { namespace wp {
         // Two registers are used in the base/disp (base & index), thus this is
         // not an "implicit" operand to an instruction, and so we can replace
         // the operand.
-        } else if(2 == num_regs) {
+        } else if(regs[1]) {
             tracker.can_replace[tracker.num_ops] = true;
 
         // This is a register that is not typically an implicitly used register

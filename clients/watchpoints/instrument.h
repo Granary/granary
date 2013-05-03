@@ -13,7 +13,7 @@
 
 /// Enable if %RBP should be treated as a frame pointer and not as a potential
 /// watched address.
-#define IF_WP_IGNORE_FRAME_POINTER(...) __VA_ARGS__
+#define WP_IGNORE_FRAME_POINTER 1
 
 
 namespace client {
@@ -201,7 +201,7 @@ namespace client {
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
 
-#define NARROW 1
+#define NARROW 0
 
 #if NARROW
                 // TODO: remove me
@@ -265,6 +265,7 @@ namespace client {
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
+
 #if NARROW
                 // narrow down step 1:
                 /*
@@ -281,30 +282,34 @@ namespace client {
                 */
                 // TODO: remove this after fixing REP MOVS issue.
                 // narrow step 2:
-                if(tracker.num_ops == 1) {
+                if(tracker.num_ops != 1) {
+                    continue;
+                }
+
+                if(56 != in.op_code()) {
                     continue;
                 }
 
                 // narrow step 3:
                 const operand_ref &op2(tracker.ops[0]);
                 (void) op2;
-                /*
+
                 if(!op2->value.base_disp.base_reg) {
                     continue;
                 }
 
                 // narrow step 4:
-                if(op2->value.base_disp.index_reg) {
+                if(!op2->value.base_disp.index_reg) {
                     continue;
                 }
 
                 // narrow step 5:
-                if(op2->value.base_disp.disp) {
+                if(!op2->value.base_disp.disp) {
                     continue;
                 }
-                */
+
                 (void) old_next_live_regs;
-                /*
+
                 if(!tracker.live_regs.is_live(op2->value.base_disp.base_reg)) {
                     continue;
                 }
@@ -316,11 +321,12 @@ namespace client {
                 if(!in.pc()) {
                     continue;
                 }
-
+                /*
                 if(dynamorio::OP_mov_st == in.op_code()) {
                     continue;
                 }
                 */
+
                 /*
                 if(55 == in.op_code()) {
                     continue;
