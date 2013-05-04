@@ -50,6 +50,19 @@ runs within the VM.
 ```basemake
 sudo apt-get install ssh
 sudo apt-get install openssh-server
+ssh-keygen
+```
+
+On your host OS, run:
+
+```basemake
+ssh-copy-id "<vm-user-name>@localhost -P 5556"
+```
+
+In your guest OS, run:
+
+```basemake
+ssh-copy-id "<host-user-name>@10.0.2.2 -P 22"
 ```
 
 ## Step 5: Install your build of the kernel into the guest OS
