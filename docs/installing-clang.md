@@ -1,3 +1,5 @@
+WARNING!!! This document is outdated.
+
 Installing LLVM and Clang/Clang++
 =================================
 

@@ -1,3 +1,5 @@
+WARNING!!! This document is outdated.
+
 Control Flow
 ============
 Granary manages control-flow instructions in several different ways. There are

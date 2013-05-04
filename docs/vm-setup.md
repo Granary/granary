@@ -10,6 +10,8 @@ Setting up a virtual machine (VM) for testing Granary
 
 ## Step 1: Create a VM image.
 
+The following will make a 20 Gigabyte VM image for use.
+
 ```basemake
 qemu-img create -f qcow2 vm.img 20G
 ```

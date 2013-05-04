@@ -1,3 +1,5 @@
+WARNING!!! This document is outdated.
+
 Basic Blocks
 ============
 A basic block is an abstraction over a maximal sequence of instructions that end
