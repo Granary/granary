@@ -29,19 +29,19 @@ navigate to this directory in your terminal.
 
 In `arch/ia64/include/asm/ptrace.h` modify the following:
 
-```lang c
+```c
 #define IA64_STK_OFFSET         ((1 << KERNEL_STACK_SIZE_ORDER)*PAGE_SIZE)
 #define IA64_STK_OFFSET         (8*PAGE_SIZE)
 ```
 
 In `include/asm/page_64_types.h`, modify the following:
 
-```lang c
+```c
 #define THREAD_SIZE_ORDER   1
 #define THREAD_SIZE_ORDER   3
 ```
 
-```lang c
+```c
 #define IRQ_STACK_ORDER 2
 #define IRQ_STACK_ORDER 3
 ```
