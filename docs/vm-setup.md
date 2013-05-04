@@ -40,10 +40,12 @@ NETWORK=virtio
 $QEMU -cpu host -enable-kvm -smp $SMP -m $MEM -hda <path-to-vm.img> -net nic,model=$NETWORK -net "user,hostfwd=tcp::5556-:22" -gdb tcp::9999  &
 ```
 
-## Step 4: Launch the VM and install SSH and SSH-Server
+## Step 4: Install SSH and SSH server
 
 We need these so that Granary's `load.py` script can copy files
-to and from the VM.
+to and from the VM. Make sure that both SSH and the SSH server
+are installed on your host machine, as well as in the guest OS that
+runs within the VM.
 
 ```basemake
 sudo apt-get install ssh

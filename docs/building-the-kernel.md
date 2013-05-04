@@ -25,7 +25,7 @@ wget https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.8.tar.xz
 Uncompress this archive somewhere, e.g. `~/Code/linux-3.8`, and
 navigate to this directory in your terminal.
 
-## Step 2: Modify the kernel to make it have larger stacks.
+## Step 2: Increase kernel stack sizes.
 
 In `arch/ia64/include/asm/ptrace.h` modify the following:
 
