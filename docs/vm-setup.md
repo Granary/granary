@@ -75,3 +75,10 @@ for instructions on how to generate these files.
 
 Copy the Debian kernel packages into your VM, and install them
 in the way described in the aforementioned document.
+
+For example, from within the VM, run:
+
+```basemake
+scp -P 22 pag@10.0.2.2:/home/pag/Code/linux-headers-3.8.2granary_3.8.2granary-10.00.Custom_amd64.deb ./
+scp -P 22 pag@10.0.2.2:/home/pag/Code/linux-image-3.8.2granary_3.8.2granary-10.00.Custom_amd64.deb ./
+```

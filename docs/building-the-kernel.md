@@ -61,7 +61,7 @@ Granary, you likely want to make sure that:
   - Loadable kernel module support is enabled.
   - Virtualization is enabled.
   - All (interesting) file systems (except the file system that you're
-    using) are selected as loadabl kernel modules (M).
+    using) are selected as loadable kernel modules (M).
 
 You can do this by modifying your configuration using either of the
 following two commands:
@@ -81,7 +81,7 @@ If in doubt, consult the [Kernel Newbies](http://kernelnewbies.org/KernelBuild) 
 
 ## Step 4: Create a Debian kernel package
 
-Run the following command in the 
+Run the following command in the Terminal.
 
 ```basemake
 sudo fakeroot make-kpkg --initrd --append-to-version=granary kernel_image kernel_headers
