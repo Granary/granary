@@ -417,6 +417,7 @@ namespace client { namespace wp {
         // The register that stores the (potentially) computed memory address.
         dynamorio::reg_id_t op_reg[MAX_NUM_OPERANDS] = {0};
         bool op_reg_was_spilled[MAX_NUM_OPERANDS] = {false};
+        dynamorio::reg_id_t op_reg_has_watched_bits[MAX_NUM_OPERANDS] = {0};
 
         // constructor for the immediate value that is used to mask the watched
         // address.
@@ -541,13 +542,26 @@ namespace client { namespace wp {
             if(try_save_original_addr_reg
             && tracker.live_regs_after.is_live(original_addr_reg)) {
                 restore_unwatched_reg = true;
-                ASSERT( dest_regs.is_live(original_addr_reg) )
 
                 // Only save the register if the LEA doesn't effect a save of
                 // the register's original value for us.
                 if(!op_is_simple_reg) {
                     ls.insert_before(before, mov_st_(addr, original_addr));
                 }
+            }
+
+            // The register is both live and dead in the dests. This happens
+            // in cases like STOS, where RDI is read in the sources, read
+            // in the dests (for the memory op), and written in the dests
+            // to update to the next byte/word/doubleword/quadword. So, we
+            // need to save the high-order watchpoint bytes for later restoring.
+            if(dynamorio::OP_ins <= in.op_code()
+                   && in.op_code() <= dynamorio::OP_repne_scas) {
+
+                op_reg_has_watched_bits[i] = register_manager::scale(
+                    original_addr_reg, REG_SCALE);
+
+                restore_unwatched_reg = false;
             }
 
             // Jump around the slow path if a watched address is detected.
@@ -599,15 +613,31 @@ namespace client { namespace wp {
             }
         }
 
-        // restore the carry flag before executing the instruction.
+        // Restore the carry flag before executing the instruction.
         if(tracker.restore_carry_flag_before) {
             ls.insert_before(before,
                 bt_(operand(register_manager::scale(carry_flag, REG_16)),
                     int8_(0)));
         }
 
-        // restore any spilled registers registers.
+        // Restore any spilled/clobbered registers.
         for(int i(tracker.num_ops); i --> 0; ) {
+
+            // Restore the watched bits in the case of string instructions. This
+            // starts with two BSWAPs so that we can get at the stored bits in
+            // op_reg[i] on both the fast and slow paths.
+            if(op_reg_has_watched_bits[i]) {
+               operand orig_reg(register_manager::scale(
+                    op_reg_has_watched_bits[i], REG_64));
+
+                ls.insert_before(after, bswap_(orig_reg));
+                ls.insert_before(after, bswap_(operand(op_reg[i])));
+                ls.insert_before(after, mov_st_(
+                    operand(op_reg_has_watched_bits[i]),
+                    operand(register_manager::scale(op_reg[i], REG_SCALE))));
+                ls.insert_before(after, bswap_(orig_reg));
+            }
+
             if(op_reg_was_spilled[i]) {
                 ls.insert_before(after, pop_(operand(op_reg[i])));
             }

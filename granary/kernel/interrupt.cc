@@ -319,6 +319,8 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
         kernel_preempt_disable();
+        kernel_preempt_enable();
+        return INTERRUPT_DEFER;
 
         cpu_state_handle cpu;
         thread_state_handle thread;
@@ -329,6 +331,7 @@ namespace granary {
         IF_PERF( perf::visit_interrupt(); )
 
         if(is_code_cache_address(pc)) {
+
             basic_block bb(pc);
             app_pc delay_begin(nullptr);
             app_pc delay_end(nullptr);

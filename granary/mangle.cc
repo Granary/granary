@@ -105,20 +105,22 @@ namespace granary {
     /// relative target offset from the beginning of application code.
     struct direct_cti_patch_mcontext {
 
+        // low on the stack
+
         /// Saved registers.
         ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
 
         /// Saved flags.
-        uint64_t flags;
+        eflags flags;
+
+        /// The target address of a jump, including the policy to use when
+        /// translating the target basic block.
+        mangled_address target_address;
 
         /// Return address into the patch code located in the tail of the
         /// basic block being patched. We use this to figure out the instruction
         /// to patch because the tail code ends with a jmp to that instruction.
         app_pc return_address_into_patch_tail;
-
-        /// The target address of a jump, including the policy to use when
-        /// translating the target basic block.
-        mangled_address target_address;
 
     } __attribute__((packed));
 
@@ -143,7 +145,7 @@ namespace granary {
     })
 
 
-    /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
+    /// Make an IBL stub. This is used by indirect JMPs, CALLs, and RETs.
     /// The purpose of the stub is to set up the registers and stack in a
     /// canonical way for entry into the indirect branch lookup table.
     instruction instruction_list_mangler::ibl_entry_stub(
@@ -171,10 +173,16 @@ namespace granary {
                 stack_offset = REDZONE_SIZE - 8;
             }
 
-        // normal user space call and jmp.
+        // Normal user space JMP; need to protect the stack against the redzone.
         } else {
             stack_offset = REDZONE_SIZE;
         }
+
+        // Note: CALL and RET instructions do not technically need to protect
+        //       against the redzone, as CALLs implicitly clobber part of the
+        //       stack, and RETs implicitly release part of it. However, for
+        //       consistency in the ibl_exit_routines, we use this. This reduces
+        //       the number of additional pseudo policies to 1.
 
         // Shift the stack. If this is a return in user space then we shift if
         // by 8 bytes less than the redzone size, so that the return address
@@ -313,6 +321,15 @@ namespace granary {
 
 
 #if !CONFIG_ENABLE_DIRECT_RETURN
+
+
+    /// Forward declaration.
+    static void ibl_exit_stub(
+        instruction_list &ibl,
+        app_pc target_pc
+    ) throw();
+
+
     /// Checks to see if a return address is in the code cache. If so, it
     /// RETs to the address, otherwise it JMPs to the IBL entry routine.
     app_pc instruction_list_mangler::rbl_entry_routine(
@@ -325,6 +342,20 @@ namespace granary {
         }
 
         instruction_list ibl;
+
+        // This is interesting. If the policy is an indirect policy, then that
+        // means that we indirectly JMP'd to a RET, and the forwarding to RET
+        // optimisation in the code cache is being used. In that case, we need
+        // to "leave" the indirect branch stub so that we can re-enter it for
+        // the RET.
+        //
+        // Here we operate on the policy of the supposed basic block rather than
+        // the target, as operating on the target policy would be non-sensical.
+        // In the general case, the code cache find functions only operate on
+        // base policies except for the aforementioned optimisation.
+        if(policy.is_indirect_cti_policy()) {
+            ibl_exit_stub(ibl, nullptr);
+        }
 
 #if !GRANARY_IN_KERNEL
         ibl_entry_stub(
@@ -552,24 +583,35 @@ namespace granary {
     }
 
 
-    /// Return or generate the IBL exit routine for a particular jump target.
-    /// The target can either be code cache or native code.
-    app_pc instruction_list_mangler::ibl_exit_routine(
+    static void ibl_exit_stub(
+        instruction_list &ibl,
         app_pc target_pc
-    ) {
+    ) throw() {
         // on the stack:
         //      redzone
         //      reg_target_addr         (saved: arg1)
         //      reg_predict_table_ptr   (cond. saved: arg2)
         //      reg_compare_addr        (saved: rcx)
 
-        instruction_list ibl;
         ibl.append(pop_(reg_compare_addr));
         IF_IBL_PREDICT( ibl.append(pop_(reg_predict_table_ptr)); )
         ibl.append(pop_(reg_target_addr));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
-        insert_cti_after(ibl, ibl.last(), target_pc, false, operand(), CTI_JMP);
 
+        if(target_pc) {
+            insert_cti_after(
+                ibl, ibl.last(), target_pc, false, operand(), CTI_JMP);
+        }
+    }
+
+
+    /// Return or generate the IBL exit routine for a particular jump target.
+    /// The target can either be code cache or native code.
+    app_pc instruction_list_mangler::ibl_exit_routine(
+        app_pc target_pc
+    ) {
+        instruction_list ibl;
+        ibl_exit_stub(ibl, target_pc);
         app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
             ibl.encoded_size()));
 
@@ -880,13 +922,11 @@ namespace granary {
 
         // TODO: these patch stubs represent a big memory leak!
 
-        // store the policy-mangled target on the stack;
-        //
-        // Note: enough space to hold the mangled address will already have
-        //       been made available below the return address.
+        // Store the policy-mangled target on the stack.
+        dbl.append(lea_(reg::rsp, reg::rsp[-8]));
         dbl.append(push_(reg_mangled_addr));
         dbl.append(mov_imm_(reg_mangled_addr, int64_(am.as_int)));
-        dbl.append(mov_st_(reg::rsp[16], reg_mangled_addr));
+        dbl.append(mov_st_(reg::rsp[8], reg_mangled_addr));
         dbl.append(pop_(reg_mangled_addr)); // restore
 
         // tail-call out to the patcher/mangler.
@@ -914,14 +954,22 @@ namespace granary {
     ) throw() {
         IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
 
+        int redzone_size(patched_in.is_call() ? 0 : REDZONE_SIZE);
+
         // We add REDZONE_SIZE + 8 because we make space for the policy-mangled
         // address. The
-        patch = patch_ls.insert_after(patch,
-            lea_(reg::rsp, reg::rsp[-(REDZONE_SIZE + 8)]));
+        if(redzone_size) {
+            patch = patch_ls.insert_after(patch,
+                lea_(reg::rsp, reg::rsp[-redzone_size]));
+        }
+
         patch = patch_ls.insert_after(patch,
             mangled(call_(pc_(dbl_routine))));
-        patch = patch_ls.insert_after(patch,
-            lea_(reg::rsp, reg::rsp[REDZONE_SIZE + 8]));
+
+        if(redzone_size) {
+            patch = patch_ls.insert_after(patch,
+                lea_(reg::rsp, reg::rsp[redzone_size]));
+        }
 
         // the address to be mangled is implicitly encoded in the target of this
         // jmp instruction, which will later be decoded by the direct cti

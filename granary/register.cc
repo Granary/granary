@@ -504,8 +504,8 @@ namespace granary {
     /// Forcibly kill all registers used in a particular operand.
     void register_manager::kill(dynamorio::opnd_t op) throw() {
         if(dynamorio::BASE_DISP_kind == op.kind) {
-            kill(op.value.base_disp.base_reg);
-            kill(op.value.base_disp.index_reg);
+            kill_64(op.value.base_disp.base_reg);
+            kill_64(op.value.base_disp.index_reg);
         } else if(dynamorio::REG_kind == op.kind) {
             kill(op.value.reg);
         }
@@ -515,8 +515,8 @@ namespace granary {
     /// Forcibly revive all registers used in a particular operand.
     void register_manager::revive(dynamorio::opnd_t op) throw() {
         if(dynamorio::BASE_DISP_kind == op.kind) {
-            revive(op.value.base_disp.base_reg);
-            revive(op.value.base_disp.index_reg);
+            revive_64(op.value.base_disp.base_reg);
+            revive_64(op.value.base_disp.index_reg);
         } else if(dynamorio::REG_kind == op.kind) {
             revive(op.value.reg);
         }
@@ -635,7 +635,8 @@ namespace granary {
     /// Returns true iff a particular register is alive.
     bool register_manager::is_live(dynamorio::reg_id_t reg_) throw() {
         uint8_t reg;
-        if(dynamorio::DR_REG_MM0 <= reg_) {
+        if(dynamorio::DR_REG_XMM0 <= reg_
+        && reg_ <= dynamorio::DR_REG_XMM15) {
             reg = reg_to_xmm(reg_);
             if(!reg) {
                 return false;
@@ -643,7 +644,7 @@ namespace granary {
 
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & live_xmm);
-        } else {
+        } else if(reg_ < dynamorio::DR_REG_ST0) {
             reg = REG_TO_REG64[reg_];
             if(!reg) {
                 return false;
@@ -652,13 +653,17 @@ namespace granary {
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & live);
         }
+
+        FAULT;
+        return false;
     }
 
 
     /// Returns true iff a particular register is dead.
     bool register_manager::is_dead(dynamorio::reg_id_t reg_) throw() {
         uint8_t reg;
-        if(dynamorio::DR_REG_MM0 <= reg_) {
+        if(dynamorio::DR_REG_XMM0 <= reg_
+        && reg_ <= dynamorio::DR_REG_XMM15) {
             reg = reg_to_xmm(reg_);
             if(!reg) {
                 return false;
@@ -666,7 +671,7 @@ namespace granary {
 
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & ~live_xmm);
-        } else {
+        } else if(reg_ < dynamorio::DR_REG_ST0) {
             reg = REG_TO_REG64[reg_];
             if(!reg) {
                 return false;
@@ -675,6 +680,9 @@ namespace granary {
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & ~live);
         }
+
+        FAULT;
+        return false;
     }
 
 
@@ -682,7 +690,8 @@ namespace granary {
     /// living or a zombie!
     bool register_manager::is_undead(dynamorio::reg_id_t reg_) throw() {
         uint8_t reg;
-        if(dynamorio::DR_REG_MM0 <= reg_) {
+        if(dynamorio::DR_REG_XMM0 <= reg_
+        && reg_ <= dynamorio::DR_REG_XMM15) {
             reg = reg_to_xmm(reg_);
             if(!reg) {
                 return false;
@@ -690,7 +699,7 @@ namespace granary {
 
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & (live_xmm | undead));
-        } else {
+        } else if(reg_ < dynamorio::DR_REG_ST0) {
             reg = REG_TO_REG64[reg_];
             if(!reg) {
                 return false;
@@ -699,6 +708,9 @@ namespace granary {
             const uint16_t mask(1U << (reg - 1));
             return 0 != (mask & (live | undead));
         }
+
+        FAULT;
+        return false;
     }
 }
 

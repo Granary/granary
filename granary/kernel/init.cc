@@ -27,7 +27,6 @@ namespace granary {
     void init_kernel(void) throw() {
 
         cpu_state_handle::init();
-
         system_table_register_t idt(create_idt());
         kernel_run_on_each_cpu(
             unsafe_cast<void (*)(void *)>(init_idt),

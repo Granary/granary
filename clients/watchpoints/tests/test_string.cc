@@ -33,8 +33,21 @@ namespace test {
         ASM(
             "movq $WP_STRING_FOO, %rdi;"
             "movq $1, %rax;"
+
+            // next value of %rdi after the STOS
+            "movq %rdi, %rdx;"
+            "addq $8, %rdx;"
+
             "cld;"
             "stosq;"
+
+            // test that the address in RDI is correctly updated
+            "cmpq %rdi, %rdx;"
+            "je 1f;"
+            "movq $WP_STRING_FOO, %rdx;"
+            "xor %rax, %rax;"
+            "movq %rax, (%rdx);"
+            "1: nop;"
         );
     }
 
@@ -43,10 +56,23 @@ namespace test {
         ASM(
             "movq WP_STRING_MASK, %rdi;"
             MASK_OP " $WP_STRING_FOO, %rdi;" // mask the address of FOO
+            "movq $1, %rax;"
+
+            // next value of %rdi after the STOS
+            "movq %rdi, %rdx;"
+            "addq $8, %rdx;"
 
             "cld;"
-            "movq $1, %rax;"
             "stosq;"
+
+            // test that the address in RDI is correctly updated, and maintains
+            // its watchpoint
+            "cmpq %rdi, %rdx;"
+            "je 1f;"
+            "movq $WP_STRING_FOO, %rdx;"
+            "xor %rax, %rax;"
+            "movq %rax, (%rdx);"
+            "1: nop;"
         );
     }
 

@@ -165,15 +165,6 @@ namespace granary {
         );
 
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
-        /// Checks to see if a return address is in the code cache. If so, it
-        /// RETs to the address, otherwise it JMPs to the IBL entry routine.
-        app_pc rbl_entry_routine(
-            instrumentation_policy policy
-        ) throw();
-#endif
-
-
 #if CONFIG_TRANSPARENT_RETURN_ADDRESSES
         /// Emulate the push of a function call's return address onto the stack.
         void emulate_call_ret_addr(
@@ -183,6 +174,16 @@ namespace granary {
 #endif
 
     public:
+
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
+        /// Checks to see if a return address is in the code cache. If so, it
+        /// RETs to the address, otherwise it JMPs to the IBL entry routine.
+        app_pc rbl_entry_routine(
+            instrumentation_policy policy
+        ) throw();
+#endif
+
 
         instruction_list_mangler(
             cpu_state_handle &cpu_,

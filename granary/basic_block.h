@@ -149,7 +149,9 @@ namespace granary {
             function_call<R, Args...> func(
                 unsafe_cast<func_type *>(cache_pc_start));
             func(args...);
+#if !CONFIG_ENABLE_DIRECT_RETURN
             detach();
+#endif
             return func.yield();
         }
 

@@ -18,8 +18,7 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...)
-//__VA_ARGS__
+#define D(...) __VA_ARGS__
 
 namespace granary {
 
@@ -34,6 +33,11 @@ namespace granary {
 #endif
 
     }
+
+
+    enum {
+        OP_RET_SHORT = 0xC3
+    };
 
 
     STATIC_INITIALISE_ID(code_cache, {
@@ -109,8 +113,8 @@ namespace granary {
             return target_addr;
         }
 
-#if !CONFIG_ENABLE_TRANSPARENT_RETURN_ADDRESSES
-        // do a return address ibl-like lookup to see if this might be a
+#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
+        // Do a return address ibl-like lookup to see if this might be a
         // return address into the code cache. This issue comes up if a
         // copied return address is jmp/called to.
         //
@@ -153,11 +157,30 @@ namespace granary {
             return target_addr;
         }
 
-        // figure out the non-policy-mangled target address, and get our policy.
+        // Figure out the non-policy-mangled target address, and get our policy.
         instrumentation_policy base_policy(policy.base_policy());
         mangled_address base_addr(app_target_addr, base_policy);
 
-        // translate the basic block according to the policy.
+#if 0 && !CONFIG_ENABLE_DIRECT_RETURN
+        // TODO: this optimisation seemed like a good idea but it just didn't
+        //       work in user space for some reason. Note: the rbl_entry_routine
+        //       handles the ibl exit stub side of this implicitly.
+        //
+        // Simple optimisation when JMPing directly to a RET instruction. This
+        // is valid even when multiple policies are used because policies do
+        // not propagate across RETs. This optimisation exists so that we don't
+        // generate an entire basic block for a single RET, which will be
+        // mangled into a direct JMP.
+        if(OP_RET_SHORT == *app_target_addr) {
+            instruction_list_mangler mangler(cpu, thread, nullptr, policy);
+            target_addr = mangler.rbl_entry_routine(policy);
+            CODE_CACHE->store(addr.as_address, target_addr);
+            D( printf(" -> %p (fast return)\n", target_addr); )
+            return target_addr;
+        }
+#endif
+
+        // Translate the basic block according to the policy.
         basic_block bb(basic_block::translate(
             base_policy, cpu, thread, app_target_addr));
 
@@ -182,10 +205,10 @@ namespace granary {
         // TODO: try to pre-load the cache with internal jump targets of the
         //       just-stored basic block (if config option permits).
 
-        // propagate down to the CPU-private code cache.
+        // Propagate down to the CPU-private code cache.
         cpu->code_cache.store(base_addr.as_address, target_addr);
 
-        // was this an indirect entry? If so, we need to direct control flow
+        // Was this an indirect entry? If so, we need to direct control flow
         // to the corresponding IBL exit routine.
         if(policy.is_indirect_cti_policy()) {
             target_addr = instruction_list_mangler::ibl_exit_routine(target_addr);
