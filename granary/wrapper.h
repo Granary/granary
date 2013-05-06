@@ -135,10 +135,10 @@ namespace granary {
     FORCE_INLINE
     static bool is_valid_address(T *addr) throw() {
         // Taken from Documentation/x86/x86_64/mm.txt
-        return ((uint64_t) addr) > 0x00007fffffffffff;
+        return ((uintptr_t) addr) > 0x00007fffffffffff;
     }
 #else
-#   define is_valid_address(x) (nullptr != (x))
+#   define is_valid_address(x) (4095 < ((uintptr_t) x))
 #endif
 
 

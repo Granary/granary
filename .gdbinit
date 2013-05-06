@@ -9,3 +9,6 @@ define p-bb-info
   dont-repeat
 end
 
+define p-wrapper
+  p granary::FUNCTION_WRAPPERS[$arg0]
+end

@@ -18,7 +18,8 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
-#define D(...) __VA_ARGS__
+#define D(...)
+//__VA_ARGS__
 
 namespace granary {
 
