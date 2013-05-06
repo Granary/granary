@@ -21,7 +21,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker
     ) throw() {
 
-        // in 64-bit mode, we'll ignore GS and FS-segmented addresses because
+        // In 64-bit mode, we'll ignore GS and FS-segmented addresses because
         // the offsets from those are generally not addresses.
         if(dynamorio::BASE_DISP_kind != op->kind
         || dynamorio::DR_SEG_GS == op->seg.segment
@@ -408,6 +408,11 @@ namespace client { namespace wp {
         register_manager in_regs;
         in_regs.kill_all();
         in_regs.revive(in);
+
+        // If an XMM reg is used then we can replace all operands.
+        if(in_regs.has_live_xmm()) {
+            tracker.can_replace[0] = true;
+        }
 
         // Save the carry flag.
         bool spilled_carry_flag(false);

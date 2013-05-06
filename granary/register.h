@@ -136,20 +136,40 @@ namespace granary {
 
 
         /// Returns true iff there are any dead registers available.
-        bool has_dead(void) throw();
+        inline bool has_dead(void) const throw() {
+            return uint16_t(~0) != live;
+        }
+
+
+        /// Returns true iff there are any live registers available.
+        inline bool has_live(void) const throw() {
+            return uint16_t(0) != live;
+        }
+
+
+        /// Returns true iff there are any dead XMM registers available.
+        inline bool has_dead_xmm(void) const throw() {
+            return uint16_t(~0) != live_xmm;
+        }
+
+
+        /// Returns true iff there are any live XMM registers available.
+        inline bool has_live_xmm(void) const throw() {
+            return uint16_t(0) != live_xmm;
+        }
 
 
         /// Returns true iff a particular register is alive.
-        bool is_live(dynamorio::reg_id_t) throw();
+        bool is_live(dynamorio::reg_id_t) const throw();
 
 
         /// Returns true iff a particular register is dead.
-        bool is_dead(dynamorio::reg_id_t) throw();
+        bool is_dead(dynamorio::reg_id_t) const throw();
 
 
         /// Returns true iff a particular register is a walker, i.e.
         /// living or a zombie!
-        bool is_undead(dynamorio::reg_id_t) throw();
+        bool is_undead(dynamorio::reg_id_t) const throw();
 
 
         /// Returns the next 64-bit "free" dead register.

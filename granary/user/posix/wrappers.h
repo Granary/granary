@@ -211,6 +211,29 @@
 #endif
 
 
+#if defined(CAN_WRAP_getenv) && CAN_WRAP_getenv
+#   define WRAPPER_FOR_getenv
+    FUNCTION_WRAPPER(getenv, (char *), (const char *arg1), {
+
+        // For sort-of transparency.
+        if(0 == strcmp(arg1, "DYLD_INSERT_LIBRARIES")
+        || 0 == strcmp(arg1, "LD_PRELOAD")) {
+            return 0;
+        } else {
+            return getenv(arg1);
+        }
+    })
+#endif
+
+
+#if defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym
+#   define WRAPPER_FOR_dlsym
+    FUNCTION_WRAPPER(dlsym, (void *), (void *handle, const char *sym), {
+        return dlsym(handle, sym);
+    })
+#endif
+
+
 #define WRAP_DEBUG 0
 
 #if WRAP_DEBUG

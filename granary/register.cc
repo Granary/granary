@@ -633,7 +633,7 @@ namespace granary {
 
 
     /// Returns true iff a particular register is alive.
-    bool register_manager::is_live(dynamorio::reg_id_t reg_) throw() {
+    bool register_manager::is_live(dynamorio::reg_id_t reg_) const throw() {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {
@@ -660,7 +660,7 @@ namespace granary {
 
 
     /// Returns true iff a particular register is dead.
-    bool register_manager::is_dead(dynamorio::reg_id_t reg_) throw() {
+    bool register_manager::is_dead(dynamorio::reg_id_t reg_) const throw() {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {
@@ -688,7 +688,7 @@ namespace granary {
 
     /// Returns true iff a particular register is a walker, i.e.
     /// living or a zombie!
-    bool register_manager::is_undead(dynamorio::reg_id_t reg_) throw() {
+    bool register_manager::is_undead(dynamorio::reg_id_t reg_) const throw() {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {

@@ -10,7 +10,9 @@ from cparser import *
 
 
 MUST_WRAP = set([
-  "vfork"
+  "vfork",
+  "getenv",
+  "dlsym"
 ])
 
 
