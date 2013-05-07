@@ -15,7 +15,6 @@
 /// watched address.
 #define WP_IGNORE_FRAME_POINTER 1
 
-
 namespace client {
 
     namespace wp {
@@ -36,6 +35,10 @@ namespace client {
             /// distinguished in kernel space.
             NUM_HIGH_ORDER_BITS         = 16,
 
+            /// Maximum number of watchpoints for the given number of high-order
+            /// bits.
+            MAX_NUM_WATCHPOINTS         = ((1ULL << NUM_HIGH_ORDER_BITS) - 1),
+
             /// Number of bits in an address.
             NUM_BITS_PER_ADDR           = 64,
 
@@ -43,6 +46,10 @@ namespace client {
             /// the distinguishing bit of an un/watched address.
             DISTINGUISHING_BIT_OFFSET   = (
                 NUM_BITS_PER_ADDR - NUM_HIGH_ORDER_BITS),
+
+            /// Mask to clear the correct number of high-order bits.
+            CLEAR_INDEX_MASK            = ~(
+                (~0ULL) << (DISTINGUISHING_BIT_OFFSET - 1)),
 
             /// OR this with a user address to add a watchpoint distinguisher
             /// bit to the address
@@ -64,6 +71,7 @@ namespace client {
             "user space addresses won't be distinguishable from kernel space "
             "addresses.");
 
+
         static_assert((false
             || 8 == NUM_HIGH_ORDER_BITS
             || 16 == NUM_HIGH_ORDER_BITS),
@@ -71,6 +79,13 @@ namespace client {
             "index must be either 8 or 16, as sub-8/16 writes cannot be made "
             "to registers without clobbering flags.");
 
+
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+
+
+        /// The scale of registers that will be used to mask the tainted bits of a
+        /// watched address.
+        extern const granary::register_scale REG_SCALE;
 
 
         /// Keeps track of instruction-specific state for the watchpoint
@@ -96,8 +111,7 @@ namespace client {
 
             /// Conveniences for specific watchpoint implementations so that
             /// they can know where the watchpoint info is stored.
-            granary::operand sources[MAX_NUM_OPERANDS];
-            granary::operand dests[MAX_NUM_OPERANDS];
+            granary::operand regs[MAX_NUM_OPERANDS];
 
             /// True iff the ith operand (in `ops`) can be modified, or if it
             /// must be left as-is.
@@ -170,8 +184,122 @@ namespace client {
             granary::register_manager &rm,
             granary::instruction in
         ) throw();
+
+
+#endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
+
+
+        /// Returns true iff an address is watched.
+        template <typename T>
+        inline bool is_watched_address(T ptr_) throw() {
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+#if GRANARY_IN_KERNEL
+            return 0 != (ptr & DISTINGUISHING_BIT_MASK);
+#else
+            return ptr != (ptr | DISTINGUISHING_BIT_MASK);
+#endif
+        }
+
+
+        /// Returns the unwatched version of an address, regardless of if it's
+        /// watched.
+        template <typename T>
+        T unwatched_address(T ptr_) throw() {
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+#if GRANARY_IN_KERNEL
+            return granary::unsafe_cast<T>(ptr | DISTINGUISHING_BIT_MASK);
+#else
+            return granary::unsafe_cast<T>(ptr | (~DISTINGUISHING_BIT_MASK));
+#endif
+        }
+
+
+        /// Forward declaration of the template class that will allow watchpoint
+        /// implementations to specify their descriptor types.
+        template <typename>
+        struct descriptor_type;
+
+
+        /// Return the index into the descriptor table for this watched address.
+        ///
+        /// Note: This assumes that the address is watched.
+        template <typename T>
+        inline uintptr_t
+        index_of(T ptr_) throw() {
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            const uintptr_t index(ptr >> DISTINGUISHING_BIT_OFFSET);
+            return index;
+        }
+
+
+        /// Return a pointer to the descriptor for this watched address.
+        ///
+        /// Note: This assumes that the address is watched.
+        template <typename T>
+        inline typename descriptor_type<T>::type *
+        descriptor_of(T ptr_) throw() {
+            extern typename descriptor_type<T>::type *DESCRIPTORS[];
+            return DESCRIPTORS[index_of(ptr_)];
+        }
+
+
+        /// Kill a watchpoint descriptor.
+        ///
+        /// Note: This assumes that the address is watched.
+        ///
+        /// Note: This does not remove the association in the descriptor table.
+        template <typename T>
+        void free_descriptor_of(T ptr_) throw() {
+            typedef typename descriptor_type<T>::type desc_type;
+            desc_type::free(descriptor_of(ptr_), index_of(ptr_));
+        }
+
+
+        enum add_watchpoint_status {
+            ADDRESS_ALREADY_WATCHED,
+            ADDRESS_NOT_WATCHED,
+            ADDRESS_WATCHED
+        };
+
+
+        /// Add a new watchpoint to an address.
+        ///
+        /// This is responsible for deferring to a higher-level watchpoint
+        /// implementation for the allocation of watchpoints, but the insertion
+        /// into the descriptor table is automatically handled by this function.
+        template <typename T, typename... ConstructorArgs>
+        add_watchpoint_status
+        add_watchpoint(T &ptr_, ConstructorArgs... init_args) throw() {
+            typedef typename descriptor_type<T>::type desc_type;
+            extern desc_type *DESCRIPTORS[];
+
+            if(is_watched_address(ptr_)) {
+                return ADDRESS_ALREADY_WATCHED;
+            }
+
+            uintptr_t index(0);
+            desc_type *desc(nullptr);
+
+            if(!desc_type::allocate(desc, index)) {
+                return ADDRESS_NOT_WATCHED;
+            }
+
+            desc_type::init(desc, init_args...);
+            DESCRIPTORS[index] = desc;
+
+            index <<= 1;
+            index |= DISTINGUISHING_BIT;
+            index <<= (DISTINGUISHING_BIT_OFFSET - 1);
+
+
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+
+            ptr_ = granary::unsafe_cast<T>(index | (ptr & CLEAR_INDEX_MASK));
+            return ADDRESS_WATCHED;
+        }
     }
 
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 
     /// Generalised behavioural watchpoints instrumentation. A `Watcher` type is
     /// passed, which generates instrumentation code when watched memory
@@ -180,10 +308,11 @@ namespace client {
     struct watchpoints : public granary::instrumentation_policy {
     public:
 
+
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_basic_block(
-            granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -382,11 +511,11 @@ namespace client {
                 for(unsigned i(0); i < tracker.num_ops; ++i) {
                     const operand_ref &op(tracker.ops[i]);
                     if(SOURCE_OPERAND & op.kind) {
-                        Watcher::visit_read(cpu, thread, bb, ls, tracker, i);
+                        Watcher::visit_read(bb, ls, tracker, i);
                     }
 
                     if(DEST_OPERAND & op.kind) {
-                        Watcher::visit_write(cpu, thread, bb, ls, tracker, i);
+                        Watcher::visit_write(bb, ls, tracker, i);
                     }
                 }
 
@@ -411,6 +540,8 @@ namespace client {
 #endif
 
     };
+
+#endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 }
 

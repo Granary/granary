@@ -28,23 +28,25 @@ def visit_function(name, ctype):
 
   func_ctype = ctype.base_type()
 
-  if name in MUST_WRAP:
-    will_wrap = True
-  
-  else:
-    will_wrap = will_wrap_function(
-        func_ctype.ret_type, func_ctype.param_types)
+  will_wrap = True
+  if False:
+    if name in MUST_WRAP:
+      will_wrap = True
     
-    if will_wrap and func_ctype.is_variadic:
-      will_wrap = must_wrap(
-          [func_ctype.ret_type] + func_ctype.param_types)
+    else:
+      will_wrap = will_wrap_function(
+          func_ctype.ret_type, func_ctype.param_types)
+      
+        # kthread_create_on_node is an issue here...
+        #if has_extension_attribute(ctype, "printf"):
+        #  will_wrap = False
 
-      # kthread_create_on_node is an issue here...
-      #if has_extension_attribute(ctype, "printf"):
-      #  will_wrap = False
+  if will_wrap and func_ctype.is_variadic:
+    will_wrap = must_wrap(
+        [func_ctype.ret_type] + func_ctype.param_types)
 
-    if will_wrap and has_extension_attribute(ctype, "deprecated"):
-      will_wrap = False
+  if will_wrap and has_extension_attribute(ctype, "deprecated"):
+    will_wrap = False
 
   # put this before checking for things that we should ignore
   # so that these type-based rules propagate to the dll detach

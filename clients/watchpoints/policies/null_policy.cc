@@ -13,8 +13,6 @@ using namespace granary;
 namespace client { namespace wp {
 
     void null_policy::visit_read(
-        cpu_state_handle &,
-        thread_state_handle &,
         granary::basic_block_state &,
         instruction_list &,
         watchpoint_tracker &,
@@ -23,8 +21,6 @@ namespace client { namespace wp {
 
 
     void null_policy::visit_write(
-        cpu_state_handle &,
-        thread_state_handle &,
         granary::basic_block_state &,
         instruction_list &,
         watchpoint_tracker &,

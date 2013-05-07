@@ -21,6 +21,13 @@
 #endif
 
 
+/// Bounds checking watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_BOUND
+#   include "clients/watchpoints/policies/bound_policy.h"
+#endif
+
+
+
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY
 #   include "clients/null_policy.h"

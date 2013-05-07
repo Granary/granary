@@ -19,8 +19,6 @@ namespace client {
         struct null_policy {
 
             static void visit_read(
-                granary::cpu_state_handle &cpu,
-                granary::thread_state_handle &thread,
                 granary::basic_block_state &bb,
                 granary::instruction_list &ls,
                 watchpoint_tracker &tracker,
@@ -29,8 +27,6 @@ namespace client {
 
 
             static void visit_write(
-                granary::cpu_state_handle &cpu,
-                granary::thread_state_handle &thread,
                 granary::basic_block_state &bb,
                 granary::instruction_list &ls,
                 watchpoint_tracker &tracker,

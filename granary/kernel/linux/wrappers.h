@@ -14,8 +14,8 @@
 #endif
 
 
-#if defined(CAN_WRAP_kthread_create_on_node) && CAN_WRAP_kthread_create_on_node
-#   define WRAPPER_FOR_kthread_create_on_node 1
+#if defined(CAN_WRAP_kthread_create_on_node) && CAN_WRAP_kthread_create_on_node && !defined(WRAPPER_FOR_kthread_create_on_node)
+#   define WRAPPER_FOR_kthread_create_on_node
     FUNCTION_WRAPPER(kthread_create_on_node, (struct task_struct *), (
         int (*threadfn)(void *),
         void *data,
@@ -37,8 +37,8 @@
 #endif
 
 
-#if defined(CAN_WRAP_kthread_create) && CAN_WRAP_kthread_create
-#   define WRAPPER_FOR_kthread_create 1
+#if defined(CAN_WRAP_kthread_create) && CAN_WRAP_kthread_create && !defined(WRAPPER_FOR_kthread_create)
+#   define WRAPPER_FOR_kthread_create
     FUNCTION_WRAPPER(kthread_create, (struct task_struct *), (
         int (*threadfn)(void *),
         void *data,

@@ -87,28 +87,26 @@ define x-ins
   set $__dont_exit = 1
   set $__len = 0
   set $__in = (uint8_t *) 0
+  set $num_ins = 0
 
   while $__dont_exit
+
     set logging file /dev/null
     set logging overwrite on
     set logging redirect on
     set logging on
     x/2i $__start
     set $__start = $_
-
-    # we're at the end
-    
-
     set logging off
     set logging redirect off
     set logging overwrite off
 
-    
     set $__in = (uint8_t *) $__start
     if $__start == $__end || 0xEA == *$__in || 0xD4 == *$__in || 0x82 == *$__in
       set $__dont_exit = 0
     else 
       x/i $__start
+      set $num_ins = $num_ins + 1
     end
   end
 end
@@ -123,6 +121,9 @@ define p-bb
   set $__a = (uint64_t) $arg0
   set $__a = $__a + (($__a % 8) ? 8 - ($__a % 8): 0)
   set $__int = (uint32_t *) $__a
+  set $__num_stub_ins = 0
+  set $__num_ins = 0
+
   while *$__int != granary::basic_block_info::HEADER
     set $__int = $__int + 1
   end
@@ -135,13 +136,17 @@ define p-bb
   if $__bb_stub != $__bb_start
     printf "Stub instructions:\n"
     x-ins $__bb_stub $__bb_start
+    set $__num_stub_ins = $num_ins
     printf "\n"
   end
 
   printf "Translated instructions:\n"
   x-ins $__bb_start $__bb_info_addr
+  set $__num_ins = $num_ins
   printf "\n"
   p-bb-info $__bb_info
+  printf "  Number of stub instructions: %d\n", $__num_stub_ins
+  printf "  Number of translated instructions: %d\n", $__num_ins
 end
 
 

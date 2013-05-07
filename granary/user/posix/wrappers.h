@@ -31,7 +31,7 @@
     }
 
 
-#if defined(CAN_WRAP_execl) && defined(CAN_WRAP_execv) && CAN_WRAP_execl
+#if defined(CAN_WRAP_execl) && defined(CAN_WRAP_execv) && CAN_WRAP_execl && !defined(WRAPPER_FOR_execl)
 #   define WRAPPER_FOR_execl
     FUNCTION_WRAPPER(execl, (int), (char *__path, char *__arg, ...), {
         granary::printf("execl(%s, %s, ...)\n", __path, __arg);
@@ -58,7 +58,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_execlp) && defined(CAN_WRAP_execvp) && CAN_WRAP_execlp
+#if defined(CAN_WRAP_execlp) && defined(CAN_WRAP_execvp) && CAN_WRAP_execlp && !defined(WRAPPER_FOR_execlp)
 #   define WRAPPER_FOR_execlp
     FUNCTION_WRAPPER(execlp, (int), (char *__file, char *__arg, ...), {
         granary::printf("execlp(%s, %s, ...)\n", __file, __arg);
@@ -84,7 +84,7 @@
     })
 #endif
 
-#if defined(CAN_WRAP_execvp) && CAN_WRAP_execvp
+#if defined(CAN_WRAP_execvp) && CAN_WRAP_execvp && !defined(WRAPPER_FOR_execvp)
 #   define WRAPPER_FOR_execvp
     FUNCTION_WRAPPER(execvp, (int), (const char *file, char * const *argv), {
         granary::printf("execvp(%s, ...)\n", file);
@@ -93,7 +93,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe) && CAN_WRAP_execle
+#if defined(CAN_WRAP_execle) && defined(CAN_WRAP_execvpe) && CAN_WRAP_execle && !defined(WRAPPER_FOR_execle)
 #   define WRAPPER_FOR_execle
     FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
         granary::printf("execle(%s, %s, ...)\n", __path, __arg);
@@ -118,7 +118,7 @@
         args[last_arg] = nullptr;
         return execvpe(__path, args, env);
     })
-#elif defined(CAN_WRAP_execle)
+#elif defined(CAN_WRAP_execle) && !defined(WRAPPER_FOR_execle)
 #   define WRAPPER_FOR_execle
     FUNCTION_WRAPPER(execle, (int), (char *__path, char *__arg, ...), {
         granary::printf("execle(%s, %s, ...)\n", __path, __arg);
@@ -179,7 +179,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_semctl) && CAN_WRAP_semctl
+#if defined(CAN_WRAP_semctl) && CAN_WRAP_semctl && !defined(WRAPPER_FOR_semctl)
 #   define WRAPPER_FOR_semctl
     FUNCTION_WRAPPER(semctl, (int), (int _arg1, int _arg2, int _arg3, ...), {
         va_list args__;
@@ -191,7 +191,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_open) && CAN_WRAP_open
+#if defined(CAN_WRAP_open) && CAN_WRAP_open && !defined(WRAPPER_FOR_open)
 #   define WRAPPER_FOR_open
     FUNCTION_WRAPPER(open, (int), (const char *_arg1, int _arg2, ...), {
         va_list args__;
@@ -203,7 +203,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_vfork) && CAN_WRAP_vfork
+#if defined(CAN_WRAP_vfork) && CAN_WRAP_vfork && !defined(WRAPPER_FOR_vfork)
 #   define WRAPPER_FOR_vfork
     FUNCTION_WRAPPER(vfork, (pid_t), (void), {
         return fork();
@@ -211,7 +211,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_getenv) && CAN_WRAP_getenv
+#if defined(CAN_WRAP_getenv) && CAN_WRAP_getenv && !defined(WRAPPER_FOR_getenv)
 #   define WRAPPER_FOR_getenv
     FUNCTION_WRAPPER(getenv, (char *), (const char *arg1), {
 
@@ -226,117 +226,12 @@
 #endif
 
 
-#if defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym
+#if defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym && !defined(WRAPPER_FOR_dlsym)
 #   define WRAPPER_FOR_dlsym
     FUNCTION_WRAPPER(dlsym, (void *), (void *handle, const char *sym), {
         return dlsym(handle, sym);
     })
 #endif
 
-
-#define WRAP_DEBUG 0
-
-#if WRAP_DEBUG
-
-
-#if defined(CAN_WRAP_dlopen) && CAN_WRAP_dlopen
-#   define WRAPPER_FOR_dlopen
-    FUNCTION_WRAPPER(dlopen, (void *), (const char *filename, int flag), {
-        granary::printf("function_wrapper(dlopen, %s, %x)\n", filename, flag);
-        return dlopen(filename, flag);
-    })
-#endif
-
-
-#ifdef CAN_WRAP_dlerror
-#   define WRAPPER_FOR_dlerror
-    FUNCTION_WRAPPER(dlerror, (char *), (void), {
-        char *err(dlerror());
-        granary::printf("function_wrapper(dlerror) -> %s\n", err);
-        return err;
-    })
-#endif
-
-
-#ifdef CAN_WRAP_dlsym
-#   define WRAPPER_FOR_dlsym
-    FUNCTION_WRAPPER(dlsym, (void *), (void *handle, const char *symbol), {
-        granary::printf("function_wrapper(dlsym, %p, %s)\n", handle, symbol);
-        return dlsym(handle, symbol);
-    })
-#endif
-
-
-#ifdef CAN_WRAP_dlclose
-#   define WRAPPER_FOR_dlclose
-    FUNCTION_WRAPPER(dlclose, (int), (void *handle), {
-        granary::printf("function_wrapper(dlclose, %p)\n", handle);
-        return dlclose(handle);
-    })
-#endif
-
-
-
-
-
-#ifdef CAN_WRAP_pread
-#   define WRAPPER_FOR_pread
-    FUNCTION_WRAPPER(pread, (ssize_t), (int fd, void *buf, size_t count, off_t offset), {
-        granary::printf("function_wrapper(pread, %d, %p, %lu, %lu)\n", fd, buf, count, offset);
-        return pread(fd, buf, count, offset);
-    })
-#endif
-
-
-#ifdef CAN_WRAP_lseek
-#   define WRAPPER_FOR_lseek
-    FUNCTION_WRAPPER(lseek, (off_t), (int fildes, off_t offset, int whence), {
-        granary::printf("function_wrapper(lseek, %d, %lu, %d)\n", fildes, offset, whence);
-        return lseek(fildes, offset, whence);
-    })
-#endif
-
-
-#ifdef CAN_WRAP_close
-#   define WRAPPER_FOR_close
-    FUNCTION_WRAPPER(close, (int), (int fd), {
-        int ret(close(fd));
-        granary::printf("function_wrapper(close, %d) -> %d\n", fd, ret);
-        return ret;
-    })
-#endif
-
-
-#ifdef CAN_WRAP_write
-#   define WRAPPER_FOR_write
-    FUNCTION_WRAPPER(write, (size_t), (int fildes, const void *buf, size_t nbytes), {
-        granary::printf("function_wrapper(write, %d, %p, %lu)\n", fildes, buf, nbytes);
-        return write(fildes, buf, nbytes);
-    })
-#endif
-
-
-#ifdef CAN_WRAP_fopen
-#   define WRAPPER_FOR_fopen
-    FUNCTION_WRAPPER(fopen, (FILE *), (const char *_arg1, const char *_arg2), {
-        granary::printf("function_wrapper(fopen, %s, %s)\n", _arg1, _arg2);
-        FILE *ret = fopen(_arg1, _arg2);
-        RETURN_WRAP(ret);
-        return ret;
-    })
-#endif
-
-
-#ifdef CAN_WRAP_getenv
-#   define WRAPPER_FOR_getenv
-    FUNCTION_WRAPPER(getenv, (char *), (const char *arg1), {
-        char *ret(getenv(arg1));
-        granary::printf("function_wrapper(getenv, %s) -> %s\n", arg1, ret);
-        return ret;
-    })
-#endif
-
-
-#endif /* WRAP_DEBUG */
 
 #endif /* granary_USER_POSIX_OVERRIDE_WRAPPERS_H_ */

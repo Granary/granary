@@ -23,7 +23,6 @@
 
 #if CONFIG_ENABLE_WRAPPERS
 
-
 /// Wrapper templates.
 #   include "granary/wrapper.h"
 
@@ -47,8 +46,11 @@
 #       error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
 #   endif
 
+
+/// Order of wrapper inclusion allows clients to take precedence over context,
+/// and context to take precedence over auto-generated.
 #   if GRANARY_IN_KERNEL
-#		include "clients/kernel/linux/wrappers.h"
+#       include "clients/kernel/linux/wrappers.h"
 #       include "granary/kernel/linux/wrappers.h"
 #       include "granary/gen/kernel_wrappers.h"
 #   else
@@ -56,6 +58,7 @@
 #       include "granary/user/posix/wrappers.h"
 #       include "granary/gen/user_wrappers.h"
 #   endif
+
 
 #   if defined(__clang__)
 #       pragma clang diagnostic pop

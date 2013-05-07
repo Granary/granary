@@ -25,7 +25,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O3
+GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -172,6 +172,12 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
 endif
+ifeq ($(GR_CLIENT),watchpoint_bound)
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
+	GR_OBJS += bin/clients/watchpoints/instrument.o
+	GR_OBJS += bin/clients/watchpoints/policies/bound_policy.o
+	GR_OBJS += bin/clients/watchpoints/policies/x86/bound_policy.o
+endif
 
 # C++ ABI-specific stuff
 GR_OBJS += bin/deps/icxxabi/icxxabi.o
@@ -250,7 +256,7 @@ ifeq ($(KERNEL),0)
 	# Compile an assembly file to an object file in user space. In kernel space,
 	# the kernel makefile will do this for us.
 	define GR_COMPILE_ASM
-		$$($(GR_CC) $(GR_ASM_FLAGS) -c bin/granary/x86/$1.S -o bin/granary/x86/$1.o)
+		$$($(GR_CC) $(GR_ASM_FLAGS) -c $1.S -o $1.o)
 endef
 
 	define GR_GENERATE_INIT_FUNC
@@ -379,14 +385,23 @@ bin/granary/x86/%.o: granary/x86/%.asm
 	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
 	@$(GR_PYTHON) scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	@rm bin/granary/x86/$*.1.S
-	@$(call GR_COMPILE_ASM,$*)
+	@$(call GR_COMPILE_ASM,bin/granary/x86/$*)
 
 
 # Granary rules for client C++ files
-bin/clients/%.o: clients/%.cc
+bin/clients/%.o :: clients/%.cc
 	@echo "  CXX [GR-CLIENT] $<"
 	@$(GR_CXX) $(GR_CXX_FLAGS) -c $< -o bin/clients/$*.$(GR_OUTPUT_FORMAT)
 	@$(call GR_GENERATE_INIT_FUNC,bin/clients/$*.$(GR_OUTPUT_FORMAT))
+
+
+# Granary rules for client assembly files
+bin/clients/%.o :: clients/%.asm
+	@echo "  AS [GR-CLIENT] $<"
+	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/clients/$*.1.S -x c -std=c99 $<
+	@$(GR_PYTHON) scripts/post_process_asm.py bin/clients/$*.1.S > bin/clients/$*.S
+	@rm bin/clients/$*.1.S
+	@$(call GR_COMPILE_ASM,bin/clients/$*)
 
 
 # Granary rules for test files
@@ -444,6 +459,7 @@ install:
 	@-mkdir bin/clients > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/deps > /dev/null 2>&1 ||:
@@ -489,6 +505,7 @@ clean:
 	@-touch bin/clients/watchpoints/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/clients/watchpoints/tests/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/clients/watchpoints/policies/_.$(GR_OUTPUT_FORMAT)
+	@-touch bin/clients/watchpoints/policies/x86/_.$(GR_OUTPUT_FORMAT)
 	@-touch bin/tests/_.$(GR_OUTPUT_FORMAT)
 	
 	@-rm bin/*.$(GR_OUTPUT_FORMAT)
@@ -506,6 +523,7 @@ clean:
 	@-rm bin/clients/watchpoints/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/clients/watchpoints/tests/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/clients/watchpoints/policies/*.$(GR_OUTPUT_FORMAT)
+	@-rm bin/clients/watchpoints/policies/x86/*.$(GR_OUTPUT_FORMAT)
 	@-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
 
 	@-rm granary/gen/kernel_init.S ||:

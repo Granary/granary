@@ -91,7 +91,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -157,7 +157,7 @@
 #if GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
-#   define CONFIG_RUN_TEST_CASES 1
+#   define CONFIG_RUN_TEST_CASES GRANARY_IN_KERNEL
 #endif
 
 

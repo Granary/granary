@@ -319,8 +319,6 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
         kernel_preempt_disable();
-        kernel_preempt_enable();
-        return INTERRUPT_DEFER;
 
         cpu_state_handle cpu;
         thread_state_handle thread;
@@ -384,8 +382,9 @@ namespace granary {
             const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
             if(delayed_begin <= pc && pc < delayed_end) {
                 IF_PERF( perf::visit_recursive_interrupt(); )
-                FAULT;
-                //return INTERRUPT_IRET;
+                //FAULT;
+                kernel_preempt_enable();
+                return INTERRUPT_IRET;
             }
         }
 

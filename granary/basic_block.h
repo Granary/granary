@@ -40,7 +40,7 @@ namespace granary {
     public:
 
         enum {
-            HEADER        = 0xD4D5D682
+            HEADER = 0xD4D5D682
         };
 
         /// magic number (sequence of 4 int3 instructions) which signals the

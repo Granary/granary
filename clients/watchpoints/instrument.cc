@@ -13,6 +13,7 @@ using namespace granary;
 
 namespace client { namespace wp {
 
+
     /// Find memory operands that might need to be checked for watchpoints.
     /// If one is found, then num_ops is incremented, and the operand
     /// reference is stored in the passed array.
@@ -258,7 +259,7 @@ namespace client { namespace wp {
 
     /// The scale of registers that will be used to mask the tainted bits of a
     /// watched address.
-    static constexpr register_scale REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
+    const register_scale REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
         ? REG_8
         : REG_16);
 
@@ -585,13 +586,7 @@ namespace client { namespace wp {
             // implementation instrumentation will not clobber the operands
             // from sources/dests.
             tracker.labels[i] = ls.insert_before(before, label_());
-            if(SOURCE_OPERAND & op.kind) {
-                tracker.sources[i] = addr;
-            }
-
-            if(DEST_OPERAND & op.kind) {
-                tracker.dests[i] = addr;
-            }
+            tracker.regs[i] = addr;
 
             // In the case of XLAT, we (unfortunately) still need to save
             // RBX to the clobbered reg so that in the fast path we can
