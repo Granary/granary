@@ -189,6 +189,12 @@ namespace client {
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 
+        /// Forward declaration of the template class that will allow watchpoint
+        /// implementations to specify their descriptor types lazily.
+        template <typename>
+        struct descriptor_type;
+
+
         /// Returns true iff an address is watched.
         template <typename T>
         inline bool is_watched_address(T ptr_) throw() {
@@ -212,12 +218,6 @@ namespace client {
             return granary::unsafe_cast<T>(ptr & (~CLEAR_INDEX_MASK));
 #endif
         }
-
-
-        /// Forward declaration of the template class that will allow watchpoint
-        /// implementations to specify their descriptor types.
-        template <typename>
-        struct descriptor_type;
 
 
         /// Return the index into the descriptor table for this watched address.
@@ -255,6 +255,8 @@ namespace client {
         }
 
 
+        /// State representing whether or not a watchpoint descriptor was
+        /// allocated and its index added to an address.
         enum add_watchpoint_status {
             ADDRESS_ALREADY_WATCHED,
             ADDRESS_NOT_WATCHED,
@@ -290,7 +292,6 @@ namespace client {
             index <<= 1;
             index |= DISTINGUISHING_BIT;
             index <<= (DISTINGUISHING_BIT_OFFSET - 1);
-
 
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 
