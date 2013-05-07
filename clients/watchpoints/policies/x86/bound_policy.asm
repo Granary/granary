@@ -10,7 +10,7 @@
 #include "granary/x86/asm_helpers.asm"
 #include "granary/pp.h"
 
-    .extern _ZN6client2wp11DESCRIPTORSE
+    .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
 
 START_FILE
 
@@ -46,7 +46,7 @@ START_FILE
         COMMENT(Get the descriptor pointer from the index bits and the) \
         COMMENT(table address.) \
         shr $48, %DESC(reg); @N@\
-        lea _ZN6client2wp11DESCRIPTORSE(%rip), %TABLE(reg); @N@\
+        lea SYMBOL(_ZN6client2wp11DESCRIPTORSE)(%rip), %TABLE(reg); @N@\
         lea (%TABLE(reg),%DESC(reg),1), %DESC(reg); @N@\
         popq %TABLE(reg); @N@\
         movq (%DESC(reg)), %DESC(reg); @N@\

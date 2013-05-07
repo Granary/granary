@@ -194,9 +194,9 @@ namespace client {
         inline bool is_watched_address(T ptr_) throw() {
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
-            return 0 != (ptr & DISTINGUISHING_BIT_MASK);
+            return DISTINGUISHING_BIT_MASK == (ptr | DISTINGUISHING_BIT_MASK);
 #else
-            return ptr != (ptr | DISTINGUISHING_BIT_MASK);
+            return DISTINGUISHING_BIT_MASK == (ptr & DISTINGUISHING_BIT_MASK);
 #endif
         }
 
@@ -207,9 +207,9 @@ namespace client {
         T unwatched_address(T ptr_) throw() {
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
-            return granary::unsafe_cast<T>(ptr | DISTINGUISHING_BIT_MASK);
+            return granary::unsafe_cast<T>(ptr | CLEAR_INDEX_MASK);
 #else
-            return granary::unsafe_cast<T>(ptr | (~DISTINGUISHING_BIT_MASK));
+            return granary::unsafe_cast<T>(ptr & (~CLEAR_INDEX_MASK));
 #endif
         }
 

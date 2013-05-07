@@ -122,9 +122,11 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-        ls.insert_after(
-            tracker.labels[i],
-            call_(pc_(BOUNDS_CHECKERS[tracker.regs[i].value.reg])));
+        instruction call(insert_cti_after(ls, tracker.labels[i],
+            BOUNDS_CHECKERS[tracker.regs[i].value.reg],
+            false, operand(),
+            CTI_CALL));
+        call.set_mangled();
     }
 
 
@@ -134,9 +136,11 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-        ls.insert_after(
-            tracker.labels[i],
-            call_(pc_(BOUNDS_CHECKERS[tracker.regs[i].value.reg])));
+        instruction call(insert_cti_after(ls, tracker.labels[i],
+            BOUNDS_CHECKERS[tracker.regs[i].value.reg],
+            false, operand(),
+            CTI_CALL));
+        call.set_mangled();
     }
 
 
