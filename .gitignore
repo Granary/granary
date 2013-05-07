@@ -6,6 +6,7 @@
 *.pyc
 *.out
 *.log
+*.gdb
 
 # Generated files
 *.S

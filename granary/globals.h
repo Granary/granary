@@ -48,6 +48,10 @@
 #endif
 
 
+/// Should global code cache lookups be logged to the trace logger?
+#define CONFIG_TRACE_CODE_CACHE_FIND 1
+
+
 /// Do pre-mangling of instructions with the REP prefix?
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 1
 

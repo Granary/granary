@@ -25,7 +25,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 -O3
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -139,6 +139,7 @@ GR_OBJS += bin/granary/register.o
 GR_OBJS += bin/granary/policy.o
 GR_OBJS += bin/granary/predict.o
 GR_OBJS += bin/granary/perf.o
+GR_OBJS += bin/granary/trace_log.o
 GR_OBJS += bin/granary/dynamic_wrapper.o
 GR_OBJS += bin/granary/init.o
 

@@ -18,8 +18,22 @@
 #include "granary/mangle.h"
 #include "granary/predict.h"
 
+
+/// Logging to a file. This is helpful for user-space debugging, when a
+/// the logs can easily be inspected even for a crashed/paused program.
 #define D(...)
-//__VA_ARGS__
+// __VA_ARGS__
+
+
+/// Logging for the trace log. This is helpful for kernel-space debugging, where
+/// the in-memory tracing data structure can be inspected to see the history of
+/// code cache lookups.
+#if CONFIG_TRACE_CODE_CACHE_FIND
+#   include "granary/trace_log.h"
+#   define LOG(...) log_code_cache_find(__VA_ARGS__)
+#else
+#   define LOG(...)
+#endif
 
 namespace granary {
 
@@ -32,7 +46,6 @@ namespace granary {
 #else
         static static_data<rcu_hash_table<app_pc, app_pc>> CODE_CACHE;
 #endif
-
     }
 
 
@@ -59,6 +72,7 @@ namespace granary {
         app_pc ret(cpu->code_cache.find(addr.as_address));
 
         D( instrumentation_policy p(addr); )
+
         D( printf("find-cpu(%p, %x, xmm=%d)\n",
             addr.unmangled_address(),
             p.extension_bits(),
@@ -111,6 +125,7 @@ namespace granary {
             cpu->code_cache.store(addr.as_address, target_addr);
             D( printf(" -> %p (hit)\n", target_addr); )
             IF_PERF( perf::visit_address_lookup_hit(); )
+            LOG(app_target_addr, target_addr, TARGET_ALREADY_IN_CACHE);
             return target_addr;
         }
 
@@ -136,6 +151,7 @@ namespace granary {
                 app_target_addr);
             CODE_CACHE->store(addr.as_address, target_addr);
             D( printf(" -> %p (return)\n", target_addr); )
+            LOG(app_target_addr, target_addr, TARGET_RETURNS_TO_CACHE);
             return target_addr;
         }
 #endif
@@ -155,6 +171,7 @@ namespace granary {
             CODE_CACHE->store(addr.as_address, target_addr);
             cpu->code_cache.store(addr.as_address, target_addr);
             D( printf(" -> %p (detach)\n", target_addr); )
+            LOG(app_target_addr, target_addr, TARGET_IS_DETACH_POINT);
             return target_addr;
         }
 
@@ -223,6 +240,7 @@ namespace granary {
             D( printf(" -> %p (indirect)\n", target_addr); )
         }
 
+        LOG(app_target_addr, target_addr, TARGET_TRANSLATED);
         return target_addr;
     }
 
