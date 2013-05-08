@@ -13,40 +13,12 @@ using namespace granary;
 namespace client { namespace wp {
 
 
-    /// Configuration for bound descriptors.
-    struct descriptor_allocator_config {
-        enum {
-            SLAB_SIZE = granary::PAGE_SIZE,
-            EXECUTABLE = false,
-            TRANSIENT = false,
-            SHARED = true,
-            EXEC_WHERE = granary::EXEC_NONE,
-            MIN_ALIGN = 4
-        };
-    };
-
-
-    /// Allocator for the bound descriptors.
-    static granary::static_data<
-        granary::bump_pointer_allocator<descriptor_allocator_config>
-    > DESCRIPTOR_ALLOCATOR;
-
-
-    /// Initialise the descriptor allocator.
-    STATIC_INITIALISE({
-        DESCRIPTOR_ALLOCATOR.construct();
-    })
-
-    /// Pointers to the descriptors.
-    extern "C++" bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
-
-
 #define DECLARE_BOUND_CHECKER(reg) \
-    extern app_pc CAT(granary_bounds_check_1_, reg); \
-    extern app_pc CAT(granary_bounds_check_2_, reg); \
-    extern app_pc CAT(granary_bounds_check_4_, reg); \
-    extern app_pc CAT(granary_bounds_check_8_, reg); \
-    extern app_pc CAT(granary_bounds_check_16_, reg);
+    extern void CAT(granary_bounds_check_1_, reg)(void); \
+    extern void CAT(granary_bounds_check_2_, reg)(void); \
+    extern void CAT(granary_bounds_check_4_, reg)(void); \
+    extern void CAT(granary_bounds_check_8_, reg)(void); \
+    extern void CAT(granary_bounds_check_16_, reg)(void);
 
 
 #define DECLARE_BOUND_CHECKERS(reg, rest) \
@@ -59,14 +31,16 @@ namespace client { namespace wp {
         ALL_REGS(DECLARE_BOUND_CHECKERS, DECLARE_BOUND_CHECKER)
     }
 
+
 #define BOUND_CHECKER_GROUP(reg) \
     { \
-        CAT(granary_bounds_check_1_, reg), \
-        CAT(granary_bounds_check_2_, reg), \
-        CAT(granary_bounds_check_4_, reg), \
-        CAT(granary_bounds_check_8_, reg), \
-        CAT(granary_bounds_check_16_, reg) \
+        &CAT(granary_bounds_check_1_, reg), \
+        &CAT(granary_bounds_check_2_, reg), \
+        &CAT(granary_bounds_check_4_, reg), \
+        &CAT(granary_bounds_check_8_, reg), \
+        &CAT(granary_bounds_check_16_, reg) \
     }
+
 
 #define BOUND_CHECKER_GROUPS(reg, rest) \
     BOUND_CHECKER_GROUP(reg), \
@@ -74,7 +48,8 @@ namespace client { namespace wp {
 
 
     /// Register-specific (generated) functions to do bounds checking.
-    static app_pc BOUNDS_CHECKERS[15][5] = {
+    typedef void (*bounds_checker_type)(void);
+    static bounds_checker_type BOUNDS_CHECKERS[15][5] = {
         ALL_REGS(BOUND_CHECKER_GROUPS, BOUND_CHECKER_GROUP)
     };
 
@@ -123,15 +98,61 @@ namespace client { namespace wp {
     };
 
 
+    /// Configuration for bound descriptors.
+    struct descriptor_allocator_config {
+        enum {
+            SLAB_SIZE = granary::PAGE_SIZE,
+            EXECUTABLE = false,
+            TRANSIENT = false,
+            SHARED = true,
+            EXEC_WHERE = granary::EXEC_NONE,
+            MIN_ALIGN = 4
+        };
+    };
+
+
+    /// Allocator for the bound descriptors.
+    static granary::static_data<
+        granary::bump_pointer_allocator<descriptor_allocator_config>
+    > DESCRIPTOR_ALLOCATOR;
+
+
+    /// Initialise the descriptor allocator.
+    STATIC_INITIALISE({
+        DESCRIPTOR_ALLOCATOR.construct();
+    })
+
+
+    /// Pointers to the descriptors.
+    extern "C++" bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
+
+
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
     /// appropriately.
     bool bound_descriptor::allocate(
         bound_descriptor *&desc,
-        uintptr_t &index
+        uintptr_t &counter_index
     ) throw() {
-        (void) desc;
-        (void) index;
-        return false;
+        counter_index = next_counter_index();
+        if(counter_index > MAX_COUNTER_INDEX) {
+            return false;
+        }
+
+        desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
+        return true;
+    }
+
+
+    /// Initialise a watchpoint descriptor.
+    void bound_descriptor::init(
+        bound_descriptor *desc,
+        void *base_address,
+        size_t size
+    ) throw() {
+        const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
+        desc->lower_bound = static_cast<uint16_t>(base);
+        desc->upper_bound = static_cast<uint16_t>(base + size);
+        desc->next_free_index = 0;
     }
 
 
@@ -145,18 +166,6 @@ namespace client { namespace wp {
     }
 
 
-    /// Initialise a watchpoint descriptor.
-    void bound_descriptor::init(
-        bound_descriptor *desc,
-        void *base_address,
-        size_t size
-    ) throw() {
-        (void) desc;
-        (void) base_address;
-        (void) size;
-    }
-
-
     void bound_policy::visit_read(
         granary::basic_block_state &,
         instruction_list &ls,
@@ -165,8 +174,12 @@ namespace client { namespace wp {
     ) throw() {
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.op_sizes[i]]);
+
+        ASSERT(reg_index < 16);
+        ASSERT(size_index < 5);
+
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS[reg_index][size_index],
+            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
             false, operand(),
             CTI_CALL));
         call.set_mangled();
@@ -181,8 +194,12 @@ namespace client { namespace wp {
     ) throw() {
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.op_sizes[i]]);
+
+        ASSERT(reg_index < 16);
+        ASSERT(size_index < 5);
+
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS[reg_index][size_index],
+            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
             false, operand(),
             CTI_CALL));
         call.set_mangled();

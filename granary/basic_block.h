@@ -64,7 +64,8 @@ namespace granary {
         /// Relative address to this basic block's block-local storage.
         int32_t rel_state_addr;
 
-        uint16_t unused; // TODO: space for later.
+        /// Number of bytes of instructions in the generating basic block.
+        uint16_t generating_num_bytes;
 
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
@@ -200,6 +201,7 @@ namespace granary {
             instruction bb_begin,
             basic_block_state *block_storage,
             app_pc generating_pc,
+            unsigned byte_len,
             app_pc generated_pc
         ) throw();
 

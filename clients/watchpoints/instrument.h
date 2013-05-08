@@ -34,30 +34,34 @@ namespace client {
             /// of these bits is a distinguishing bit. There must be at least
             /// two, otherwise user/kernel space addresses cannot be
             /// distinguished in kernel space.
-            NUM_HIGH_ORDER_BITS         = 16,
+            NUM_HIGH_ORDER_BITS         = WP_COUNTER_INDEX_WIDTH,
 
             /// Number of partial index bits.
-            NUM_PARTIAL_INDEX_BITS      = 5,
+            NUM_PARTIAL_INDEX_BITS      = WP_PARTIAL_INDEX_WIDTH,
 
             /// Offset of partial index bits.
-            PARTIAL_INDEX_OFFSET        = 15,
+            PARTIAL_INDEX_OFFSET        = WP_PARTIAL_INDEX_GRANULARITY,
 
             /// Mask for extracting the partial index.
-            PARTIAL_INDEX_SHIFT         = (
-                NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS),
+#if WP_USE_PARTIAL_INDEX
             PARTIAL_INDEX_MASK          = (
-                ((~0ULL) << PARTIAL_INDEX_SHIFT) >> (
-                    PARTIAL_INDEX_SHIFT - PARTIAL_INDEX_OFFSET
-                )),
+                (((~0ULL)
+                    << (NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS))
+                    >> (NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS
+                                          - PARTIAL_INDEX_OFFSET))),
+#endif
+
+            /// Maximum counter index (inclusive).
+            MAX_COUNTER_INDEX           = (
+                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1),
 
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.
-            MAX_NUM_WATCHPOINTS_        = ((1ULL << NUM_HIGH_ORDER_BITS) - 1),
 #if WP_USE_PARTIAL_INDEX
             MAX_NUM_WATCHPOINTS         = (
-                MAX_NUM_WATCHPOINTS_ * (1 << (NUM_PARTIAL_INDEX_BITS - 1))),
+                (MAX_COUNTER_INDEX + 1) * (1 << NUM_PARTIAL_INDEX_BITS)),
 #else
-            MAX_NUM_WATCHPOINTS         = MAX_NUM_WATCHPOINTS_,
+            MAX_NUM_WATCHPOINTS         = MAX_COUNTER_INDEX + 1,
 #endif
 
             /// The bit offset, where LSB=0 and MSB=(NUM_BITS_PER_ADDR - 1), of
@@ -360,23 +364,25 @@ namespace client {
                 return ADDRESS_ALREADY_WATCHED;
             }
 
-            uintptr_t index(0);
+            uintptr_t counter_index(0);
             desc_type *desc(nullptr);
 
-            if(!desc_type::allocate(desc, index)) {
+            if(!desc_type::allocate(desc, counter_index)) {
                 return ADDRESS_NOT_WATCHED;
             }
 
             desc_type::init(desc, init_args...);
-            DESCRIPTORS[index] = desc;
+            DESCRIPTORS[counter_index] = desc;
 
-            index <<= 1;
-            index |= DISTINGUISHING_BIT;
-            index <<= (DISTINGUISHING_BIT_OFFSET - 1);
+            counter_index <<= 1;
+            counter_index |= DISTINGUISHING_BIT;
+            counter_index <<= (DISTINGUISHING_BIT_OFFSET - 1);
 
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 
-            ptr_ = granary::unsafe_cast<T>(index | (ptr & CLEAR_INDEX_MASK));
+            ptr_ = granary::unsafe_cast<T>(
+                counter_index | (ptr & CLEAR_INDEX_MASK));
+
             return ADDRESS_WATCHED;
         }
     }

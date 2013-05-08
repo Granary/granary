@@ -621,8 +621,9 @@ namespace granary {
         bool fall_through_detach(false);
         bool detach_tail_call(false);
         app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
+        unsigned byte_len(0);
 
-        for(unsigned byte_len(0); ;) {
+        for(;;) {
 
             // very big basic block; cut it short and connect it with a tail.
             // we do this test *before* decoding the next instruction because
@@ -824,7 +825,9 @@ namespace granary {
             allocate_array<uint8_t>(basic_block::size(ls));
 
         IF_TEST( app_pc emitted_pc = ) emit(
-            policy, ls, bb_begin, block_storage, start_pc, generated_pc);
+            policy, ls, bb_begin, block_storage,
+            start_pc, byte_len,
+            generated_pc);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
@@ -859,6 +862,7 @@ namespace granary {
         instruction bb_begin,
         basic_block_state *block_storage,
         app_pc generating_pc,
+        unsigned byte_len,
         app_pc pc
     ) throw() {
 
@@ -883,6 +887,7 @@ namespace granary {
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
         info->num_patch_bytes = static_cast<unsigned>(bb_begin.pc() - start_pc);
         info->policy_bits = policy.extension_bits();
+        info->generating_num_bytes = byte_len;
         info->generating_pc = generating_pc;
         info->rel_state_addr = reinterpret_cast<int64_t>(info) \
                              - reinterpret_cast<int64_t>(block_storage);

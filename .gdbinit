@@ -122,6 +122,7 @@ define p-bb
   set $__a = $__a + (($__a % 8) ? 8 - ($__a % 8): 0)
   set $__int = (uint32_t *) $__a
   set $__num_stub_ins = 0
+  set $__num_trans_ins = 0
   set $__num_ins = 0
 
   while *$__int != granary::basic_block_info::HEADER
@@ -142,11 +143,21 @@ define p-bb
 
   printf "Translated instructions:\n"
   x-ins $__bb_start $__bb_info_addr
+  set $__num_trans_ins = $num_ins
+  printf "\n"
+
+  printf "Original instructions:\n"
+  set $__in_start = $__bb_info->generating_pc
+  set $__in_end = $__in_start + $__bb_info->generating_num_bytes
+  x-ins $__in_start $__in_end
   set $__num_ins = $num_ins
   printf "\n"
+
   p-bb-info $__bb_info
+  
   printf "  Number of stub instructions: %d\n", $__num_stub_ins
-  printf "  Number of translated instructions: %d\n", $__num_ins
+  printf "  Number of translated instructions: %d\n", $__num_trans_ins
+  printf "  Number of original instructions: %d\n", $__num_ins
 end
 
 
@@ -169,16 +180,42 @@ end
 define p-trace
   set language c++
   set $__i = (int) $arg0
+  set $__j = 1
   set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
   printf "Global code cache lookup trace:\n"
   while $__i > 0 && 0 != $__head
     if $__i < $arg0
       printf "\n"
     end
-    printf "  App address: %p\n", $__head->app_address
-    printf "  Code cache address: %p\n", $__head->cache_address
-    printf "  Kind: "
+    printf "  Entry %d\n", $__j
+    printf "    App address: %p\n", $__head->app_address
+    printf "    Code cache address: %p\n", $__head->cache_address
+    printf "    Kind: "
     p $__head->kind
+    set $__j = $__j + 1
+    set $__i = $__i - 1
+    set $__head = $__head->prev
+  end
+  dont-repeat
+end
+
+
+# p-trace-entry N
+#
+# Prints a specific entry from the trace log. The most recent entry
+# is entry 1.
+define p-trace-entry
+  set language c++
+  set $__i = (int) $arg0
+  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  printf "Global code cache lookup trace entry %d:\n", $__i
+  while $__i > 0 && 0 != $__head
+    if $__i == 1
+      printf "  App address: %p\n", $__head->app_address
+      printf "  Code cache address: %p\n", $__head->cache_address
+      printf "  Kind: "
+      p $__head->kind
+    end
     set $__i = $__i - 1
     set $__head = $__head->prev
   end

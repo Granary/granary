@@ -170,4 +170,9 @@
 #define REG64_TO_REG16_(reg) REG64_TO_REG16__(reg)
 #define REG64_TO_REG16(reg) REG64_TO_REG16_(reg)
 
+
+/// Useful for documentation
+#define COMMENT_HASH #
+#define COMMENT(...) COMMENT_HASH __VA_ARGS__ @N@
+
 #endif /* Granary_ASM_HELPERS_ASM_ */
