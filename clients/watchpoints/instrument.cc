@@ -14,6 +14,15 @@ using namespace granary;
 namespace client { namespace wp {
 
 
+    static std::atomic<uintptr_t> NEXT_COUNTER_INDEX = ATOMIC_VAR_INIT(0);
+
+
+    /// Return the next counter index.
+    uintptr_t next_counter_index(void) throw() {
+        return NEXT_COUNTER_INDEX.fetch_add(1);
+    }
+
+
     /// Find memory operands that might need to be checked for watchpoints.
     /// If one is found, then num_ops is incremented, and the operand
     /// reference is stored in the passed array.

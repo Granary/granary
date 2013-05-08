@@ -286,6 +286,10 @@ namespace client {
 #endif /* WP_USE_PARTIAL_INDEX */
 
 
+        /// Return the next counter index.
+        uintptr_t next_counter_index(void) throw();
+
+
         /// Return the index into the descriptor table for this watched address.
         ///
         /// Note: This assumes that the address is watched.
