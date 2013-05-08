@@ -41,44 +41,83 @@ namespace client { namespace wp {
     extern "C++" bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
 
 
+#define DECLARE_BOUND_CHECKER(reg) \
+    extern app_pc CAT(granary_bounds_check_1_, reg); \
+    extern app_pc CAT(granary_bounds_check_2_, reg); \
+    extern app_pc CAT(granary_bounds_check_4_, reg); \
+    extern app_pc CAT(granary_bounds_check_8_, reg); \
+    extern app_pc CAT(granary_bounds_check_16_, reg);
+
+
+#define DECLARE_BOUND_CHECKERS(reg, rest) \
+    DECLARE_BOUND_CHECKER(reg) \
+    rest
+
     /// Register-specific bounds checker functions
     /// (defined in x86/bound_policy.asm).
     extern "C" {
-        extern app_pc granary_bounds_check_rcx;
-        extern app_pc granary_bounds_check_rdx;
-        extern app_pc granary_bounds_check_rbx;
-        extern app_pc granary_bounds_check_rbp;
-        extern app_pc granary_bounds_check_rsi;
-        extern app_pc granary_bounds_check_rdi;
-        extern app_pc granary_bounds_check_r8;
-        extern app_pc granary_bounds_check_r9;
-        extern app_pc granary_bounds_check_r10;
-        extern app_pc granary_bounds_check_r11;
-        extern app_pc granary_bounds_check_r12;
-        extern app_pc granary_bounds_check_r13;
-        extern app_pc granary_bounds_check_r14;
-        extern app_pc granary_bounds_check_r15;
-        extern app_pc granary_bounds_check_rdx;
+        ALL_REGS(DECLARE_BOUND_CHECKERS, DECLARE_BOUND_CHECKER)
     }
 
+#define BOUND_CHECKER_GROUP(reg) \
+    { \
+        CAT(granary_bounds_check_1_, reg), \
+        CAT(granary_bounds_check_2_, reg), \
+        CAT(granary_bounds_check_4_, reg), \
+        CAT(granary_bounds_check_8_, reg) \
+    }
+
+#define BOUND_CHECKER_GROUPS(reg, rest) \
+    BOUND_CHECKER_GROUP(reg), \
+    rest
+
+
     /// Register-specific (generated) functions to do bounds checking.
-    static app_pc BOUNDS_CHECKERS[16] = {
-        granary_bounds_check_rcx,
-        granary_bounds_check_rdx,
-        granary_bounds_check_rbx,
-        nullptr, // rsp
-        granary_bounds_check_rbp,
-        granary_bounds_check_rsi,
-        granary_bounds_check_rdi,
-        granary_bounds_check_r8,
-        granary_bounds_check_r9,
-        granary_bounds_check_r10,
-        granary_bounds_check_r11,
-        granary_bounds_check_r12,
-        granary_bounds_check_r13,
-        granary_bounds_check_r14,
-        granary_bounds_check_r15,
-        granary_bounds_check_rdx
+    static app_pc BOUNDS_CHECKERS[15][5] = {
+        ALL_REGS(BOUND_CHECKER_GROUPS, BOUND_CHECKER_GROUP)
+    };
+
+
+    /// Register-specific (generated) functions to do bounds checking.
+    static unsigned REG_TO_INDEX[] = {
+        0,  // rcx
+        1,  // rdx
+        2,  // rbx
+        ~0U, // rsp
+        3,  // rbp
+        4,  // rsi
+        5,  // rdi
+        6,  // r8
+        7,  // r9
+        8,  // r10
+        9,  // r11
+        10, // r12
+        11, // r13
+        12, // r14
+        13, // r15
+        14  // rdx
+    };
+
+
+    /// Size to index.
+    static unsigned SIZE_TO_INDEX[] = {
+        ~0U,
+        0,      // 1
+        1,      // 2
+        ~0U,
+        2,      // 4
+        ~0U,
+        ~0U,
+        ~0U,
+        3,      // 8
+        ~0U,
+        ~0U,
+        ~0U,
+        ~0U,
+        ~0U,
+        ~0U,
+        ~0U,
+        4       // 16
     };
 
 
@@ -123,7 +162,9 @@ namespace client { namespace wp {
         unsigned i
     ) throw() {
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS[tracker.regs[i].value.reg],
+            BOUNDS_CHECKERS
+                [REG_TO_INDEX[tracker.regs[i].value.reg]]
+                [SIZE_TO_INDEX[tracker.op_sizes[i]]],
             false, operand(),
             CTI_CALL));
         call.set_mangled();
@@ -137,7 +178,9 @@ namespace client { namespace wp {
         unsigned i
     ) throw() {
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS[tracker.regs[i].value.reg],
+            BOUNDS_CHECKERS
+                [REG_TO_INDEX[tracker.regs[i].value.reg]]
+                [SIZE_TO_INDEX[tracker.op_sizes[i]]],
             false, operand(),
             CTI_CALL));
         call.set_mangled();

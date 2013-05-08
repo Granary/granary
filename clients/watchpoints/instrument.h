@@ -11,12 +11,7 @@
 
 #include "granary/client.h"
 
-/// Enable if %RBP should be treated as a frame pointer and not as a potential
-/// watched address.
-#define WP_IGNORE_FRAME_POINTER 1
-
-/// Enable if partial indexes should be used (bit [15, 20]).
-#define WP_USE_PARTIAL_INDEX 1
+#include "clients/watchpoints/config.h"
 
 namespace client {
 
@@ -111,6 +106,16 @@ namespace client {
         extern const granary::register_scale REG_SCALE;
 
 
+        /// The memory operand size in bytes.
+        enum operand_size {
+            OP_SIZE_1   = 1,  // 8 bit
+            OP_SIZE_2   = 2,  // 16 bit
+            OP_SIZE_4   = 4,  // 32 bit
+            OP_SIZE_8   = 8,  // 64 bit
+            OP_SIZE_16  = 16  // xmm (128 bit)
+        };
+
+
         /// Keeps track of instruction-specific state for the watchpoint
         /// instrumentation.
         struct watchpoint_tracker {
@@ -139,6 +144,8 @@ namespace client {
             /// True iff the ith operand (in `ops`) can be modified, or if it
             /// must be left as-is.
             bool can_replace[MAX_NUM_OPERANDS];
+
+            operand_size op_sizes[MAX_NUM_OPERANDS];
 
             /// The number of operands that need to be instrumented.
             unsigned num_ops;

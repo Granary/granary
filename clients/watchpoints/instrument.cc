@@ -14,6 +14,7 @@ using namespace granary;
 namespace client { namespace wp {
 
 
+    /// Tracks the next counter index to be allocated.
     static std::atomic<uintptr_t> NEXT_COUNTER_INDEX = ATOMIC_VAR_INIT(0);
 
 
@@ -591,11 +592,13 @@ namespace client { namespace wp {
                 ls.insert_before(before, lea_(addr, addr + reg::rbx));
             }
 
-            // we've found a watchpoint; note: we assume that watchpoint-
+            // we've found a watched address; note: we assume that watchpoint-
             // implementation instrumentation will not clobber the operands
             // from sources/dests.
             tracker.labels[i] = ls.insert_before(before, label_());
             tracker.regs[i] = addr;
+            tracker.op_sizes[i] = static_cast<operand_size>(
+                dynamorio::opnd_size_in_bytes(*op));
 
             // In the case of XLAT, we (unfortunately) still need to save
             // RBX to the clobbered reg so that in the fast path we can
