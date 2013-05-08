@@ -15,6 +15,9 @@
 /// watched address.
 #define WP_IGNORE_FRAME_POINTER 1
 
+/// Enable if partial indexes should be used (bit [15, 20]).
+#define WP_USE_PARTIAL_INDEX 1
+
 namespace client {
 
     namespace wp {
@@ -22,6 +25,9 @@ namespace client {
         enum : uint64_t {
             /// Maximum number of memory operands in a single instruction.
             MAX_NUM_OPERANDS            = 2,
+
+            /// Number of bits in an address.
+            NUM_BITS_PER_ADDR           = 64,
 
             /// The value of the distinguishing bit. Assumes the 64-bit split-
             /// address space mode, where kernel addresses have 1 as their high-
@@ -35,12 +41,29 @@ namespace client {
             /// distinguished in kernel space.
             NUM_HIGH_ORDER_BITS         = 16,
 
+            /// Number of partial index bits.
+            NUM_PARTIAL_INDEX_BITS      = 5,
+
+            /// Offset of partial index bits.
+            PARTIAL_INDEX_OFFSET        = 15,
+
+            /// Mask for extracting the partial index.
+            PARTIAL_INDEX_SHIFT         = (
+                NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS),
+            PARTIAL_INDEX_MASK          = (
+                ((~0ULL) << PARTIAL_INDEX_SHIFT) >> (
+                    PARTIAL_INDEX_SHIFT - PARTIAL_INDEX_OFFSET
+                )),
+
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.
-            MAX_NUM_WATCHPOINTS         = ((1ULL << NUM_HIGH_ORDER_BITS) - 1),
-
-            /// Number of bits in an address.
-            NUM_BITS_PER_ADDR           = 64,
+            MAX_NUM_WATCHPOINTS_        = ((1ULL << NUM_HIGH_ORDER_BITS) - 1),
+#if WP_USE_PARTIAL_INDEX
+            MAX_NUM_WATCHPOINTS         = (
+                MAX_NUM_WATCHPOINTS_ * (1 << (NUM_PARTIAL_INDEX_BITS - 1))),
+#else
+            MAX_NUM_WATCHPOINTS         = MAX_NUM_WATCHPOINTS_,
+#endif
 
             /// The bit offset, where LSB=0 and MSB=(NUM_BITS_PER_ADDR - 1), of
             /// the distinguishing bit of an un/watched address.
@@ -220,6 +243,23 @@ namespace client {
         }
 
 
+#if WP_USE_PARTIAL_INDEX
+        /// Return the partial index of an address.
+        inline uintptr_t partial_index_of(uintptr_t ptr) throw() {
+            return (ptr & PARTIAL_INDEX_MASK) >> PARTIAL_INDEX_OFFSET;
+        }
+
+
+        /// Combine a partial index with a counter index.
+        inline uintptr_t combined_index(
+            uintptr_t counter_index,
+            uintptr_t partial_index
+        ) throw() {
+            return (counter_index << PARTIAL_INDEX_OFFSET) | partial_index;
+        }
+#endif
+
+
         /// Return the index into the descriptor table for this watched address.
         ///
         /// Note: This assumes that the address is watched.
@@ -227,8 +267,12 @@ namespace client {
         inline uintptr_t
         index_of(T ptr_) throw() {
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
-            const uintptr_t index(ptr >> DISTINGUISHING_BIT_OFFSET);
-            return index;
+            const uintptr_t counter_index(ptr >> DISTINGUISHING_BIT_OFFSET);
+#if WP_USE_PARTIAL_INDEX
+            return combined_index(counter_index, partial_index_of(ptr));
+#else
+            return counter_index;
+#endif
         }
 
 
