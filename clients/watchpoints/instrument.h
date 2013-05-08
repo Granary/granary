@@ -255,9 +255,35 @@ namespace client {
             uintptr_t counter_index,
             uintptr_t partial_index
         ) throw() {
-            return (counter_index << PARTIAL_INDEX_OFFSET) | partial_index;
+            return (counter_index << NUM_PARTIAL_INDEX_BITS) | partial_index;
         }
-#endif
+
+
+        /// Return the counter index component of a combined index.
+        inline uintptr_t counter_index_of(uintptr_t index) throw() {
+            return index >> NUM_PARTIAL_INDEX_BITS;
+        }
+#else
+        /// Return the partial index of an address.
+        inline uintptr_t partial_index_of(uintptr_t) throw() {
+            return 0;
+        }
+
+
+        /// Combine a partial index with a counter index.
+        inline uintptr_t combined_index(
+            uintptr_t counter_index,
+            uintptr_t
+        ) throw() {
+            return counter_index;
+        }
+
+
+        /// Return the counter index component of a combined index.
+        inline uintptr_t counter_index_of(uintptr_t index) throw() {
+            return index;
+        }
+#endif /* WP_USE_PARTIAL_INDEX */
 
 
         /// Return the index into the descriptor table for this watched address.

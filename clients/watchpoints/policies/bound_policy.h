@@ -26,7 +26,11 @@ namespace client {
             uint16_t upper_bound;
 
             /// Descriptor index of the next-freed object.
+#if WP_USE_PARTIAL_INDEX
+            uint32_t next_free_index;
+#else
             uint16_t next_free_index;
+#endif
 
             /// Allocate a watchpoint descriptor.
             static bool allocate(bound_descriptor *&, uintptr_t &) throw();
