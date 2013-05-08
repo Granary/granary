@@ -64,7 +64,8 @@ namespace client { namespace wp {
         CAT(granary_bounds_check_1_, reg), \
         CAT(granary_bounds_check_2_, reg), \
         CAT(granary_bounds_check_4_, reg), \
-        CAT(granary_bounds_check_8_, reg) \
+        CAT(granary_bounds_check_8_, reg), \
+        CAT(granary_bounds_check_16_, reg) \
     }
 
 #define BOUND_CHECKER_GROUPS(reg, rest) \
@@ -80,22 +81,23 @@ namespace client { namespace wp {
 
     /// Register-specific (generated) functions to do bounds checking.
     static unsigned REG_TO_INDEX[] = {
-        0,  // rcx
-        1,  // rdx
-        2,  // rbx
-        ~0U, // rsp
-        3,  // rbp
-        4,  // rsi
-        5,  // rdi
-        6,  // r8
-        7,  // r9
-        8,  // r10
-        9,  // r11
-        10, // r12
-        11, // r13
-        12, // r14
-        13, // r15
-        14  // rdx
+        ~0U,    // null
+        0,      // rax
+        1,      // rcx
+        2,      // rdx
+        3,      // rbx
+        ~0U,    // rsp
+        4,      // rbp
+        5,      // rsi
+        6,      // rdi
+        7,      // r8
+        8,      // r9
+        9,      // r10
+        10,     // r11
+        11,     // r12
+        12,     // r13
+        13,     // r14
+        14      // r15
     };
 
 
@@ -104,19 +106,19 @@ namespace client { namespace wp {
         ~0U,
         0,      // 1
         1,      // 2
-        ~0U,
+        ~3U,
         2,      // 4
-        ~0U,
-        ~0U,
-        ~0U,
+        ~5U,
+        ~6U,
+        ~7U,
         3,      // 8
-        ~0U,
-        ~0U,
-        ~0U,
-        ~0U,
-        ~0U,
-        ~0U,
-        ~0U,
+        ~8U,
+        ~9U,
+        ~10U,
+        ~11U,
+        ~12U,
+        ~13U,
+        ~14U,
         4       // 16
     };
 
@@ -161,10 +163,10 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
+        const unsigned size_index(SIZE_TO_INDEX[tracker.op_sizes[i]]);
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS
-                [REG_TO_INDEX[tracker.regs[i].value.reg]]
-                [SIZE_TO_INDEX[tracker.op_sizes[i]]],
+            BOUNDS_CHECKERS[reg_index][size_index],
             false, operand(),
             CTI_CALL));
         call.set_mangled();
@@ -177,10 +179,10 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
+        const unsigned size_index(SIZE_TO_INDEX[tracker.op_sizes[i]]);
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            BOUNDS_CHECKERS
-                [REG_TO_INDEX[tracker.regs[i].value.reg]]
-                [SIZE_TO_INDEX[tracker.op_sizes[i]]],
+            BOUNDS_CHECKERS[reg_index][size_index],
             false, operand(),
             CTI_CALL));
         call.set_mangled();

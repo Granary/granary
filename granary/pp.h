@@ -142,7 +142,13 @@
 
 #define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
 
-/// unrolling macros for applying something to all general purpose registers
+/// Unrolling macros for applying something to all general purpose registers.
+///
+/// Note: This is in the same order as the DynamoRIO enumerator for
+///       convenience. This order is depended on elsewhere.
+///
+/// Note: This purposefully exludes the NULL register, as well as the stack
+///       pointer register.
 #define ALL_REGS(R, R_last) \
     R(rax, R(rbx, R(rcx, R(rdx, \
     R(rbp, R(rsi, R(rdi, R(r8, \
