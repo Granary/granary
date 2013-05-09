@@ -374,6 +374,10 @@ namespace granary {
     }
 
 #endif
+
+
+    /// Detach from Granary.
+    extern void detach(void) throw();
 }
 
 

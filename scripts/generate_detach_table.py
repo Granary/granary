@@ -29,17 +29,17 @@ def visit_function(name, ctype):
   func_ctype = ctype.base_type()
 
   will_wrap = True
-  if False:
-    if name in MUST_WRAP:
-      will_wrap = True
-    
-    else:
-      will_wrap = will_wrap_function(
-          func_ctype.ret_type, func_ctype.param_types)
-      
-        # kthread_create_on_node is an issue here...
-        #if has_extension_attribute(ctype, "printf"):
-        #  will_wrap = False
+  #if False:
+  #  if name in MUST_WRAP:
+  #    will_wrap = True
+  #  
+  #  else:
+  #    will_wrap = will_wrap_function(
+  #        func_ctype.ret_type, func_ctype.param_types)
+  #    
+  #      # kthread_create_on_node is an issue here...
+  #      #if has_extension_attribute(ctype, "printf"):
+  #      #  will_wrap = False
 
   if will_wrap and func_ctype.is_variadic:
     will_wrap = must_wrap(
@@ -63,7 +63,7 @@ def visit_function(name, ctype):
   # to detach on them. This is partially doing the work of the dll
   # detach thing, but also ignoring "hidden" versions of functions
   # that we already have, e.g. logf vs. __logf. 
-  if name.startswith("__"):
+  if name.startswith("__") and "__libc" not in name:
 
     # TODO: is this check needed? It screws up wrapping for
     #       block_write_begin and __block_write_begin, which have

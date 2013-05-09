@@ -13,6 +13,7 @@
 #include "clients/watchpoints/config.h"
 
     .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
+    .extern SYMBOL(_ZN6client2wp12bound_policy14visit_overflowEmPPhj)
 
 START_FILE
 
@@ -35,26 +36,27 @@ START_FILE
 
 
 /// Right shift for counter indexes to get it into the low position.
-#define COUNTER_INDEX_RSH (64 - WP_COUNTER_INDEX_WIDTH)
+#define COUNTER_INDEX_RSH (64 - (WP_COUNTER_INDEX_WIDTH - 1))
 
 
 /// Define a register-specific and operand-size specific bounds checker.
 #define BOUNDS_CHECKER(reg, size) \
     DECLARE_FUNC(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg)) @N@\
     GLOBAL_LABEL(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg):) @N@@N@\
+        .cfi_startproc @N@\
         \
         COMMENT(Spill some registers. The DEST and TABLE registers are) \
         COMMENT(guaranteed to not be RAX. We unconditionally spill RAX) \
         COMMENT(because we will clobber its low order bits with the) \
         COMMENT(arithmetic flags.) \
-        pushq %rax;@N@\
-        pushq %DESC(reg);@N@\
-        pushq %TABLE(reg);@N@\
+        pushq %rax;@N@ .cfi_def_cfa_offset 16 @N@\
+        pushq %DESC(reg);@N@ .cfi_def_cfa_offset 24 @N@\
+        pushq %TABLE(reg);@N@ .cfi_def_cfa_offset 32 @N@\
         @N@\
         \
         COMMENT(Save the register so we can restore it later when we need to) \
         COMMENT(compare its lower order bits against the bounds.) \
-        pushq %reg;@N@\
+        pushq %reg;@N@ .cfi_def_cfa_offset 40 @N@\
         @N@\
         \
         COMMENT(Save the watched address into a non-RAX reg before we clobber) \
@@ -78,26 +80,26 @@ START_FILE
         \
         COMMENT(Get the descriptor pointer from the index.) \
         lea SYMBOL(_ZN6client2wp11DESCRIPTORSE)(%rip), %TABLE(reg);@N@\
-        lea (%TABLE(reg),%DESC(reg),1), %DESC(reg);@N@\
-        popq %TABLE(reg);@N@\
+        lea (%TABLE(reg),%DESC(reg),8), %DESC(reg);@N@\
+        popq %TABLE(reg);@N@ .cfi_def_cfa_offset 32 @N@\
         movq (%DESC(reg)), %DESC(reg);@N@\
         @N@\
         \
         COMMENT(Compare against the lower bound.) \
-        cmpw %REG64_TO_REG16(TABLE(reg)), (%DESC(reg));@N@\
+        cmpw (%DESC(reg)), %REG64_TO_REG16(TABLE(reg));@N@\
         jl .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
         @N@\
         \
         COMMENT(Compare against the upper bound.) \
-        addq $ size, %TABLE(reg); \
-        cmpw 2(%DESC(reg)), %REG64_TO_REG16(TABLE(reg));@N@\
+        addq $ (size - 1), %TABLE(reg); \
+        cmpw %REG64_TO_REG16(TABLE(reg)), 2(%DESC(reg));@N@\
         jle .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
         jmp .CAT(Lbounds_check_passed_, CAT(reg, size));@N@\
         @N@\
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
         COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        int $4;@N@\
+        call CAT(granary_overflow_handler_, CAT(CAT(size, _), reg)); \
         @N@\
         \
     .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\
@@ -107,11 +109,55 @@ START_FILE
         @N@\
         \
         COMMENT(Unspill.) \
-        popq %TABLE(reg);@N@\
-        popq %DESC(reg);@N@\
-        popq %rax;@N@\
+        popq %TABLE(reg);@N@ .cfi_def_cfa_offset 24 @N@\
+        popq %DESC(reg);@N@ .cfi_def_cfa_offset 16 @N@\
+        popq %rax;@N@ .cfi_def_cfa_offset 8 @N@\
         ret;@N@\
+        .cfi_endproc @N@\
     END_FUNC(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg)) @N@@N@@N@
+
+
+/// An overflow handler.
+#define OVERFLOW_HANDLER(reg, size) \
+    DECLARE_FUNC(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg))) @N@\
+    GLOBAL_LABEL(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg)):) @N@\
+        .cfi_startproc @N@\
+        \
+        COMMENT(Save all register state.)\
+        pushf; @N@\
+        @PUSH_ALL_REGS@ @N@\
+        .cfi_def_cfa_offset 136; @N@\
+        @N@\
+        \
+        COMMENT(Save the overflowed address and the return address as)\
+        COMMENT(arguments for a common overflow handler.)\
+        movq %reg, %ARG1; @N@\
+        lea -144(%rsp), %ARG2; @N@\
+        movq $ size, %ARG3; @N@\
+        @N@\
+        \
+        COMMENT(Align the stack.)\
+        push %rsp; @N@\
+        push (%rsp); @N@\
+        and $-0x10, %rsp; @N@\
+        @N@\
+        \
+        COMMENT(Call out to our common handler.)\
+        call SYMBOL(_ZN6client2wp12bound_policy14visit_overflowEmPPhj); @N@\
+        @N@\
+        \
+        COMMENT(Unalign the stack.)\
+        mov 8(%rsp), %rsp; @N@\
+        @N@\
+        \
+        COMMENT(Restore all register state.)\
+        @POP_ALL_REGS@ @N@\
+        popf; @N@\
+        .cfi_def_cfa_offset 8; @N@\
+        ret;@N@\
+        .cfi_endproc @N@\
+    END_FUNC(CAT(granary_overflow_, CAT(CAT(size, _), reg))) @N@\
+    @N@
 
 
 /// Define a bounds checker and splat the rest of the checkers.
@@ -129,9 +175,26 @@ START_FILE
     BOUNDS_CHECKER(reg, 16)
 
 
+/// Define an overflow handler and splat the rest of the checkers.
+#define DEFINE_HANDLERS(reg, rest) \
+    DEFINE_HANDLER(reg) \
+    rest
+
+
+/// Define the last overflow handler.
+#define DEFINE_HANDLER(reg) \
+    OVERFLOW_HANDLER(reg, 1) \
+    OVERFLOW_HANDLER(reg, 2) \
+    OVERFLOW_HANDLER(reg, 4) \
+    OVERFLOW_HANDLER(reg, 8) \
+    OVERFLOW_HANDLER(reg, 16)
+
+
 /// Define all of the bounds checkers.
 GLOBAL_LABEL(granary_first_bounds_checker:)
 ALL_REGS(DEFINE_CHECKERS, DEFINE_CHECKER)
 GLOBAL_LABEL(granary_last_bounds_checker:)
+
+ALL_REGS(DEFINE_HANDLERS, DEFINE_HANDLER)
 
 END_FILE

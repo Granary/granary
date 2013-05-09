@@ -55,15 +55,13 @@
 #define PLUS_8_144 152
 #define PLUS_8_152 160
 
-#define ADD_(x, y) x ## y
-#define ADD(x, y) ADD_(x, y)
-#define PLUS_EIGHT(_,rest) ADD(PLUS_8_, rest)
+#define PLUS_EIGHT(_,rest) CAT(PLUS_8_, rest)
 #define EIGHT(_) 8
 
 /// used to save and restore registers
 #define PUSHA ALL_REGS(PUSH_REG, PUSH_LAST_REG)
 #define POPA ALL_REGS(POP_REG, POP_LAST_REG)
-#define PUSHA_SIZE TO_STRING(ALL_REGS(PLUS_EIGHT, EIGHT))
+#define PUSHA_SIZE ALL_REGS(PLUS_EIGHT, EIGHT)
 
 /// use to save and restore call-clobbered registers
 #define PUSHA_CALL ALL_CALL_REGS(PUSH_REG, PUSH_LAST_REG)

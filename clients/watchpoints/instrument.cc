@@ -597,7 +597,7 @@ namespace client { namespace wp {
             // from sources/dests.
             tracker.labels[i] = ls.insert_before(before, label_());
             tracker.regs[i] = addr;
-            tracker.op_sizes[i] = static_cast<operand_size>(
+            tracker.sizes[i] = static_cast<operand_size>(
                 dynamorio::opnd_size_in_bytes(op->size));
 
             // In the case of XLAT, we (unfortunately) still need to save

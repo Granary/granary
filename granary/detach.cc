@@ -43,13 +43,26 @@ namespace granary {
                 break;
             }
 
-            wrapper.original_address = reinterpret_cast<app_pc>(
-                dlsym(RTLD_NEXT, wrapper.name));
-            if(wrapper.original_address) {
+            app_pc dlsym_address(reinterpret_cast<app_pc>(
+                dlsym(RTLD_NEXT, wrapper.name)));
+
+            if(!wrapper.original_address) {
+                wrapper.original_address = dlsym_address;
+            }
+
+            if(wrapper.original_address && !wrapper.wrapper_address) {
                 wrapper.wrapper_address = wrapper.original_address;
             }
 
-            DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+            if(wrapper.original_address) {
+                DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+            }
+
+            // Allows us to have something like `free` resolve to
+            // _GI___libc_free.
+            if(wrapper.original_address != dlsym_address) {
+                DETACH_HASH_TABLE->store(dlsym_address, &wrapper);
+            }
         } )
     })
 

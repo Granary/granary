@@ -104,14 +104,18 @@
     struct CAT(init_class_, id) : public granary::static_init_list { \
     public: \
         CAT(init_class_, id)(void) throw() { \
+            IF_USER( granary::detach(); ) \
             this->exec = CAT(init_func_, id); \
             granary::static_init_list::append(*this); \
         } \
     }; \
     static CAT(init_class_, id) CAT(init_val_, id); \
     static __attribute__((noinline)) void CAT(init_func_, id)(void) { \
+        IF_USER( granary::detach(); ) \
         (void) CAT(init_val_, id); \
-        { __VA_ARGS__ } \
+        { \
+            __VA_ARGS__ \
+        } \
     } \
     INITIALISE_GLOBAL_VARIABLE(CAT(init_val_, id))
 
@@ -273,5 +277,6 @@
 #   define DLL_PUBLIC
 #   define DLL_LOCAL
 #endif
+
 
 #endif /* Granary_PP_H_ */

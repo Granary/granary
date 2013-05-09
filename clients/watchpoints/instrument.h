@@ -71,7 +71,7 @@ namespace client {
 
             /// Mask to clear the correct number of high-order bits.
             CLEAR_INDEX_MASK            = ~(
-                (~0ULL) << (DISTINGUISHING_BIT_OFFSET - 1)),
+                (~0ULL) << DISTINGUISHING_BIT_OFFSET),
 
             /// OR this with a user address to add a watchpoint distinguisher
             /// bit to the address
@@ -149,7 +149,7 @@ namespace client {
             /// must be left as-is.
             bool can_replace[MAX_NUM_OPERANDS];
 
-            operand_size op_sizes[MAX_NUM_OPERANDS];
+            operand_size sizes[MAX_NUM_OPERANDS];
 
             /// The number of operands that need to be instrumented.
             unsigned num_ops;
@@ -232,7 +232,7 @@ namespace client {
         /// Returns true iff an address is watched.
         template <typename T>
         inline bool is_watched_address(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             return DISTINGUISHING_BIT_MASK == (ptr | DISTINGUISHING_BIT_MASK);
 #else
@@ -245,11 +245,11 @@ namespace client {
         /// watched.
         template <typename T>
         T unwatched_address(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
-            return granary::unsafe_cast<T>(ptr | CLEAR_INDEX_MASK);
+            return granary::unsafe_cast<T>(ptr | (~CLEAR_INDEX_MASK));
 #else
-            return granary::unsafe_cast<T>(ptr & (~CLEAR_INDEX_MASK));
+            return granary::unsafe_cast<T>(ptr & CLEAR_INDEX_MASK);
 #endif
         }
 
@@ -307,7 +307,7 @@ namespace client {
         template <typename T>
         inline uintptr_t
         index_of(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
             const uintptr_t counter_index(ptr >> DISTINGUISHING_BIT_OFFSET);
 #if WP_USE_PARTIAL_INDEX
             return combined_index(counter_index, partial_index_of(ptr));
@@ -376,9 +376,9 @@ namespace client {
 
             counter_index <<= 1;
             counter_index |= DISTINGUISHING_BIT;
-            counter_index <<= (DISTINGUISHING_BIT_OFFSET - 1);
+            counter_index <<= DISTINGUISHING_BIT_OFFSET;
 
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
 
             ptr_ = granary::unsafe_cast<T>(
                 counter_index | (ptr & CLEAR_INDEX_MASK));

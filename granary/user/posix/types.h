@@ -2,7 +2,6 @@
 /*
  * posix.h
  *
- *   Copyright: Copyright 2012 Peter Goodman, all rights reserved.
  *      Author: Peter Goodman
  */
 
@@ -22,6 +21,14 @@
 #define uint16_t U_uint16_t
 #define uint32_t U_uint32_t
 #define uint64_t U_uint64_t
+
+#define GR_USING_GLIBC \
+    (defined(__GLIBC__) || defined(__GNU_LIBRARY__) || defined(__GLIBC_MINOR__))
+
+#if GR_USING_GLIBC || defined(__linux)
+extern void *__libc_malloc(uint64_t);
+extern void __libc_free(void *);
+#endif
 
 #include <aio.h>
 //#include <arpa/inet.h>

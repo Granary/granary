@@ -490,41 +490,10 @@ all: $(GR_OBJS)
 # directories to make sure cleaning doesn't report any errors; depending on
 # the compilation mode (KERNEL=0/1), not all bin folders will have objects
 clean:
-	@-touch bin/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/deps/icxxabi/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/deps/dr/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/deps/dr/x86/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/deps/murmurhash/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/user/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/kernel/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/kernel/linux/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/gen/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/granary/x86/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/clients/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/clients/watchpoints/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/clients/watchpoints/tests/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/clients/watchpoints/policies/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/clients/watchpoints/policies/x86/_.$(GR_OUTPUT_FORMAT)
-	@-touch bin/tests/_.$(GR_OUTPUT_FORMAT)
-	
-	@-rm bin/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/deps/icxxabi/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/deps/dr/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/deps/dr/x86/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/deps/murmurhash/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/user/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/kernel/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/kernel/linux/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/gen/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/granary/x86/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/clients/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/clients/watchpoints/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/clients/watchpoints/tests/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/clients/watchpoints/policies/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/clients/watchpoints/policies/x86/*.$(GR_OUTPUT_FORMAT)
-	@-rm bin/tests/*.$(GR_OUTPUT_FORMAT)
+	@find bin -name \*.o -execdir rm {} \;
+	@find bin -name \*.o.cmd -execdir rm {} \;
+	@find bin -name \*.S -execdir rm {} \;
+	@find bin -name \*.su -execdir rm {} \;
 
 	@-rm granary/gen/kernel_init.S ||:
 	@-touch granary/gen/kernel_init.S

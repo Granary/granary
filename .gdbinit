@@ -105,6 +105,11 @@ define x-ins
     if $__start == $__end || 0xEA == *$__in || 0xD4 == *$__in || 0x82 == *$__in
       set $__dont_exit = 0
     else 
+      if $rip == $__start
+        printf "=>"
+      else
+        printf "  "
+      end
       x/i $__start
       set $num_ins = $num_ins + 1
     end
