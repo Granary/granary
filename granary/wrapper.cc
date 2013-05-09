@@ -58,6 +58,7 @@
 #       include "granary/user/posix/wrappers.h"
 #       include "granary/gen/user_wrappers.h"
 #   endif
+#   include "granary/wrappers.h"
 
 
 #   if defined(__clang__)

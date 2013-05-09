@@ -14,6 +14,20 @@
 
 using namespace client::wp;
 
+#define WRAPPER_FOR_void_pointer
+TYPE_WRAPPER(void *, {
+    NO_PRE_IN
+    PRE_OUT {
+        if(is_watched_address(arg)) {
+            printf("unwrapping void pointer %p!\n", arg);
+            arg = unwatched_address(arg);
+        }
+    }
+    NO_POST
+    NO_RETURN
+})
+
+
 #if defined(CAN_WRAP_malloc) && CAN_WRAP_malloc
 #   define WRAPPER_FOR_malloc
     FUNCTION_WRAPPER(malloc, (void *), (size_t size), {

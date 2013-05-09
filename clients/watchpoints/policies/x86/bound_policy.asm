@@ -99,7 +99,7 @@ START_FILE
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
         COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        call CAT(granary_overflow_handler_, CAT(CAT(size, _), reg)); \
+        call CAT(SYMBOL(granary_overflow_handler_), CAT(CAT(size, _), reg)); \
         @N@\
         \
     .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\
@@ -142,9 +142,17 @@ START_FILE
         and $-0x10, %rsp; @N@\
         @N@\
         \
+        IF_USER(COMMENT(Save the XMM registers.)) \
+        IF_USER(@PUSH_ALL_XMM_REGS@) \
+        IF_USER(@N@) \
+        \
         COMMENT(Call out to our common handler.)\
         call SYMBOL(_ZN6client2wp12bound_policy14visit_overflowEmPPhj); @N@\
         @N@\
+        \
+        IF_USER(COMMENT(Restore the XMM registers.)) \
+        IF_USER(@POP_ALL_XMM_REGS@) \
+        IF_USER(@N@) \
         \
         COMMENT(Unalign the stack.)\
         mov 8(%rsp), %rsp; @N@\

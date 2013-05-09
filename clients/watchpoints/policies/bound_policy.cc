@@ -58,22 +58,21 @@ namespace client { namespace wp {
     static unsigned REG_TO_INDEX[] = {
         ~0U,    // null
         0,      // rax
-        1,      // rbx
-        2,      // rcx
-        3,      // rdx
-        4,      // rbx
+        1,      // rcx
+        2,      // rdx
+        3,      // rbx
         ~0U,    // rsp
-        5,      // rbp
-        6,      // rsi
-        7,      // rdi
-        8,      // r8
-        9,      // r9
-        10,      // r10
-        11,     // r11
-        12,     // r12
-        13,     // r13
-        14,     // r14
-        15      // r15
+        4,      // rbp
+        5,      // rsi
+        6,      // rdi
+        7,      // r8
+        8,      // r9
+        9,      // r10
+        10,     // r11
+        11,     // r12
+        12,     // r13
+        13,     // r14
+        14      // r15
     };
 
 
@@ -212,6 +211,7 @@ namespace client { namespace wp {
         app_pc *addr_in_bb,
         unsigned size
     ) throw() {
+        printf("Overflow!\n");
         (void) watched_addr;
         (void) addr_in_bb;
         (void) size;

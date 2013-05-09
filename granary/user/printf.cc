@@ -18,7 +18,7 @@
 
 namespace granary {
 #if LOG
-    static FILE *granary_out(fopen("granary.log", "w"));
+    static FILE *granary_out(stderr); //fopen("granary.log", "w"));
 #endif
 
     int printf(const char *format, ...) throw() {

@@ -88,46 +88,37 @@ namespace granary {
     };
 
 
-    /// Specialisations to handle "following" types.
-    template <typename T>
-    struct type_wrapper_base<const T> {
-    public:
-
-#define WRAP_VALUE_(prefix) \
-    inline static void CAT(prefix, _wrap)(const T &val, const int depth) throw() { \
-        type_wrapper<T>::CAT(prefix, _wrap)(const_cast<T &>(val), depth); \
+#define WRAP_QUALIFIED_VALUE(prefix, qual, suffix, cast) \
+    inline static void CAT(prefix, _wrap)( \
+        qual T suffix&val, \
+        const int depth \
+    ) throw() { \
+        return type_wrapper<T suffix>::CAT(prefix, _wrap)( \
+            cast<T suffix&>(val), depth); \
     }
 
-        WRAP_VALUE_(pre_in)
-        WRAP_VALUE_(pre_out)
-        WRAP_VALUE_(post_in)
-        WRAP_VALUE_(post_out)
-        WRAP_VALUE_(return_in)
-        WRAP_VALUE_(return_out)
 
-#undef WRAP_VALUE_
+/// Specialisations to handle qualified types.
+#define WRAP_QUALIFIER_TYPE_IMPL(qual, suffix, cast) \
+    template <typename T> \
+    struct type_wrapper_base<qual T suffix > { \
+    public: \
+        WRAP_QUALIFIED_VALUE(pre_in, qual, suffix, cast) \
+        WRAP_QUALIFIED_VALUE(pre_out, qual, suffix, cast) \
+        WRAP_QUALIFIED_VALUE(post_in, qual, suffix, cast) \
+        WRAP_QUALIFIED_VALUE(post_out, qual, suffix, cast) \
+        WRAP_QUALIFIED_VALUE(return_in, qual, suffix, cast) \
+        WRAP_QUALIFIED_VALUE(return_out, qual, suffix, cast) \
     };
 
 
-    /// Specialisations to handle "following" types.
-    template <typename T>
-    struct type_wrapper_base<volatile T> {
-    public:
+#define WRAP_QUALIFIER_TYPE(qual, cast) \
+    WRAP_QUALIFIER_TYPE_IMPL(qual, NOTHING, cast) \
+    WRAP_QUALIFIER_TYPE_IMPL(qual, *, cast)
 
-#define WRAP_VALUE_(prefix) \
-    inline static void CAT(prefix, _wrap)(volatile T &val, const int depth) throw() { \
-        type_wrapper<T>::CAT(prefix, _wrap)(reinterpret_cast<T &>(val), depth); \
-    }
-
-        WRAP_VALUE_(pre_in)
-        WRAP_VALUE_(pre_out)
-        WRAP_VALUE_(post_in)
-        WRAP_VALUE_(post_out)
-        WRAP_VALUE_(return_in)
-        WRAP_VALUE_(return_out)
-
-#undef WRAP_VALUE_
-    };
+    /// Unwrap const and volatile types.
+    WRAP_QUALIFIER_TYPE(const, const_cast)
+    WRAP_QUALIFIER_TYPE(volatile, reinterpret_cast)
 
 
 #if GRANARY_IN_KERNEL
@@ -224,6 +215,29 @@ namespace granary {
     };
 
 
+    /// Handle some special cases for "dead" types.
+#define WRAP_DEAD_TYPE(type) \
+    template <> \
+    struct has_in_wrapper<type> { \
+        enum { \
+            VALUE = 0 \
+        }; \
+    }; \
+    template <> \
+    struct has_out_wrapper<type> { \
+        enum { \
+            VALUE = 0 \
+        }; \
+    };
+
+
+
+    WRAP_DEAD_TYPE(void)
+    WRAP_DEAD_TYPE(const void)
+    WRAP_DEAD_TYPE(volatile void)
+    WRAP_DEAD_TYPE(const volatile void)
+
+
     /// Specialisation to handle tricky cases.
 #define WRAP_BASIC_TYPE_IMPL(basic_type) \
     template <> \
@@ -274,22 +288,7 @@ namespace granary {
     WRAP_BASIC_TYPE_IMPL(basic_type *) \
     WRAP_BASIC_TYPE_IMPL(const basic_type *) \
     WRAP_BASIC_TYPE_IMPL(volatile basic_type *) \
-    WRAP_BASIC_TYPE_IMPL(volatile const basic_type *)
-
-
-    WRAP_BASIC_TYPE(void)
-    WRAP_BASIC_TYPE(char)
-    WRAP_BASIC_TYPE(unsigned char)
-    WRAP_BASIC_TYPE(short)
-    WRAP_BASIC_TYPE(unsigned short)
-    WRAP_BASIC_TYPE(int)
-    WRAP_BASIC_TYPE(unsigned)
-    WRAP_BASIC_TYPE(long)
-    WRAP_BASIC_TYPE(unsigned long)
-    WRAP_BASIC_TYPE(long long)
-    WRAP_BASIC_TYPE(unsigned long long)
-    WRAP_BASIC_TYPE(float)
-    WRAP_BASIC_TYPE(double)
+    WRAP_BASIC_TYPE_IMPL(const volatile basic_type *)
 
 
     /// Tracks whether the function is already wrapped (by a custom function

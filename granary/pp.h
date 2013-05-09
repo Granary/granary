@@ -154,7 +154,7 @@
 /// Note: This purposefully exludes the NULL register, as well as the stack
 ///       pointer register.
 #define ALL_REGS(R, R_last) \
-    R(rax, R(rbx, R(rcx, R(rdx, \
+    R(rax, R(rcx, R(rdx, R(rbx, \
     R(rbp, R(rsi, R(rdi, R(r8, \
     R(r9, R(r10, R(r11, R(r12, \
     R(r13, R(r14, R_last(r15)))))))))))))))
