@@ -12,7 +12,29 @@
 
 #include "clients/watchpoints/policies/bound_policy.h"
 
+
 using namespace client::wp;
+
+
+#define WRAPPER_FOR_pointer
+POINTER_WRAPPER({
+    PRE_OUT {
+        if(!is_valid_address(arg)) {
+            return;
+        }
+        if(is_watched_address(arg)) {
+            arg = unwatched_address(arg);
+            if(!is_valid_address(arg)) {
+                return;
+            }
+        }
+        PRE_OUT_WRAP(*arg);
+    }
+    INHERIT_PRE_IN
+    INHERIT_POST_INOUT
+    INHERIT_RETURN_INOUT
+})
+
 
 #define WRAPPER_FOR_void_pointer
 TYPE_WRAPPER(void *, {
@@ -28,10 +50,34 @@ TYPE_WRAPPER(void *, {
 })
 
 
+#if 0
+#if defined(CAN_WRAP_realloc) && CAN_WRAP_realloc
+#   define WRAPPER_FOR_realloc
+    FUNCTION_WRAPPER(realloc, (void *), (void *ptr, size_t size), {
+        bound_descriptor *desc(nullptr);
+
+        if(is_watched_address(ptr)) {
+            desc = descriptor_of(ptr);
+
+        }
+        void *ptr(malloc(size));
+        if(!ptr) {
+            return ptr;
+        }
+        add_watchpoint(ptr, ptr, size);
+        return ptr;
+    })
+#endif
+#endif
+
+
 #if defined(CAN_WRAP_malloc) && CAN_WRAP_malloc
 #   define WRAPPER_FOR_malloc
     FUNCTION_WRAPPER(malloc, (void *), (size_t size), {
         void *ptr(malloc(size));
+        if(!ptr) {
+            return ptr;
+        }
         add_watchpoint(ptr, ptr, size);
         return ptr;
     })
@@ -42,6 +88,9 @@ TYPE_WRAPPER(void *, {
 #   define WRAPPER_FOR___libc_malloc
     FUNCTION_WRAPPER(__libc_malloc, (void *), (size_t size), {
         void *ptr(__libc_malloc(size));
+        if(!ptr) {
+            return ptr;
+        }
         add_watchpoint(ptr, ptr, size);
         return ptr;
     })

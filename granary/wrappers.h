@@ -9,6 +9,18 @@
 #ifndef granary_BASIC_WRAPPERS_H_
 #define granary_BASIC_WRAPPERS_H_
 
+
+#ifdef WRAPPER_FOR_pointer
+    POINTER_WRAPPER_QUAL(const, {
+        INHERIT_INOUT
+    })
+
+    POINTER_WRAPPER_QUAL(volatile, {
+        INHERIT_INOUT
+    })
+#endif
+
+
 namespace granary {
 
 /// Basic type wrappers for POINTER TYPES are defined here so that client code
@@ -19,35 +31,43 @@ namespace granary {
 #endif
 
 #ifndef WRAPPER_FOR_int8_t_pointer
-    WRAP_BASIC_TYPE(int8_t)
+    static_assert(sizeof(char) == sizeof(int8_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(char)
 #endif
 
 #ifndef WRAPPER_FOR_uint8_t_pointer
-    WRAP_BASIC_TYPE(uint8_t)
+    static_assert(sizeof(char) == sizeof(int8_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(unsigned char)
 #endif
 
 #ifndef WRAPPER_FOR_int16_t_pointer
-    WRAP_BASIC_TYPE(int16_t)
+    static_assert(sizeof(short) == sizeof(int16_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(short)
 #endif
 
 #ifndef WRAPPER_FOR_uint16_t_pointer
-    WRAP_BASIC_TYPE(uint16_t)
+    static_assert(sizeof(short) == sizeof(int16_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(unsigned short)
 #endif
 
 #ifndef WRAPPER_FOR_int32_t_pointer
-    WRAP_BASIC_TYPE(int32_t)
+    static_assert(sizeof(int) == sizeof(int32_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(int)
 #endif
 
 #ifndef WRAPPER_FOR_uint32_t_pointer
-    WRAP_BASIC_TYPE(uint32_t)
+    static_assert(sizeof(int) == sizeof(int32_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(unsigned)
 #endif
 
 #ifndef WRAPPER_FOR_int64_t_pointer
-    WRAP_BASIC_TYPE(int64_t)
+    static_assert(sizeof(long) == sizeof(int64_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(long)
 #endif
 
 #ifndef WRAPPER_FOR_uint64_t_pointer
-    WRAP_BASIC_TYPE(uint64_t)
+    static_assert(sizeof(long) == sizeof(int64_t), "Type size mismatch.");
+    WRAP_BASIC_TYPE(unsigned long)
 #endif
 
 #ifndef WRAPPER_FOR_float_pointer
