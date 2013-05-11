@@ -9,7 +9,7 @@
 
 #include "granary/printf.h"
 
-#define LOG 1
+#define LOG 0
 
 #if LOG
 #   include <cstdio>

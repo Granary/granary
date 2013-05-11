@@ -177,6 +177,10 @@ ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/policies/bound_policy.o
 	GR_OBJS += bin/clients/watchpoints/policies/x86/bound_policy.o
+	
+	ifeq ($(KERNEL),0)
+		GR_OBJS += bin/clients/watchpoints/policies/user/posix/bound_policy.o
+	endif
 endif
 
 # C++ ABI-specific stuff
@@ -460,6 +464,8 @@ install:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/x86 > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/user > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/user/posix > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/deps > /dev/null 2>&1 ||:

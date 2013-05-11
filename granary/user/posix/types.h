@@ -25,8 +25,15 @@
 #define GR_USING_GLIBC \
     (defined(__GLIBC__) || defined(__GNU_LIBRARY__) || defined(__GLIBC_MINOR__))
 
+#ifndef _XOPEN_SOURCE
+#   define _XOPEN_SOURCE
+#endif
+
+
 #if GR_USING_GLIBC || defined(__linux)
 extern void *__libc_malloc(uint64_t);
+extern void *__libc_calloc(uint64_t);
+extern void *__libc_realloc(uint64_t);
 extern void __libc_free(void *);
 #endif
 
@@ -106,6 +113,9 @@ extern void __libc_free(void *);
 #include <wchar.h>
 #include <wctype.h>
 #include <wordexp.h>
+
+
+#include <ucontext.h>
 
 #ifdef __APPLE__
 #   include <malloc/malloc.h>

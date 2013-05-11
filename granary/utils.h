@@ -26,7 +26,7 @@ namespace granary {
     template <typename ToT, typename FromT>
     FORCE_INLINE ToT unsafe_cast(const FromT &v) throw()  {
         ToT dest;
-        memcpy(&dest, &v, sizeof(ToT));
+        ::memcpy(&dest, &v, sizeof(ToT));
         return dest;
     }
 

@@ -232,7 +232,7 @@ namespace client {
         /// Returns true iff an address is watched.
         template <typename T>
         inline bool is_watched_address(T ptr_) throw() {
-            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             return DISTINGUISHING_BIT_MASK == (ptr | DISTINGUISHING_BIT_MASK);
 #else
@@ -245,7 +245,7 @@ namespace client {
         /// watched.
         template <typename T>
         T unwatched_address(T ptr_) throw() {
-            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             return granary::unsafe_cast<T>(ptr | (~CLEAR_INDEX_MASK));
 #else
@@ -307,7 +307,7 @@ namespace client {
         template <typename T>
         inline uintptr_t
         index_of(T ptr_) throw() {
-            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
             const uintptr_t counter_index(ptr >> DISTINGUISHING_BIT_OFFSET);
 #if WP_USE_PARTIAL_INDEX
             return combined_index(counter_index, partial_index_of(ptr));
@@ -378,7 +378,7 @@ namespace client {
             counter_index |= DISTINGUISHING_BIT;
             counter_index <<= DISTINGUISHING_BIT_OFFSET;
 
-            const uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
+            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 
             ptr_ = granary::unsafe_cast<T>(
                 counter_index | (ptr & CLEAR_INDEX_MASK));

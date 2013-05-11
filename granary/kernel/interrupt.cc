@@ -89,10 +89,10 @@ namespace granary {
     /// Mangle a delayed instruction.
     ///
     /// We make several basic assumptions:
-    ///     i)  Code in a delay region does not fault.
-    ///     ii) Eliding cli/sti in a delay region is safe because the code
-    ///         within the delay region (given assumption 1) must have been
-    ///         interrupted before the 'cli' or after the 'sti'.
+    ///     i)   Code in a delay region does not fault.
+    ///     ii)  Eliding cli/sti in a delay region is safe because the code
+    ///          within the delay region (given assumption 1) must have been
+    ///          interrupted before the 'cli' or after the 'sti'.
     ///     iii) If a delay region contains control-flow instructions then
     ///          the targets of those instructions will remain within the
     ///          delay region. This restrics delay regions to not containing
@@ -100,8 +100,8 @@ namespace granary {
     ///          be guaranteed for such instructions.
     ///
     /// Mangling this code is tricky for two reasons:
-    ///     i) POPFs cannot be allowed to restore interrupts, as code in
-    ///        a delayed interrupt region is not re-entrant.
+    ///     i)  POPFs cannot be allowed to restore interrupts, as code in
+    ///         a delayed interrupt region is not re-entrant.
     ///     ii) Control flow within the delay region stays within the delay
     ///         region.
     __attribute__((hot))
