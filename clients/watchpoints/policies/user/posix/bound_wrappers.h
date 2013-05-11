@@ -15,6 +15,7 @@
 
 using namespace client::wp;
 
+
 #define WRAPPER_FOR_pointer
 POINTER_WRAPPER({
     PRE_OUT {
@@ -56,7 +57,7 @@ TYPE_WRAPPER(void *, {
             old_ptr = ptr;
             ptr = unwatched_address(ptr);
         }
-        void *new_ptr(reallocf(ptr, size));
+        void *new_ptr(realloc(ptr, size));
         if(new_ptr) {
             if(ptr != new_ptr && new_ptr && old_ptr) {
                 free_descriptor_of(old_ptr);

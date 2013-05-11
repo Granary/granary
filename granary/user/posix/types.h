@@ -32,8 +32,8 @@
 
 #if GR_USING_GLIBC || defined(__linux)
 extern void *__libc_malloc(uint64_t);
-extern void *__libc_calloc(uint64_t);
-extern void *__libc_realloc(uint64_t);
+extern void *__libc_calloc(uint64_t, uint64_t);
+extern void *__libc_realloc(void *, uint64_t);
 extern void __libc_free(void *);
 #endif
 

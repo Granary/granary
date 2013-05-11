@@ -65,7 +65,16 @@ namespace client { namespace wp {
 #if WP_IGNORE_FRAME_POINTER
         if(dynamorio::DR_REG_RBP == regs[0]
         || dynamorio::DR_REG_RBP == regs[1]) {
-            return;
+
+            // We need to be careful about ignoring the frame pointer in the
+            // case of leaf functions. We'll look to see if the base pointer
+            // is an index register that is being multiplied by a non-1
+            // constant. This doesn't get all cases, obviously.
+
+            if(dynamorio::DR_REG_RBP != op->value.base_disp.index_reg
+            || 1 == op->value.base_disp.scale) {
+                return;
+            }
         }
 #endif /* WP_IGNORE_FRAME_POINTER */
 

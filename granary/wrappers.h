@@ -18,6 +18,10 @@
     POINTER_WRAPPER_QUAL(volatile, {
         INHERIT_INOUT
     })
+
+    POINTER_WRAPPER_QUAL(const volatile, {
+        INHERIT_INOUT
+    })
 #endif
 
 

@@ -116,9 +116,11 @@ namespace granary {
     WRAP_QUALIFIER_TYPE_IMPL(qual, NOTHING, cast) \
     WRAP_QUALIFIER_TYPE_IMPL(qual, *, cast)
 
+
     /// Unwrap const and volatile types.
     WRAP_QUALIFIER_TYPE(const, const_cast)
-    WRAP_QUALIFIER_TYPE(volatile, reinterpret_cast)
+    WRAP_QUALIFIER_TYPE(volatile, const_cast)
+    WRAP_QUALIFIER_TYPE(const volatile, const_cast)
 
 
 #if GRANARY_IN_KERNEL
@@ -168,51 +170,35 @@ namespace granary {
 
 
     template <typename T>
-    struct has_in_wrapper<T *> {
-    public:
-        enum {
-            VALUE = has_in_wrapper<T>::VALUE | type_wrapper<T *>::HAS_IN_WRAPPER
-        };
-    };
-
-
-    template <typename T>
-    struct has_in_wrapper<const T> {
-    public:
-        enum {
-            VALUE = has_in_wrapper<T>::VALUE
-                  | type_wrapper<const T>::HAS_IN_WRAPPER
-        };
-    };
-
-
-    template <typename T>
     struct has_out_wrapper {
     public:
         enum {
-            VALUE = type_wrapper<T>::HAS_OUT_WRAPPER
+            VALUE = type_wrapper<T>::HAS_IN_WRAPPER
         };
     };
 
 
-    template <typename T>
-    struct has_out_wrapper<T *> {
-    public:
-        enum {
-            VALUE = has_out_wrapper<T>::VALUE
-                  | type_wrapper<T *>::HAS_OUT_WRAPPER
-        };
+#define MAKE_HAS_WRAPPER(inout, INOUT, prefix, suffix) \
+    template <typename T> \
+    struct CAT(CAT(has_, inout), _wrapper) <prefix T suffix> { \
+    public: \
+        enum { \
+            VALUE = CAT(CAT(has_, inout), _wrapper) <T>::VALUE \
+                  | type_wrapper<prefix T suffix>:: CAT(CAT(HAS_, INOUT), _WRAPPER) \
+        }; \
     };
 
 
-    template <typename T>
-    struct has_out_wrapper<const T> {
-    public:
-        enum {
-            VALUE = has_out_wrapper<T>::VALUE
-                  | type_wrapper<const T>::HAS_OUT_WRAPPER
-        };
-    };
+    MAKE_HAS_WRAPPER(in, IN, const, NOTHING)
+    MAKE_HAS_WRAPPER(in, IN, volatile, NOTHING)
+    MAKE_HAS_WRAPPER(in, IN, const volatile, NOTHING)
+    MAKE_HAS_WRAPPER(in, IN, NOTHING, *)
+
+
+    MAKE_HAS_WRAPPER(out, OUT, const, NOTHING)
+    MAKE_HAS_WRAPPER(out, OUT, volatile, NOTHING)
+    MAKE_HAS_WRAPPER(out, OUT, const volatile, NOTHING)
+    MAKE_HAS_WRAPPER(out, OUT, NOTHING, *)
 
 
     /// Check to see if a derivation of that type has a wrapper.
@@ -226,34 +212,6 @@ namespace granary {
 
 
     template <typename T>
-    struct next_has_in_wrapper<T *> {
-    public:
-        enum {
-            VALUE = has_in_wrapper<T>::VALUE
-        };
-    };
-
-
-    template <typename T>
-    struct next_has_in_wrapper<const T> {
-    public:
-        enum {
-            VALUE = has_in_wrapper<T>::VALUE
-        };
-    };
-
-
-    template <typename T>
-    struct next_has_in_wrapper<volatile T> {
-    public:
-        enum {
-            VALUE = has_in_wrapper<T>::VALUE
-        };
-    };
-
-
-    /// Check to see if a derivation of that type has a wrapper.
-    template <typename T>
     struct next_has_out_wrapper {
     public:
         enum {
@@ -262,31 +220,26 @@ namespace granary {
     };
 
 
-    template <typename T>
-    struct next_has_out_wrapper<T *> {
-    public:
-        enum {
-            VALUE = has_out_wrapper<T>::VALUE
-        };
+#define MAKE_NEXT_HAS_WRAPPER(inout, INOUT, prefix, suffix) \
+    template <typename T> \
+    struct CAT(CAT(next_has_, inout), _wrapper) <prefix T suffix> { \
+    public: \
+        enum { \
+            VALUE = CAT(CAT(has_, inout), _wrapper) <T>::VALUE \
+        }; \
     };
 
 
-    template <typename T>
-    struct next_has_out_wrapper<const T> {
-    public:
-        enum {
-            VALUE = has_out_wrapper<T>::VALUE
-        };
-    };
+    MAKE_NEXT_HAS_WRAPPER(in, IN, const, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(in, IN, volatile, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(in, IN, const volatile, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(in, IN, NOTHING, *)
 
 
-    template <typename T>
-    struct next_has_out_wrapper<volatile T> {
-    public:
-        enum {
-            VALUE = has_out_wrapper<T>::VALUE
-        };
-    };
+    MAKE_NEXT_HAS_WRAPPER(out, OUT, const, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(out, OUT, volatile, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(out, OUT, const volatile, NOTHING)
+    MAKE_NEXT_HAS_WRAPPER(out, OUT, NOTHING, *)
 
 
     /// Handle some special cases for "dead" types.
@@ -303,7 +256,6 @@ namespace granary {
             VALUE = 0 \
         }; \
     };
-
 
 
     WRAP_DEAD_TYPE(void)

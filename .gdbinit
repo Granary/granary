@@ -91,6 +91,8 @@ define x-ins
 
   while $__dont_exit
 
+    set $__orig_start = $__start
+
     set logging file /dev/null
     set logging overwrite on
     set logging redirect on
@@ -104,15 +106,9 @@ define x-ins
     set $__in = (uint8_t *) $__start
     if $__start == $__end || 0xEA == *$__in || 0xD4 == *$__in || 0x82 == *$__in
       set $__dont_exit = 0
-    else 
-      if $rip == $__start
-        printf "=>"
-      else
-        printf "  "
-      end
-      x/i $__start
-      set $num_ins = $num_ins + 1
-    end
+    end 
+    x/i $__orig_start
+    set $num_ins = $num_ins + 1
   end
 end
 
