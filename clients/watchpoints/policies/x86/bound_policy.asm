@@ -13,7 +13,7 @@
 #include "clients/watchpoints/config.h"
 
     .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
-    .extern SYMBOL(_ZN6client2wp12bound_policy14visit_overflowEmPPhj)
+    .extern SYMBOL(_ZN6client2wp14visit_overflowEmPPhj)
 
 START_FILE
 
@@ -147,7 +147,7 @@ START_FILE
         IF_USER(@N@) \
         \
         COMMENT(Call out to our common handler.)\
-        call SYMBOL(_ZN6client2wp12bound_policy14visit_overflowEmPPhj); @N@\
+        call SYMBOL(_ZN6client2wp14visit_overflowEmPPhj); @N@\
         @N@\
         \
         IF_USER(COMMENT(Restore the XMM registers.)) \

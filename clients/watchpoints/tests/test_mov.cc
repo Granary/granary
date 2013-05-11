@@ -30,7 +30,7 @@ namespace test {
 
     static void unwatched_mov_to_mem(void) throw() {
         ASM(
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
         );
@@ -38,8 +38,8 @@ namespace test {
 
     static void watched_mov_to_mem(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
         );
@@ -49,7 +49,7 @@ namespace test {
 
     static void unwatched_mov_to_mem_dep(void) throw() {
         ASM(
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
 
@@ -59,8 +59,8 @@ namespace test {
 
     static void watched_mov_to_mem_dep(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);"
 
@@ -73,7 +73,7 @@ namespace test {
     static void unwatched_mov_to_mem_cf(void) throw() {
         ASM(
             "clc;" // set CF=0
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
             "cmovc %rax, %rbx;" // should be a NOP, iff CF was restored to 0
@@ -83,8 +83,8 @@ namespace test {
 
     static void watched_mov_to_mem_cf(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "clc;" // set CF=0
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
@@ -98,7 +98,7 @@ namespace test {
     static void unwatched_mov_to_mem_cf_dep(void) throw() {
         ASM(
             "clc;" // set CF=0
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -109,8 +109,8 @@ namespace test {
 
     static void watched_mov_to_mem_cf_dep(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "clc;" // set CF=0
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax);" // on restore, CF=0
@@ -125,7 +125,7 @@ namespace test {
     static uint64_t unwatched_mov_from_mem_dead(void) throw() {
         register uint64_t ret asm("rax");
         ASM(
-            "movq $WP_MOV_FOO, %%rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;"
             "movq (%%rax), %%rax;"
             "movq %%rax, %0;"
             : "=r"(ret)
@@ -136,8 +136,8 @@ namespace test {
     static uint64_t watched_mov_from_mem_dead(void) throw() {
         register uint64_t ret asm("rax");
         ASM(
-            "movq WP_MOV_MASK, %%rax;"
-            MASK_OP " $WP_MOV_FOO, %%rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %%rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;" // mask the address of FOO
             "clc;" // set CF=0
             "movq (%%rax), %%rax;"
             "movq %%rax, %0;"
@@ -153,7 +153,7 @@ namespace test {
     static uint64_t unwatched_mov_from_mem_dead_8(void) throw() {
         register uint64_t ret asm("rax");
         ASM(
-            "movq $WP_MOV_FOO, %%rsi;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rsi;"
             "movq (%%rsi), %%rsi;"
             "movq %%rsi, %0;"
             : "=r"(ret)
@@ -167,7 +167,7 @@ namespace test {
 
     static void unwatched_mov_to_mem_index(void) throw() {
         ASM(
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (,%rax,1);"
         );
@@ -175,8 +175,8 @@ namespace test {
 
     static void watched_mov_to_mem_index(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (,%rax,1);"
         );
@@ -185,7 +185,7 @@ namespace test {
     static uint64_t unwatched_mov_from_mem_dead_index(void) throw() {
         register uint64_t ret asm("rax");
         ASM(
-            "movq $WP_MOV_FOO, %%rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;"
             "movq (,%%rax,1), %%rax;"
             "movq %%rax, %0;"
             : "=r"(ret)
@@ -196,8 +196,8 @@ namespace test {
     static uint64_t watched_mov_from_mem_dead_index(void) throw() {
         register uint64_t ret asm("rax");
         ASM(
-            "movq WP_MOV_MASK, %%rax;"
-            MASK_OP " $WP_MOV_FOO, %%rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %%rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;" // mask the address of FOO
             "clc;" // set CF=0
             "movq (,%%rax,1), %%rax;"
             "movq %%rax, %0;"
@@ -209,7 +209,7 @@ namespace test {
     /// Test MOV instructions that use both the base and index registers.
     static void unwatched_mov_to_mem_base_index(void) throw() {
         ASM(
-            "movq $WP_MOV_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0, %rsi;"
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax,%rsi,1);"
@@ -218,9 +218,9 @@ namespace test {
 
     static void watched_mov_to_mem_base_index(void) throw() {
         ASM(
-            "movq WP_MOV_MASK, %rax;"
+            "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             "movq $0, %rsi;"
-            MASK_OP " $WP_MOV_FOO, %rax;" // mask the address of FOO
+            MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
             "movq $0xDEADBEEF, %rbx;"
             "movq %rbx, (%rax,%rsi,1);"
         );

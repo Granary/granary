@@ -392,15 +392,21 @@ namespace client {
     /// Generalised behavioural watchpoints instrumentation. A `Watcher` type is
     /// passed, which generates instrumentation code when watched memory
     /// operations on detected.
-    template <typename Watcher>
+    template <typename AppWatcher, typename HostWatcher>
     struct watchpoints : public granary::instrumentation_policy {
     public:
 
 
+        typedef watchpoints<AppWatcher, HostWatcher> self_type;
+
+
+        enum {
+            AUTO_INSTRUMENT_HOST = AppWatcher::AUTO_INSTRUMENT_HOST
+        };
+
         /// Instrument a basic block.
-        static granary::instrumentation_policy visit_basic_block(
-            granary::cpu_state_handle &,
-            granary::thread_state_handle &,
+        template <typename Watcher>
+        static granary::instrumentation_policy visit_instructions(
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -417,14 +423,6 @@ namespace client {
                 memset(&tracker, 0, sizeof tracker);
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
-
-#define NARROW 0
-
-#if NARROW
-                // TODO: remove me
-                register_manager old_next_live_regs(next_live_regs);
-                (void) old_next_live_regs;
-#endif
 
                 // Special case for XLAT; to expose the "full" watched address
                 // to higher-level instrumentation, we need to compute the full
@@ -483,108 +481,11 @@ namespace client {
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
-
-#if NARROW
-                // narrow down step 1:
-                /*
-                bool skip(false);
-                for(unsigned i(0); i < tracker.num_ops; ++i) {
-                    const operand_ref &op(tracker.ops[i]);
-                    if((SOURCE_OPERAND & op.kind)) {
-                        skip = true;
-                    }
-                }
-                if(skip) {
-                    continue;
-                }
-                */
-                // TODO: remove this after fixing REP MOVS issue.
-                // narrow step 2:
-                if(tracker.num_ops == 1) {
-                    continue;
-                }
-#if 0
-                if(56 != in.op_code()) {
-                    continue;
-                }
-
-                // narrow step 3:
-                const operand_ref &op2(tracker.ops[0]);
-                (void) op2;
-
-                if(!op2->value.base_disp.base_reg) {
-                    continue;
-                }
-
-                // narrow step 4:
-                if(!op2->value.base_disp.index_reg) {
-                    continue;
-                }
-
-                // narrow step 5:
-                if(!op2->value.base_disp.disp) {
-                    continue;
-                }
-
-                (void) old_next_live_regs;
-
-                if(!tracker.live_regs.is_live(op2->value.base_disp.base_reg)) {
-                    continue;
-                }
-
-                if(!old_next_live_regs.is_live(op2->value.base_disp.base_reg)) {
-                    continue;
-                }
-
-                if(!in.pc()) {
-                    continue;
-                }
-                /*
-                if(dynamorio::OP_mov_st == in.op_code()) {
-                    continue;
-                }
-                */
-
-                /*
-                if(55 == in.op_code()) {
-                    continue;
-                }
-
-                if(14 == in.op_code()) {
-                    continue;
-                }
-
-                if(190 == in.op_code()) {
-                    continue;
-                }
-
-                if(16 == in.op_code()) {
-                    continue;
-                }
-
-                if(10 == in.op_code()) {
-                    continue;
-                }
-                */
-
-                // 195 - potentially solved
-                /*
-                if(in != old_in) {
-                    continue;
-                }*/
+#if WP_IGNORE_FRAME_POINTER
+                tracker.live_regs.revive(dynamorio::DR_REG_RBP);
+                tracker.live_regs_after.revive(dynamorio::DR_REG_RBP);
 #endif
-                // only one operand
-                // memory operand is a source
-                // has a base reg
-                // no index reg
-                // no displacement
-                // base reg is killed by the instruction
-                // base reg is live after the instruction
-                // instruction wasn't pre-mangled
-                // not a mangled PUSH/POP
-                // not a MOV
-                printf("%p %u\n", in.pc(), in.op_code());
-#endif
+
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )
 
@@ -610,7 +511,29 @@ namespace client {
                 IF_USER( wp::guard_redzone(ls, first, last); )
             }
 
-            return policy_for<watchpoints<Watcher>>();
+            return policy_for<self_type>();
+        }
+
+
+        /// Visit app instructions (module, user program)
+        static granary::instrumentation_policy visit_app_instructions(
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            return visit_instructions<AppWatcher>(bb, ls);
+        }
+
+
+        /// Visit host instructions (module, user program)
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            return visit_instructions<HostWatcher>(bb, ls);
         }
 
 
@@ -623,7 +546,7 @@ namespace client {
             granary::interrupt_stack_frame &isf,
             granary::interrupt_vector vector
         ) throw() {
-            return Watcher::handle_interrupt(cpu, thread, bb, isf, vector);
+            return AppWatcher::handle_interrupt(cpu, thread, bb, isf, vector);
         }
 #endif
 

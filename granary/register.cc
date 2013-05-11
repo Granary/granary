@@ -460,9 +460,7 @@ namespace granary {
     void register_manager::visit(dynamorio::instr_t *in) throw() {
 
         // according to Linux / Mac OS X calling conventions.
-        if(dynamorio::instr_is_call(in)) {
-            revive_all();
-        } else if(dynamorio::instr_is_return(in)) {
+        if(dynamorio::instr_is_return(in)) {
             kill_all();
             revive_64(dynamorio::DR_REG_RAX); // return values
             revive_64(dynamorio::DR_REG_RDX);
@@ -475,6 +473,7 @@ namespace granary {
             revive_64(dynamorio::DR_REG_RBP);
             return;
 
+        // Conservative.
         } else if(dynamorio::instr_is_cti(in)) {
             revive_all();
             return;

@@ -165,14 +165,6 @@ namespace granary {
         );
 
 
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-        /// Emulate the push of a function call's return address onto the stack.
-        void emulate_call_ret_addr(
-            instruction in,
-            instrumentation_policy target_policy
-        ) throw();
-#endif
-
     public:
 
 

@@ -163,7 +163,7 @@ namespace granary {
         /// Transient memory allocator.
         struct transient_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE / 2,
+                SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = false,
                 TRANSIENT = true,
                 SHARED = false,

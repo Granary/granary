@@ -41,11 +41,7 @@
 
 /// Should the direct return optimisation be enabled? This is not available for
 /// user space code; however, can make a different in kernel space.
-#if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_DIRECT_RETURN 1
-#else
-#   define CONFIG_ENABLE_DIRECT_RETURN 0 // can't change in user space
-#endif
+#define CONFIG_ENABLE_DIRECT_RETURN GRANARY_IN_KERNEL
 
 
 /// Should global code cache lookups be logged to the trace logger?
@@ -108,27 +104,6 @@
 #define CONFIG_ENABLE_WRAPPERS 1
 
 
-/// Enable transparent return addresses. This turns every function call into
-/// an emulated function call that first pushes on a native return address and
-/// then jmps to the destination. This option affects performance in a number of
-/// ways. First, all return addresses are unconditionally lookup up in the IBL.
-/// Second, extra trampolining mechanisms are used in order to emulate the
-/// expected code cache policy behaviours.
-#define CONFIG_TRANSPARENT_RETURN_ADDRESSES 0
-
-
-/// Currently we disallow enabling both wrappers and transparent return addresses,
-/// mainly because it is possible that we could get to a point where we can't
-/// guarantee that we will be able to return into the code cache. The main
-/// problem can be overcome more easily in kernel space, where we have the
-/// expectation of fewer indirect jumps to wrappers (detach points), as well as
-/// the ability to page protect the module against execution and recover when
-/// and exception occurs.
-#if CONFIG_ENABLE_WRAPPERS && CONFIG_TRANSPARENT_RETURN_ADDRESSES && !GRANARY_IN_KERNEL
-#   error "Wrappers and transparent return addresses are not concurrently supported in user space."
-#endif
-
-
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.
 #if GRANARY_IN_KERNEL
@@ -157,19 +132,8 @@
 #if GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
-#   define CONFIG_RUN_TEST_CASES GRANARY_IN_KERNEL
+#   define CONFIG_RUN_TEST_CASES 1
 #endif
-
-
-/// Set to 1 iff jumps that keep control within the same basic block should be
-/// patched to jump directly back into the same basic block instead of being
-/// turned into slot-based direct jump lookups.
-#define CONFIG_BB_PATCH_LOCAL_BRANCHES 0
-
-
-/// Set to 1 iff basic blocks should contain the instructions immediately
-/// following a conditional branch. If enabled, basic blocks will be bigger.
-#define CONFIG_BB_EXTEND_BBS_PAST_CBRS 0
 
 
 /// Lower bound on the cache line size.

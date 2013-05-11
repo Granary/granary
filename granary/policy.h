@@ -85,7 +85,7 @@ namespace granary {
 
 
         /// Client-specific interrupt handler functions.
-        static interrupt_visitor INTERRUPT_FUNCTIONS[];
+        static interrupt_visitor INTERRUPT_VISITORS[];
 
 
         /// Dummy interrupt handler. This will be invoked if execution
@@ -100,11 +100,16 @@ namespace granary {
 #endif
 
 
+        /// Should this policy auto-instrument host (kernel, libc) code?
+        static bool AUTO_VISIT_HOST[];
+
+
         /// Policy basic block visitor functions for each policy. The code
         /// cache will use this array of function pointers (initialised
         /// partially at compile time and partially at run time) to determine
         /// which client-code basic block visitor functions should be called.
-        static basic_block_visitor POLICY_FUNCTIONS[];
+        static basic_block_visitor APP_VISITORS[];
+        static basic_block_visitor HOST_VISITORS[];
 
 
         /// Policy ID tracker.
@@ -123,8 +128,14 @@ namespace granary {
 
         enum {
 #if CONFIG_TRACK_XMM_REGS
-            IS_XMM_CONTEXT = 0,
+            /// Are we in the context of some XMM code?
+            IS_XMM_CONTEXT,
 #endif
+
+            /// Are we instrumenting app (module, user code) or host (kernel,
+            /// libc) code?
+            IS_HOST_CONTEXT,
+
             NUM_PROPERTIES_,
 
             // ensures that there is at least one property (otherwise the
@@ -185,11 +196,19 @@ namespace granary {
             thread_state_handle &thread,
             basic_block_state &bb,
             instruction_list &ls
-        ) throw() {
-            basic_block_visitor visitor(POLICY_FUNCTIONS[id]);
+        ) const throw() {
+            basic_block_visitor visitor;
+
+            if(is_in_host_context()) {
+                visitor = HOST_VISITORS[id];
+            } else {
+                visitor = APP_VISITORS[id];
+            }
+
             if(!visitor) {
                 return missing_policy(cpu, thread, bb, ls);
             }
+
             return (visitor)(cpu, thread, bb, ls);
         }
 
@@ -202,7 +221,7 @@ namespace granary {
             interrupt_stack_frame &isf,
             interrupt_vector vector
         ) throw() {
-            interrupt_visitor visitor(INTERRUPT_FUNCTIONS[id]);
+            interrupt_visitor visitor(INTERRUPT_VISITORS[id]);
             if(!visitor) {
                 return INTERRUPT_DEFER;
             }
@@ -277,6 +296,38 @@ namespace granary {
 
 
     public:
+
+
+        /// Update the propertings of this policy to be inside of a host code
+        /// context.
+        inline void in_host_context(void) throw() {
+            properties |= (1 << IS_HOST_CONTEXT);
+        }
+
+
+        /// Update the propertings of this policy to be inside of a host code
+        /// context.
+        inline void in_host_context(bool val) throw() {
+            if(val) {
+                properties |= (1 << IS_HOST_CONTEXT);
+            } else {
+                properties &= ~(1 << IS_HOST_CONTEXT);
+            }
+        }
+
+
+        /// Returns true iff we are instrumenting host code (kernel, libc).
+        inline bool is_in_host_context(void) const throw() {
+            return properties & (1 << IS_HOST_CONTEXT);
+        }
+
+
+        /// Returns true iff we should automatically switch to the host context
+        /// instead of detaching.
+        inline bool is_host_auto_instrumented(void) const throw() {
+            return AUTO_VISIT_HOST[id];
+        }
+
 
         /// Update the properties of this policy to be inside of an xmm context.
         inline void in_xmm_context(void) throw() {
@@ -403,12 +454,19 @@ namespace granary {
                 instrumentation_policy::NEXT_POLICY_ID.fetch_add(
                     instrumentation_policy::NUM_POLICIES));
 
-            instrumentation_policy::POLICY_FUNCTIONS[policy_id] = \
+            instrumentation_policy::AUTO_VISIT_HOST[policy_id] = \
+                !!(T::AUTO_INSTRUMENT_HOST);
+
+            instrumentation_policy::APP_VISITORS[policy_id] = \
                 unsafe_cast<instrumentation_policy::basic_block_visitor>( \
-                    &T::visit_basic_block);
+                    &T::visit_app_instructions);
+
+            instrumentation_policy::HOST_VISITORS[policy_id] = \
+                unsafe_cast<instrumentation_policy::basic_block_visitor>( \
+                    &T::visit_host_instructions);
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-            instrumentation_policy::INTERRUPT_FUNCTIONS[policy_id] = \
+            instrumentation_policy::INTERRUPT_VISITORS[policy_id] = \
                 unsafe_cast<instrumentation_policy::interrupt_visitor>( \
                     &T::handle_interrupt);
 #endif

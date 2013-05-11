@@ -355,79 +355,6 @@ namespace granary {
     };
 
 
-    /// Build an array of in-block branches and attempt to resolve their
-    /// targets to local instructions. The net effect is to turn CTIs with pc
-    /// targets into instructions with instr targets (so long as one of the
-    /// instructions in the block has a pc that is targets by one of the CTIs).
-    void resolve_local_branches(
-        instrumentation_policy policy,
-        cpu_state_handle &cpu,
-        instruction_list &ls
-    ) throw() {
-#if CONFIG_BB_PATCH_LOCAL_BRANCHES
-
-        instruction in(ls.first());
-        const unsigned max(ls.length());
-
-        // find the number of pc targets
-        unsigned num_direct_branches(0);
-        for(unsigned i(0); i < max; ++i) {
-            if(in.is_cti()
-            && (!in.policy() || in.policy() == policy)
-            && dynamorio::opnd_is_pc(in.cti_target())) {
-                ++num_direct_branches;
-            }
-            in = in.next();
-        }
-
-        if(!num_direct_branches) {
-            return;
-        }
-
-        /// build an array of targets
-        array<local_branch_target> branch_targets(
-            cpu->transient_allocator.\
-                allocate_array<local_branch_target>(num_direct_branches));
-
-        in = ls.first();
-        for(unsigned i(0), j(0); i < max; ++i) {
-            if(in.is_cti() && policy == in.policy()) {
-                operand target(in.cti_target());
-                if(dynamorio::opnd_is_pc(target)) {
-                    branch_targets[j].target = target;
-                    branch_targets[j].source = in;
-                    ++j;
-                }
-            }
-            in = in.next();
-        }
-
-        // sort targets by their destination (target pc)
-#       error "Find an alternative to sort, e.g. using simple hash tables, as" \
-              "sorting requires a dependency on <algorithm>, which uses " \
-              "floating point (and hence sse / mmx)."
-        branch_targets.sort();
-
-        // re-target the instructions
-        in = ls.first();
-        for(unsigned i(0), j(0); i < max && j < num_direct_branches; ++i) {
-            while(j < num_direct_branches
-               && in.pc() == branch_targets[j].target
-               && in.policy() == policy) {
-
-                dynamorio::instr_set_target(
-                    (branch_targets[j++].source), instr_(in));
-            }
-            in = in.next();
-        }
-#else
-        (void) policy;
-        (void) cpu;
-        (void) ls;
-#endif
-    }
-
-
 #if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
     /// Get the counter operand for a REP instruction.
     operand rep_counter(instruction in) throw() {
@@ -457,12 +384,11 @@ namespace granary {
     /// complex memory-operand-related instrumentation is needed, then that
     /// instrumentation does not have to special-case instructions with a REP
     /// prefix.
-    static unsigned translate_loops(instruction_list &ls) throw() {
+    static void translate_loops(instruction_list &ls) throw() {
 
         instruction in(ls.first());
         instruction next_in;
         instruction try_skip;
-        unsigned num_loops(0);
 
         for(; in.is_valid(); in = next_in) {
             next_in = in.next();
@@ -477,7 +403,6 @@ namespace granary {
             case dynamorio::OP_loope:
             case dynamorio::OP_loop:
             case dynamorio::OP_jecxz: {
-                ++num_loops;
 
                 operand target(in.cti_target());
                 instruction try_loop(ls.insert_before(in, label_()));
@@ -581,7 +506,6 @@ namespace granary {
                 in.instr->translation = nullptr;
                 try_skip.instr->translation = without_rep;
 
-                ++num_loops;
                 break;
             }
 #endif
@@ -589,8 +513,6 @@ namespace granary {
             default: break;
             }
         }
-
-        return num_loops;
     }
 
 
@@ -606,7 +528,6 @@ namespace granary {
         app_pc *pc(&local_pc);
         uint8_t *generated_pc(nullptr);
         instruction_list ls;
-        unsigned num_direct_branches(0);
         bool fall_through_pc(false);
 
         basic_block_state *block_storage(nullptr);
@@ -620,7 +541,7 @@ namespace granary {
 
         bool fall_through_detach(false);
         bool detach_tail_call(false);
-        app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
+        const app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
         unsigned byte_len(0);
 
         for(;;) {
@@ -643,129 +564,59 @@ namespace granary {
             }
 
             byte_len += in.instr->length;
+            ls.append(in);
 
             if(in.is_cti()) {
                 operand target(in.cti_target());
 
-                // direct branch (e.g. un/conditional branch, jmp, call)
+                // Direct branch (e.g. un/conditional branch, jmp, call).
                 if(dynamorio::opnd_is_pc(target)) {
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
-
                     if(detach_app_pc == target_pc) {
                         fall_through_detach = true;
                         if(in.is_jump()) {
                             detach_tail_call = true;
                         }
                         break;
-
-                    // a very simple optimisation to keep more code in a basic
-                    // block is to inline the calls that will detach.
-                    } else if(find_detach_target(target_pc)) {
-                        if(in.is_call() || !in.is_unconditional_cti()) {
-                            ls.append(in);
-                            continue;
-                        }
-
-#if CONFIG_USE_ONLY_ONE_POLICY
-                    // If only one policy is being used, then we can inline
-                    // some direct CTIs, knowing that the policy for the target
-                    // of a CTI should never be changed by the instrumenter.
-                    //
-                    // We treat user/kernel space slightly differently here
-                    // because in kernel space, we can properly detect (from
-                    // `code_cache::find`) that we are re-entering the code
-                    // cache, but in user space we don't attempt such detection.
-                    } else IF_USER( if(!in.is_call()) ) {
-                        mangled_address am(target_pc, policy);
-                        if(cpu->code_cache.find(am.as_address)) {
-                            ls.append(in);
-                            if(in.is_unconditional_cti()
-                            IF_KERNEL( && !in.is_call() )) {
-                                break;
-                            } else {
-                                continue;
-                            }
-                        }
-#endif /* CONFIG_USE_ONLY_ONE_POLICY */
                     }
-
-#if CONFIG_BB_PATCH_LOCAL_BRANCHES
-                    // If it is local back edge then keep control within the
-                    // same basic block. Note: the policy of this basic block
-                    // must match the policy of the destination basic block.
-                    if(start_pc <= target_pc
-                    && target_pc < *pc
-                    && policy == in.policy()) {
-                        instruction prev_in(
-                            find_local_back_edge_target(ls, target_pc));
-
-                        if(prev_in.is_valid()) {
-                            target = instr_(prev_in);
-                            in.set_cti_target(target);
-                        }
-                    }
-#endif /* CONFIG_BB_PATCH_LOCAL_BRANCHES */
                 }
 
-                instruction added_in(ls.append(in));
-
-                // used to estimate how many direct branch slots we'll
-                // need to add to the final basic block
-                if(dynamorio::opnd_is_pc(target)) {
-                    ++num_direct_branches;
-                    added_in.set_patchable();
-                }
-
-                // it's a conditional jmp; terminate the basic block, and save
-                // the next pc as a fall-through point.
-                if(!dynamorio::instr_is_call(in)) {
-                    if(dynamorio::instr_is_cbr(in)) {
-#if CONFIG_BB_EXTEND_BBS_PAST_CBRS
-                        continue;
-#else
-                        fall_through_pc = true;
-#endif /* CONFIG_BB_EXTEND_BBS_PAST_CBRS */
-                    }
+                // Unconditional JMP; ends the block, without possibility
+                // of falling through.
+                if(in.is_jump()) {
+                    fall_through_pc = false;
                     break;
 
-                // we end basic blocks with function calls so that we can detect
-                // when a return targets the code cache by looking for the magic
-                // value that precedes basic block meta info.
-                } else {
+                // CALL, if direct returns are supported then the basic
+                // block that can continue; however, if direct returns
+                // aren't supported then we need to support a fall-through
+                // JMP to the next basic block.
+                } else if(in.is_call()){
 #if !CONFIG_ENABLE_DIRECT_RETURN
-#   if CONFIG_ENABLE_WRAPPERS || !CONFIG_TRANSPARENT_RETURN_ADDRESSES
                     fall_through_pc = true;
-#   endif
                     break;
-#endif /* !CONFIG_ENABLE_DIRECT_RETURN */
-                }
-
-#if 0
-            // between this block and next block we should disable interrupts.
-            } else if(dynamorio::OP_cli == in.op_code()) {
-                ls.append(in);
-                fall_through_pc = true; // TODO
-                break;
-
-            // between this block and next block, we should enable interrupts.
-            } else if(dynamorio::OP_sti == in.op_code()) {
-                ls.append(in);
-                fall_through_pc = true; // TODO
-                break;
 #endif
 
-            // some other instruction
-            } else {
+                // RET instruction.
+                } else if(in.is_return()) {
+                    break;
+
+                // Conditional CTI, end the block with the ability to fall-
+                // through.
+                } else {
+                    fall_through_pc = true;
+                    break;
+                }
 
 #if CONFIG_TRACK_XMM_REGS
+            // some other instruction
+            } else {
                 // update the policy to be in an xmm context.
                 if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
                     policy.in_xmm_context();
                     uses_xmm = true;
                 }
 #endif /* CONFIG_TRACK_XMM_REGS */
-
-                ls.append(in);
             }
         }
 
@@ -802,10 +653,7 @@ namespace granary {
         // Translate loops and resolve local branches into jmps to instructions.
         // done before mangling, as mangling removes the opportunity to do this
         // type of transformation.
-        num_direct_branches += translate_loops(ls);
-        if(num_direct_branches) {
-            resolve_local_branches(policy, cpu, ls);
-        }
+        translate_loops(ls);
 
         instruction bb_begin(ls.prepend(label_()));
 

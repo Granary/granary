@@ -155,7 +155,7 @@ namespace granary {
 
 
     /// Instruction a basic block.
-    instrumentation_policy test_policy::visit_basic_block(
+    instrumentation_policy test_policy::visit_app_instructions(
         cpu_state_handle &,
         thread_state_handle &,
         basic_block_state &,
@@ -220,6 +220,18 @@ namespace granary {
         (void) ls;
         return granary::policy_for<test_policy>();
     }
+
+
+    /// Instruction a basic block.
+    instrumentation_policy test_policy::visit_host_instructions(
+        cpu_state_handle &,
+        thread_state_handle &,
+        basic_block_state &,
+        instruction_list &
+    ) throw() {
+        return granary::policy_for<test_policy>();
+    }
+
 
 #if CONFIG_RUN_TEST_CASES
 

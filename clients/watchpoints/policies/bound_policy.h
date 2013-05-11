@@ -56,8 +56,50 @@ namespace client {
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 
 
-        /// Policy for bounds-checking allocated memory.
-        struct bound_policy {
+        void visit_overflow(
+            uintptr_t watched_addr,
+            granary::app_pc *addr_in_bb,
+            unsigned size
+        ) throw();
+
+
+        /// Policy for bounds-checking allocated memory in app code.
+        struct app_bound_policy {
+
+            enum {
+                AUTO_INSTRUMENT_HOST = false
+            };
+
+            static void visit_read(
+                granary::basic_block_state &,
+                granary::instruction_list &,
+                watchpoint_tracker &,
+                unsigned
+            ) throw();
+
+
+            static void visit_write(
+                granary::basic_block_state &,
+                granary::instruction_list &,
+                watchpoint_tracker &,
+                unsigned
+            ) throw();
+
+
+#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+            static granary::interrupt_handled_state handle_interrupt(
+                granary::cpu_state_handle &cpu,
+                granary::thread_state_handle &thread,
+                granary::basic_block_state &bb,
+                granary::interrupt_stack_frame &isf,
+                granary::interrupt_vector vector
+            ) throw();
+#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+        };
+
+
+        /// Policy for bounds-checking allocated memory in host code.
+        struct host_bound_policy {
 
             static void visit_read(
                 granary::basic_block_state &,
@@ -79,18 +121,8 @@ namespace client {
                 granary::app_pc *addr_in_bb,
                 unsigned size
             ) throw();
-
-
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
-            static granary::interrupt_handled_state handle_interrupt(
-                granary::cpu_state_handle &cpu,
-                granary::thread_state_handle &thread,
-                granary::basic_block_state &bb,
-                granary::interrupt_stack_frame &isf,
-                granary::interrupt_vector vector
-            ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
         };
+
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
     }
@@ -98,7 +130,10 @@ namespace client {
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
     struct watchpoint_bound_policy
-        : public client::watchpoints<wp::bound_policy>
+        : public client::watchpoints<
+              wp::app_bound_policy,
+              wp::host_bound_policy
+          >
     { };
 
 

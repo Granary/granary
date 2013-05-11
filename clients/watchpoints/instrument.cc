@@ -60,9 +60,9 @@ namespace client { namespace wp {
             return;
         }
 
+#if WP_IGNORE_FRAME_POINTER
         // If we consider RBP as a frame pointer then prevent it from being
         // clobbered as well. Also, treat all stack addresses as unwatched.
-#if WP_IGNORE_FRAME_POINTER
         if(dynamorio::DR_REG_RBP == regs[0]
         || dynamorio::DR_REG_RBP == regs[1]) {
 

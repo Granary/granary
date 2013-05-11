@@ -31,7 +31,7 @@ namespace test {
 
     static void unwatched_stos(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;"
             "movq $1, %rax;"
 
             // next value of %rdi after the STOS
@@ -44,7 +44,7 @@ namespace test {
             // test that the address in RDI is correctly updated
             "cmpq %rdi, %rdx;"
             "je 1f;"
-            "movq $WP_STRING_FOO, %rdx;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdx;"
             "xor %rax, %rax;"
             "movq %rax, (%rdx);"
             "1: nop;"
@@ -54,8 +54,8 @@ namespace test {
 
     static void watched_stos(void) throw() {
         ASM(
-            "movq WP_STRING_MASK, %rdi;"
-            MASK_OP " $WP_STRING_FOO, %rdi;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;" // mask the address of FOO
             "movq $1, %rax;"
 
             // next value of %rdi after the STOS
@@ -69,7 +69,7 @@ namespace test {
             // its watchpoint
             "cmpq %rdi, %rdx;"
             "je 1f;"
-            "movq $WP_STRING_FOO, %rdx;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdx;"
             "xor %rax, %rax;"
             "movq %rax, (%rdx);"
             "1: nop;"
@@ -79,7 +79,7 @@ namespace test {
 
     static void unwatched_stos_dep(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;"
             "movq $1, %rax;"
             "cld;"
             "stosq;"
@@ -91,8 +91,8 @@ namespace test {
 
     static void watched_stos_dep(void) throw() {
         ASM(
-            "movq WP_STRING_MASK, %rdi;"
-            MASK_OP " $WP_STRING_FOO, %rdi;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;" // mask the address of FOO
 
             "movq $1, %rax;"
             "cld;"
@@ -108,7 +108,7 @@ namespace test {
 
     static void unwatched_rep_stos(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO_ARRAY, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;"
             "movq $2, %rcx;"
             "movq $1, %rax;"
             "cld;"
@@ -119,8 +119,8 @@ namespace test {
 
     static void watched_rep_stos(void) throw() {
         ASM(
-            "movq WP_STRING_MASK, %rdi;"
-            MASK_OP " $WP_STRING_FOO_ARRAY, %rdi;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;" // mask the address of FOO
 
             "movq $2, %rcx;"
             "movq $1, %rax;"
@@ -132,7 +132,7 @@ namespace test {
 
     static void unwatched_rep_stos_dep(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO_ARRAY, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;"
             "movq $2, %rcx;"
             "movq $1, %rax;"
             "cld;"
@@ -145,8 +145,8 @@ namespace test {
 
     static void watched_rep_stos_dep(void) throw() {
         ASM(
-            "movq WP_STRING_MASK, %rdi;"
-            MASK_OP " $WP_STRING_FOO_ARRAY, %rdi;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;" // mask the address of FOO
 
             "movq $2, %rcx;"
             "movq $1, %rax;"
@@ -162,8 +162,8 @@ namespace test {
 
     static void unwatched_rep_movs(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO_ARRAY, %rsi;"
-            "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rsi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY_DEST)) ", %rdi;"
             "movq $2, %rcx;"
             "cld;"
             "rep movsq %ds:(%rsi),%es:(%rdi);"
@@ -176,8 +176,8 @@ namespace test {
     // the same dependencies, but not have any meaningful side-effects.
     static void unwatched_rep_movs_memmove(void) throw() {
         ASM(
-            "movq $WP_STRING_FOO_ARRAY, %rsi;"
-            "movq $WP_STRING_FOO_ARRAY_DEST, %rdi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rsi;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY_DEST)) ", %rdi;"
             "movq $2, %rcx;"
             "cld;"
             "rep movsq %ds:(%rsi),%es:(%rdi);"
@@ -187,7 +187,7 @@ namespace test {
             "and $0x3f,%edx;"
             "and $0xf,%eax;"
             "and $-64,%rcx;"
-            "movq $WP_STRING_FOO,%r8;"
+            "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ",%r8;"
             "add %rcx,%rsi;"
             "add %rcx,%rsi;"
             "add %rcx,%rdi;"

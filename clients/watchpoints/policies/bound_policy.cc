@@ -166,7 +166,7 @@ namespace client { namespace wp {
     }
 
 
-    void bound_policy::visit_read(
+    void app_bound_policy::visit_read(
         granary::basic_block_state &,
         instruction_list &ls,
         watchpoint_tracker &tracker,
@@ -186,7 +186,7 @@ namespace client { namespace wp {
     }
 
 
-    void bound_policy::visit_write(
+    void app_bound_policy::visit_write(
         granary::basic_block_state &,
         instruction_list &ls,
         watchpoint_tracker &tracker,
@@ -206,7 +206,47 @@ namespace client { namespace wp {
     }
 
 
-    void bound_policy::visit_overflow(
+    void host_bound_policy::visit_read(
+        granary::basic_block_state &,
+        instruction_list &ls,
+        watchpoint_tracker &tracker,
+        unsigned i
+    ) throw() {
+        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
+        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
+
+        ASSERT(reg_index < 16);
+        ASSERT(size_index < 5);
+
+        instruction call(insert_cti_after(ls, tracker.labels[i],
+            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
+            false, operand(),
+            CTI_CALL));
+        call.set_mangled();
+    }
+
+
+    void host_bound_policy::visit_write(
+        granary::basic_block_state &,
+        instruction_list &ls,
+        watchpoint_tracker &tracker,
+        unsigned i
+    ) throw() {
+        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
+        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
+
+        ASSERT(reg_index < 16);
+        ASSERT(size_index < 5);
+
+        instruction call(insert_cti_after(ls, tracker.labels[i],
+            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
+            false, operand(),
+            CTI_CALL));
+        call.set_mangled();
+    }
+
+
+    void visit_overflow(
         uintptr_t watched_addr,
         app_pc *addr_in_bb,
         unsigned size
@@ -219,7 +259,7 @@ namespace client { namespace wp {
 
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-    interrupt_handled_state bound_policy::handle_interrupt(
+    interrupt_handled_state app_bound_policy::handle_interrupt(
         cpu_state_handle &,
         thread_state_handle &,
         granary::basic_block_state &,

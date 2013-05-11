@@ -29,7 +29,7 @@ namespace test {
     static uint64_t unwatched_push(void) throw() {
         register uint64_t ret(0);
         ASM(
-            "movq $WP_PP_FOO, %%rax;"
+            "movq $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;"
             "pushq (%%rax);"
             "popq %%rax;"
             "movq %%rax, %0;"
@@ -43,8 +43,8 @@ namespace test {
     static uint64_t watched_push(void) throw() {
         register uint64_t ret(0);
         ASM(
-            "movq WP_PP_MASK, %%rax;"
-            MASK_OP " $WP_PP_FOO, %%rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_PP_MASK)) ", %%rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;" // mask the address of FOO
             "pushq (%%rax);"
             "popq %%rax;"
             "movq %%rax, %0;"
@@ -58,7 +58,7 @@ namespace test {
 
     static void unwatched_pop(void) throw() {
         ASM(
-            "movq $WP_PP_FOO, %%rax;"
+            "movq $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;"
             "movq $0xDEADBEEF, %%rbx;"
             "pushq %%rbx;"
             "popq (%%rax);"
@@ -71,8 +71,8 @@ namespace test {
 
     static void watched_pop(void) throw() {
         ASM(
-            "movq WP_PP_MASK, %%rax;"
-            MASK_OP " $WP_PP_FOO, %%rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_PP_MASK)) ", %%rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;" // mask the address of FOO
             "movq $0xDEADBEEF, %%rbx;"
             "pushq %%rbx;"
             "popq (%%rax);"

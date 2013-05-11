@@ -305,6 +305,12 @@ namespace granary {
         }
 
 
+        /// Set the code cache policy to be used for the target of this CTI.
+        inline void set_policy(instrumentation_policy policy) throw() {
+            instr->granary_policy = policy.extension_bits();
+        }
+
+
         /// Return the opcode of the instruction.
         inline unsigned op_code(void) const throw() {
             return instr->opcode;

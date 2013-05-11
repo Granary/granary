@@ -19,12 +19,6 @@
 #include "granary/predict.h"
 
 
-/// Logging to a file. This is helpful for user-space debugging, when a
-/// the logs can easily be inspected even for a crashed/paused program.
-#define D(...)
-// __VA_ARGS__
-
-
 /// Logging for the trace log. This is helpful for kernel-space debugging, where
 /// the in-memory tracing data structure can be inspected to see the history of
 /// code cache lookups.
@@ -71,14 +65,6 @@ namespace granary {
         cpu_state_handle cpu;
         app_pc ret(cpu->code_cache.find(addr.as_address));
 
-        D( instrumentation_policy p(addr); )
-
-        D( printf("find-cpu(%p, %x, xmm=%d)\n",
-            addr.unmangled_address(),
-            p.extension_bits(),
-            p.is_in_xmm_context()); )
-        D( printf(" -> %p\n", ret); )
-
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
@@ -96,7 +82,6 @@ namespace granary {
 
     /// Add a custom mapping to the code cache.
     void code_cache::add(app_pc source, app_pc dest) throw() {
-        D( printf("add(%p, %p)\n", source, dest); )
         CODE_CACHE->store(source, dest);
     }
 
@@ -115,21 +100,14 @@ namespace granary {
         app_pc app_target_addr(addr.unmangled_address());
         app_pc target_addr(nullptr);
 
-        D( printf("find(%p, %x, xmm=%d)\n",
-            app_target_addr,
-            policy.extension_bits(),
-            policy.is_in_xmm_context()); )
-
         // Try to load the target address from the global code cache.
         if(CODE_CACHE->load(addr.as_address, target_addr)) {
             cpu->code_cache.store(addr.as_address, target_addr);
-            D( printf(" -> %p (hit)\n", target_addr); )
             IF_PERF( perf::visit_address_lookup_hit(); )
             LOG(app_target_addr, target_addr, TARGET_ALREADY_IN_CACHE);
             return target_addr;
         }
 
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // Do a return address ibl-like lookup to see if this might be a
         // return address into the code cache. This issue comes up if a
         // copied return address is jmp/called to.
@@ -150,84 +128,83 @@ namespace granary {
             target_addr = instruction_list_mangler::ibl_exit_routine(
                 app_target_addr);
             CODE_CACHE->store(addr.as_address, target_addr);
-            D( printf(" -> %p (return)\n", target_addr); )
             LOG(app_target_addr, target_addr, TARGET_RETURNS_TO_CACHE);
             return target_addr;
         }
-#endif
 
         // Determine if this is actually a detach point. This is only relevant
         // for indirect calls/jumps because direct calls and jumps will have
         // inlined this check at basic block translation time.
         target_addr = find_detach_target(app_target_addr);
 
-        // handle detaching, e.g. through a wrapper or through granary::detach.
-        if(nullptr != target_addr) {
-            if(policy.is_indirect_cti_policy()) {
-                target_addr = instruction_list_mangler::ibl_exit_routine(
-                    target_addr);
+        // Should we instrument these host instructions?
+        if(false && nullptr != target_addr) {
+            if(policy.is_in_host_context()) {
+                target_addr = nullptr;
+
+            } else if(policy.is_host_auto_instrumented()) {
+                policy.in_host_context();
+                target_addr = nullptr;
             }
 
-            CODE_CACHE->store(addr.as_address, target_addr);
-            cpu->code_cache.store(addr.as_address, target_addr);
-            D( printf(" -> %p (detach)\n", target_addr); )
-            LOG(app_target_addr, target_addr, TARGET_IS_DETACH_POINT);
-            return target_addr;
+        // We must be in application code. This is a bit of a trick for handling
+        // indirect control flow. What we say is that if we want an indirect
+        // CTI to be instrumented according to the environment of its target
+        // then we'll set it to have a host policy, and back out of that if it's
+        // app code.
+        } else if(false && policy.is_in_host_context()) {
+            policy.in_host_context(false);
         }
 
         // Figure out the non-policy-mangled target address, and get our policy.
         instrumentation_policy base_policy(policy.base_policy());
         mangled_address base_addr(app_target_addr, base_policy);
 
-#if 0 && !CONFIG_ENABLE_DIRECT_RETURN
-        // TODO: this optimisation seemed like a good idea but it just didn't
-        //       work in user space for some reason. Note: the rbl_entry_routine
-        //       handles the ibl exit stub side of this implicitly.
-        //
-        // Simple optimisation when JMPing directly to a RET instruction. This
-        // is valid even when multiple policies are used because policies do
-        // not propagate across RETs. This optimisation exists so that we don't
-        // generate an entire basic block for a single RET, which will be
-        // mangled into a direct JMP.
-        if(OP_RET_SHORT == *app_target_addr) {
-            instruction_list_mangler mangler(cpu, thread, nullptr, policy);
-            target_addr = mangler.rbl_entry_routine(policy);
-            CODE_CACHE->store(addr.as_address, target_addr);
-            D( printf(" -> %p (fast return)\n", target_addr); )
-            return target_addr;
-        }
-#endif
-
-        // Translate the basic block according to the policy.
-        basic_block bb(basic_block::translate(
-            base_policy, cpu, thread, app_target_addr));
-
-        target_addr = bb.cache_pc_start;
-
-        // store the translated block in the code cache; if the store fails,
-        // then that means the block already exists in the code cache (e.g.
-        // because a concurrent thread "won" when translating the same
-        // block). If the latter is the case, implicitly free the block
-        // by freeing the last thing used in the fragment allocator.
-        if(!CODE_CACHE->store(base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
-            cpu->fragment_allocator.free_last();
-            cpu->block_allocator.free_last();
-
-            // TODO: minor memory leak with basic block state and vtables.
-            //       consider switching to a "transactional" allocator.
-            CODE_CACHE->load(base_addr.as_address, target_addr);
+        // Either a pseudo policy vs. a base policy, or the policy has gone
+        // through a property conversion.
+        bool base_addr_exists(false);
+        if(base_addr.as_address != addr.as_address) {
+            app_pc existing_target_addr(nullptr);
+            if(CODE_CACHE->load(base_addr.as_address, existing_target_addr)) {
+                base_addr_exists = true;
+                target_addr = existing_target_addr;
+            }
         }
 
-        D( printf(" -> %p (translated)\n", target_addr); )
+        // If we don't have a target yet then translate the target assuming its
+        // app or host code.
+        bool created_bb(false);
+        if(!target_addr) {
+            basic_block bb(basic_block::translate(
+                base_policy, cpu, thread, app_target_addr));
+            target_addr = bb.cache_pc_start;
+            created_bb = true;
+        }
 
-        // TODO: try to pre-load the cache with internal jump targets of the
-        //       just-stored basic block (if config option permits).
+        // If the base policy address isn't in the code cache yet, put it there.
+        // If there's a race condition, i.e. two threads/cores both put the same
+        // base address in, then one will fail (according to
+        // `HASH_KEEP_PREV_ENTRY`). If it fails and we built a basic block, then
+        // free up some memory.
+        if(!base_addr_exists) {
+            bool stored_base_addr(CODE_CACHE->store(
+                base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
 
-        // Propagate down to the CPU-private code cache.
+            if(!stored_base_addr && created_bb) {
+                cpu->fragment_allocator.free_last();
+                cpu->block_allocator.free_last();
+
+                // TODO: minor memory leak with basic block state and vtables.
+                //       consider switching to a "transactional" allocator.
+                CODE_CACHE->load(base_addr.as_address, target_addr);
+            }
+        }
+
+        // Propagate the base target to the CPU-private code cache.
         cpu->code_cache.store(base_addr.as_address, target_addr);
 
-        // Was this an indirect entry? If so, we need to direct control flow
-        // to the corresponding IBL exit routine.
+        // If the original policy was an indirect psudo-policy, then add an
+        // exit routine to it.
         if(policy.is_indirect_cti_policy()) {
             target_addr = instruction_list_mangler::ibl_exit_routine(target_addr);
             if(!CODE_CACHE->store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
@@ -236,8 +213,6 @@ namespace granary {
             }
 
             cpu->code_cache.store(addr.as_address, target_addr);
-
-            D( printf(" -> %p (indirect)\n", target_addr); )
         }
 
         LOG(app_target_addr, target_addr, TARGET_TRANSLATED);

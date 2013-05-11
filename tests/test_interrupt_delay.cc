@@ -23,7 +23,7 @@ namespace test {
     public:
 
         /// Instrument a basic block.
-        static granary::instrumentation_policy visit_basic_block(
+        static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &,
             granary::thread_state_handle &,
             granary::basic_block_state &,

@@ -37,7 +37,7 @@ namespace test {
 
     static void unwatched_cmpxchg(void) throw() {
         ASM(
-            "movq $WP_ATOMIC_FOO_32, %rbx;"
+            "movq $" TO_STRING(SYMBOL(WP_ATOMIC_FOO_32)) ", %rbx;"
             "movq $1, %rcx;"
             "movq $0, %rax;"
             "cmpxchg %rcx, (%rbx);"
@@ -47,8 +47,8 @@ namespace test {
 
     static void watched_cmpxchg(void) throw() {
         ASM(
-            "movq WP_ATOMIC_MASK, %rbx;"
-            MASK_OP " $WP_ATOMIC_FOO_32, %rbx;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_ATOMIC_MASK)) ", %rbx;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_ATOMIC_FOO_32)) ", %rbx;" // mask the address of FOO
             "movq $1, %rcx;"
             "movq $0, %rax;"
             "cmpxchg %rcx, (%rbx);"
@@ -66,7 +66,7 @@ namespace test {
 
     static void unwatched_cmpxchg8b(void) throw() {
         ASM(
-            "movq $WP_ATOMIC_FOO, %r8;"
+            "movq $" TO_STRING(SYMBOL(WP_ATOMIC_FOO)) ", %r8;"
 
             "movq $0, %rcx;" // ECX:EBX = 1
             "movq $1, %rbx;"
@@ -81,8 +81,8 @@ namespace test {
 
     static void watched_cmpxchg8b(void) throw() {
         ASM(
-            "movq WP_ATOMIC_MASK, %r8;"
-            MASK_OP " $WP_ATOMIC_FOO, %r8;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_ATOMIC_MASK)) ", %r8;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_ATOMIC_FOO)) ", %r8;" // mask the address of FOO
 
             "movq $0, %rcx;" // ECX:EBX = 1
             "movq $1, %rbx;"

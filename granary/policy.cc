@@ -15,12 +15,26 @@
 namespace granary {
 
 
+    /// Should this policy auto-instrument host (kernel, libc) code?
+    bool instrumentation_policy::AUTO_VISIT_HOST[
+        1 << mangled_address::POLICY_NUM_BITS
+    ] = {false};
+
+
     /// Policy basic block visitor functions for each policy. The code
     /// cache will use this array of function pointers (initialised
     /// partially at compile time and partially at run time) to determine
     /// which client-code basic block visitor functions should be called.
     instrumentation_policy::basic_block_visitor
-    instrumentation_policy::POLICY_FUNCTIONS[
+    instrumentation_policy::APP_VISITORS[
+        1 << mangled_address::POLICY_NUM_BITS
+    ] = {
+        &instrumentation_policy::missing_policy
+    };
+
+
+    instrumentation_policy::basic_block_visitor
+    instrumentation_policy::HOST_VISITORS[
         1 << mangled_address::POLICY_NUM_BITS
     ] = {
         &instrumentation_policy::missing_policy
@@ -31,7 +45,7 @@ namespace granary {
     /// Per-policy interrupt handlers. These are invoked when an interrupt
     /// occurs in *non-delayed* instrumented kernel code.
     instrumentation_policy::interrupt_visitor
-    instrumentation_policy::INTERRUPT_FUNCTIONS[
+    instrumentation_policy::INTERRUPT_VISITORS[
         1 << mangled_address::POLICY_NUM_BITS
     ] = {
         &instrumentation_policy::missing_interrupt
@@ -93,8 +107,25 @@ namespace granary {
     struct missing_policy_policy : public instrumentation_policy {
     public:
 
+
+        enum {
+            AUTO_INSTRUMENT_HOST = false
+        };
+
+
         /// Instruction a basic block.
-        instrumentation_policy visit_basic_block(
+        instrumentation_policy visit_app_instructions(
+            cpu_state_handle &,
+            thread_state_handle &,
+            basic_block_state &,
+            instruction_list &
+        ) throw() {
+            return granary::policy_for<missing_policy_policy>();
+        }
+
+
+        /// Instruction a basic block.
+        instrumentation_policy visit_host_instructions(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,

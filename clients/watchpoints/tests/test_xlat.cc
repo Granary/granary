@@ -28,7 +28,7 @@ namespace test {
 
     static uint64_t unwatched_xlat(register uint64_t val) throw() {
         ASM(
-            "movq $WP_XLAT_TABLE, %%rbx;"
+            "movq $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
             "xlat;"
             "movq %%rax, %0"
@@ -41,8 +41,8 @@ namespace test {
 
     static uint64_t watched_xlat(register uint64_t val) throw() {
         ASM(
-            "movq WP_XLAT_MASK, %%rbx;"
-            MASK_OP " $WP_XLAT_TABLE, %%rbx;"
+            "movq " TO_STRING(SYMBOL(WP_XLAT_MASK)) ", %%rbx;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
             "xlat;"
             "movq %%rax, %0"
@@ -55,7 +55,7 @@ namespace test {
 
     static uint64_t unwatched_xlat_rbx_live(register uint64_t val) throw() {
         ASM(
-            "movq $WP_XLAT_TABLE, %%rbx;"
+            "movq $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
 
             // save value of RBX before it's modified by the instrumentation.
@@ -80,8 +80,8 @@ namespace test {
 
     static uint64_t watched_xlat_rbx_live(register uint64_t val) throw() {
         ASM(
-            "movq WP_XLAT_MASK, %%rbx;"
-            MASK_OP " $WP_XLAT_TABLE, %%rbx;"
+            "movq " TO_STRING(SYMBOL(WP_XLAT_MASK)) ", %%rbx;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
             // save value of RBX before it's modified by the instrumentation.
             "movq %%rbx, %%rcx;"

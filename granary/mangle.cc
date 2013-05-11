@@ -357,18 +357,18 @@ namespace granary {
             ibl_exit_stub(ibl, nullptr);
         }
 
-#if !GRANARY_IN_KERNEL
+#   if !GRANARY_IN_KERNEL
         ibl_entry_stub(
             ibl, ibl.last(), target_policy, operand(*reg::rsp), IBL_ENTRY_RETURN);
 
         ibl.append(push_(reg_compare_addr));
-#else
+#   else
         IF_IBL_PREDICT( ibl.append(push_(reg_predict_table_ptr)); )
         ibl.append(push_(reg_compare_addr));
         ibl.append(mov_ld_(reg_compare_addr, reg_target_addr));
         ibl.append(mov_ld_(reg_target_addr, reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)]));
         ibl.append(mov_st_(reg::rsp[8], reg_compare_addr));
-#endif
+#   endif
 
         // on the stack:
         //      return address
@@ -377,7 +377,6 @@ namespace granary {
         //      reg_predict_table_ptr   (cond. saved: arg2)
         //      reg_compare_addr        (saved: rcx)
 
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // the call instruction will be 8 byte aligned, and will occupy ~5bytes.
         // the subsequent jmp needed to link the basic block (which ends with
         // the call) will also by 8 byte aligned, and will be padded to 8 bytes
@@ -404,16 +403,11 @@ namespace granary {
         instruction fast(ibl.append(label_()));
         slow = ibl.insert_after(slow, jecxz_(instr_(fast)));
 
-#else
-        instruction slow(ibl.last());
-#endif
-
         // slow path: return address is not in code cache; go off to the IBL.
         IF_IBL_PREDICT( slow = ibl.insert_after(slow,
             mov_imm_(reg_predict_table_ptr, int64_(0))); )
         ibl.insert_after(slow, jmp_(pc_(ibl_entry_routine(target_policy))));
 
-#if !CONFIG_TRANSPARENT_RETURN_ADDRESSES
         // fast path: they are equal; in the kernel this requires restoring the
         // return address, in user space this isn't necessary because the we
         // overlap the redzone and return address in the case of the slow path.
@@ -432,7 +426,6 @@ namespace granary {
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE - 8])); )
         ibl.append(ret_());
 #   endif
-#endif
 
         // quick double check ;-)
         if(routine[policy_bits]) {
@@ -449,7 +442,7 @@ namespace granary {
 
         return temp;
     }
-#endif
+#endif /* !CONFIG_ENABLE_DIRECT_RETURN */
 
 
     /// Address of the CPU-private code cache lookup function.
@@ -983,66 +976,6 @@ namespace granary {
         IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
     }
 
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-    /// Emulate the push of a function call's return address onto the stack.
-    /// This will also pre-populate the code cache so that correct policy
-    /// resolution is emulated for transparent return addresses.
-    ///
-    /// TODO: doesn't handle case of `call -8(%rsp)`.
-    void instruction_list_mangler::emulate_call_ret_addr(
-        instruction in,
-        instrumentation_policy target_policy
-    ) throw() {
-        app_pc return_address(in.pc() + in.encoded_size());
-        ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
-        ls->insert_before(in, push_(reg::rax));
-        ls->insert_before(in,
-            mov_imm_(reg::rax,
-                int64_(reinterpret_cast<uint64_t>(return_address))));
-        ls->insert_before(in, mov_st_(reg::rsp[8], reg::rax));
-        ls->insert_before(in, pop_(reg::rax));
-
-        // pre-fill in the code cache (in a slightly backwards way) to handle
-        // getting back into the proper policy on return from the function.
-        mangled_address am(return_address, policy);
-        instruction_list trampoline;
-        instruction conn(trampoline.append(
-            jmp_(pc_(return_address))));
-        app_pc dbl_routine(dbl_entry_routine(policy, conn, am));
-        instruction patch(trampoline.append(label_()));
-
-        dbl_entry_stub(trampoline, patch, conn, dbl_routine);
-
-        // because `conn` is the first instruction in the routine, it will
-        // inherit the 16-byte alignment from the allocator. Thus, we need to
-        // emulate the 8 bytes of padding needed to make `conn` look like a
-        // hot-patchable instruction.
-        inject_mangled_nops(trampoline, conn, 8 - conn->encoded_size());
-
-        conn->set_cti_target(instr_(patch));
-
-        // encode it
-        app_pc return_routine(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(trampoline.encoded_size()));
-        trampoline.encode(return_routine);
-
-        // add the ibl exit routine for this return address trampoline to the
-        // code cache for each possible property combination for the targeted
-        // policy. This means that when we are in the target policy, we can
-        // force control to return to the source policy, regardless of the
-        // policy properties discovered when translating code targeted by a
-        // call.
-        target_policy = target_policy.indirect_cti_policy();
-        target_policy.clear_properties();
-
-        app_pc ibl_routine(code_cache::ibl_exit_for(return_routine));
-        for(; !!target_policy; target_policy = target_policy.next()) {
-            mangled_address ram(return_address, target_policy);
-            code_cache::add(ram.as_address, ibl_routine);
-        }
-    }
-#endif
-
 
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
@@ -1054,9 +987,8 @@ namespace granary {
     ) throw() {
 
         app_pc target_pc(target.value.pc);
-        mangled_address am(target_pc, target_policy.base_policy());
-
         app_pc detach_target_pc(nullptr);
+        mangled_address am(target_pc, target_policy.base_policy());
 
         // if we already know the target, then forgo a stub.
         detach_target_pc = cpu->code_cache.find(am.as_address);
@@ -1075,19 +1007,35 @@ namespace granary {
             return;
         }
 
-        // if this is a detach point then replace the target address with the
-        // detach address. This can be tricky because the instruction might not
-        // be a call/jmp (i.e. it might be a conditional branch)
+        // If this is a detach point, then we might actually want to instrument
+        // the host code, so detect this case.
         detach_target_pc = find_detach_target(target_pc);
         if(nullptr != detach_target_pc) {
+            if(policy.is_in_host_context()) {
+                detach_target_pc = nullptr;
+            } else if(policy.is_host_auto_instrumented()) {
+                instrumentation_policy host_policy(policy);
+                host_policy.in_host_context();
 
-            ASSERT(in.is_call() || in.is_jump());
+                am = mangled_address(detach_target_pc, host_policy);
+                detach_target_pc = cpu->code_cache.find(am.as_address);
+                in.set_policy(host_policy);
+            }
+        }
+
+        // If this is a detach point then replace the target address with the
+        // detach address. This can be tricky because the instruction might not
+        // be a call/jmp (i.e. it might be a conditional branch)
+        if(nullptr != detach_target_pc) {
 
             if(is_far_away(estimator_pc, detach_target_pc)) {
+
+                ASSERT(in.is_call() || in.is_jump());
+
                 app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
                 *slot = detach_target_pc;
 
-                // regardless of return address transparency, a direct call to
+                // Regardless of return address transparency, a direct call to
                 // a detach target *always* needs to be a call so that control
                 // returns to the code cache.
                 if(in.is_call()) {
@@ -1106,25 +1054,10 @@ namespace granary {
             return;
         }
 
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-        // when emulating functions (for transparent return addresses), we
-        // convert the call to a jmp here so that the dbl picks up OP_jmp as
-        // the instruction instead of OP_call.
-        //
-        // Note: this isn't a detach point, or else we would have detected it
-        //       above, so regardless of whether or not wrappers are enabled,
-        //       we will push on the return address.
-        if(in.is_call()) {
-            emulate_call_ret_addr(in, target_policy);
-            in.replace_with(jmp_(target));
-        }
-#endif
-
         const unsigned old_size(in.encoded_size());
 
-        // set the policy-fied target
+        // Set the policy-fied target.
         instruction stub(ls->prepend(label_()));
-
         dbl_entry_stub(
             *ls,                                     // list to patch
             stub,                                    // patch label
@@ -1158,13 +1091,6 @@ namespace granary {
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
         if(in.is_call()) {
-            instruction (*cti_)(dynamorio::opnd_t) = call_;
-
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-            emulate_call_ret_addr(in, target_policy);
-            cti_ = jmp_;
-#endif
-
             instruction start_of_stub(ls->prepend(label_()));
 
             ibl_entry_stub(
@@ -1172,14 +1098,9 @@ namespace granary {
                 start_of_stub,
                 target_policy,
                 target,
-#if CONFIG_TRANSPARENT_RETURN_ADDRESSES
-                IBL_ENTRY_JMP
-#else
                 IBL_ENTRY_CALL
-#endif
             );
-
-            in.replace_with(patchable(mangled(cti_(instr_(start_of_stub)))));
+            in.replace_with(patchable(mangled(call_(instr_(start_of_stub)))));
 
         } else if(in.is_return()) {
 #if !CONFIG_ENABLE_DIRECT_RETURN

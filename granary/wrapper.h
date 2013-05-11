@@ -131,7 +131,7 @@ namespace granary {
         return ((uintptr_t) addr) > 0x00007fffffffffff;
     }
 #else
-#   define is_valid_address(x) (4095 < ((uintptr_t) x))
+#   define is_valid_address(x) (4095UL < ((uintptr_t) x))
 #endif
 
 
@@ -139,9 +139,8 @@ namespace granary {
 #define WRAP_POINTER_VALUE(prefix) \
     inline static void CAT(prefix, _wrap)(T *&val, const int depth) throw() { \
         if(is_valid_address(val)) { \
-            return; \
+            type_wrapper<T>::CAT(prefix, _wrap)(*val, depth); \
         } \
-        type_wrapper<T>::CAT(prefix, _wrap)(*val, depth); \
     }
 
 

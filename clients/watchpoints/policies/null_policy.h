@@ -18,6 +18,10 @@ namespace client {
     namespace wp {
         struct null_policy {
 
+            enum {
+                AUTO_INSTRUMENT_HOST = false
+            };
+
             static void visit_read(
                 granary::basic_block_state &bb,
                 granary::instruction_list &ls,
@@ -47,7 +51,7 @@ namespace client {
     }
 
     struct watchpoint_null_policy
-        : public client::watchpoints<wp::null_policy>
+        : public client::watchpoints<wp::null_policy, wp::null_policy>
     { };
 
 

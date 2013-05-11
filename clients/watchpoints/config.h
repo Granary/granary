@@ -12,7 +12,9 @@
 
 /// Enable if %RBP should be treated as a frame pointer and not as a potential
 /// watched address.
-#define WP_IGNORE_FRAME_POINTER 0
+///
+/// TODO: Figure out why we must ignore them in kernel space!!
+#define WP_IGNORE_FRAME_POINTER GRANARY_IN_KERNEL
 
 
 /// Size (in bits) of the counter index. This should either be 8 or 16.

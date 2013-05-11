@@ -28,7 +28,7 @@ namespace test {
 
     static void unwatched_add(void) throw() {
         ASM(
-            "movq $WP_ARITH_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "movq $1, %rbx;"
             "add %rbx, (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -37,8 +37,8 @@ namespace test {
 
     static void watched_add(void) throw() {
         ASM(
-            "movq WP_ARITH_MASK, %rax;"
-            MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO
             "movq $1, %rbx;"
             "add %rbx, (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -47,7 +47,7 @@ namespace test {
 
     static void unwatched_xadd(void) throw() {
         ASM(
-            "movq $WP_ARITH_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "movq $1, %rbx;"
             "xadd %rbx, (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -56,8 +56,8 @@ namespace test {
 
     static void watched_xadd(void) throw() {
         ASM(
-            "movq WP_ARITH_MASK, %rax;"
-            MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO
             "movq $1, %rbx;"
             "xadd %rbx, (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
@@ -66,7 +66,7 @@ namespace test {
 
     static void unwatched_inc(void) throw() {
         ASM(
-            "movq $WP_ARITH_FOO, %rax;"
+            "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "incq (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
         );
@@ -74,8 +74,8 @@ namespace test {
 
     static void watched_inc(void) throw() {
         ASM(
-            "movq WP_ARITH_MASK, %rax;"
-            MASK_OP " $WP_ARITH_FOO, %rax;" // mask the address of FOO
+            "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
+            MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO
             "incq (%rax);"
             "jmp 1f; 1: nop;" // ensure all regs are live
         );
