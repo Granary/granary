@@ -260,11 +260,15 @@ namespace granary {
         // about re-enabling interrupts.
         ls.append(pushf_());
 
-        // emit code to re-enable interrupts (when the flags are restored),
+        // Emit code to re-enable interrupts (when the flags are restored),
         // assuming they were previously enabled.
         //
         // TODO: this assumes that code in a delay region will not fault!!!
         if(isf->flags.interrupt) {
+
+            // Disable interrupts upon return from the interrupt that caused the
+            // delay.
+            isf->flags.interrupt = false;
 
             // TODO: maybe XOR with old flags?
             eflags mask;
@@ -501,7 +505,7 @@ namespace granary {
             ls.append(iret_());
         }
 
-        // CASE 2.2: return from the interrupt. This is tricky because the
+        // CASE 2.2: Return from the interrupt. This is tricky because the
         // interrupt stack frame might not be adjacent to the previous value of
         // the stack pointer (at the time of the interrupt). We will RET to the
         // return address in the ISF, which has been manipulated to be in the
@@ -511,12 +515,6 @@ namespace granary {
         // TODO: unaligned RET issue? Potentially consider RETn.
         ls.append(ret);
         {
-            // make a mask for interrupts.
-            // TODO: trap flag? virtual interrupt flag? Maybe do a XOR of the
-            //       old flags?
-            eflags flags;
-            flags.value = 0ULL;
-            flags.interrupt = true;
 
             ls.append(pop_(isf_ptr));
             ls.append(push_(reg::rax)); // will serve as a temp stack ptr
@@ -533,9 +531,8 @@ namespace granary {
                 isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)]));
             ls.append(mov_st_(reg::rax[-8], reg::arg2));
 
-            // put the flags on the stack, with interrupts disabled.
-            ls.append(mov_imm_(reg::arg2, int64_(~(flags.value))));
-            ls.append(and_(
+            // put the flags on the stack.
+            ls.append(mov_ld_(
                 reg::arg2,
                 isf_ptr[offsetof(interrupt_stack_frame, flags)]));
             ls.append(mov_st_(reg::rax[-16], reg::arg2));

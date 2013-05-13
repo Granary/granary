@@ -15,9 +15,15 @@
 #endif
 
 
-/// Null watchpoint policy.
+/// Null policy.
 #ifdef CLIENT_WATCHPOINT_NULL
 #   include "clients/watchpoints/policies/null_policy.h"
+#endif
+
+
+/// Null and watched watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_WATCHED
+#   include "clients/watchpoints/policies/watched_policy.h"
 #endif
 
 

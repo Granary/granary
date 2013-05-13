@@ -644,7 +644,7 @@ namespace granary {
         // make sure we're not wrapping libc/kernel code, or double-wrapping a
         // wrapper; and make sure that what we're wrapping is sane, i.e. that
         // we're not trying to wrap some garbage memory (it's an app address).
-        if(is_host_address(app_addr_pc)
+        if(is_host_address(app_addr_pc) // TODO: host instrumentation.
         IF_KERNEL( || is_wrapper_address(app_addr_pc) )
         IF_KERNEL( || !is_app_address(app_addr) )) {
             return false;
@@ -1004,6 +1004,8 @@ namespace granary {
 #define PRE_OUT_WRAP(lvalue) pre_out_wrap::apply((lvalue), depth__)
 #define POST_OUT_WRAP(lvalue) post_out_wrap::apply((lvalue), depth__)
 #define RETURN_OUT_WRAP(lvalue) return_out_wrap::apply((lvalue), depth__)
+
+#define RELAX_WRAP_DEPTH (++depth__)
 
 #define NO_PRE \
     enum { HAS_PRE_IN_WRAPPER = 0, HAS_PRE_OUT_WRAPPER = 0 }; \

@@ -172,6 +172,11 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
 endif
+ifeq ($(GR_CLIENT),watchpoint_watched)
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
+	GR_OBJS += bin/clients/watchpoints/instrument.o
+	GR_OBJS += bin/clients/watchpoints/policies/watched_policy.o
+endif
 ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
 	GR_OBJS += bin/clients/watchpoints/instrument.o

@@ -1,19 +1,28 @@
 /* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
- * bound_wrappers.h
+ * watched_wrappers.h
  *
- *  Created on: 2013-05-07
+ *  Created on: 2013-05-11
  *      Author: Peter Goodman
  */
 
-#ifndef BOUND_WRAPPERS_H_
-#define BOUND_WRAPPERS_H_
+#ifndef WATCHPOINT_WATCHED_WRAPPERS_H_
+#define WATCHPOINT_WATCHED_WRAPPERS_H_
 
 
-#include "clients/watchpoints/policies/bound_policy.h"
+#include "clients/watchpoints/policies/null_policy.h"
 
 
 using namespace client::wp;
+
+
+/// Specify the descriptor type to the generic watchpoint framework.
+namespace client { namespace wp {
+    template <typename>
+    struct descriptor_type {
+        typedef void type;
+    };
+}}
 
 
 #define WRAPPER_FOR_pointer
@@ -22,14 +31,9 @@ POINTER_WRAPPER({
         if(!is_valid_address(arg)) {
             return;
         }
-        if(is_watched_address(arg)) {
-            arg = unwatched_address(arg);
-            if(!is_valid_address(arg)) {
-                return;
-            }
-        }
+        auto unwatched_arg(unwatched_address(arg));
         RELAX_WRAP_DEPTH;
-        PRE_OUT_WRAP(*arg);
+        PRE_OUT_WRAP(*unwatched_arg);
     }
     INHERIT_PRE_IN
     INHERIT_POST_INOUT
@@ -57,7 +61,7 @@ TYPE_WRAPPER(void *, {
         if(!ptr) {
             return ptr;
         }
-        add_watchpoint(ptr, ptr, size);
+        add_watchpoint(ptr);
         return ptr;
     })
 #endif
@@ -66,11 +70,7 @@ TYPE_WRAPPER(void *, {
 #if defined(CAN_WRAP_kfree) && CAN_WRAP_kfree
 #   define WRAPPER_FOR_kfree
     FUNCTION_WRAPPER_VOID(kfree, (const void *ptr), {
-        if(is_watched_address(ptr)) {
-            free_descriptor_of(ptr);
-            ptr = unwatched_address(ptr);
-        }
-        return kfree(ptr);
+        return kfree(unwatched_address(ptr));
     })
 #endif
 
@@ -87,7 +87,7 @@ TYPE_WRAPPER(void *, {
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
         memset(ptr, 0, cache->object_size);
-        add_watchpoint(ptr, ptr, cache->object_size);
+        add_watchpoint(ptr);
         if(is_valid_address(cache->ctor)) {
             cache->ctor(ptr);
         }
@@ -101,10 +101,7 @@ TYPE_WRAPPER(void *, {
 #   define WRAPPER_FOR_kmem_cache_alloc_trace
     FUNCTION_WRAPPER(kmem_cache_alloc_trace, (void *), (struct kmem_cache *cache, gfp_t gfp, size_t size), {
         if(cache) {
-            if(is_watched_address(cache)) {
-                cache = unwatched_address(cache);
-            }
-            WRAP_FUNCTION(cache->ctor);
+            PRE_OUT_WRAP(cache);
         }
 
         void *ptr(kmem_cache_alloc_trace(cache, gfp, size));
@@ -115,7 +112,7 @@ TYPE_WRAPPER(void *, {
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
         memset(ptr, 0, size);
-        add_watchpoint(ptr, ptr, size);
+        add_watchpoint(ptr);
         if(is_valid_address(cache->ctor)) {
             cache->ctor(ptr);
         }
@@ -128,7 +125,9 @@ TYPE_WRAPPER(void *, {
 #if defined(CAN_WRAP_kmem_cache_alloc_node) && CAN_WRAP_kmem_cache_alloc_node
 #   define WRAPPER_FOR_kmem_cache_alloc_node
     FUNCTION_WRAPPER(kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
-        PRE_OUT_WRAP(cache);
+        if(cache) {
+            PRE_OUT_WRAP(cache);
+        }
 
         void *ptr(kmem_cache_alloc_node(cache, gfp, node));
         if(!ptr) {
@@ -138,7 +137,7 @@ TYPE_WRAPPER(void *, {
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
         memset(ptr, 0, cache->object_size);
-        add_watchpoint(ptr, ptr, cache->object_size);
+        add_watchpoint(ptr);
         if(is_valid_address(cache->ctor)) {
             cache->ctor(ptr);
         }
@@ -151,14 +150,10 @@ TYPE_WRAPPER(void *, {
 #if defined(CAN_WRAP_kmem_cache_free) && CAN_WRAP_kmem_cache_free
 #   define WRAPPER_FOR_kmem_cache_free
     FUNCTION_WRAPPER(kmem_cache_free, (void), (struct kmem_cache *cache, void *ptr), {
-        if(ptr && is_watched_address(ptr)) {
-            free_descriptor_of(ptr);
-            ptr = unwatched_address(ptr);
-        }
-
         PRE_OUT_WRAP(cache);
-        kmem_cache_free(cache, ptr);
+        kmem_cache_free(cache, unwatched_address(ptr));
     })
 #endif
 
-#endif /* BOUND_WRAPPERS_H_ */
+
+#endif /* WATCHPOINT_WATCHED_WRAPPERS_H_ */

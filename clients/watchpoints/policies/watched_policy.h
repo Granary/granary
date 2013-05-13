@@ -1,25 +1,25 @@
 /* Copyright 2012-2013 Peter Goodman, all rights reserved. */
 /*
- * null_policy.h
+ * watched_policy.h
  *
- *  Created on: 2013-04-24
- *      Author: pag
+ *  Created on: 2013-05-12
+ *      Author: Peter Goodman
  */
 
-#ifndef WATCHPOINT_NULL_POLICY_H_
-#define WATCHPOINT_NULL_POLICY_H_
+#ifndef WATCHED_WATCHED_POLICY_H_
+#define WATCHED_WATCHED_POLICY_H_
 
 #include "clients/watchpoints/instrument.h"
 
 #ifndef GRANARY_INIT_POLICY
-#   define GRANARY_INIT_POLICY (client::watchpoint_null_policy())
+#   define GRANARY_INIT_POLICY (client::watchpoint_watched_policy())
 #endif
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 namespace client {
 
     namespace wp {
-        struct null_policy {
+        struct watched_policy {
 
             enum {
                 AUTO_INSTRUMENT_HOST = false
@@ -53,8 +53,8 @@ namespace client {
         };
     }
 
-    struct watchpoint_null_policy
-        : public client::watchpoints<wp::null_policy, wp::null_policy>
+    struct watchpoint_watched_policy
+        : public client::watchpoints<wp::watched_policy, wp::watched_policy>
     { };
 
 
@@ -71,4 +71,5 @@ namespace client {
 }
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
-#endif /* WATCHPOINT_NULL_POLICY_H_ */
+
+#endif /* WATCHED_WATCHED_POLICY_H_ */

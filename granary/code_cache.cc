@@ -138,7 +138,7 @@ namespace granary {
         target_addr = find_detach_target(app_target_addr);
 
         // Should we instrument these host instructions?
-        if(false && nullptr != target_addr) {
+        if(target_addr) {
             if(policy.is_in_host_context()) {
                 target_addr = nullptr;
 
@@ -152,9 +152,19 @@ namespace granary {
         // CTI to be instrumented according to the environment of its target
         // then we'll set it to have a host policy, and back out of that if it's
         // app code.
-        } else if(false && policy.is_in_host_context()) {
+        } else if(policy.is_in_host_context()) {
             policy.in_host_context(false);
         }
+
+#if GRANARY_IN_KERNEL
+        // This will go native temporarily and bring us back into the
+        // code cache.
+        //
+        // TODO: This is not well-defined in user space.
+        if(!target_addr && is_wrapper_address(app_target_addr)) {
+            target_addr = app_target_addr;
+        }
+#endif
 
         // Figure out the non-policy-mangled target address, and get our policy.
         instrumentation_policy base_policy(policy.base_policy());

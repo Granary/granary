@@ -45,7 +45,7 @@
 
 
 /// Should global code cache lookups be logged to the trace logger?
-#define CONFIG_TRACE_CODE_CACHE_FIND 1
+#define CONFIG_TRACE_CODE_CACHE_FIND 0
 
 
 /// Do pre-mangling of instructions with the REP prefix?
@@ -150,13 +150,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 2
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 4
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 2
+#   define CONFIG_MAX_POST_WRAP_DEPTH 4
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 2
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 4
 #endif
 
 

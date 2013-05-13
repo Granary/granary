@@ -15,4 +15,10 @@
 #endif
 
 
+/// Null policy that taints addresses.
+#ifdef CLIENT_WATCHPOINT_WATCHED
+#   include "clients/watchpoints/policies/kernel/linux/watched_wrappers.h"
+#endif
+
+
 #endif /* CLIENT_KERNEL_LINUX_WRAPPERS_H_ */

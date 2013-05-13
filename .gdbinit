@@ -110,6 +110,7 @@ define x-ins
     x/i $__orig_start
     set $num_ins = $num_ins + 1
   end
+  dont-repeat
 end
 
 
@@ -126,7 +127,7 @@ define p-bb
   set $__num_trans_ins = 0
   set $__num_ins = 0
 
-  while *$__int != granary::basic_block_info::HEADER
+  while *$__int != 0xD4D5D682
     set $__int = $__int + 1
   end
 

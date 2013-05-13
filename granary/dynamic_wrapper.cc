@@ -34,7 +34,10 @@ namespace granary {
         app_pc target_code_cache(code_cache::find(wrappee, START_POLICY));
 
         instrumentation_policy policy(START_POLICY);
-        policy.in_host_context();
+        if(!is_app_address(wrappee)
+        && is_host_address(wrappee)) {
+            policy.in_host_context();
+        }
 
         // Build the list to jump to that entry. This will put the address of
         // the code cache version of `wrappee` into `%r10` and then jump to

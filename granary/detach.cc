@@ -88,7 +88,7 @@ namespace granary {
         // easier than checking the hash table so it comes first.
         if(!is_host_address(target)) {
 
-            // consider a code cache target to be a detach address; much easier
+            // Consider a code cache target to be a detach address; much easier
             // to do in kernel space, and simple check.
             if(is_code_cache_address(target)) {
                 return target;

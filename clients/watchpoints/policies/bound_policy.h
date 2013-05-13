@@ -11,7 +11,9 @@
 
 #include "clients/watchpoints/instrument.h"
 
-#define GRANARY_INIT_POLICY (client::watchpoint_bound_policy())
+#ifndef GRANARY_INIT_POLICY
+#   define GRANARY_INIT_POLICY (client::watchpoint_bound_policy())
+#endif
 
 namespace client {
 

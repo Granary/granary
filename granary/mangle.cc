@@ -990,13 +990,13 @@ namespace granary {
         app_pc detach_target_pc(nullptr);
         mangled_address am(target_pc, target_policy.base_policy());
 
-        // if we already know the target, then forgo a stub.
+        // If we already know the target, then forgo a stub.
         detach_target_pc = cpu->code_cache.find(am.as_address);
         if(detach_target_pc) {
             target.value.pc = detach_target_pc;
             in.set_cti_target(target);
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENABLE_DIRECT_RETURN
             // Just in case the previous instruction was a call, and this is the
             // JMP to the next BB, or in case this is a call, and the next
             // instruction is a JMP to the next BB.
@@ -1007,19 +1007,36 @@ namespace granary {
             return;
         }
 
-        // If this is a detach point, then we might actually want to instrument
-        // the host code, so detect this case.
-        detach_target_pc = find_detach_target(target_pc);
-        if(nullptr != detach_target_pc) {
-            if(policy.is_in_host_context()) {
-                detach_target_pc = nullptr;
-            } else if(policy.is_host_auto_instrumented()) {
-                instrumentation_policy host_policy(policy);
-                host_policy.in_host_context();
+        // Try to see if we need to detach.
+        if(!policy.is_in_host_context()) {
+            detach_target_pc = find_detach_target(target_pc);
+        }
 
-                am = mangled_address(detach_target_pc, host_policy);
-                detach_target_pc = cpu->code_cache.find(am.as_address);
-                in.set_policy(host_policy);
+        // If this is a detach point, then decide if we want to detach or if
+        // we want to attempt to instrument this code.
+        if(nullptr != detach_target_pc
+        && policy.is_host_auto_instrumented()) {
+
+            target_policy.in_host_context();
+
+            am = mangled_address(detach_target_pc, target_policy);
+            in.set_policy(target_policy);
+
+            // Try to get the host-instrumented block if it exists.
+            app_pc temp_detach_target_pc(
+                cpu->code_cache.find(am.as_address));
+
+            if(temp_detach_target_pc) {
+                target.value.pc = detach_target_pc;
+                in.set_cti_target(target);
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
+                if(!in.next().is_valid() || in.is_call()) {
+                    in.set_patchable();
+                }
+#endif
+
+                return;
             }
         }
 
@@ -1050,6 +1067,12 @@ namespace granary {
                 in.set_cti_target(pc_(detach_target_pc));
                 in.set_mangled();
             }
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
+            if(!in.next().is_valid() || in.is_call()) {
+                in.set_patchable();
+            }
+#endif
 
             return;
         }
