@@ -45,7 +45,7 @@
 
 
 /// Should global code cache lookups be logged to the trace logger?
-#define CONFIG_TRACE_CODE_CACHE_FIND 0
+#define CONFIG_TRACE_CODE_CACHE_FIND 1
 
 
 /// Do pre-mangling of instructions with the REP prefix?
@@ -150,13 +150,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 4
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 3
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 4
+#   define CONFIG_MAX_POST_WRAP_DEPTH 3
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 4
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 3
 #endif
 
 
@@ -285,6 +285,17 @@ namespace granary {
         "Invalid packing of `eflags` struct.");
 
 
+    /// Detach from Granary.
+    extern void detach(void) throw();
+
+
+    /// Detach context.
+    enum runtime_context {
+        RUNNING_AS_APP = 0,
+        RUNNING_AS_HOST = 1
+    };
+
+
     /// Forward declarations.
     struct basic_block;
 
@@ -324,12 +335,13 @@ namespace granary {
     }
 
 #else
+    extern app_pc find_detach_target(app_pc pc, runtime_context) throw();
+
     template <typename T>
     inline bool is_host_address(T *addr_) throw() {
-        extern app_pc find_detach_target(app_pc pc) throw();
         const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
         return nullptr != find_detach_target(
-            reinterpret_cast<app_pc>(addr));
+            reinterpret_cast<app_pc>(addr), RUNNING_AS_APP);
     }
 
     template <typename T>
@@ -338,10 +350,6 @@ namespace granary {
     }
 
 #endif
-
-
-    /// Detach from Granary.
-    extern void detach(void) throw();
 }
 
 
@@ -351,8 +359,9 @@ extern "C" {
     extern int granary_fault(void);
 
 #if GRANARY_IN_KERNEL
-    extern unsigned long long granary_disable_interrupts(void);
-    extern void granary_restore_flags(unsigned long long);
+    extern granary::eflags granary_disable_interrupts(void);
+    extern granary::eflags granary_load_flags(void);
+    extern void granary_store_flags(granary::eflags);
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
 #endif
@@ -382,6 +391,7 @@ extern "C" {
 #include "granary/init.h"
 #include "granary/perf.h"
 #include "granary/printf.h"
+#include "granary/trace_log.h"
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
 #   include "granary/kernel/interrupt.h"

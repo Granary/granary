@@ -9,7 +9,7 @@
 
 #include "granary/detach.h"
 #include "granary/utils.h"
-#include "granary/hash_table.h"
+#include "granary/cpu_code_cache.h"
 
 #if !GRANARY_IN_KERNEL
 #   ifndef _GNU_SOURCE
@@ -20,22 +20,25 @@
 
 namespace granary {
 
-    static static_data<
-        hash_table<app_pc, const function_wrapper *>
-    > DETACH_HASH_TABLE;
+
+    /// Define two context-specific hash tables for finding detach points. These
+    /// hash tables are only updated during Granary's initialisation.
+    static static_data<cpu_private_code_cache> DETACH_HASH_TABLE[2];
 
 
     STATIC_INITIALISE_ID(detach_hash_table, {
 
-        DETACH_HASH_TABLE.construct();
+        DETACH_HASH_TABLE[RUNNING_AS_APP].construct();
+        DETACH_HASH_TABLE[RUNNING_AS_HOST].construct();
 
-        // add all wrappers to the detach hash table
+        // Add all wrappers to the detach hash table.
         IF_WRAPPERS( for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
-            DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+            DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
+                wrapper.original_address, wrapper.wrapper_address);
         } )
 
-        // add internal dynamic symbols to the detach hash table.
+        // Add internal dynamic symbols to the detach hash table.
         IF_USER( for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
             function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
 
@@ -46,6 +49,8 @@ namespace granary {
             app_pc dlsym_address(reinterpret_cast<app_pc>(
                 dlsym(RTLD_NEXT, wrapper.name)));
 
+            // While not necessary, this improves debugging when inspecting
+            // the wrapper in `gdb` with the `p-wrapper` command.
             if(!wrapper.original_address) {
                 wrapper.original_address = dlsym_address;
             }
@@ -55,21 +60,27 @@ namespace granary {
             }
 
             if(wrapper.original_address) {
-                DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+                DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
+                    wrapper.original_address, wrapper.original_address);
             }
 
             // Allows us to have something like `free` resolve to
             // _GI___libc_free.
             if(wrapper.original_address != dlsym_address) {
-                DETACH_HASH_TABLE->store(dlsym_address, &wrapper);
+                DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
+                    dlsym_address, dlsym_address);
             }
         } )
     })
 
 
     /// Add a detach target to the hash table.
-    void add_detach_target(function_wrapper &wrapper) throw() {
-        DETACH_HASH_TABLE->store(wrapper.original_address, &wrapper);
+    void add_detach_target(
+        app_pc detach_addr,
+        app_pc redirect_addr,
+        runtime_context context
+    ) throw() {
+        DETACH_HASH_TABLE[context]->store(detach_addr, redirect_addr);
     }
 
 
@@ -79,35 +90,29 @@ namespace granary {
     /// be printk).
     ///
     /// Returns:
-    ///        A translated target address, or nullptr if this isn't a
+    ///     A translated target address, or nullptr if this isn't a
     ///     detach target.
-    app_pc find_detach_target(app_pc target) throw() {
+    app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
 
 #if GRANARY_IN_KERNEL
-        // in user space, this function would be non-reentrant; this check is
-        // easier than checking the hash table so it comes first.
-        if(!is_host_address(target)) {
-
-            // Consider a code cache target to be a detach address; much easier
-            // to do in kernel space, and simple check.
-            if(is_code_cache_address(target)) {
-                return target;
+        app_pc fallback(nullptr);
+        if(likely(RUNNING_AS_APP == context)) {
+            if(!is_host_address(detach_addr)) {
+                return nullptr;
             }
+            fallback = detach_addr;
 
+        } else if(!is_app_address(detach_addr)) {
             return nullptr;
         }
-
-        // in kernel space, we only look up entries in the hash table if they
-        // are known to be part of kernel code.
 #endif
 
-        const function_wrapper *wrapper(nullptr);
-        if(!DETACH_HASH_TABLE->load(target, wrapper)) {
-            return IF_USER_ELSE(nullptr, target);
+        app_pc redirect_addr(nullptr);
+        if(DETACH_HASH_TABLE[context]->load(detach_addr, redirect_addr)) {
+            return redirect_addr;
         }
 
-        // printf("detaching on %s\n", wrapper->name);
-        return wrapper->wrapper_address;
+        return IF_USER_ELSE(nullptr, fallback);
     }
 
 
@@ -117,6 +122,7 @@ namespace granary {
     }
 
 
+    GRANARY_DETACH_POINT(detach)
     GRANARY_DETACH_POINT(detach)
 }
 

@@ -68,7 +68,7 @@ namespace granary {
             instrumentation_policy policy
         ) throw() {
 
-            IF_KERNEL( uint64_t flags(granary_disable_interrupts()); )
+            IF_KERNEL( eflags flags(granary_disable_interrupts()); )
             IF_KERNEL( kernel_preempt_disable(); )
 
             cpu_state_handle cpu;
@@ -80,7 +80,7 @@ namespace granary {
             app_pc ret(find(cpu, thread, mangled_addr));
 
             IF_KERNEL( kernel_preempt_enable(); )
-            IF_KERNEL( granary_restore_flags(flags); )
+            IF_KERNEL( granary_store_flags(flags); )
             return ret;
         }
 

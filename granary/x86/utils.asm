@@ -45,12 +45,20 @@ GLOBAL_LABEL(granary_disable_interrupts:)
 END_FUNC(granary_disable_interrupts)
 
 
-DECLARE_FUNC(granary_restore_flags)
-GLOBAL_LABEL(granary_restore_flags:)
+DECLARE_FUNC(granary_load_flags)
+GLOBAL_LABEL(granary_load_flags:)
+    pushf;
+    pop %rax;
+    ret;
+END_FUNC(granary_load_flags)
+
+
+DECLARE_FUNC(granary_store_flags)
+GLOBAL_LABEL(granary_store_flags:)
     push %ARG1;
     popf
     ret;
-END_FUNC(granary_restore_flags)
+END_FUNC(granary_store_flags)
 
 
 END_FILE

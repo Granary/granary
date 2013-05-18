@@ -306,8 +306,8 @@ namespace granary {
 
 
         /// Set the code cache policy to be used for the target of this CTI.
-        inline void set_policy(instrumentation_policy policy) throw() {
-            instr->granary_policy = policy.extension_bits();
+        inline void set_policy(instrumentation_policy policy_) throw() {
+            instr->granary_policy = policy_.encode();
         }
 
 

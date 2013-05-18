@@ -316,7 +316,7 @@ namespace granary {
 
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
-    template <enum function_wrapper_id>
+    template <enum function_wrapper_id, enum runtime_context>
     struct is_function_wrapped {
         enum {
             VALUE = 0
@@ -438,18 +438,34 @@ namespace granary {
 
 
     /// Represents a generic, type-aware function wrapper.
-    template <enum function_wrapper_id id, typename R, typename... Args>
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context,
+        typename R,
+        typename... Args
+    >
     struct wrapped_function;
 
 
-    template <enum function_wrapper_id id, bool inherit, typename R, typename... Args>
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context,
+        bool inherit,
+        typename R,
+        typename... Args
+    >
     struct wrapped_function_impl;
 
 
     /// Represents a generic, type-aware function wrapper, where the wrapped
     /// function returns a non-void type.
-    template <enum function_wrapper_id id, typename R, typename... Args>
-    struct wrapped_function_impl<id, false, R, Args...> {
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context,
+        typename R,
+        typename... Args
+    >
+    struct wrapped_function_impl<id, context, false, R, Args...> {
     public:
 
         typedef R func_type(Args...);
@@ -459,8 +475,6 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
-            P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
-
 #if GRANARY_IN_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #else
@@ -478,16 +492,30 @@ namespace granary {
 
 
     /// Choose the correct custom implementation of this function.
-    template <enum function_wrapper_id id, typename R, typename... Args>
-    struct wrapped_function_impl<id, true, R, Args...>
-        : public wrapped_function_impl<id, false, custom_wrapped_function>
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context,
+        typename R,
+        typename... Args
+    >
+    struct wrapped_function_impl<id, context, true, R, Args...>
+        : public wrapped_function_impl<
+              id,
+              context,
+              false,
+              custom_wrapped_function
+          >
     { };
 
 
     /// Represents a generic, type-aware function wrapper, where the wrapped
     /// function returns void.
-    template <enum function_wrapper_id id, typename... Args>
-    struct wrapped_function_impl<id, false, void, Args...> {
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context,
+        typename... Args
+    >
+    struct wrapped_function_impl<id, context, false, void, Args...> {
     public:
 
         typedef void R;
@@ -498,8 +526,6 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static void apply(Args... args) throw() {
-            P( printf("wrapper(%s)\n", FUNCTION_WRAPPERS[id].name); )
-
 #if GRANARY_IN_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #else
@@ -517,40 +543,58 @@ namespace granary {
     /// Represents a "bad" instantiation of the `wrapped_function` template.
     /// If this is instantiated, then it implies that something is missing,
     /// e.g. a wrapper in `granary/gen/*_wrappers.h`.
-    template <enum function_wrapper_id id>
-    struct wrapped_function_impl<id, false, custom_wrapped_function> {
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context
+    >
+    struct wrapped_function_impl<id, context, false, custom_wrapped_function> {
 
-        // intentionally missing `apply` function so that a reasonable compiler
+        // Intentionally missing `apply` function so that a reasonable compiler
         // error will give us the function id as well as its type signature.
 
     };
 
 
     /// Choose between a specific wrapped function implementation.
-    template <enum function_wrapper_id id, typename R, typename... Args>
+    template <
+        enum function_wrapper_id id,
+        enum runtime_context context,
+        typename R,
+        typename... Args
+    >
     struct wrapped_function : public wrapped_function_impl<
         id,
-        is_function_wrapped<id>::VALUE,
+        context,
+        is_function_wrapped<id, context>::VALUE,
         R,
         Args...
     > { };
 
 
     /// Return the address of a function wrapper given its id and type.
-    template <enum function_wrapper_id id, typename R, typename... Args>
+    template <
+        enum function_wrapper_id id,
+        typename R,
+        typename... Args
+    >
     FORCE_INLINE
     constexpr app_pc wrapper_of(R (*)(Args...)) throw() {
-        return reinterpret_cast<app_pc>(wrapped_function<id, R, Args...>::apply);
+        return reinterpret_cast<app_pc>(
+            wrapped_function<id, RUNNING_AS_APP, R, Args...>::apply);
     }
 
 
     /// Return the address of a function wrapper given its id and type, where
     /// the function being wrapped is a C-style variadic function.
-    template <enum function_wrapper_id id, typename T>
+    template <
+        enum function_wrapper_id id,
+        typename T
+    >
     FORCE_INLINE
     constexpr app_pc wrapper_of(T *) throw() {
         return reinterpret_cast<app_pc>(
-            wrapped_function<id, custom_wrapped_function>::apply);
+            wrapped_function<
+                id, RUNNING_AS_APP, custom_wrapped_function>::apply);
     }
 
 
@@ -568,9 +612,6 @@ namespace granary {
     public:
         static R apply(Args... args) throw() {
             GET_DYNAMIC_ADDR(func_addr, R, Args);
-
-            P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
-
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
 
@@ -605,9 +646,6 @@ namespace granary {
     public:
         static void apply(Args... args) throw() {
             GET_DYNAMIC_ADDR(func_addr, void, Args);
-
-            P( printf("dynamic_wrapper(%p)\n", (void *) func_addr); )
-
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             func_addr(args...);
 
@@ -641,7 +679,7 @@ namespace granary {
             return false;
         }
 
-        // make sure we're not wrapping libc/kernel code, or double-wrapping a
+        // Make sure we're not wrapping libc/kernel code, or double-wrapping a
         // wrapper; and make sure that what we're wrapping is sane, i.e. that
         // we're not trying to wrap some garbage memory (it's an app address).
         if(is_host_address(app_addr_pc) // TODO: host instrumentation.
@@ -654,7 +692,7 @@ namespace granary {
     }
 
 
-    /// Return
+    /// Return true if an address points to a dynamic wrapper.
     template <typename R, typename... Args>
     inline bool is_dynamically_wrapped(R (*app_addr)(Args...)) throw() {
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
@@ -880,6 +918,7 @@ namespace granary {
         }; \
     }
 
+
 #define POINTER_WRAPPER(wrap_code) \
     namespace granary { \
         template <typename T> \
@@ -917,23 +956,44 @@ namespace granary {
         }; \
     }
 
+
 #define TYPEDEF_WRAPPER(type_name, aliased_type_name) \
     namespace granary { \
         template <> \
         struct type_wrapper<type_name> : public type_wrapper<aliased_type_name> { }; \
     }
 
-#define FUNCTION_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
+
+/// Context-specific wrapping for manually-wrapped functions.
+#define FUNCTION_WRAPPER_RUNNING_AS_APP(function_name)
+
+
+#define FUNCTION_WRAPPER_RUNNING_AS_HOST(function_name) \
+    STATIC_INITIALISE_ID(CAT(detach_from_host_on_, function_name), { \
+        add_detach_target( \
+            unsafe_cast<app_pc>(function_name), \
+            unsafe_cast<app_pc>(wrapped_function_impl< \
+                CAT(DETACH_ID_, function_name), \
+                RUNNING_AS_HOST, \
+                false, \
+                custom_wrapped_function \
+            >::apply), \
+            RUNNING_AS_HOST); \
+    })
+
+
+#define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
-        struct is_function_wrapped< DETACH_ID_ ## function_name > { \
+        struct is_function_wrapped<CAT(DETACH_ID_, function_name), context> { \
             enum { \
                 VALUE = 1 \
             }; \
         }; \
         template <> \
         struct wrapped_function_impl< \
-            DETACH_ID_ ## function_name, \
+            CAT(DETACH_ID_, function_name), \
+            context, \
             false, \
             custom_wrapped_function \
         > { \
@@ -941,25 +1001,28 @@ namespace granary {
             typedef referenceless<PARAMS return_type>::type R; \
             static R apply arg_list throw() { \
                 IF_KERNEL(auto function_name((decltype(::function_name) *) \
-                    DETACH_ADDR_ ## function_name );) \
+                    CAT(DETACH_ADDR_, function_name) );) \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
             } \
         }; \
+        CAT(FUNCTION_WRAPPER_, context)(function_name) \
     }
 
-#define FUNCTION_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
+
+#define FUNCTION_WRAPPER_VOID(context, function_name, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
-        struct is_function_wrapped< DETACH_ID_ ## function_name > { \
+        struct is_function_wrapped<CAT(DETACH_ID_, function_name), context> { \
             enum { \
                 VALUE = 1 \
             }; \
         }; \
         template <> \
         struct wrapped_function_impl< \
-            DETACH_ID_ ## function_name, \
+            CAT(DETACH_ID_, function_name), \
+            context, \
             false, \
             custom_wrapped_function \
         > { \
@@ -971,7 +1034,9 @@ namespace granary {
                 wrapper_code \
             } \
         }; \
+        CAT(FUNCTION_WRAPPER_, context)(function_name) \
     }
+
 
 #define WRAP_FUNCTION(lvalue) \
     { \
@@ -981,6 +1046,7 @@ namespace granary {
                 dynamic_wrapper_of(lvalue); \
         } \
     } (void) depth__
+
 
 #define ABORT_IF_FUNCTION_IS_WRAPPED(lvalue) \
     { \
@@ -997,108 +1063,133 @@ namespace granary {
         } \
     }
 
+
 #define PRE_IN_WRAP(lvalue) pre_in_wrap::apply((lvalue), depth__)
 #define POST_IN_WRAP(lvalue) post_in_wrap::apply((lvalue), depth__)
 #define RETURN_IN_WRAP(lvalue) return_in_wrap::apply((lvalue), depth__)
+
 
 #define PRE_OUT_WRAP(lvalue) pre_out_wrap::apply((lvalue), depth__)
 #define POST_OUT_WRAP(lvalue) post_out_wrap::apply((lvalue), depth__)
 #define RETURN_OUT_WRAP(lvalue) return_out_wrap::apply((lvalue), depth__)
 
+
 #define RELAX_WRAP_DEPTH (++depth__)
+
 
 #define NO_PRE \
     enum { HAS_PRE_IN_WRAPPER = 0, HAS_PRE_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(pre_in) \
     EMPTY_WRAP_FUNC_IMPL(pre_out)
 
+
 #define NO_PRE_IN \
     enum { HAS_PRE_IN_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(pre_in) \
 
+
 #define NO_PRE_OUT \
     enum { HAS_PRE_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(pre_out) \
+
 
 #define NO_POST \
     enum { HAS_POST_IN_WRAPPER = 0, HAS_POST_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(post_in) \
     EMPTY_WRAP_FUNC_IMPL(post_out)
 
+
 #define NO_POST_IN \
     enum { HAS_POST_IN_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(post_in) \
 
+
 #define NO_POST_OUT \
     enum { HAS_POST_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(post_out) \
+
 
 #define NO_RETURN \
     enum { HAS_RETURN_IN_WRAPPER = 0, HAS_RETURN_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(return_in) \
     EMPTY_WRAP_FUNC_IMPL(return_out)
 
+
 #define NO_RETURN_IN \
     enum { HAS_RETURN_IN_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(return_in) \
+
 
 #define NO_RETURN_OUT \
     enum { HAS_RETURN_OUT_WRAPPER = 0 }; \
     EMPTY_WRAP_FUNC_IMPL(return_out) \
 
+
 #define PRE_IN \
     enum { HAS_PRE_IN_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(pre_in)
 
+
 #define PRE_OUT \
     enum { HAS_PRE_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(pre_out)
+
 
 #define PRE_INOUT \
     enum { HAS_PRE_IN_WRAPPER = 1, HAS_PRE_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(pre_out) { pre_in_wrap(arg, depth__); } \
     WRAP_FUNC_IMPL(pre_in)
 
+
 #define POST_IN \
     enum { HAS_POST_IN_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(post_in)
 
+
 #define POST_OUT \
     enum { HAS_POST_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(post_out)
+
 
 #define POST_INOUT \
     enum { HAS_POST_IN_WRAPPER = 1, HAS_POST_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(post_out) { post_in_wrap(arg, depth__); } \
     WRAP_FUNC_IMPL(post_in)
 
+
 #define RETURN_IN \
     enum { HAS_RETURN_IN_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(return_in)
 
+
 #define RETURN_OUT \
     enum { HAS_RETURN_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(return_out)
+
 
 #define RETURN_INOUT \
     enum { HAS_RETURN_IN_WRAPPER = 1, HAS_RETURN_OUT_WRAPPER = 1 }; \
     WRAP_FUNC_IMPL(return_out) { return_in_wrap(arg, depth__); } \
     WRAP_FUNC_IMPL(return_in)
 
+
 #define INHERIT_PRE_IN \
     enum { \
         HAS_PRE_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
     };
+
 
 #define INHERIT_POST_IN \
     enum { \
         HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
     };
 
+
 #define INHERIT_RETURN_IN \
     enum { \
         HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
+
 
 #define INHERIT_IN \
     enum { \
@@ -1107,20 +1198,24 @@ namespace granary {
         HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
 
+
 #define INHERIT_PRE_OUT \
     enum { \
         HAS_PRE_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
     };
+
 
 #define INHERIT_POST_OUT \
     enum { \
         HAS_POST_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
     };
 
+
 #define INHERIT_RETURN_OUT \
     enum { \
         HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
+
 
 #define INHERIT_OUT \
     enum { \
@@ -1129,11 +1224,13 @@ namespace granary {
         HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
 
+
 #define INHERIT_POST_INOUT \
     enum { \
         HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
         HAS_POST_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
     };
+
 
 #define INHERIT_PRE_INOUT \
     enum { \
@@ -1141,11 +1238,13 @@ namespace granary {
         HAS_PRE_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
     };
 
+
 #define INHERIT_RETURN_INOUT \
     enum { \
         HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK), \
         HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
+
 
 #define INHERIT_INOUT \
     enum { \
@@ -1157,11 +1256,17 @@ namespace granary {
         HAS_RETURN_OUT_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
     };
 
+
 #define WRAP_FUNC_IMPL(kind) \
     static inline void kind ## _wrap(wrapped_type__ &arg, int depth__) throw()
 
+
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
     static inline void kind ## _wrap(wrapped_type__ &, int) throw() { }
+
+
+#define APP RUNNING_AS_APP
+#define HOST RUNNING_AS_HOST
 
 
 #endif /* CONFIG_ENABLE_WRAPPERS */

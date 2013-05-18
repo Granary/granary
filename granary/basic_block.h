@@ -54,18 +54,15 @@ namespace granary {
         /// Number of bytes of patch instructions beginning this basic block.
         uint16_t num_patch_bytes;
 
-        /// The application/module to which this basic block belongs
-        uint8_t app_id;
-
         /// Represents the translation policy used to translate this basic
         /// block. This includes policy properties.
-        uint8_t policy_bits;
-
-        /// Relative address to this basic block's block-local storage.
-        int32_t rel_state_addr;
+        uint16_t policy_bits;
 
         /// Number of bytes of instructions in the generating basic block.
         uint16_t generating_num_bytes;
+
+        /// Relative address to this basic block's block-local storage.
+        int32_t rel_state_addr;
 
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at

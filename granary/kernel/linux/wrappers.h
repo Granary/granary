@@ -14,9 +14,9 @@
 #endif
 
 
-#if defined(CAN_WRAP_kthread_create_on_node) && CAN_WRAP_kthread_create_on_node && !defined(WRAPPER_FOR_kthread_create_on_node)
-#   define WRAPPER_FOR_kthread_create_on_node
-    FUNCTION_WRAPPER(kthread_create_on_node, (struct task_struct *), (
+#if defined(CAN_WRAP_kthread_create_on_node) && CAN_WRAP_kthread_create_on_node && !defined(APP_WRAPPER_FOR_kthread_create_on_node)
+#   define APP_WRAPPER_FOR_kthread_create_on_node
+    FUNCTION_WRAPPER(APP, kthread_create_on_node, (struct task_struct *), (
         int (*threadfn)(void *),
         void *data,
         int node,
@@ -37,9 +37,9 @@
 #endif
 
 
-#if defined(CAN_WRAP_kthread_create) && CAN_WRAP_kthread_create && !defined(WRAPPER_FOR_kthread_create)
-#   define WRAPPER_FOR_kthread_create
-    FUNCTION_WRAPPER(kthread_create, (struct task_struct *), (
+#if defined(CAN_WRAP_kthread_create) && CAN_WRAP_kthread_create && !defined(APP_WRAPPER_FOR_kthread_create)
+#   define APP_WRAPPER_FOR_kthread_create
+    FUNCTION_WRAPPER(APP, kthread_create, (struct task_struct *), (
         int (*threadfn)(void *),
         void *data,
         const char namefmt[],
@@ -60,27 +60,43 @@
 
 
 /// Disable wrapping of certain types.
-#define WRAPPER_FOR_struct_tracepoint
-#define WRAPPER_FOR_struct_module
-#define WRAPPER_FOR_struct_gendisk
-#define WRAPPER_FOR_struct_address
-#define WRAPPER_FOR_struct_sk_buff
-#define WRAPPER_FOR_struct_sk_buff_head
-#define WRAPPER_FOR_struct_sched_class
-#define WRAPPER_FOR_struct_nf_bridge_info
-#define WRAPPER_FOR_struct_sock_common
-#define WRAPPER_FOR_struct_sock
-#define WRAPPER_FOR_struct_ctl_table_set
-#define WRAPPER_FOR_struct_net
-#define WRAPPER_FOR_struct_task_struct
-#define WRAPPER_FOR_struct_list_head
-#define WRAPPER_FOR_struct_dentry
-#define WRAPPER_FOR_struct_inode
+#define APP_WRAPPER_FOR_struct_task_struct
+#define APP_WRAPPER_FOR_struct_tracepoint
+#define APP_WRAPPER_FOR_struct_module
+#define APP_WRAPPER_FOR_struct_gendisk
+#define APP_WRAPPER_FOR_struct_address
+#define APP_WRAPPER_FOR_struct_sk_buff
+#define APP_WRAPPER_FOR_struct_sk_buff_head
+#define APP_WRAPPER_FOR_struct_sched_class
+#define APP_WRAPPER_FOR_struct_nf_bridge_info
+#define APP_WRAPPER_FOR_struct_sock_common
+#define APP_WRAPPER_FOR_struct_sock
+#define APP_WRAPPER_FOR_struct_ctl_table_set
+#define APP_WRAPPER_FOR_struct_net
+#define APP_WRAPPER_FOR_struct_dentry
+#define APP_WRAPPER_FOR_struct_inode
 
+#define APP_WRAPPER_FOR_struct_rb_node
+#define APP_WRAPPER_FOR_struct_rb_root
+
+#define APP_WRAPPER_FOR_struct_hlist_bl_head
+#define APP_WRAPPER_FOR_struct_hlist_bl_node
+
+#define APP_WRAPPER_FOR_struct_list_head
+#define APP_WRAPPER_FOR_struct_list_node
+
+#define APP_WRAPPER_FOR_struct_hlist_head
+#define APP_WRAPPER_FOR_struct_hlist_node
+
+#define APP_WRAPPER_FOR_struct_plist_head
+#define APP_WRAPPER_FOR_struct_plist_node
+
+#define APP_WRAPPER_FOR_struct_llist_head
+#define APP_WRAPPER_FOR_struct_llist_node
 
 /// Custom wrapping for super blocks.
-#ifndef WRAPPER_FOR_struct_super_block
-#   define WRAPPER_FOR_struct_super_block
+#ifndef APP_WRAPPER_FOR_struct_super_block
+#   define APP_WRAPPER_FOR_struct_super_block
     struct granary_super_block : public super_block { };
     TYPE_WRAPPER(granary_super_block, {
         NO_POST
@@ -108,8 +124,8 @@
 #endif
 
 
-#ifndef WRAPPER_FOR_struct_address_space
-#   define WRAPPER_FOR_struct_address_space
+#ifndef APP_WRAPPER_FOR_struct_address_space
+#   define APP_WRAPPER_FOR_struct_address_space
     TYPE_WRAPPER(struct address_space, {
         NO_PRE_IN
         PRE_OUT {
@@ -123,8 +139,8 @@
 #endif
 
 
-#ifndef WRAPPER_FOR_struct_file_system_type
-#   define WRAPPER_FOR_struct_file_system_type
+#ifndef APP_WRAPPER_FOR_struct_file_system_type
+#   define APP_WRAPPER_FOR_struct_file_system_type
     TYPE_WRAPPER(struct file_system_type, {
         NO_PRE_IN
         PRE_OUT {
@@ -137,9 +153,9 @@
 #endif
 
 
-#if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(WRAPPER_FOR_iget_locked)
-#   define WRAPPER_FOR_iget_locked
-    FUNCTION_WRAPPER(iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
+#if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(APP_WRAPPER_FOR_iget_locked)
+#   define APP_WRAPPER_FOR_iget_locked
+    FUNCTION_WRAPPER(APP, iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
         granary_super_block *sb_((granary_super_block *) sb);
         PRE_OUT_WRAP(sb_);
         inode *inode(iget_locked(sb, ino));
@@ -149,9 +165,9 @@
 #endif
 
 
-#if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode && !defined(WRAPPER_FOR_unlock_new_inode)
-#   define WRAPPER_FOR_unlock_new_inode
-    FUNCTION_WRAPPER(unlock_new_inode, (void), (struct inode *inode), {
+#if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode && !defined(APP_WRAPPER_FOR_unlock_new_inode)
+#   define APP_WRAPPER_FOR_unlock_new_inode
+    FUNCTION_WRAPPER(APP, unlock_new_inode, (void), (struct inode *inode), {
         PRE_OUT_WRAP(inode->i_op);
         PRE_OUT_WRAP(inode->i_fop);
         PRE_OUT_WRAP(inode->i_mapping);
@@ -162,9 +178,9 @@
 
 /// Mount a block device. Make sure that the super block is wrapped when the
 /// dynamic wrapper for `fill_super`
-#if defined(CAN_WRAP_mount_bdev) && CAN_WRAP_mount_bdev && !defined(WRAPPER_FOR_mount_bdev)
-#   define WRAPPER_FOR_mount_bdev
-    FUNCTION_WRAPPER(mount_bdev, (struct dentry *), (
+#if defined(CAN_WRAP_mount_bdev) && CAN_WRAP_mount_bdev && !defined(APP_WRAPPER_FOR_mount_bdev)
+#   define APP_WRAPPER_FOR_mount_bdev
+    FUNCTION_WRAPPER(APP, mount_bdev, (struct dentry *), (
         struct file_system_type * fs_type ,
         int flags ,
         const char *dev_name ,

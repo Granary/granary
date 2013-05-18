@@ -47,6 +47,7 @@ b granary_break_on_predict
 
 # Kernel breakpoints
 if !$__in_user_space
+  b granary_break_on_interrupt
   b panic
   b show_fault_oops
   b do_invalid_op
@@ -160,6 +161,7 @@ define p-bb
   printf "  Number of stub instructions: %d\n", $__num_stub_ins
   printf "  Number of translated instructions: %d\n", $__num_trans_ins
   printf "  Number of original instructions: %d\n", $__num_ins
+  dont-repeat
 end
 
 
@@ -202,24 +204,48 @@ define p-trace
 end
 
 
+# get-trace-entry N
+#
+# Gets a pointer to the Nth trace entry from the trace log and
+# put its into the $trace_entry variable.
+define get-trace-entry
+  set language c++
+  set $trace_entry = (granary::trace_log_item *) 0
+  set $__i = (int) $arg0
+  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  while $__i > 0 && 0 != $__head
+    if $__i == 1
+      set $trace_entry = $__head
+    end
+    set $__i = $__i - 1
+    set $__head = $__head->prev
+  end
+  dont-repeat
+end
+
+
 # p-trace-entry N
 #
 # Prints a specific entry from the trace log. The most recent entry
 # is entry 1.
 define p-trace-entry
   set language c++
-  set $__i = (int) $arg0
-  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
-  printf "Global code cache lookup trace entry %d:\n", $__i
-  while $__i > 0 && 0 != $__head
-    if $__i == 1
-      printf "  App address: %p\n", $__head->app_address
-      printf "  Code cache address: %p\n", $__head->cache_address
-      printf "  Kind: "
-      p $__head->kind
-    end
-    set $__i = $__i - 1
-    set $__head = $__head->prev
-  end
+  get-trace-entry $arg0
+  printf "Global code cache lookup trace entry %d:\n", $arg0
+  printf "  App address: %p\n", $trace_entry->app_address
+  printf "  Code cache address: %p\n", $trace_entry->cache_address
+  printf "  Kind: "
+  p $trace_entry->kind
+  dont-repeat
+end
+
+
+# p-trace-entry-bb N
+#
+# Prints the basic block for the Nth trace log entry.
+define p-trace-entry-bb
+  set language c++
+  get-trace-entry $arg0
+  p-bb $trace_entry->cache_address
   dont-repeat
 end

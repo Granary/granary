@@ -336,7 +336,7 @@ namespace granary {
         instrumentation_policy target_policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
-        const uint8_t policy_bits(target_policy.extension_bits());
+        const unsigned policy_bits(target_policy.encode());
         if(routine[policy_bits]) {
             return routine[policy_bits];
         }
@@ -391,7 +391,7 @@ namespace granary {
         // load and zero-extend the (potential) 32-bit header.
         operand header_mem(*reg_compare_addr);
         header_mem.size = dynamorio::OPSZ_4;
-        ibl.append(mov_ld_(reg_compare_addr_32, header_mem));
+        ibl.append(mov_ld_(reg_compare_addr_32, seg::cs(header_mem)));
 
         // compare against the header
         ibl.append(push_(reg::rax));
@@ -476,7 +476,7 @@ namespace granary {
         instrumentation_policy policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
-        const uint8_t policy_bits(policy.extension_bits());
+        const unsigned policy_bits(policy.encode());
         if(routine[policy_bits]) {
             return routine[policy_bits];
         }
@@ -494,8 +494,8 @@ namespace granary {
 
         // mangle the target address with the policy. This corresponds to the
         // `mangled_address` argument to the `code_cache::find*` functions.
-        ibl.append(shl_(reg_target_addr, int8_(8)));
-        ibl.append(add_(reg_target_addr, int8_(policy_bits)));
+        ibl.append(shl_(reg_target_addr, int8_(mangled_address::NUM_MANGLED_BITS)));
+        ibl.append(add_(reg_target_addr, int32_(policy_bits)));
 
         // save all registers for the IBL.
         register_manager all_regs;
@@ -992,9 +992,19 @@ namespace granary {
 
         // If we already know the target, then forgo a stub.
         detach_target_pc = cpu->code_cache.find(am.as_address);
-        if(detach_target_pc) {
+
+#if GRANARY_IN_KERNEL
+        if(!detach_target_pc
+        && (is_code_cache_address(target_pc) || is_wrapper_address(target_pc))) {
+            detach_target_pc = target_pc;
+        }
+#endif
+
+        // If the detach target isn't too far away then we're done.
+        if(detach_target_pc && !is_far_away(estimator_pc, detach_target_pc)) {
             target.value.pc = detach_target_pc;
             in.set_cti_target(target);
+            in.set_mangled();
 
 #if !CONFIG_ENABLE_DIRECT_RETURN
             // Just in case the previous instruction was a call, and this is the
@@ -1007,37 +1017,32 @@ namespace granary {
             return;
         }
 
-        // Try to see if we need to detach.
-        if(!policy.is_in_host_context()) {
-            detach_target_pc = find_detach_target(target_pc);
-        }
+        // Fall-through:
+        //      1) Either the code cache / wrapper address is too far
+        //         away, and so we depend on the later code for making a
+        //         jump slot; or
+        //      2) We need to figure out if we want to:
+        //              i)   Instrument host code.
+        //              ii)  Detach from host/app code.
+        //              iii) Instrument app code.
 
-        // If this is a detach point, then decide if we want to detach or if
-        // we want to attempt to instrument this code.
-        if(nullptr != detach_target_pc
-        && policy.is_host_auto_instrumented()) {
+        // If we're in application code and we want to automatically instrument
+        // host code, then figure out if we can do that.
+        if(!detach_target_pc
+        && !policy.is_in_host_context()
+        && policy.is_host_auto_instrumented()
+        && is_host_address(target_pc)) {
 
             target_policy.in_host_context();
-
-            am = mangled_address(detach_target_pc, target_policy);
             in.set_policy(target_policy);
 
-            // Try to get the host-instrumented block if it exists.
-            app_pc temp_detach_target_pc(
-                cpu->code_cache.find(am.as_address));
+            am = mangled_address(target_pc, target_policy);
+            detach_target_pc = nullptr;
 
-            if(temp_detach_target_pc) {
-                target.value.pc = detach_target_pc;
-                in.set_cti_target(target);
-
-#if !CONFIG_ENABLE_DIRECT_RETURN
-                if(!in.next().is_valid() || in.is_call()) {
-                    in.set_patchable();
-                }
-#endif
-
-                return;
-            }
+        // Otherwise, we're either in application or host code, and we may or
+        // may not want to detach.
+        } else if(!detach_target_pc){
+            detach_target_pc = find_detach_target(target_pc, policy.context());
         }
 
         // If this is a detach point then replace the target address with the

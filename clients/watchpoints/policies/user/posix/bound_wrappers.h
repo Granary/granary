@@ -16,7 +16,7 @@
 using namespace client::wp;
 
 
-#define WRAPPER_FOR_pointer
+#define APP_WRAPPER_FOR_pointer
 POINTER_WRAPPER({
     PRE_OUT {
         if(!is_valid_address(arg)) {
@@ -36,7 +36,7 @@ POINTER_WRAPPER({
 })
 
 
-#define WRAPPER_FOR_void_pointer
+#define APP_WRAPPER_FOR_void_pointer
 TYPE_WRAPPER(void *, {
     NO_PRE_IN
     PRE_OUT {
@@ -50,8 +50,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_realloc) && CAN_WRAP_realloc
-#   define WRAPPER_FOR_realloc
-    FUNCTION_WRAPPER(realloc, (void *), (void *ptr, size_t size), {
+#   define APP_WRAPPER_FOR_realloc
+    FUNCTION_WRAPPER(APP, realloc, (void *), (void *ptr, size_t size), {
         void *old_ptr(nullptr);
         if(is_watched_address(ptr)) {
             old_ptr = ptr;
@@ -81,26 +81,26 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_malloc) && CAN_WRAP_malloc
-#   define WRAPPER_FOR_malloc
-    FUNCTION_WRAPPER(malloc, (void *), (size_t size), MALLOCATOR(malloc, size))
+#   define APP_WRAPPER_FOR_malloc
+    FUNCTION_WRAPPER(APP, malloc, (void *), (size_t size), MALLOCATOR(malloc, size))
 #endif
 
 
 #if defined(CAN_WRAP___libc_malloc) && CAN_WRAP___libc_malloc
-#   define WRAPPER_FOR___libc_malloc
-    FUNCTION_WRAPPER(__libc_malloc, (void *), (size_t size), MALLOCATOR(__libc_malloc, size))
+#   define APP_WRAPPER_FOR___libc_malloc
+    FUNCTION_WRAPPER(APP, __libc_malloc, (void *), (size_t size), MALLOCATOR(__libc_malloc, size))
 #endif
 
 
 #if defined(CAN_WRAP_valloc) && CAN_WRAP_valloc
-#   define WRAPPER_FOR_valloc
-    FUNCTION_WRAPPER(valloc, (void *), (size_t size), MALLOCATOR(valloc, size))
+#   define APP_WRAPPER_FOR_valloc
+    FUNCTION_WRAPPER(APP, valloc, (void *), (size_t size), MALLOCATOR(valloc, size))
 #endif
 
 
 #if defined(CAN_WRAP___libc_valloc) && CAN_WRAP___libc_valloc
-#   define WRAPPER_FOR___libc_valloc
-    FUNCTION_WRAPPER(__libc_valloc, (void *), (size_t size), MALLOCATOR(__libc_valloc, size))
+#   define APP_WRAPPER_FOR___libc_valloc
+    FUNCTION_WRAPPER(APP, __libc_valloc, (void *), (size_t size), MALLOCATOR(__libc_valloc, size))
 #endif
 
 
@@ -116,14 +116,14 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_malloc) && CAN_WRAP_calloc
-#   define WRAPPER_FOR_calloc
-    FUNCTION_WRAPPER(calloc, (void *), (size_t count, size_t size), CALLOCATOR(calloc, count, size))
+#   define APP_WRAPPER_FOR_calloc
+    FUNCTION_WRAPPER(APP, calloc, (void *), (size_t count, size_t size), CALLOCATOR(calloc, count, size))
 #endif
 
 
 #if defined(CAN_WRAP___libc_calloc) && CAN_WRAP___libc_calloc
-#   define WRAPPER_FOR___libc_calloc
-    FUNCTION_WRAPPER(__libc_calloc, (void *), (size_t count, size_t size), CALLOCATOR(__libc_calloc, count, size))
+#   define APP_WRAPPER_FOR___libc_calloc
+    FUNCTION_WRAPPER(APP, __libc_calloc, (void *), (size_t count, size_t size), CALLOCATOR(__libc_calloc, count, size))
 #endif
 
 
@@ -138,20 +138,20 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_free) && CAN_WRAP_free
-#   define WRAPPER_FOR_free
-    FUNCTION_WRAPPER_VOID(free, (void *ptr), FREER(free, ptr))
+#   define APP_WRAPPER_FOR_free
+    FUNCTION_WRAPPER_VOID(APP, free, (void *ptr), FREER(free, ptr))
 #endif
 
 
 #if defined(CAN_WRAP_cfree) && CAN_WRAP_cfree
-#   define WRAPPER_FOR_cfree
-    FUNCTION_WRAPPER_VOID(cfree, (void *ptr), FREER(cfree, ptr))
+#   define APP_WRAPPER_FOR_cfree
+    FUNCTION_WRAPPER_VOID(APP, cfree, (void *ptr), FREER(cfree, ptr))
 #endif
 
 
 #if defined(CAN_WRAP___libc_free) && CAN_WRAP___libc_free
-#   define WRAPPER_FOR___libc_free
-    FUNCTION_WRAPPER_VOID(__libc_free, (void *ptr), FREER(__libc_free, ptr))
+#   define APP_WRAPPER_FOR___libc_free
+    FUNCTION_WRAPPER_VOID(APP, __libc_free, (void *ptr), FREER(__libc_free, ptr))
 #endif
 
 

@@ -19,7 +19,10 @@
 
 
 extern "C" {
+
+
     extern granary::cpu_state *get_percpu_state(void *);
+
 
     /// Allocates memory for an interrupt descriptor table.
     extern granary::detail::interrupt_descriptor_table *
@@ -74,6 +77,11 @@ namespace granary {
 
     /// Offsets used to align the stack pointer.
     static uint8_t STACK_ALIGN[256] = {0};
+
+
+    /// Start and end of the common interrupt handler.
+    static app_pc COMMON_HANDLER_BEGIN = nullptr;
+    static app_pc COMMON_HANDLER_END = nullptr;
 
 
     /// Initialise the stack alignment table. Note: the stack grows down, and
@@ -312,6 +320,30 @@ namespace granary {
     }
 
 
+    /// Disable the nested task bit of an interrupt if we're doing an IRET.
+    static void disable_nested_task(void) throw() {
+        eflags flags = granary_load_flags();
+        if(flags.nested_task) {
+            flags.nested_task = false;
+            granary_store_flags(flags);
+        }
+    }
+
+
+    extern "C" {
+        __attribute__((noinline, optimize("O0")))
+        void granary_break_on_interrupt(
+            granary::interrupt_stack_frame *isf,
+            interrupt_vector vector,
+            cpu_state_handle &cpu
+        ) {
+            ASM("" :: "m"(isf), "m"(vector), "m"(cpu));
+            (void) isf;
+            (void) vector;
+            (void) cpu;
+        }
+    }
+
     /// Handle an interrupt. Returns true iff the interrupt was handled, or
     /// false if the interrupt should be handled by the kernel. This also
     /// decides when an interrupt must be delayed, and invokes the necessary
@@ -327,13 +359,16 @@ namespace granary {
         cpu_state_handle cpu;
         thread_state_handle thread;
         granary::enter(cpu, thread);
-
         app_pc pc(isf->instruction_pointer);
 
         IF_PERF( perf::visit_interrupt(); )
 
         if(is_code_cache_address(pc)) {
 
+            kernel_preempt_enable();
+            return INTERRUPT_DEFER;
+
+#if 0
             basic_block bb(pc);
             app_pc delay_begin(nullptr);
             app_pc delay_end(nullptr);
@@ -348,7 +383,17 @@ namespace granary {
 
                 interrupt_handled_state ret(policy.handle_interrupt(
                     cpu, thread, *bb_state, *isf, vector));
+#if 0
+                // Try to prevent a GP.
+                if(INTERRUPT_IRET == ret) {
+                    disable_nested_task();
+                }
 
+                if(VECTOR_GENERAL_PROTECTION == vector
+                && INTERRUPT_DEFER == ret) {
+                    granary_break_on_interrupt(isf, vector, cpu);
+                }
+#endif
                 kernel_preempt_enable();
                 return ret;
 
@@ -364,36 +409,50 @@ namespace granary {
 
             kernel_preempt_enable();
             return INTERRUPT_RETURN;
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-        } else if(is_host_address(pc)) {
-            interrupt_handled_state ret(client::handle_kernel_interrupt(
-                cpu,
-                thread,
-                *isf,
-                vector));
-
-            kernel_preempt_enable();
-            return ret;
 #endif
-        } else {
-            // Detect an exception within a delayed interrupt handler. This
-            // is really bad.
-            //
-            // TODO: if the vector is an exception, then perhaps an okay
-            //       strategy is to force execution to the next instruction.
-            const app_pc delayed_begin(cpu->interrupt_delay_handler);
-            const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
-            if(delayed_begin <= pc && pc < delayed_end) {
-                IF_PERF( perf::visit_recursive_interrupt(); )
-                //FAULT;
-                kernel_preempt_enable();
-                return INTERRUPT_IRET;
-            }
+
         }
 
+        // Detect an exception within a delayed interrupt handler. This
+        // is really bad.
+        //
+        // TODO: if the vector is an exception, then perhaps an okay
+        //       strategy is to force execution to the next instruction.
+        const app_pc delayed_begin(cpu->interrupt_delay_handler);
+        const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
+        if(delayed_begin <= pc && pc < delayed_end) {
+            IF_PERF( perf::visit_recursive_interrupt(); )
+            granary_break_on_interrupt(isf, vector, cpu);
+            kernel_preempt_enable();
+            return INTERRUPT_IRET;
+        }
+
+        // Detect if an exception or something else is occurring within our
+        // common interrupt handler. This is really bad.
+        if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
+            granary_break_on_interrupt(isf, vector, cpu);
+            kernel_preempt_enable();
+            return INTERRUPT_IRET;
+        }
+
+        interrupt_handled_state ret(client::handle_kernel_interrupt(
+            cpu,
+            thread,
+            *isf,
+            vector));
+
+#if 0
+        if(INTERRUPT_IRET == ret) {
+            disable_nested_task();
+        }
+
+        if(VECTOR_GENERAL_PROTECTION == vector
+        && INTERRUPT_DEFER == ret) {
+            granary_break_on_interrupt(isf, vector, cpu);
+        }
+#endif
         kernel_preempt_enable();
-        return INTERRUPT_DEFER;
+        return ret;
     }
 
 
@@ -562,11 +621,16 @@ namespace granary {
         }
 
         // encode.
+        const unsigned size(ls.encoded_size());
         app_pc routine(reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
-                allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
+                allocate_untyped(CACHE_LINE_SIZE, size)));
 
         ls.encode(routine);
+
+        COMMON_HANDLER_BEGIN = routine;
+        COMMON_HANDLER_END = routine + size;
+
         return routine;
     }
 
@@ -604,7 +668,7 @@ namespace granary {
 
                 app_pc target(nullptr);
 
-                if(VECTOR_NMI == i
+                if(false //VECTOR_NMI == i
                 || VECTOR_DEBUG == i
                 || VECTOR_BREAKPOINT == i) {
                     target = native_handler;

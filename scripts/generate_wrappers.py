@@ -121,7 +121,7 @@ def wrap_struct(ctype):
   name = scoped_name(ctype)
 
   O = ctype.has_name and OUT or NULL
-  O("#ifndef WRAPPER_FOR_", ifdef_name(name))
+  O("#ifndef APP_WRAPPER_FOR_", ifdef_name(name))
   O("TYPE_WRAPPER(", name, ", ", "{")
   
   if will_pre:
@@ -221,8 +221,9 @@ def wrap_function(ctype, orig_ctype, func):
     addr_check = " && defined(DETACH_ADDR_%s)" % func
 
   O("#if defined(CAN_WRAP_", func, ") && CAN_WRAP_", func, addr_check)
-  O("#ifndef WRAPPER_FOR_", func)
-  O("FUNCTION_WRAPPER", suffix, "(", func, ",", ret_type ,"(", args, variadic, "), {")
+  O("#ifndef APP_WRAPPER_FOR_", func)
+  O("#define APP_WRAPPER_FOR_", func)
+  O("FUNCTION_WRAPPER", suffix, "(APP, ", func, ",", ret_type,"(", args, variadic, "), {")
 
   if ctype.is_variadic:
     O("    va_list args__;")
@@ -255,7 +256,7 @@ def wrap_function(ctype, orig_ctype, func):
   if ctype.is_variadic:
     O("    va_end(args__);")
 
-  #O("    D( granary::printf(\"function_wrapper(%s) %s\\n\"); )" % (func, special and "*" or ""))  
+  #O("    D( granary::printf(\"FUNCTION_WRAPPER(APP, %s) %s\\n\"); )" % (func, special and "*" or ""))  
 
   if not is_void and not isinstance(ctype.ret_type.base_type(), CTypeBuiltIn):
     O("    RETURN_IN_WRAP(", r_v, ");")

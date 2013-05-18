@@ -11,7 +11,9 @@
 
 #include "granary/client.h"
 
-#define GRANARY_INIT_POLICY (client::null_policy())
+#ifndef GRANARY_INIT_POLICY
+#   define GRANARY_INIT_POLICY (client::null_policy())
+#endif
 
 namespace client {
 

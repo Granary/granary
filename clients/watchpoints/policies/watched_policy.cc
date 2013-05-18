@@ -13,6 +13,7 @@ using namespace granary;
 
 namespace client { namespace wp {
 
+
     void watched_policy::visit_read(
         granary::basic_block_state &,
         instruction_list &,
@@ -56,7 +57,7 @@ namespace client { namespace wp {
             mangled_address target(isf.instruction_pointer, policy);
 
             isf.instruction_pointer = code_cache::find(cpu, thread, target);
-            return INTERRUPT_RETURN;
+            return INTERRUPT_IRET;
         }
         return INTERRUPT_DEFER;
     }
@@ -65,6 +66,5 @@ namespace client { namespace wp {
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 
 } /* client namespace */
-
 
 

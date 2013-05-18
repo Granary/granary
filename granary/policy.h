@@ -48,6 +48,7 @@ namespace granary {
             INDIRECT_CTI_POLICY_INCREMENT = 1
         };
 
+
         friend struct basic_block;
         friend struct code_cache;
         friend struct instruction_list_mangler;
@@ -115,33 +116,29 @@ namespace granary {
         /// Policy ID tracker.
         static std::atomic<unsigned> NEXT_POLICY_ID;
 
+        union {
 
-        /// The base id of this policy.
-        uint8_t id;
+            struct {
+                /// Temporary policy properties.
+                bool is_indirect_target:1;
 
-        /// An increment to the base id, that generates either the base policy
-        /// or a pseudo policy.
-        uint8_t pseudo_id_increment;
+                /// Inherited policy properties.
+                bool is_in_xmm_context:1;
+                bool is_in_host_context:1;
 
-        /// policy properties.
-        uint8_t properties;
+                /// Policy identifier.
+                uint16_t id:13;
+
+            } __attribute__((packed)) u;
+
+            /// The bit string representation of a policy.
+            uint16_t as_raw_bits;
+
+        } __attribute__((packed));
+
 
         enum {
-#if CONFIG_TRACK_XMM_REGS
-            /// Are we in the context of some XMM code?
-            IS_XMM_CONTEXT,
-#endif
-
-            /// Are we instrumenting app (module, user code) or host (kernel,
-            /// libc) code?
-            IS_HOST_CONTEXT,
-
-            NUM_PROPERTIES_,
-
-            // ensures that there is at least one property (otherwise the
-            // bitfield of mangled_address that depends on `NUM_PROPERTIES`
-            // won't work.
-            NUM_PROPERTIES = !NUM_PROPERTIES_ ? 1 : NUM_PROPERTIES_
+            MAX_NUM_POLICY_IDS = 1ULL << (16 - 3)
         };
 
 
@@ -157,36 +154,18 @@ namespace granary {
 
         /// Initialise a policy given a policy id. This policy will be
         /// initialised with no properties.
-        inline static instrumentation_policy
-        from_id(uint8_t id) throw() {
+        inline static instrumentation_policy from_id(uint16_t id) throw() {
             instrumentation_policy policy;
-            policy.id = id;
-            policy.pseudo_id_increment = id % NUM_POLICIES;
-            policy.properties = 0;
+            policy.as_raw_bits = 0;
+            policy.u.id = id;
             return policy;
         }
 
         /// Initialise a policy given a the mangled policy bits, which include
         /// the policy's id and properties.
-        inline static instrumentation_policy
-        from_extension_bits(uint8_t bits) throw() {
-            const uint8_t id(bits >> NUM_PROPERTIES);
-            const uint8_t mask(~0);
+        inline static instrumentation_policy decode(uint16_t bits) throw() {
             instrumentation_policy policy;
-            policy.id = id;
-            policy.pseudo_id_increment = id % NUM_POLICIES;
-            policy.properties = bits & (mask >> (8 - NUM_PROPERTIES));
-            return policy;
-        }
-
-        /// Initialise a policy given a policy id. This policy will be
-        /// initialised to have the given properties.
-        inline static instrumentation_policy
-        from_id_and_properties(uint8_t id, uint8_t properties) throw() {
-            instrumentation_policy policy;
-            policy.id = id;
-            policy.pseudo_id_increment = id % NUM_POLICIES;
-            policy.properties = properties;
+            policy.as_raw_bits = bits;
             return policy;
         }
 
@@ -200,9 +179,9 @@ namespace granary {
             basic_block_visitor visitor;
 
             if(is_in_host_context()) {
-                visitor = HOST_VISITORS[id];
+                visitor = HOST_VISITORS[u.id];
             } else {
-                visitor = APP_VISITORS[id];
+                visitor = APP_VISITORS[u.id];
             }
 
             if(!visitor) {
@@ -221,7 +200,7 @@ namespace granary {
             interrupt_stack_frame &isf,
             interrupt_vector vector
         ) throw() {
-            interrupt_visitor visitor(INTERRUPT_VISITORS[id]);
+            interrupt_visitor visitor(INTERRUPT_VISITORS[u.id]);
             if(!visitor) {
                 return INTERRUPT_DEFER;
             }
@@ -233,65 +212,79 @@ namespace granary {
 
         /// Do not allow default initialisations of policies: require that they
         /// have IDs through some well-defined means.
-        inline instrumentation_policy(void) throw()
-            : id(instrumentation_policy::MISSING_POLICY_ID)
-            , pseudo_id_increment(0)
-            , properties(0)
-        { }
-
-        instrumentation_policy(const instrumentation_policy &) throw() = default;
-
-        instrumentation_policy(const mangled_address &) throw();
-
-        instrumentation_policy &
-        operator=(const instrumentation_policy &) throw() = default;
-
-        /// Weak form of equivalence defined over policies.
-        bool operator==(const instrumentation_policy that) const throw() {
-            return id == that.id;
+        inline instrumentation_policy(void) throw() {
+            as_raw_bits = 0;
         }
 
-        bool operator!=(const instrumentation_policy that) const throw() {
-            return id != that.id;
+        inline instrumentation_policy(const instrumentation_policy &that) throw() {
+            as_raw_bits = that.as_raw_bits;
+        }
+
+        inline instrumentation_policy(const instrumentation_policy &&that) throw() {
+            as_raw_bits = that.as_raw_bits;
+        }
+
+        //instrumentation_policy(const instrumentation_policy &that) throw() = default;
+        instrumentation_policy(const mangled_address &) throw();
+
+        inline instrumentation_policy &
+        operator=(const instrumentation_policy &that) throw() {
+            as_raw_bits = that.as_raw_bits;
+            return *this;
+        }
+
+        inline instrumentation_policy &
+        operator=(const instrumentation_policy &&that) throw() {
+            as_raw_bits = that.as_raw_bits;
+            return *this;
+        }
+
+        /// Weak form of equivalence defined over policies.
+        inline bool operator==(const instrumentation_policy that) const throw() {
+            return u.id == that.u.id;
+        }
+
+        inline bool operator!=(const instrumentation_policy that) const throw() {
+            return u.id != that.u.id;
         }
 
         inline bool operator!(void) const throw() {
-            return !id;
+            return !u.id;
         }
 
     private:
 
-
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
         inline instrumentation_policy indirect_cti_policy(void) throw() {
-            const uint8_t base_policy_id(id - pseudo_id_increment);
-            return instrumentation_policy::from_id_and_properties(
-                base_policy_id + INDIRECT_CTI_POLICY_INCREMENT,
-                properties);
+            instrumentation_policy policy;
+            policy.as_raw_bits = as_raw_bits;
+            policy.u.is_indirect_target = true;
+            return policy;
         }
 
         /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
         /// policy is used to help us "leave" the indirect branch lookup
         /// mechanism and restore any saved state.
         inline bool is_indirect_cti_policy(void) const throw() {
-            return INDIRECT_CTI_POLICY_INCREMENT == pseudo_id_increment;
+            return u.is_indirect_target;
         }
 
 
-        /// Return the "base" policy for this policy. This converts any pseudo
-        /// policies back into non-pseudo policies.
+        /// Return the "base" policy for this policy. The effect of this is to
+        /// remove temporary policies, but NOT inherited policies.
         inline instrumentation_policy base_policy(void) throw() {
-            return instrumentation_policy::from_id_and_properties(
-                id - pseudo_id_increment,
-                properties);
+            instrumentation_policy policy;
+            policy.as_raw_bits = as_raw_bits;
+            policy.u.is_indirect_target = false;
+            return policy;
         }
 
 
         /// Get the mangled bits that would represent this policy when an
         /// address is extended to include a policy (and its properties).
-        inline uint8_t extension_bits(void) const throw() {
-            return (id << NUM_PROPERTIES) | properties;
+        inline uint16_t encode(void) const throw() {
+            return as_raw_bits;
         }
 
 
@@ -300,83 +293,57 @@ namespace granary {
 
         /// Update the propertings of this policy to be inside of a host code
         /// context.
-        inline void in_host_context(void) throw() {
-            properties |= (1 << IS_HOST_CONTEXT);
-        }
-
-
-        /// Update the propertings of this policy to be inside of a host code
-        /// context.
-        inline void in_host_context(bool val) throw() {
-            if(val) {
-                properties |= (1 << IS_HOST_CONTEXT);
-            } else {
-                properties &= ~(1 << IS_HOST_CONTEXT);
-            }
+        inline void in_host_context(bool val=true) throw() {
+            u.is_in_host_context = val;
         }
 
 
         /// Returns true iff we are instrumenting host code (kernel, libc).
         inline bool is_in_host_context(void) const throw() {
-            return properties & (1 << IS_HOST_CONTEXT);
+            return u.is_in_host_context;
+        }
+
+
+        /// Get the detach context for this policy.
+        inline runtime_context context(void) const throw() {
+            if(is_in_host_context()) {
+                return RUNNING_AS_HOST;
+            } else {
+                return RUNNING_AS_APP;
+            }
         }
 
 
         /// Returns true iff we should automatically switch to the host context
         /// instead of detaching.
         inline bool is_host_auto_instrumented(void) const throw() {
-            return AUTO_VISIT_HOST[id];
+            return AUTO_VISIT_HOST[u.id];
         }
 
 
         /// Update the properties of this policy to be inside of an xmm context.
-        inline void in_xmm_context(void) throw() {
-#if CONFIG_TRACK_XMM_REGS
-            properties |= (1 << IS_XMM_CONTEXT);
-#endif
+        inline void in_xmm_context(bool val=true) throw() {
+            u.is_in_xmm_context = val;
         }
 
         /// Returns whether or not the policy in the current context is xmm
         /// safe.
         inline bool is_in_xmm_context(void) const throw() {
-#if CONFIG_TRACK_XMM_REGS
-            return properties & (1 << IS_XMM_CONTEXT);
-#else
-            return true;
-#endif
+            return u.is_in_xmm_context;
         }
 
         /// Inherit the properties of another policy.
         inline void inherit_properties(instrumentation_policy that) throw() {
-            properties |= that.properties;
+            that.u.id = 0;
+            as_raw_bits |= that.as_raw_bits;
         }
 
 
         /// Clear all properties.
         inline void clear_properties(void) throw() {
-            properties = 0;
-        }
-
-
-        /// Return the instrumentation policy with the next possible set of
-        /// properties. This is useful (in conjunction with `clear_properties`
-        /// for iterating over all properties of a specific policy.
-        inline instrumentation_policy next(void) const throw() {
-            uint8_t next_properties(properties + 1);
-            instrumentation_policy policy;
-
-            enum {
-                MAX_PROPERTIES = 1 << (NUM_PROPERTIES)
-            };
-
-            if(MAX_PROPERTIES <= next_properties) {
-                return policy;
-            }
-
-            policy.id = id;
-            policy.pseudo_id_increment = pseudo_id_increment;
-            policy.properties = next_properties;
-            return policy;
+            instrumentation_policy raw;
+            raw.u.id = u.id;
+            as_raw_bits = raw.as_raw_bits;
         }
     };
 
@@ -390,25 +357,19 @@ namespace granary {
     public:
 
         enum {
-            NUM_MANGLED_BITS = 8U
+            NUM_MANGLED_BITS = 16U
         };
 
     private:
 
         friend struct instrumentation_policy;
 
-        enum {
-            PROPERTY_NUM_BITS = instrumentation_policy::NUM_PROPERTIES,
-            POLICY_NUM_BITS = NUM_MANGLED_BITS - PROPERTY_NUM_BITS
-        };
-
         /// The mangled address in terms of the policy, policy properties, and
         /// address components.
         /// Note: order of these fields is significant.
         struct {
-            uint8_t policy_properties:PROPERTY_NUM_BITS; // low
-            uint8_t policy_id:POLICY_NUM_BITS;
-            uint64_t _:(64 - (POLICY_NUM_BITS + PROPERTY_NUM_BITS)); // high
+            uint16_t policy_bits:NUM_MANGLED_BITS; // low
+            uint64_t _:(64 - NUM_MANGLED_BITS); // high
         } as_policy_address __attribute__((packed));
 
     public:
@@ -425,7 +386,10 @@ namespace granary {
             : as_uint(0ULL)
         { }
 
-        mangled_address(app_pc addr_, instrumentation_policy policy_) throw();
+        mangled_address(
+            app_pc addr_,
+            const instrumentation_policy policy_
+        ) throw();
 
         /// Extract the original, unmangled address from this mangled address.
         app_pc unmangled_address(void) const throw();

@@ -52,8 +52,8 @@ namespace client {
 #endif
 
             /// Maximum counter index (inclusive).
-            MAX_COUNTER_INDEX           = (
-                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1),
+            MAX_COUNTER_INDEX           = 1, /*(
+                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1), */
 
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.
@@ -476,6 +476,7 @@ namespace client {
                 // like operands but don't actually touch memory.
                 if(dynamorio::OP_lea == in.op_code()
                 || dynamorio::OP_nop_modrm == in.op_code()
+                || dynamorio::OP_leave == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
                     continue;
@@ -499,11 +500,6 @@ namespace client {
                     tracker.in = in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
-
-#if WP_IGNORE_FRAME_POINTER
-                tracker.live_regs.revive(dynamorio::DR_REG_RBP);
-                tracker.live_regs_after.revive(dynamorio::DR_REG_RBP);
-#endif
 
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )
@@ -529,6 +525,8 @@ namespace client {
 
                 IF_USER( wp::guard_redzone(ls, first, last); )
             }
+
+            log_code_cache_run(ls);
 
             return policy_for<self_type>();
         }

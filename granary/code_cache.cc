@@ -8,7 +8,6 @@
  */
 
 #include "granary/code_cache.h"
-#include "granary/detach.h"
 #include "granary/hash_table.h"
 #include "granary/basic_block.h"
 #include "granary/utils.h"
@@ -17,13 +16,13 @@
 #include "granary/detach.h"
 #include "granary/mangle.h"
 #include "granary/predict.h"
+#include "granary/trace_log.h"
 
 
 /// Logging for the trace log. This is helpful for kernel-space debugging, where
 /// the in-memory tracing data structure can be inspected to see the history of
 /// code cache lookups.
 #if CONFIG_TRACE_CODE_CACHE_FIND
-#   include "granary/trace_log.h"
 #   define LOG(...) log_code_cache_find(__VA_ARGS__)
 #else
 #   define LOG(...)
@@ -41,11 +40,6 @@ namespace granary {
         static static_data<rcu_hash_table<app_pc, app_pc>> CODE_CACHE;
 #endif
     }
-
-
-    enum {
-        OP_RET_SHORT = 0xC3
-    };
 
 
     STATIC_INITIALISE_ID(code_cache, {
@@ -108,11 +102,11 @@ namespace granary {
             return target_addr;
         }
 
-        // Do a return address ibl-like lookup to see if this might be a
+        // Do a return address IBL-like lookup to see if this might be a
         // return address into the code cache. This issue comes up if a
         // copied return address is jmp/called to.
         //
-        // TODO: this isn't a perfect solution: if some code inspects a code
+        // TODO: This isn't a perfect solution: if some code inspects a code
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
@@ -132,39 +126,32 @@ namespace granary {
             return target_addr;
         }
 
-        // Determine if this is actually a detach point. This is only relevant
-        // for indirect calls/jumps because direct calls and jumps will have
-        // inlined this check at basic block translation time.
-        target_addr = find_detach_target(app_target_addr);
+#if GRANARY_IN_KERNEL
+        if(is_wrapper_address(app_target_addr)) {
+            target_addr = app_target_addr;
+        }
+#endif /* GRANARY_IN_KERNEL */
 
-        // Should we instrument these host instructions?
-        if(target_addr) {
-            if(policy.is_in_host_context()) {
-                target_addr = nullptr;
-
-            } else if(policy.is_host_auto_instrumented()) {
-                policy.in_host_context();
-                target_addr = nullptr;
-            }
-
-        // We must be in application code. This is a bit of a trick for handling
-        // indirect control flow. What we say is that if we want an indirect
-        // CTI to be instrumented according to the environment of its target
-        // then we'll set it to have a host policy, and back out of that if it's
-        // app code.
-        } else if(policy.is_in_host_context()) {
-            policy.in_host_context(false);
+        if(!target_addr) {
+            target_addr = find_detach_target(app_target_addr, policy.context());
         }
 
 #if GRANARY_IN_KERNEL
-        // This will go native temporarily and bring us back into the
-        // code cache.
-        //
-        // TODO: This is not well-defined in user space.
-        if(!target_addr && is_wrapper_address(app_target_addr)) {
-            target_addr = app_target_addr;
+        // Not a detach target; figure out if we're in the wrong policy context.
+        if(!target_addr) {
+
+            // App code.
+            if(!policy.is_in_host_context()) {
+                if(is_host_address(app_target_addr)) {
+                    policy.in_host_context(true);
+                }
+
+            // Host code, going to app code.
+            } else if(is_app_address(app_target_addr)) {
+                policy.in_host_context(false);
+            }
         }
-#endif
+#endif /* GRANARY_IN_KERNEL */
 
         // Figure out the non-policy-mangled target address, and get our policy.
         instrumentation_policy base_policy(policy.base_policy());

@@ -459,22 +459,8 @@ namespace granary {
     /// registers and revive the source registers.
     void register_manager::visit(dynamorio::instr_t *in) throw() {
 
-        // according to Linux / Mac OS X calling conventions.
-        if(dynamorio::instr_is_return(in)) {
-            kill_all();
-            revive_64(dynamorio::DR_REG_RAX); // return values
-            revive_64(dynamorio::DR_REG_RDX);
-            revive_xmm(dynamorio::DR_REG_XMM0); // FP return values
-            revive_xmm(dynamorio::DR_REG_XMM1);
-
-            // normally callee-saved registers; try to handle leaf functions
-            // where instrumentation might try to clobber these registers.
-            revive_64(dynamorio::DR_REG_RBX);
-            revive_64(dynamorio::DR_REG_RBP);
-            return;
-
         // Conservative.
-        } else if(dynamorio::instr_is_cti(in)) {
+        if(dynamorio::instr_is_cti(in)) {
             revive_all();
             return;
         }

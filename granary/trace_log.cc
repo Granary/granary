@@ -9,6 +9,11 @@
 #include "granary/globals.h"
 #include "granary/trace_log.h"
 
+#if CONFIG_TRACE_CODE_CACHE_FIND
+#   include "granary/instruction.h"
+#   include "granary/emit_utils.h"
+#endif
+
 namespace granary {
 
 #if CONFIG_TRACE_CODE_CACHE_FIND
@@ -62,6 +67,8 @@ namespace granary {
 #   define I(...)
 #endif
 
+
+    /// Log a lookup in the code cache.
     void log_code_cache_find(
         app_pc I(app_addr),
         app_pc I(target_addr),
@@ -78,6 +85,44 @@ namespace granary {
             prev = TRACE.load();
             item->prev = prev;
         } while(!TRACE.compare_exchange_weak(prev, item));
+#endif
+    }
+
+
+    /// Log the run of some code. This will add a lot of instructions to the
+    /// beginning of an instruction list.
+    void log_code_cache_run(instruction_list &I(ls)) throw() {
+#if CONFIG_TRACE_CODE_CACHE_FIND
+        instruction first(ls.first());
+        register_manager all_regs;
+        all_regs.kill_all();
+
+        uint64_t first_pc(0);
+        for(; !first_pc && first.is_valid(); first = first.next()) {
+            first_pc = reinterpret_cast<uint64_t>(first.pc());
+        }
+
+        instruction in(ls.prepend(label_()));
+        in = save_and_restore_registers(all_regs, ls, in);
+        in = insert_save_flags_after(ls, in);
+        in = insert_align_stack_after(ls, in);
+        in = ls.insert_after(in, mov_imm_(reg::arg1, int64_(first_pc)));
+
+        instruction call_target(label_());
+        in = ls.insert_after(in, mangled(call_(instr_(call_target))));
+        in = ls.insert_after(in, call_target);
+        in = ls.insert_after(in, pop_(reg::arg2));
+        in = ls.insert_after(in, mov_imm_(reg::arg3, int64_(TARGET_RUNNING)));
+
+        in = insert_cti_after(ls, in,
+            unsafe_cast<app_pc>(log_code_cache_find),
+            true, reg::ret,
+            CTI_CALL);
+
+        in.set_mangled();
+
+        in = insert_restore_old_stack_alignment_after(ls, in);
+        in = insert_restore_flags_after(ls, in);
 #endif
     }
 

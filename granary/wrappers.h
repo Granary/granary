@@ -10,7 +10,7 @@
 #define granary_BASIC_WRAPPERS_H_
 
 
-#ifdef WRAPPER_FOR_pointer
+#ifdef APP_WRAPPER_FOR_pointer
     POINTER_WRAPPER_QUAL(const, {
         INHERIT_INOUT
     })
@@ -30,55 +30,55 @@ namespace granary {
 /// Basic type wrappers for POINTER TYPES are defined here so that client code
 /// can override the wrappers for the basic pointer types should they desire.
 
-#ifndef WRAPPER_FOR_void_pointer
+#ifndef APP_WRAPPER_FOR_void_pointer
     WRAP_BASIC_TYPE(void)
 #endif
 
-#ifndef WRAPPER_FOR_int8_t_pointer
+#ifndef APP_WRAPPER_FOR_int8_t_pointer
     static_assert(sizeof(char) == sizeof(int8_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(char)
 #endif
 
-#ifndef WRAPPER_FOR_uint8_t_pointer
+#ifndef APP_WRAPPER_FOR_uint8_t_pointer
     static_assert(sizeof(char) == sizeof(int8_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(unsigned char)
 #endif
 
-#ifndef WRAPPER_FOR_int16_t_pointer
+#ifndef APP_WRAPPER_FOR_int16_t_pointer
     static_assert(sizeof(short) == sizeof(int16_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(short)
 #endif
 
-#ifndef WRAPPER_FOR_uint16_t_pointer
+#ifndef APP_WRAPPER_FOR_uint16_t_pointer
     static_assert(sizeof(short) == sizeof(int16_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(unsigned short)
 #endif
 
-#ifndef WRAPPER_FOR_int32_t_pointer
+#ifndef APP_WRAPPER_FOR_int32_t_pointer
     static_assert(sizeof(int) == sizeof(int32_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(int)
 #endif
 
-#ifndef WRAPPER_FOR_uint32_t_pointer
+#ifndef APP_WRAPPER_FOR_uint32_t_pointer
     static_assert(sizeof(int) == sizeof(int32_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(unsigned)
 #endif
 
-#ifndef WRAPPER_FOR_int64_t_pointer
+#ifndef APP_WRAPPER_FOR_int64_t_pointer
     static_assert(sizeof(long) == sizeof(int64_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(long)
 #endif
 
-#ifndef WRAPPER_FOR_uint64_t_pointer
+#ifndef APP_WRAPPER_FOR_uint64_t_pointer
     static_assert(sizeof(long) == sizeof(int64_t), "Type size mismatch.");
     WRAP_BASIC_TYPE(unsigned long)
 #endif
 
-#ifndef WRAPPER_FOR_float_pointer
+#ifndef APP_WRAPPER_FOR_float_pointer
     WRAP_BASIC_TYPE(float)
 #endif
 
-#ifndef WRAPPER_FOR_double_pointer
+#ifndef APP_WRAPPER_FOR_double_pointer
     WRAP_BASIC_TYPE(double)
 #endif
 

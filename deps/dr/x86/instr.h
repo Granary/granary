@@ -1764,7 +1764,7 @@ struct _instr_t {
     app_pc  translation;
 
     IF_GRANARY_ELSE(uint16_t, uint)    opcode;
-    IF_GRANARY(uint8_t granary_policy; )
+    IF_GRANARY(uint16_t granary_policy; )
     IF_GRANARY(uint8_t granary_flags; )
 
 #ifdef X64

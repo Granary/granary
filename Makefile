@@ -25,7 +25,7 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O3
+GR_DEBUG_LEVEL = -g3 -O0
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)
@@ -171,11 +171,13 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_cti.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
+	GR_OBJS += bin/clients/watchpoints/tests/test_frame_pointer.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/policies/watched_policy.o
+	GR_OBJS += bin/clients/watchpoints/policies/kernel/linux/watched_policy.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
@@ -471,6 +473,8 @@ install:
 	@-mkdir bin/clients/watchpoints/policies/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/user > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/user/posix > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/kernel > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/kernel/linux > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/deps > /dev/null 2>&1 ||:

@@ -17,7 +17,7 @@ namespace granary {
 
     /// Should this policy auto-instrument host (kernel, libc) code?
     bool instrumentation_policy::AUTO_VISIT_HOST[
-        1 << mangled_address::POLICY_NUM_BITS
+        instrumentation_policy::MAX_NUM_POLICY_IDS
     ] = {false};
 
 
@@ -27,7 +27,7 @@ namespace granary {
     /// which client-code basic block visitor functions should be called.
     instrumentation_policy::basic_block_visitor
     instrumentation_policy::APP_VISITORS[
-        1 << mangled_address::POLICY_NUM_BITS
+        instrumentation_policy::MAX_NUM_POLICY_IDS
     ] = {
         &instrumentation_policy::missing_policy
     };
@@ -35,7 +35,7 @@ namespace granary {
 
     instrumentation_policy::basic_block_visitor
     instrumentation_policy::HOST_VISITORS[
-        1 << mangled_address::POLICY_NUM_BITS
+        instrumentation_policy::MAX_NUM_POLICY_IDS
     ] = {
         &instrumentation_policy::missing_policy
     };
@@ -46,7 +46,7 @@ namespace granary {
     /// occurs in *non-delayed* instrumented kernel code.
     instrumentation_policy::interrupt_visitor
     instrumentation_policy::INTERRUPT_VISITORS[
-        1 << mangled_address::POLICY_NUM_BITS
+        instrumentation_policy::MAX_NUM_POLICY_IDS
     ] = {
         &instrumentation_policy::missing_interrupt
     };
@@ -62,22 +62,18 @@ namespace granary {
     instrumentation_policy::instrumentation_policy(
         const mangled_address &addr
     ) throw()
-        : id(addr.as_policy_address.policy_id)
-        , pseudo_id_increment(id % NUM_POLICIES)
-        , properties(addr.as_policy_address.policy_properties)
+        : as_raw_bits(addr.as_policy_address.policy_bits)
     { }
 
 
     /// Mangle an address according to a policy.
     mangled_address::mangled_address(
         app_pc addr_,
-        instrumentation_policy policy_
-    ) throw()
-        : as_address(addr_)
-    {
-        as_int <<= NUM_MANGLED_BITS;
-        as_policy_address.policy_id = policy_.id;
-        as_policy_address.policy_properties = policy_.properties;
+        const instrumentation_policy policy_
+    ) throw() {
+        as_address = addr_;
+        as_uint <<= NUM_MANGLED_BITS;
+        as_policy_address.policy_bits = policy_.as_raw_bits;
     }
 
 
@@ -88,8 +84,8 @@ namespace granary {
         /// native address.
         union {
             struct {
-                uint64_t saved_bits:(64 - NUM_MANGLED_BITS);
-                uint8_t lost_bits:NUM_MANGLED_BITS; // high
+                uint64_t saved_bits:(64 - NUM_MANGLED_BITS); // low
+                unsigned lost_bits:NUM_MANGLED_BITS; // high
             } bits __attribute__((packed));
             const void *as_addr;
             uint64_t as_uint;

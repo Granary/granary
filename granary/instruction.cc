@@ -67,8 +67,8 @@ namespace granary {
         void *note(instr->note);
         dynamorio::instr_t *next_(instr->next);
         dynamorio::instr_t *prev_(instr->prev);
-        uint8_t granary_flags(instr->granary_flags);
-        uint8_t granary_policy(instr->granary_flags);
+        unsigned granary_flags(instr->granary_flags);
+        unsigned granary_policy(instr->granary_flags);
 
         memcpy(instr, that.instr, sizeof *instr);
 

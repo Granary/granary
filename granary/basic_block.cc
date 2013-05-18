@@ -236,7 +236,7 @@ namespace granary {
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes + info->num_patch_bytes;
-        policy = instrumentation_policy::from_extension_bits(info->policy_bits);
+        policy = instrumentation_policy::decode(info->policy_bits);
 
         IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
             cache_pc_end + sizeof(basic_block_info));)
@@ -591,14 +591,14 @@ namespace granary {
                 // block that can continue; however, if direct returns
                 // aren't supported then we need to support a fall-through
                 // JMP to the next basic block.
-                } else if(in.is_call()){
+                } else if(in.is_call()) {
 #if !CONFIG_ENABLE_DIRECT_RETURN
                     fall_through_pc = true;
                     break;
 #endif
 
                 // RET instruction.
-                } else if(in.is_return()) {
+                } else if(in.is_return() || dynamorio::OP_iret == in.op_code()) {
                     break;
 
                 // Conditional CTI, end the block with the ability to fall-
@@ -734,7 +734,7 @@ namespace granary {
         info->magic = basic_block_info::HEADER;
         info->num_bytes = static_cast<unsigned>(pc - start_pc);
         info->num_patch_bytes = static_cast<unsigned>(bb_begin.pc() - start_pc);
-        info->policy_bits = policy.extension_bits();
+        info->policy_bits = policy.encode();
         info->generating_num_bytes = byte_len;
         info->generating_pc = generating_pc;
         info->rel_state_addr = reinterpret_cast<int64_t>(info) \

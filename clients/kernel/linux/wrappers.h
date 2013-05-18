@@ -11,12 +11,14 @@
 
 /// Bounds checking watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_BOUND
+#   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
 #   include "clients/watchpoints/policies/kernel/linux/bound_wrappers.h"
 #endif
 
 
 /// Null policy that taints addresses.
 #ifdef CLIENT_WATCHPOINT_WATCHED
+#   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
 #   include "clients/watchpoints/policies/kernel/linux/watched_wrappers.h"
 #endif
 

@@ -16,7 +16,7 @@
 using namespace client::wp;
 
 
-#define WRAPPER_FOR_pointer
+#define APP_WRAPPER_FOR_pointer
 POINTER_WRAPPER({
     PRE_OUT {
         if(!is_valid_address(arg)) {
@@ -37,7 +37,7 @@ POINTER_WRAPPER({
 })
 
 
-#define WRAPPER_FOR_void_pointer
+#define APP_WRAPPER_FOR_void_pointer
 TYPE_WRAPPER(void *, {
     NO_PRE_IN
     PRE_OUT {
@@ -51,8 +51,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
-#   define WRAPPER_FOR___kmalloc
-    FUNCTION_WRAPPER(__kmalloc, (void *), (size_t size, gfp_t gfp), {
+#   define APP_WRAPPER_FOR___kmalloc
+    FUNCTION_WRAPPER(APP, __kmalloc, (void *), (size_t size, gfp_t gfp), {
         void *ptr(__kmalloc(size, gfp));
         if(!ptr) {
             return ptr;
@@ -64,8 +64,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_kfree) && CAN_WRAP_kfree
-#   define WRAPPER_FOR_kfree
-    FUNCTION_WRAPPER_VOID(kfree, (const void *ptr), {
+#   define APP_WRAPPER_FOR_kfree
+    FUNCTION_WRAPPER_VOID(APP, kfree, (const void *ptr), {
         if(is_watched_address(ptr)) {
             free_descriptor_of(ptr);
             ptr = unwatched_address(ptr);
@@ -76,8 +76,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_kmem_cache_alloc) && CAN_WRAP_kmem_cache_alloc
-#   define WRAPPER_FOR_kmem_cache_alloc
-    FUNCTION_WRAPPER(kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
+#   define APP_WRAPPER_FOR_kmem_cache_alloc
+    FUNCTION_WRAPPER(APP, kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
         PRE_OUT_WRAP(cache);
         void *ptr(kmem_cache_alloc(cache, gfp));
         if(!ptr) {
@@ -98,8 +98,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_kmem_cache_alloc_trace) && CAN_WRAP_kmem_cache_alloc_trace
-#   define WRAPPER_FOR_kmem_cache_alloc_trace
-    FUNCTION_WRAPPER(kmem_cache_alloc_trace, (void *), (struct kmem_cache *cache, gfp_t gfp, size_t size), {
+#   define APP_WRAPPER_FOR_kmem_cache_alloc_trace
+    FUNCTION_WRAPPER(APP, kmem_cache_alloc_trace, (void *), (struct kmem_cache *cache, gfp_t gfp, size_t size), {
         if(cache) {
             if(is_watched_address(cache)) {
                 cache = unwatched_address(cache);
@@ -126,8 +126,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_kmem_cache_alloc_node) && CAN_WRAP_kmem_cache_alloc_node
-#   define WRAPPER_FOR_kmem_cache_alloc_node
-    FUNCTION_WRAPPER(kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
+#   define APP_WRAPPER_FOR_kmem_cache_alloc_node
+    FUNCTION_WRAPPER(APP, kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
         PRE_OUT_WRAP(cache);
 
         void *ptr(kmem_cache_alloc_node(cache, gfp, node));
@@ -149,8 +149,8 @@ TYPE_WRAPPER(void *, {
 
 
 #if defined(CAN_WRAP_kmem_cache_free) && CAN_WRAP_kmem_cache_free
-#   define WRAPPER_FOR_kmem_cache_free
-    FUNCTION_WRAPPER(kmem_cache_free, (void), (struct kmem_cache *cache, void *ptr), {
+#   define APP_WRAPPER_FOR_kmem_cache_free
+    FUNCTION_WRAPPER(APP, kmem_cache_free, (void), (struct kmem_cache *cache, void *ptr), {
         if(ptr && is_watched_address(ptr)) {
             free_descriptor_of(ptr);
             ptr = unwatched_address(ptr);

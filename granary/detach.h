@@ -13,37 +13,18 @@
 
 #define GRANARY_DETACH_POINT(func_name) \
     STATIC_INITIALISE({ \
-        static granary::function_wrapper wrapper = { \
-            granary::unsafe_cast<granary::app_pc>(func_name), \
-            granary::unsafe_cast<granary::app_pc>(func_name), \
-            #func_name \
-        }; \
-        granary::add_detach_target(wrapper); \
+        granary::app_pc func(granary::unsafe_cast<granary::app_pc>(func_name)); \
+        granary::add_detach_target(func, func, granary::RUNNING_AS_HOST); \
+        granary::add_detach_target(func, func, granary::RUNNING_AS_APP); \
     })
 
 #define GRANARY_DETACH_POINT_ERROR(func_name) \
     STATIC_INITIALISE({ \
-        static granary::function_wrapper wrapper = { \
-            granary::unsafe_cast<granary::app_pc>(func_name), \
-            granary::unsafe_cast<granary::app_pc>(granary_fault), \
-            #func_name \
-        }; \
-        granary::add_detach_target(wrapper); \
+        granary::app_pc func(granary::unsafe_cast<granary::app_pc>(func_name)); \
+        granary::app_pc err(granary::unsafe_cast<granary::app_pc>(granary_fault)); \
+        granary::add_detach_target(func, err, granary::RUNNING_AS_HOST); \
+        granary::add_detach_target(func, err, granary::RUNNING_AS_APP); \
     })
-
-
-#define GRANARY_DYNAMIC_DETACH_POINT(sym_name) \
-    IF_USER(STATIC_INITIALISE({ \
-        static void *sym(dlsym(RTLD_NEXT, #sym_name )); \
-        if(sym) { \
-            static granary::function_wrapper wrapper = { \
-                reinterpret_cast<granary::app_pc>(sym), \
-                reinterpret_cast<granary::app_pc>(sym), \
-                #sym_name \
-            }; \
-            granary::add_detach_target(wrapper); \
-        } \
-    }))
 
 
 namespace granary {
@@ -89,7 +70,11 @@ namespace granary {
 
 
     /// Add a detach target to the hash table.
-    void add_detach_target(function_wrapper &wrapper) throw();
+    void add_detach_target(
+        app_pc detach_addr,
+        app_pc redirect_addr,
+        runtime_context context
+    ) throw();
 
 
 	/// Returns the address of a detach point. For example, in the
@@ -100,7 +85,7 @@ namespace granary {
 	/// Returns:
 	///		A translated target address, or nullptr if this isn't a
 	/// 	detach target.
-	app_pc find_detach_target(app_pc pc) throw();
+	app_pc find_detach_target(app_pc pc, runtime_context) throw();
 
 
 	/// Detach Granary.
