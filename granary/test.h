@@ -53,12 +53,12 @@ namespace granary {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
-        static bool handle_interrupt(
-            cpu_state_handle &cpu,
-            thread_state_handle &thread,
-            basic_block_state &bb,
-            interrupt_stack_frame &isf,
-            interrupt_vector vector
+        static granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::interrupt_stack_frame &isf,
+            granary::interrupt_vector vector
         ) throw();
 #endif
 

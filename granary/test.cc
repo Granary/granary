@@ -68,6 +68,23 @@ namespace granary {
     }
 
 
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+
+    /// Handle an interrupt in module code. Returns true iff the client
+    /// handles the interrupt.
+    granary::interrupt_handled_state test_policy::handle_interrupt(
+        granary::cpu_state_handle &,
+        granary::thread_state_handle &,
+        granary::basic_block_state &,
+        granary::interrupt_stack_frame &,
+        granary::interrupt_vector
+    ) throw() {
+        return granary::INTERRUPT_DEFER;
+    }
+
+#endif
+
+
 #if CONFIG_RUN_TEST_CASES
 
     /// List of test cases to run.
@@ -97,6 +114,6 @@ namespace granary {
             }
         }
     }
-#endif
+#endif /* CONFIG_RUN_TEST_CASES */
 } /* granary */
 
