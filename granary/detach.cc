@@ -47,8 +47,10 @@ namespace granary {
                 break;
             }
 
+            auto dlsym_ = dlsym;
+
             uintptr_t dlsym_address(reinterpret_cast<uintptr_t>(
-                dlsym(RTLD_NEXT, wrapper.name)));
+                dlsym(RTLD_DEFAULT, wrapper.name)));
 
             // While not necessary, this improves debugging when inspecting
             // the wrapper in `gdb` with the `p-wrapper` command.
@@ -66,12 +68,23 @@ namespace granary {
                     reinterpret_cast<app_pc>(wrapper.wrapper_address));
             }
 
-            // Allows us to have something like `free` resolve to
-            // _GI___libc_free.
-            if(wrapper.original_address != dlsym_address) {
+            // This evil beast allows us to have something like `free` resolve
+            // to _GI___libc_free.
+            while(dlsym_address && wrapper.original_address != dlsym_address) {
                 DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
                     reinterpret_cast<app_pc>(dlsym_address),
                     reinterpret_cast<app_pc>(wrapper.wrapper_address));
+
+                auto prev_dlsym_ = dlsym_;
+                dlsym_ = unsafe_cast<decltype(dlsym_)>(
+                    prev_dlsym_(RTLD_NEXT, "dlsym"));
+
+                if(!dlsym_ || dlsym_ == prev_dlsym_) {
+                    break;
+                }
+
+                dlsym_address = unsafe_cast<uintptr_t>(
+                    dlsym_(RTLD_DEFAULT, wrapper.name));
             }
         } )
     })

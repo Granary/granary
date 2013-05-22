@@ -80,6 +80,7 @@ int main(int argc, const char **argv) throw() {
     granary::run_tests();
 #endif
 
+#if 0
     granary::basic_block in_bb(granary::code_cache::find(
         (granary::app_pc) make_indirect_call,
         granary::policy_for<granary::test_policy>()));
@@ -123,6 +124,7 @@ int main(int argc, const char **argv) throw() {
 
     printf("%lf clock ticks per native iteration (direct)\n",
         ticks_per_iter.count());
+#endif
 
     IF_PERF( granary::perf::report(); )
 

@@ -16,39 +16,6 @@
 using namespace client::wp;
 
 
-#define APP_WRAPPER_FOR_pointer
-POINTER_WRAPPER({
-    PRE_OUT {
-        if(!is_valid_address(arg)) {
-            return;
-        }
-        if(is_watched_address(arg)) {
-            arg = unwatched_address(arg);
-            if(!is_valid_address(arg)) {
-                return;
-            }
-        }
-        PRE_OUT_WRAP(*arg);
-    }
-    INHERIT_PRE_IN
-    INHERIT_POST_INOUT
-    INHERIT_RETURN_INOUT
-})
-
-
-#define APP_WRAPPER_FOR_void_pointer
-TYPE_WRAPPER(void *, {
-    NO_PRE_IN
-    PRE_OUT {
-        if(is_watched_address(arg)) {
-            arg = unwatched_address(arg);
-        }
-    }
-    NO_POST
-    NO_RETURN
-})
-
-
 #if defined(CAN_WRAP_realloc) && CAN_WRAP_realloc
 #   define APP_WRAPPER_FOR_realloc
     FUNCTION_WRAPPER(APP, realloc, (void *), (void *ptr, size_t size), {

@@ -15,6 +15,12 @@
     .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
     .extern SYMBOL(_ZN6client2wp14visit_overflowEmPPhj)
 
+#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
+#   define SYM SYMBOL
+#else
+#   define SYM SHARED_SYMBOL
+#endif
+
 START_FILE
 
 /// Watchpoint descriptor.
@@ -99,7 +105,7 @@ START_FILE
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
         COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        call CAT(SYMBOL(granary_overflow_handler_), CAT(CAT(size, _), reg)); \
+        call SYM(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg))); \
         @N@\
         \
     .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\

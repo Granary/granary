@@ -124,7 +124,7 @@ namespace client { namespace wp {
 
 
     /// Pointers to the descriptors.
-    extern "C++" bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
+    bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
 
 
     /// Allocate a watchpoint descriptor and assign `desc` and `index`

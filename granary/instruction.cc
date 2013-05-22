@@ -484,12 +484,27 @@ namespace granary {
     }
 
 
+#if !GRANARY_IN_KERNEL
+    enum {
+        X86_INT3 = 0xCC,
+        X86_RET_SHORT = 0xC3
+    };
+#endif
+
+
     /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
     /// following byte. The decoded instruction is returned by value. If
     /// the instruction cannot be decoded, then *pc is set to NULL.
     instruction instruction::decode(app_pc *pc) throw() {
         instruction self(make_instr());
         uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
+
+#if !GRANARY_IN_KERNEL
+        // We should have detached by this point, but oh well.
+        if(X86_INT3 == *byte_pc) {
+
+        }
+#endif
 
         *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, self.instr);
         dynamorio::decode(DCONTEXT, byte_pc, self.instr);

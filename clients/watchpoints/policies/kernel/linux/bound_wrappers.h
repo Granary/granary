@@ -16,19 +16,6 @@
 using namespace client::wp;
 
 
-#define APP_WRAPPER_FOR_void_pointer
-TYPE_WRAPPER(void *, {
-    NO_PRE_IN
-    PRE_OUT {
-        if(is_watched_address(arg)) {
-            arg = unwatched_address(arg);
-        }
-    }
-    NO_POST
-    NO_RETURN
-})
-
-
 #if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
 #   define APP_WRAPPER_FOR___kmalloc
     FUNCTION_WRAPPER(APP, __kmalloc, (void *), (size_t size, gfp_t gfp), {

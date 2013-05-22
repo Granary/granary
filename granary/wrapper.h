@@ -831,6 +831,15 @@ namespace granary {
         } \
     } \
 
+
+#define TYPE_WRAPPER_FUNCTION_FORWARD(prefix) \
+    FORCE_INLINE static void \
+    CAT(prefix, _wrap)(wrapped_type__ &arg__, int depth__) throw() { \
+        if(0 < depth__) { \
+            impl__::CAT(prefix, _wrap)(arg__, depth__); \
+        } \
+    } \
+
 #define TYPE_WRAPPER(type_name, wrap_code) \
     namespace granary { \
         template <> \
@@ -894,12 +903,12 @@ namespace granary {
             typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = (NEXT_IN::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = (NEXT_OUT::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = (NEXT_IN::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = (NEXT_OUT::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = (NEXT_IN::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = (NEXT_OUT::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_OUT_WRAPPER, \
+                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -910,12 +919,12 @@ namespace granary {
                                 | (HAS_RETURN_OUT_WRAPPER << 2) \
             }; \
             \
-            TYPE_WRAPPER_FUNCTION(pre_in) \
-            TYPE_WRAPPER_FUNCTION(pre_out) \
-            TYPE_WRAPPER_FUNCTION(post_in) \
-            TYPE_WRAPPER_FUNCTION(post_out) \
-            TYPE_WRAPPER_FUNCTION(return_in) \
-            TYPE_WRAPPER_FUNCTION(return_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(pre_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(pre_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(post_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(post_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(return_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(return_out) \
         }; \
     }
 
@@ -934,12 +943,12 @@ namespace granary {
             typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = (NEXT_IN::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = (NEXT_OUT::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = (NEXT_IN::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = (NEXT_OUT::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = (NEXT_IN::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = (NEXT_OUT::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_OUT_WRAPPER, \
+                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -950,12 +959,12 @@ namespace granary {
                                 | (HAS_RETURN_OUT_WRAPPER << 2) \
             }; \
             \
-            TYPE_WRAPPER_FUNCTION(pre_in) \
-            TYPE_WRAPPER_FUNCTION(pre_out) \
-            TYPE_WRAPPER_FUNCTION(post_in) \
-            TYPE_WRAPPER_FUNCTION(post_out) \
-            TYPE_WRAPPER_FUNCTION(return_in) \
-            TYPE_WRAPPER_FUNCTION(return_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(pre_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(pre_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(post_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(post_out) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(return_in) \
+            TYPE_WRAPPER_FUNCTION_FORWARD(return_out) \
         }; \
     }
 
@@ -1265,7 +1274,7 @@ namespace granary {
 
 
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(wrapped_type__ &, int) throw() { }
+    static inline void kind ## _wrap(wrapped_type__, int) throw() { }
 
 
 #define APP RUNNING_AS_APP

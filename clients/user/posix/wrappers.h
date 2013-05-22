@@ -13,6 +13,7 @@
 /// Bounds checking watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_BOUND
 #   include "clients/watchpoints/policies/user/posix/bound_wrappers.h"
+#   include "clients/watchpoints/policies/user/posix/wrappers.h"
 #endif
 
 
