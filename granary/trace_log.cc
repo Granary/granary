@@ -18,6 +18,7 @@
 namespace granary {
 
 #if CONFIG_TRACE_EXECUTION
+#   if !CONFIG_TRACE_PRINT_LOG
 
     /// An item in the trace log.
     struct trace_log_item {
@@ -44,17 +45,21 @@ namespace granary {
 
     /// A ring buffer representing the trace log.
     static trace_log_item LOGS[CONFIG_NUM_TRACE_LOG_ENTRIES];
-
+#   endif /* CONFIG_TRACE_PRINT_LOG */
 #endif
 
 
     /// Log a lookup in the code cache.
-    void trace_log::log_find(
+    void trace_log::log_entry(
         app_pc IF_TRACE(app_addr),
         app_pc IF_TRACE(target_addr),
         trace_log_target_kind IF_TRACE(kind)
     ) throw() {
 #if CONFIG_TRACE_EXECUTION
+#   if CONFIG_TRACE_PRINT_LOG
+        printf("app=%p cache=%p\n", app_addr, target_addr);
+        (void) kind;
+#   else
         trace_log_item *prev(nullptr);
         trace_log_item *item(&(LOGS[
             NUM_TRACE_ENTRIES.fetch_add(1) % CONFIG_NUM_TRACE_LOG_ENTRIES]));
@@ -66,58 +71,55 @@ namespace granary {
             prev = TRACE.load();
             item->prev = prev;
         } while(!TRACE.compare_exchange_weak(prev, item));
+#   endif /* CONFIG_TRACE_PRINT_LOG */
 #endif
     }
 
 
 #if CONFIG_TRACE_EXECUTION
     app_pc trace_logger(void) throw() {
-        static volatile app_pc routine(nullptr);
+        static volatile app_pc routine = nullptr;
         if(routine) {
             return routine;
         }
 
         instruction_list ls;
-        instruction in(ls.prepend(label_()));
-        instruction end;
+        instruction in;
         register_manager all_regs;
 
         all_regs.kill_all();
         all_regs.revive(reg::arg1);
         all_regs.revive(reg::arg2);
 
-        in = ls.insert_after(in, push_(reg::arg1));
-        in = ls.insert_after(in, push_(reg::arg2));
-        in = ls.insert_after(in, mov_ld_(reg::arg1, reg::rsp[24]));
-        in = ls.insert_after(in, mov_ld_(reg::arg2, reg::rsp[16]));
+        ls.append(push_(reg::arg1));
+        ls.append(push_(reg::arg2));
+        ls.append(mov_ld_(reg::arg1, reg::rsp[24]));
+        ls.append(mov_ld_(reg::arg2, reg::rsp[16]));
 
-        in = insert_save_flags_after(ls, in);
-        in = insert_align_stack_after(ls, in);
-        end = insert_restore_old_stack_alignment_after(ls, in);
-        end = insert_restore_flags_after(ls, end);
+        insert_save_flags_after(ls, ls.last());
+        insert_align_stack_after(ls, ls.last());
 
-        end = ls.insert_after(end, pop_(reg::arg2));
-        end = ls.insert_after(end, pop_(reg::arg2));
-        end = ls.insert_after(end, mangled(ret_()));
-
-        // save/restore regs around the trace log entries.
-        in = save_and_restore_registers(all_regs, ls, in);
         IF_USER( in = save_and_restore_xmm_registers(
-            all_regs, ls, in, XMM_SAVE_ALIGNED); )
+            all_regs, ls, ls.last(), XMM_SAVE_ALIGNED); )
 
+        in = save_and_restore_registers(all_regs, ls, in);
         in = ls.insert_after(in, mov_imm_(reg::arg3, int64_(TARGET_RUNNING)));
-
         in = insert_cti_after(ls, in,
-            unsafe_cast<app_pc>(trace_log::log_find),
+            unsafe_cast<app_pc>(trace_log::log_entry),
             true, reg::ret,
             CTI_CALL);
 
-        in.set_mangled();
+        insert_restore_old_stack_alignment_after(ls, ls.last());
+        insert_restore_flags_after(ls, ls.last());
+        ls.append(pop_(reg::arg2));
+        ls.append(pop_(reg::arg1));
+        ls.append(ret_());
 
         // Encode.
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>( ls.encoded_size()));
         ls.encode(temp);
+        BARRIER;
         routine = temp;
         return temp;
     }
@@ -131,41 +133,22 @@ namespace granary {
         app_pc IF_TRACE(start_pc)
     ) throw() {
 #if CONFIG_TRACE_EXECUTION
-        instruction in(ls.last());
-        register_manager rm;
-
-        for(; in.is_valid(); in = in.prev()) {
-            rm.visit(in);
-        }
-
-        in = ls.prepend(label_());
+        instruction in(ls.prepend(label_()));
 
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
-        dynamorio::reg_id_t spill_reg(rm.get_zombie());
-        bool restore_spill_reg(dynamorio::DR_REG_NULL == spill_reg);
-        if(restore_spill_reg) {
-            spill_reg = dynamorio::DR_REG_RAX;
-        }
-        operand spill(spill_reg);
-
-        if(restore_spill_reg) {
-            in = ls.insert_after(in, push_(spill));
-        }
-
+        in = ls.insert_after(in, push_(reg::rax));
         in = ls.insert_after(in, mov_imm_(
-            spill, int64_(reinterpret_cast<uintptr_t>(start_pc))));
-        in = ls.insert_after(in, push_(spill));
+            reg::rax, int64_(reinterpret_cast<uintptr_t>(start_pc))));
+        in = ls.insert_after(in, push_(reg::rax));
         in = insert_cti_after(ls, in,
             trace_logger(),
-            !restore_spill_reg, spill,
+            true, reg::rax,
             CTI_CALL);
         in.set_mangled();
         in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
-        if(restore_spill_reg) {
-            in = ls.insert_after(in, pop_(spill));
-        }
+        in = ls.insert_after(in, pop_(reg::rax));
 
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[REDZONE_SIZE])) );

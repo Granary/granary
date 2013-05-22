@@ -32,8 +32,8 @@ extern "C" {
 /// Logging for the trace log. This is helpful for kernel-space debugging, where
 /// the in-memory tracing data structure can be inspected to see the history of
 /// code cache lookups.
-#if CONFIG_TRACE_EXECUTION
-#   define LOG(...) trace_log::log_find(__VA_ARGS__)
+#if CONFIG_TRACE_EXECUTION && 0
+#   define LOG(...) trace_log::log_entry(__VA_ARGS__)
 #else
 #   define LOG(...)
 #endif

@@ -46,6 +46,7 @@
 
 /// Should global code cache lookups be logged to the trace logger?
 #define CONFIG_TRACE_EXECUTION 1
+#define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
 

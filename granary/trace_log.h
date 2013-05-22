@@ -30,7 +30,7 @@ namespace granary {
     struct trace_log {
 
         /// Log a lookup in the code cache.
-        static void log_find(
+        static void log_entry(
             app_pc app_addr,
             app_pc target_addr,
             trace_log_target_kind kind
