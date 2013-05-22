@@ -9,7 +9,6 @@
 #include <cstddef>
 
 #include "granary/globals.h"
-
 #include "granary/instruction.h"
 #include "granary/emit_utils.h"
 #include "granary/state.h"
@@ -344,6 +343,7 @@ namespace granary {
         }
     }
 
+
     /// Handle an interrupt. Returns true iff the interrupt was handled, or
     /// false if the interrupt should be handled by the kernel. This also
     /// decides when an interrupt must be delayed, and invokes the necessary
@@ -432,7 +432,7 @@ namespace granary {
         if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
             granary_break_on_interrupt(isf, vector, cpu);
             kernel_preempt_enable();
-            return INTERRUPT_IRET;
+            return INTERRUPT_DEFER;
         }
 
         interrupt_handled_state ret(client::handle_kernel_interrupt(
@@ -534,7 +534,7 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-        // call out to the handler
+        // Call out to the handler
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
         in = insert_align_stack_after(ls, in);
         in = insert_cti_after(

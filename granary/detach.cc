@@ -35,7 +35,8 @@ namespace granary {
         IF_WRAPPERS( for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
             DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                wrapper.original_address, wrapper.wrapper_address);
+                reinterpret_cast<app_pc>(wrapper.original_address),
+                reinterpret_cast<app_pc>(wrapper.wrapper_address));
         } )
 
         // Add internal dynamic symbols to the detach hash table.
@@ -46,7 +47,7 @@ namespace granary {
                 break;
             }
 
-            app_pc dlsym_address(reinterpret_cast<app_pc>(
+            uintptr_t dlsym_address(reinterpret_cast<uintptr_t>(
                 dlsym(RTLD_NEXT, wrapper.name)));
 
             // While not necessary, this improves debugging when inspecting
@@ -61,14 +62,16 @@ namespace granary {
 
             if(wrapper.original_address) {
                 DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                    wrapper.original_address, wrapper.original_address);
+                    reinterpret_cast<app_pc>(wrapper.original_address),
+                    reinterpret_cast<app_pc>(wrapper.wrapper_address));
             }
 
             // Allows us to have something like `free` resolve to
             // _GI___libc_free.
             if(wrapper.original_address != dlsym_address) {
                 DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                    dlsym_address, dlsym_address);
+                    reinterpret_cast<app_pc>(dlsym_address),
+                    reinterpret_cast<app_pc>(wrapper.wrapper_address));
             }
         } )
     })
@@ -102,9 +105,9 @@ namespace granary {
             }
             fallback = detach_addr;
 
-        } else if(!is_app_address(detach_addr)) {
+        } /* else if(!is_app_address(detach_addr)) {
             return nullptr;
-        }
+        }*/
 #endif
 
         app_pc redirect_addr(nullptr);

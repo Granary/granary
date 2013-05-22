@@ -67,7 +67,7 @@ namespace granary {
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
         /// pc X, then the generating pc is X.
-        app_pc generating_pc;
+        uintptr_t generating_pc;
 
     } __attribute__((packed));
 

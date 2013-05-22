@@ -230,6 +230,29 @@ namespace granary {
         }
     };
 
+
+    /// Represents a machine register.
+    union machine_register {
+        uint64_t value_64;
+
+        struct {
+            uint32_t value_32;
+            uint32_t _32;
+        } __attribute__((packed));
+
+        struct {
+            uint16_t value_16;
+            uint8_t _16[6];
+        } __attribute__((packed));
+
+        struct {
+            uint8_t value_low_8;
+            uint8_t value_high_8;
+            uint8_t _8[6];
+        } __attribute__((packed));
+
+    } __attribute__((packed));
+
 }
 
 

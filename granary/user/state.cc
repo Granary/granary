@@ -34,11 +34,15 @@ namespace granary {
         }
     }
 
-    bool is_code_cache_address(app_pc) throw() {
+    extern "C" bool is_code_cache_address(app_pc) throw() {
         return true; // TODO
     }
 
-    bool is_wrapper_address(app_pc) throw() {
+    extern "C" bool is_wrapper_address(app_pc) throw() {
+        return true; // TODO
+    }
+
+    extern "C" bool is_gencode_address(app_pc) throw() {
         return true; // TODO
     }
 }

@@ -47,7 +47,7 @@ b granary_break_on_predict
 
 # Kernel breakpoints
 if !$__in_user_space
-  b granary_break_on_interrupt
+  #b granary_break_on_interrupt
   b panic
   b show_fault_oops
   b do_invalid_op
@@ -57,6 +57,10 @@ if !$__in_user_space
   b do_spurious_interrupt_bug
   b report_bug
 end
+
+
+# Just re-affirm it.
+set language c++
 
 
 # p-bb-info ADDR
@@ -72,11 +76,6 @@ define p-bb-info
   printf "  Instructions: %p\n", ($arg0 - $__bb.num_bytes + $__bb.num_patch_bytes)
   dont-repeat
 end
-
-
-# g-in-length ADDR
-#
-# Return
 
 
 # x-ins START END
@@ -219,6 +218,68 @@ define get-trace-entry
     end
     set $__i = $__i - 1
     set $__head = $__head->prev
+  end
+  dont-repeat
+end
+
+
+# p-last-kernel-trace-entry
+#
+# Prints the last trace entry whose app address is a kernel address.
+#
+# Note: kernel-only.
+define p-last-kernel-trace-entry
+  set language c++
+  set $trace_entry = (granary::trace_log_item *) 0
+  set $__i = 1
+  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  set $__entry = 0
+  while 0 != $__head
+    if 0xffffffff80000000ULL <= ((unsigned long long) $__head->app_address) && ((unsigned long long) $__head->app_address) < 0xffffffffa0000000ULL
+      set $__head = 0
+      set $__entry = $__i
+    else
+      set $__i = $__i + 1
+      set $__head = $__head->prev
+    end
+  end
+  if 0 != $__entry
+    p-trace-entry $__entry
+  end
+  dont-repeat
+end
+
+
+# p-last-granary-trace-entry
+#
+# Prints the last trace entry whose app address is a kernel address.
+#
+# Note: kernel only.
+define p-last-granary-trace-entry
+  set language c++
+  set $trace_entry = (granary::trace_log_item *) 0
+  set $__i = 1
+  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  set $__entry = 0
+
+  while 0 != $__head
+    #if EXEC_START <= $__head->app_address && $__head->app_address < EXEC_END
+    #  set $__entry = $__i
+    #end
+
+    if modules->text_begin <= $__head->app_address && $__head->app_address < modules->text_end
+      set $__entry = $__i
+    end
+
+    if 0 != $__entry && $__i != $__entry
+      set $__head = 0
+    else
+      set $__i = $__i + 1
+      set $__head = $__head->prev
+    end
+  end
+  if 0 != $__entry
+    p-trace-entry $__entry
   end
   dont-repeat
 end

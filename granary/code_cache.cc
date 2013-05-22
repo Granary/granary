@@ -18,12 +18,22 @@
 #include "granary/predict.h"
 #include "granary/trace_log.h"
 
+#include "granary/kernel/linux/module.h"
+extern "C" {
+    extern kernel_module *modules;
+
+    __attribute__((noinline, optimize("O0")))
+    void granary_break_on_self(granary::app_pc addr) {
+        ASM("" :: "m"(addr));
+        (void) addr;
+    }
+}
 
 /// Logging for the trace log. This is helpful for kernel-space debugging, where
 /// the in-memory tracing data structure can be inspected to see the history of
 /// code cache lookups.
-#if CONFIG_TRACE_CODE_CACHE_FIND
-#   define LOG(...) log_code_cache_find(__VA_ARGS__)
+#if CONFIG_TRACE_EXECUTION
+#   define LOG(...) trace_log::log_find(__VA_ARGS__)
 #else
 #   define LOG(...)
 #endif
@@ -110,27 +120,20 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-        IF_USER( uint64_t addr_uint(
-            reinterpret_cast<uint64_t>(app_target_addr)); )
-        IF_USER( uint32_t *header_addr(reinterpret_cast<uint32_t *>(
-            addr_uint + 16 - RETURN_ADDRESS_OFFSET)); )
-
-        if(IF_KERNEL( is_code_cache_address(app_target_addr))
-        IF_USER(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
-        && basic_block_info::HEADER == *header_addr)) {
-
-            target_addr = instruction_list_mangler::ibl_exit_routine(
-                app_target_addr);
-            CODE_CACHE->store(addr.as_address, target_addr);
-            LOG(app_target_addr, target_addr, TARGET_RETURNS_TO_CACHE);
-            return target_addr;
-        }
-
-#if GRANARY_IN_KERNEL
-        if(is_wrapper_address(app_target_addr)) {
+#if !GRANARY_IN_KERNEL
+        const uintptr_t addr_uint(reinterpret_cast<uintptr_t>(app_target_addr));
+        uint32_t *header_addr(reinterpret_cast<uint32_t *>(
+            addr_uint + 16 - RETURN_ADDRESS_OFFSET));
+        if(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
+        && basic_block_info::HEADER == *header_addr) {
+#else
+        if(is_code_cache_address(app_target_addr)
+        || is_wrapper_address(app_target_addr)
+        || is_gencode_address(app_target_addr)) {
+        //|| (modules->text_begin <= app_target_addr && app_target_addr < modules->text_end)) {
+#endif /* GRANARY_IN_KERNEL */
             target_addr = app_target_addr;
         }
-#endif /* GRANARY_IN_KERNEL */
 
         if(!target_addr) {
             target_addr = find_detach_target(app_target_addr, policy.context());

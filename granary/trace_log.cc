@@ -9,16 +9,17 @@
 #include "granary/globals.h"
 #include "granary/trace_log.h"
 
-#if CONFIG_TRACE_CODE_CACHE_FIND
+#if CONFIG_TRACE_EXECUTION
 #   include "granary/instruction.h"
 #   include "granary/emit_utils.h"
+#   include "granary/state.h"
 #endif
 
 namespace granary {
 
-#if CONFIG_TRACE_CODE_CACHE_FIND
-#   define I(...) __VA_ARGS__
+#if CONFIG_TRACE_EXECUTION
 
+    /// An item in the trace log.
     struct trace_log_item {
 
         /// Previous log item in this thread.
@@ -38,45 +39,25 @@ namespace granary {
 
     /// Head of the log.
     static std::atomic<trace_log_item *> TRACE = ATOMIC_VAR_INIT(nullptr);
+    static std::atomic<uint64_t> NUM_TRACE_ENTRIES = ATOMIC_VAR_INIT(0);
 
 
-    /// Configuration for log items.
-    struct trace_log_allocator_config {
-        enum {
-            SLAB_SIZE = 1024 * sizeof(trace_log_item),
-            EXECUTABLE = false,
-            TRANSIENT = false,
-            SHARED = true,
-            EXEC_WHERE = EXEC_NONE,
-            MIN_ALIGN = 1
-        };
-    };
+    /// A ring buffer representing the trace log.
+    static trace_log_item LOGS[CONFIG_NUM_TRACE_LOG_ENTRIES];
 
-
-    /// Allocator for the log.
-    static static_data<
-        bump_pointer_allocator<trace_log_allocator_config>
-    > TRACE_LOG_ALLOCATOR;
-
-
-    STATIC_INITIALISE_ID(trace_logger, {
-        TRACE_LOG_ALLOCATOR.construct();
-    })
-
-#else
-#   define I(...)
 #endif
 
 
     /// Log a lookup in the code cache.
-    void log_code_cache_find(
-        app_pc I(app_addr),
-        app_pc I(target_addr),
-        trace_log_target_kind I(kind)
+    void trace_log::log_find(
+        app_pc IF_TRACE(app_addr),
+        app_pc IF_TRACE(target_addr),
+        trace_log_target_kind IF_TRACE(kind)
     ) throw() {
-#if CONFIG_TRACE_CODE_CACHE_FIND
+#if CONFIG_TRACE_EXECUTION
         trace_log_item *prev(nullptr);
-        trace_log_item *item(TRACE_LOG_ALLOCATOR->allocate<trace_log_item>());
+        trace_log_item *item(&(LOGS[
+            NUM_TRACE_ENTRIES.fetch_add(1) % CONFIG_NUM_TRACE_LOG_ENTRIES]));
         item->app_address = app_addr;
         item->cache_address = target_addr;
         item->kind = kind;
@@ -89,40 +70,105 @@ namespace granary {
     }
 
 
-    /// Log the run of some code. This will add a lot of instructions to the
-    /// beginning of an instruction list.
-    void log_code_cache_run(instruction_list &I(ls)) throw() {
-#if CONFIG_TRACE_CODE_CACHE_FIND
-        instruction first(ls.first());
-        register_manager all_regs;
-        all_regs.kill_all();
-
-        uint64_t first_pc(0);
-        for(; !first_pc && first.is_valid(); first = first.next()) {
-            first_pc = reinterpret_cast<uint64_t>(first.pc());
+#if CONFIG_TRACE_EXECUTION
+    app_pc trace_logger(void) throw() {
+        static volatile app_pc routine(nullptr);
+        if(routine) {
+            return routine;
         }
 
+        instruction_list ls;
         instruction in(ls.prepend(label_()));
-        in = save_and_restore_registers(all_regs, ls, in);
+        instruction end;
+        register_manager all_regs;
+
+        all_regs.kill_all();
+        all_regs.revive(reg::arg1);
+        all_regs.revive(reg::arg2);
+
+        in = ls.insert_after(in, push_(reg::arg1));
+        in = ls.insert_after(in, push_(reg::arg2));
+        in = ls.insert_after(in, mov_ld_(reg::arg1, reg::rsp[24]));
+        in = ls.insert_after(in, mov_ld_(reg::arg2, reg::rsp[16]));
+
         in = insert_save_flags_after(ls, in);
         in = insert_align_stack_after(ls, in);
-        in = ls.insert_after(in, mov_imm_(reg::arg1, int64_(first_pc)));
+        end = insert_restore_old_stack_alignment_after(ls, in);
+        end = insert_restore_flags_after(ls, end);
 
-        instruction call_target(label_());
-        in = ls.insert_after(in, mangled(call_(instr_(call_target))));
-        in = ls.insert_after(in, call_target);
-        in = ls.insert_after(in, pop_(reg::arg2));
+        end = ls.insert_after(end, pop_(reg::arg2));
+        end = ls.insert_after(end, pop_(reg::arg2));
+        end = ls.insert_after(end, mangled(ret_()));
+
+        // save/restore regs around the trace log entries.
+        in = save_and_restore_registers(all_regs, ls, in);
+        IF_USER( in = save_and_restore_xmm_registers(
+            all_regs, ls, in, XMM_SAVE_ALIGNED); )
+
         in = ls.insert_after(in, mov_imm_(reg::arg3, int64_(TARGET_RUNNING)));
 
         in = insert_cti_after(ls, in,
-            unsafe_cast<app_pc>(log_code_cache_find),
+            unsafe_cast<app_pc>(trace_log::log_find),
             true, reg::ret,
             CTI_CALL);
 
         in.set_mangled();
 
-        in = insert_restore_old_stack_alignment_after(ls, in);
-        in = insert_restore_flags_after(ls, in);
+        // Encode.
+        app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>( ls.encoded_size()));
+        ls.encode(temp);
+        routine = temp;
+        return temp;
+    }
+#endif
+
+
+    /// Log the run of some code. This will add a lot of instructions to the
+    /// beginning of an instruction list.
+    void trace_log::log_execution(
+        instruction_list &IF_TRACE(ls),
+        app_pc IF_TRACE(start_pc)
+    ) throw() {
+#if CONFIG_TRACE_EXECUTION
+        instruction in(ls.last());
+        register_manager rm;
+
+        for(; in.is_valid(); in = in.prev()) {
+            rm.visit(in);
+        }
+
+        in = ls.prepend(label_());
+
+        IF_USER( in = ls.insert_after(in,
+            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
+
+        dynamorio::reg_id_t spill_reg(rm.get_zombie());
+        bool restore_spill_reg(dynamorio::DR_REG_NULL == spill_reg);
+        if(restore_spill_reg) {
+            spill_reg = dynamorio::DR_REG_RAX;
+        }
+        operand spill(spill_reg);
+
+        if(restore_spill_reg) {
+            in = ls.insert_after(in, push_(spill));
+        }
+
+        in = ls.insert_after(in, mov_imm_(
+            spill, int64_(reinterpret_cast<uintptr_t>(start_pc))));
+        in = ls.insert_after(in, push_(spill));
+        in = insert_cti_after(ls, in,
+            trace_logger(),
+            !restore_spill_reg, spill,
+            CTI_CALL);
+        in.set_mangled();
+        in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
+        if(restore_spill_reg) {
+            in = ls.insert_after(in, pop_(spill));
+        }
+
+        IF_USER( in = ls.insert_after(in,
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])) );
 #endif
     }
 

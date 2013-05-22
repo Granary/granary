@@ -655,6 +655,12 @@ namespace granary {
         // type of transformation.
         translate_loops(ls);
 
+#if CONFIG_TRACE_EXECUTION
+        // Add in logging at the beginning of the basic block so that we can
+        // debug the flow of execution in the code cache.
+        trace_log::log_execution(ls, start_pc);
+#endif
+
         instruction bb_begin(ls.prepend(label_()));
 
         // Prepare the instructions for final execution; this does instruction-
@@ -736,7 +742,7 @@ namespace granary {
         info->num_patch_bytes = static_cast<unsigned>(bb_begin.pc() - start_pc);
         info->policy_bits = policy.encode();
         info->generating_num_bytes = byte_len;
-        info->generating_pc = generating_pc;
+        info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
         info->rel_state_addr = reinterpret_cast<int64_t>(info) \
                              - reinterpret_cast<int64_t>(block_storage);
 

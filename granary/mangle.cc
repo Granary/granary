@@ -1163,7 +1163,11 @@ namespace granary {
         instrumentation_policy target_policy_ibl(policy);
         target_policy_ibl.inherit_properties(policy);
 
-        if(in.is_return()) {
+        if(dynamorio::OP_iret == in.op_code()) {
+            // TODO?
+            return;
+
+        } else if(in.is_return()) {
             mangle_indirect_cti(
                 in,
                 operand(*reg::rsp),
@@ -1521,7 +1525,7 @@ namespace granary {
         instruction prev_in;
         in = ls->first();
 
-        for(unsigned i(0), max(ls->length()); i < max; ++i, in = next_in) {
+        for(; in.is_valid(); in = next_in) {
 
             next_in = in.next();
             const bool is_hot_patchable(in.is_patchable());

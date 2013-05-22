@@ -254,6 +254,16 @@ namespace client {
         }
 
 
+        /// Returns the unwatched version of an address.
+        template <typename T>
+        T unwatched_address_check(T ptr_) throw() {
+            if(granary::is_valid_address(ptr_) && is_watched_address(ptr_)) {
+                return unwatched_address(ptr_);
+            }
+            return ptr_;
+        }
+
+
 #if WP_USE_PARTIAL_INDEX
         /// Return the partial index of an address.
         inline uintptr_t partial_index_of(uintptr_t ptr) throw() {
@@ -525,8 +535,6 @@ namespace client {
 
                 IF_USER( wp::guard_redzone(ls, first, last); )
             }
-
-            log_code_cache_run(ls);
 
             return policy_for<self_type>();
         }

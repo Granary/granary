@@ -75,6 +75,15 @@ namespace granary {
     public:
         enum {
 
+            HAS_PRE_IN_WRAPPER      = 0,
+            HAS_PRE_OUT_WRAPPER     = 0,
+
+            HAS_POST_IN_WRAPPER     = 0,
+            HAS_POST_OUT_WRAPPER    = 0,
+
+            HAS_RETURN_IN_WRAPPER   = 0,
+            HAS_RETURN_OUT_WRAPPER  = 0,
+
             /// Does this type have any wrappers? This will be a bitmask of
             /// the pre/post/return wrappers, so we can detect which are
             /// present.
@@ -121,18 +130,6 @@ namespace granary {
     WRAP_QUALIFIER_TYPE(const, const_cast)
     WRAP_QUALIFIER_TYPE(volatile, const_cast)
     WRAP_QUALIFIER_TYPE(const volatile, const_cast)
-
-
-#if GRANARY_IN_KERNEL
-    template <typename T>
-    FORCE_INLINE
-    static bool is_valid_address(T *addr) throw() {
-        // Taken from Documentation/x86/x86_64/mm.txt
-        return ((uintptr_t) addr) > 0x00007fffffffffff;
-    }
-#else
-#   define is_valid_address(x) (4095UL < ((uintptr_t) x))
-#endif
 
 
     /// Defines a wrapper function for a pointer of type T.
@@ -578,8 +575,8 @@ namespace granary {
         typename... Args
     >
     FORCE_INLINE
-    constexpr app_pc wrapper_of(R (*)(Args...)) throw() {
-        return reinterpret_cast<app_pc>(
+    constexpr uintptr_t wrapper_of(R (*)(Args...)) throw() {
+        return reinterpret_cast<uintptr_t>(
             wrapped_function<id, RUNNING_AS_APP, R, Args...>::apply);
     }
 
@@ -591,8 +588,8 @@ namespace granary {
         typename T
     >
     FORCE_INLINE
-    constexpr app_pc wrapper_of(T *) throw() {
-        return reinterpret_cast<app_pc>(
+    constexpr uintptr_t wrapper_of(T *) throw() {
+        return reinterpret_cast<uintptr_t>(
             wrapped_function<
                 id, RUNNING_AS_APP, custom_wrapped_function>::apply);
     }
@@ -704,6 +701,8 @@ namespace granary {
     template <typename R, typename... Args>
     R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) throw() {
         typedef R (func_type)(Args...);
+
+        detach();
 
         if(!will_dynamic_wrap(app_addr)) {
             return app_addr;
@@ -891,14 +890,16 @@ namespace granary {
             struct impl__: public type_wrapper_base<qual T *> \
             wrap_code; \
             \
+            typedef next_has_in_wrapper<T *> NEXT_IN; \
+            typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = impl__::HAS_RETURN_OUT_WRAPPER, \
+                HAS_PRE_IN_WRAPPER = (NEXT_IN::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_PRE_OUT_WRAPPER = (NEXT_OUT::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_IN_WRAPPER = (NEXT_IN::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_IN_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = (NEXT_OUT::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = (NEXT_IN::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_IN_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = (NEXT_OUT::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_OUT_WRAPPER, \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -929,14 +930,16 @@ namespace granary {
             struct impl__: public type_wrapper_base<T *> \
             wrap_code; \
             \
+            typedef next_has_in_wrapper<T *> NEXT_IN; \
+            typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = impl__::HAS_RETURN_OUT_WRAPPER, \
+                HAS_PRE_IN_WRAPPER = (NEXT_IN::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_PRE_OUT_WRAPPER = (NEXT_OUT::VALUE & PRE_WRAP_MASK) && impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_IN_WRAPPER = (NEXT_IN::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_IN_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = (NEXT_OUT::VALUE & POST_WRAP_MASK) && impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = (NEXT_IN::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_IN_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = (NEXT_OUT::VALUE & RETURN_WRAP_MASK) && impl__::HAS_RETURN_OUT_WRAPPER, \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -971,7 +974,7 @@ namespace granary {
 #define FUNCTION_WRAPPER_RUNNING_AS_HOST(function_name) \
     STATIC_INITIALISE_ID(CAT(detach_from_host_on_, function_name), { \
         add_detach_target( \
-            unsafe_cast<app_pc>(function_name), \
+            unsafe_cast<app_pc>(IF_USER_ELSE(function_name, CAT(DETACH_ADDR_, function_name))), \
             unsafe_cast<app_pc>(wrapped_function_impl< \
                 CAT(DETACH_ID_, function_name), \
                 RUNNING_AS_HOST, \

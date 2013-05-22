@@ -521,9 +521,18 @@ namespace client { namespace wp {
 
             const operand addr(op_reg[i]);
 
+            // We are using the original reg, but we need to do compute the
+            // final address as there is a scale or displacement.
+            bool compute_addr(!using_original_reg);
+            if(!compute_addr && !is_xlat) {
+                compute_addr = 0 != op->value.base_disp.disp
+                            || 1 < op->value.base_disp.scale;
+
+            }
+
             // If we aren't stealing the reg that we will (in most cases) test,
             // then we need to compute the memory address to be dereferenced.
-            if(!using_original_reg) {
+            if(compute_addr) {
                 ls.insert_before(before, lea_(addr, *op));
 
                 // Replace the operand if possible.
@@ -538,7 +547,7 @@ namespace client { namespace wp {
             ls.insert_before(before,
                 bt_(operand(op_reg_to_test), int8_(DISTINGUISHING_BIT_OFFSET)));
 
-            // save the original register value if we're not modifying the
+            // Save the original register value if we're not modifying the
             // original operand. If we can change the operand, then we already
             // have, so we don't need to worry about index/displacement of
             // this operand.

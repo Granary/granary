@@ -27,17 +27,27 @@ namespace granary {
     };
 
 
-    /// Log a lookup in the code cache.
-    void log_code_cache_find(
-        app_pc app_addr,
-        app_pc target_addr,
-        trace_log_target_kind kind
-    ) throw();
+    struct trace_log {
+
+        /// Log a lookup in the code cache.
+        static void log_find(
+            app_pc app_addr,
+            app_pc target_addr,
+            trace_log_target_kind kind
+        ) throw();
 
 
-    /// Log the run of some code. This will add a lot of instructions to the
-    /// beginning of an instruction list.
-    void log_code_cache_run(instruction_list &) throw();
+        /// Log the run of some code. This will add a lot of instructions to the
+        /// beginning of an instruction list.
+        static void log_execution(
+            instruction_list &,
+            app_pc bb_start_pc
+        ) throw();
+
+
+        /// A generic reverse-execution debugger.
+        static void debug(app_pc pc) throw();
+    };
 }
 
 #endif /* TRACE_LOG_H_ */

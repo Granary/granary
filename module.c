@@ -137,6 +137,13 @@ extern void (**kernel_free)(const void *);
 static unsigned long EXEC_START = 0;
 static unsigned long EXEC_END = 0;
 
+
+/// Layout of the executable region:
+///
+///  EXEC_START                GEN_CODE_START   WRAPPER_START       EXEC_END
+///      |--------------->              <--------------|----------------|
+///                CODE_CACHE_END                                WRAPPER_END
+///
 static unsigned long CODE_CACHE_END = 0;
 static unsigned long GEN_CODE_START = 0;
 static unsigned long WRAPPER_START = 0;
@@ -380,14 +387,20 @@ static void *allocate_executable(unsigned long size, int where) {
 
 
 /// granary::is_code_cache_address
-int _ZN7granary21is_code_cache_addressEPh(unsigned long addr) {
+int is_code_cache_address(unsigned long addr) {
     return EXEC_START <= addr && addr < CODE_CACHE_END;
 }
 
 
 /// granary::is_wrapper_address
-int _ZN7granary18is_wrapper_addressEPh(unsigned long addr) {
+int is_wrapper_address(unsigned long addr) {
     return WRAPPER_START <= addr && addr < WRAPPER_END;
+}
+
+
+/// granary::is_gencode_address
+int is_gencode_address(unsigned long addr) {
+    return GEN_CODE_START <= addr && addr < WRAPPER_START;
 }
 
 

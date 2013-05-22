@@ -57,7 +57,7 @@ namespace client { namespace wp {
             mangled_address target(isf.instruction_pointer, policy);
 
             isf.instruction_pointer = code_cache::find(cpu, thread, target);
-            return INTERRUPT_IRET;
+            return INTERRUPT_RETURN;
         }
         return INTERRUPT_DEFER;
     }

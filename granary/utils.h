@@ -38,6 +38,30 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
+        // Taken from Documentation/x86/x86_64/mm.txt
+        return addr > 0x00007fffffffffff && (addr >> 48) != 0xdead;
+    }
+
+
+    template <typename T>
+    FORCE_INLINE static bool is_valid_address(T *addr) throw() {
+        return is_valid_address(unsafe_cast<uintptr_t>(addr));
+    }
+#else
+    FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
+        return 4095UL < addr;
+    }
+
+
+    template <typename T>
+    FORCE_INLINE static bool is_valid_address(T *addr) throw() {
+        return is_valid_address(unsafe_cast<uintptr_t>(addr));
+    }
+#endif /* GRANARY_IN_KERNEL */
+
+
     namespace detail {
         template <typename T, unsigned extra>
         struct cache_aligned_impl {

@@ -45,7 +45,8 @@
 
 
 /// Should global code cache lookups be logged to the trace logger?
-#define CONFIG_TRACE_CODE_CACHE_FIND 1
+#define CONFIG_TRACE_EXECUTION 1
+#define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
 
 /// Do pre-mangling of instructions with the REP prefix?
@@ -132,7 +133,7 @@
 #if GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
-#   define CONFIG_RUN_TEST_CASES 1
+#   define CONFIG_RUN_TEST_CASES 0
 #endif
 
 
@@ -150,13 +151,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 3
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 4
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 3
+#   define CONFIG_MAX_POST_WRAP_DEPTH 4
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 3
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 4
 #endif
 
 
@@ -302,7 +303,7 @@ namespace granary {
 
 #if CONFIG_RUN_TEST_CASES
     extern void run_tests(void) throw();
-#endif
+#endif /* CONFIG_RUN_TEST_CASES */
 
 
 #if GRANARY_IN_KERNEL
@@ -311,11 +312,12 @@ namespace granary {
     void construct_object(T &obj) throw() {
         new (&obj) T;
     }
-#endif
+#endif /* GRANARY_IN_KERNEL */
 
 
-    extern bool is_code_cache_address(app_pc) throw();
-    extern bool is_wrapper_address(app_pc) throw();
+    extern "C" bool is_code_cache_address(app_pc) throw();
+    extern "C" bool is_wrapper_address(app_pc) throw();
+    extern "C" bool is_gencode_address(app_pc) throw();
 
 
 #if GRANARY_IN_KERNEL
@@ -349,7 +351,7 @@ namespace granary {
         return true; // TODO
     }
 
-#endif
+#endif /* GRANARY_IN_KERNEL */
 }
 
 
@@ -364,12 +366,12 @@ extern "C" {
     extern void granary_store_flags(granary::eflags);
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
-#endif
+#endif /* GRANARY_IN_KERNEL */
 
 #if CONFIG_RUN_TEST_CASES
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
-#endif
+#endif /* CONFIG_RUN_TEST_CASES */
 
     /// Get the APIC ID of the current processor.
     extern int granary_asm_apic_id(void);
@@ -395,6 +397,6 @@ extern "C" {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
 #   include "granary/kernel/interrupt.h"
-#endif
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 
 #endif /* granary_GLOBALS_H_ */

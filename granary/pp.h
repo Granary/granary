@@ -98,6 +98,14 @@
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
+
+#if CONFIG_TRACE_EXECUTION
+#   define IF_TRACE(...) __VA_ARGS__
+#else
+#   define IF_TRACE(...)
+#endif
+
+
 /// Use to statically initialise some code.
 #define STATIC_INITIALISE___(id, ...) \
     static void CAT(init_func_, id)(void) throw(); \

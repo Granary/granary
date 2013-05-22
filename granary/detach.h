@@ -54,8 +54,8 @@ namespace granary {
     /// Represents an entry in the detach hash table. Entries need to map
     /// original function addresses to wrapped function addresses.
     struct function_wrapper {
-        app_pc original_address;
-        app_pc wrapper_address;
+        uintptr_t original_address;
+        uintptr_t wrapper_address;
         const char * const name;
     };
 
