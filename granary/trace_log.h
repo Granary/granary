@@ -15,25 +15,15 @@ namespace granary {
 
     /// Forward declarations.
     struct instruction_list;
-
-
-    /// The kind of found target address.
-    enum trace_log_target_kind {
-        TARGET_TRANSLATED,
-        TARGET_IS_DETACH_POINT,
-        TARGET_RETURNS_TO_CACHE,
-        TARGET_ALREADY_IN_CACHE,
-        TARGET_RUNNING
-    };
-
+    struct simple_machine_state;
+    struct instrumentation_policy;
 
     struct trace_log {
 
         /// Log a lookup in the code cache.
-        static void log_entry(
-            app_pc app_addr,
-            app_pc target_addr,
-            trace_log_target_kind kind
+        static void add_entry(
+            app_pc code_cache_addr,
+            simple_machine_state *state
         ) throw();
 
 
@@ -41,7 +31,7 @@ namespace granary {
         /// beginning of an instruction list.
         static void log_execution(
             instruction_list &,
-            app_pc bb_start_pc
+            instrumentation_policy &
         ) throw();
 
 

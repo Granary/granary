@@ -26,15 +26,13 @@ namespace granary {
         /// Previous log item in this thread.
         trace_log_item *prev;
 
-        /// Native address.
-        void *app_address;
+        /// A code cache address into a basic block.
+        void *code_cache_addr;
 
-        /// Code cache address representing the translated version of
-        /// the native address.
-        void *cache_address;
-
-        /// Kind of log item.
-        trace_log_target_kind kind;
+#       if CONFIG_TRACE_RECORD_REGS
+        /// State of the general purpose registers on entry to this basic block.
+        simple_machine_state state;
+#       endif /* CONFIG_TRACE_RECORD_REGS */
     };
 
 
@@ -46,14 +44,13 @@ namespace granary {
     /// A ring buffer representing the trace log.
     static trace_log_item LOGS[CONFIG_NUM_TRACE_LOG_ENTRIES];
 #   endif /* CONFIG_TRACE_PRINT_LOG */
-#endif
+#endif /* CONFIG_TRACE_EXECUTION */
 
 
     /// Log a lookup in the code cache.
-    void trace_log::log_entry(
-        app_pc IF_TRACE(app_addr),
-        app_pc IF_TRACE(target_addr),
-        trace_log_target_kind IF_TRACE(kind)
+    void trace_log::add_entry(
+        app_pc IF_TRACE(code_cache_addr),
+        simple_machine_state *IF_TRACE(state)
     ) throw() {
 #if CONFIG_TRACE_EXECUTION
 #   if CONFIG_TRACE_PRINT_LOG
@@ -63,9 +60,13 @@ namespace granary {
         trace_log_item *prev(nullptr);
         trace_log_item *item(&(LOGS[
             NUM_TRACE_ENTRIES.fetch_add(1) % CONFIG_NUM_TRACE_LOG_ENTRIES]));
-        item->app_address = app_addr;
-        item->cache_address = target_addr;
-        item->kind = kind;
+        item->code_cache_addr = code_cache_addr;
+
+#       if CONFIG_TRACE_RECORD_REGS
+        item->state = *state;
+#       else
+        (void) state;
+#       endif /* CONFIG_TRACE_RECORD_REGS */
 
         do {
             prev = TRACE.load();
@@ -77,78 +78,80 @@ namespace granary {
 
 
 #if CONFIG_TRACE_EXECUTION
-    app_pc trace_logger(void) throw() {
-        static volatile app_pc routine = nullptr;
-        if(routine) {
-            return routine;
+    app_pc trace_logger(bool in_xmm_context) throw() {
+        static volatile app_pc routine[2] = {nullptr};
+        if(routine[in_xmm_context]) {
+            return routine[in_xmm_context];
         }
 
         instruction_list ls;
         instruction in;
+        instruction xmm_tail;
         register_manager all_regs;
 
         all_regs.kill_all();
-        all_regs.revive(reg::arg1);
-        all_regs.revive(reg::arg2);
+        in = save_and_restore_registers(all_regs, ls, ls.last());
+        in = ls.insert_after(in,
+            mov_ld_(reg::arg1, reg::rsp[sizeof(simple_machine_state)]));
 
-        ls.append(push_(reg::arg1));
-        ls.append(push_(reg::arg2));
-        ls.append(mov_ld_(reg::arg1, reg::rsp[24]));
-        ls.append(mov_ld_(reg::arg2, reg::rsp[16]));
+#   if CONFIG_TRACE_RECORD_REGS
+        in = ls.insert_after(in, mov_st_(reg::arg2, reg::rsp));
+#   endif /* CONFIG_TRACE_RECORD_REGS */
 
-        insert_save_flags_after(ls, ls.last());
-        insert_align_stack_after(ls, ls.last());
+        in = insert_save_flags_after(ls, in);
+        in = insert_align_stack_after(ls, in);
 
-        IF_USER( in = save_and_restore_xmm_registers(
-            all_regs, ls, ls.last(), XMM_SAVE_ALIGNED); )
+        xmm_tail = ls.insert_after(in, label_());
 
-        in = save_and_restore_registers(all_regs, ls, in);
-        in = ls.insert_after(in, mov_imm_(reg::arg3, int64_(TARGET_RUNNING)));
+#   if !GRANARY_IN_KERNEL
+        if(in_xmm_context) {
+            in = save_and_restore_xmm_registers(
+                all_regs, ls, in, XMM_SAVE_ALIGNED);
+        }
+#   endif /* GRANARY_IN_KERNEL */
+
         in = insert_cti_after(ls, in,
-            unsafe_cast<app_pc>(trace_log::log_entry),
+            unsafe_cast<app_pc>(trace_log::add_entry),
             true, reg::ret,
             CTI_CALL);
 
-        insert_restore_old_stack_alignment_after(ls, ls.last());
-        insert_restore_flags_after(ls, ls.last());
-        ls.append(pop_(reg::arg2));
-        ls.append(pop_(reg::arg1));
+        xmm_tail = insert_restore_old_stack_alignment_after(ls, xmm_tail);
+        xmm_tail = insert_restore_flags_after(ls, xmm_tail);
+
         ls.append(ret_());
 
         // Encode.
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>( ls.encoded_size()));
         ls.encode(temp);
+
         BARRIER;
-        routine = temp;
+
+        routine[in_xmm_context] = temp;
         return temp;
     }
-#endif
+#endif /* CONFIG_TRACE_EXECUTION */
 
 
     /// Log the run of some code. This will add a lot of instructions to the
     /// beginning of an instruction list.
     void trace_log::log_execution(
         instruction_list &IF_TRACE(ls),
-        app_pc IF_TRACE(start_pc)
+        instrumentation_policy &IF_TRACE(policy)
     ) throw() {
 #if CONFIG_TRACE_EXECUTION
-        instruction in(ls.prepend(label_()));
+        instruction in;
 
+        in = ls.prepend(label_());
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
-        in = ls.insert_after(in, push_(reg::rax));
-        in = ls.insert_after(in, mov_imm_(
-            reg::rax, int64_(reinterpret_cast<uintptr_t>(start_pc))));
-        in = ls.insert_after(in, push_(reg::rax));
         in = insert_cti_after(ls, in,
-            trace_logger(),
-            true, reg::rax,
+            trace_logger(policy.is_in_xmm_context()),
+            false, operand(),
             CTI_CALL);
+
         in.set_mangled();
-        in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
-        in = ls.insert_after(in, pop_(reg::rax));
 
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[REDZONE_SIZE])) );

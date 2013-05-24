@@ -39,7 +39,6 @@ extern "C" {
 #endif
 
         granary::init();
-
         granary::attach(granary::START_POLICY);
     }
 

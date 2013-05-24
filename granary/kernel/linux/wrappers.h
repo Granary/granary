@@ -144,6 +144,7 @@
     TYPE_WRAPPER(struct file_system_type, {
         NO_PRE_IN
         PRE_OUT {
+            printf("wrapping %p->mount\n", &arg);
             WRAP_FUNCTION(arg.mount);
             WRAP_FUNCTION(arg.kill_sb);
         }

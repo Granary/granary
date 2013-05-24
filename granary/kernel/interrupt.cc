@@ -319,16 +319,6 @@ namespace granary {
     }
 
 
-    /// Disable the nested task bit of an interrupt if we're doing an IRET.
-    static void disable_nested_task(void) throw() {
-        eflags flags = granary_load_flags();
-        if(flags.nested_task) {
-            flags.nested_task = false;
-            granary_store_flags(flags);
-        }
-    }
-
-
     extern "C" {
         __attribute__((noinline, optimize("O0")))
         void granary_break_on_interrupt(
@@ -340,6 +330,23 @@ namespace granary {
             (void) isf;
             (void) vector;
             (void) cpu;
+        }
+
+
+        __attribute__((noinline, optimize("O0")))
+        void granary_break_on_nested_task(void) {
+            ASM("");
+        }
+    }
+
+
+    /// Disable the nested task bit of an interrupt if we're doing an IRET.
+    static void disable_nested_task(void) throw() {
+        eflags flags = granary_load_flags();
+        if(flags.nested_task) {
+            granary_break_on_nested_task();
+            flags.nested_task = false;
+            granary_store_flags(flags);
         }
     }
 
@@ -424,6 +431,7 @@ namespace granary {
             IF_PERF( perf::visit_recursive_interrupt(); )
             granary_break_on_interrupt(isf, vector, cpu);
             kernel_preempt_enable();
+            disable_nested_task();
             return INTERRUPT_IRET;
         }
 
@@ -451,7 +459,13 @@ namespace granary {
             granary_break_on_interrupt(isf, vector, cpu);
         }
 #endif
+
+        if(INTERRUPT_IRET == ret) {
+            disable_nested_task();
+        }
+
         kernel_preempt_enable();
+
         return ret;
     }
 

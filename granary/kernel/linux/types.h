@@ -234,7 +234,11 @@
 #include <linux/posix_acl.h>
 /* taken from ext3/ext2*/
 
-//#include <linux/migrate_mode.h>
+
+
+/* Manually defined to exist */
+struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);
+void __schedule(void);
 
 
 #endif /* GR_KERNEL_TYPES_H_ */

@@ -48,6 +48,7 @@ b granary_break_on_predict
 # Kernel breakpoints
 if !$__in_user_space
   #b granary_break_on_interrupt
+  b granary_break_on_nested_task
   b panic
   b show_fault_oops
   b do_invalid_op
@@ -187,14 +188,7 @@ define p-trace
   set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
   printf "Global code cache lookup trace:\n"
   while $__i > 0 && 0 != $__head
-    if $__i < $arg0
-      printf "\n"
-    end
-    printf "  Entry %d\n", $__j
-    printf "    App address: %p\n", $__head->app_address
-    printf "    Code cache address: %p\n", $__head->cache_address
-    printf "    Kind: "
-    p $__head->kind
+    printf "  [%d] %p\n", $__j, $__head->code_cache_addr
     set $__j = $__j + 1
     set $__i = $__i - 1
     set $__head = $__head->prev
@@ -223,68 +217,6 @@ define get-trace-entry
 end
 
 
-# p-last-kernel-trace-entry
-#
-# Prints the last trace entry whose app address is a kernel address.
-#
-# Note: kernel-only.
-define p-last-kernel-trace-entry
-  set language c++
-  set $trace_entry = (granary::trace_log_item *) 0
-  set $__i = 1
-  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
-  set $__entry = 0
-  while 0 != $__head
-    if 0xffffffff80000000ULL <= ((unsigned long long) $__head->app_address) && ((unsigned long long) $__head->app_address) < 0xffffffffa0000000ULL
-      set $__head = 0
-      set $__entry = $__i
-    else
-      set $__i = $__i + 1
-      set $__head = $__head->prev
-    end
-  end
-  if 0 != $__entry
-    p-trace-entry $__entry
-  end
-  dont-repeat
-end
-
-
-# p-last-granary-trace-entry
-#
-# Prints the last trace entry whose app address is a kernel address.
-#
-# Note: kernel only.
-define p-last-granary-trace-entry
-  set language c++
-  set $trace_entry = (granary::trace_log_item *) 0
-  set $__i = 1
-  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
-  set $__entry = 0
-
-  while 0 != $__head
-    #if EXEC_START <= $__head->app_address && $__head->app_address < EXEC_END
-    #  set $__entry = $__i
-    #end
-
-    if modules->text_begin <= $__head->app_address && $__head->app_address < modules->text_end
-      set $__entry = $__i
-    end
-
-    if 0 != $__entry && $__i != $__entry
-      set $__head = 0
-    else
-      set $__i = $__i + 1
-      set $__head = $__head->prev
-    end
-  end
-  if 0 != $__entry
-    p-trace-entry $__entry
-  end
-  dont-repeat
-end
-
-
 # p-trace-entry N
 #
 # Prints a specific entry from the trace log. The most recent entry
@@ -292,11 +224,8 @@ end
 define p-trace-entry
   set language c++
   get-trace-entry $arg0
-  printf "Global code cache lookup trace entry %d:\n", $arg0
-  printf "  App address: %p\n", $trace_entry->app_address
-  printf "  Code cache address: %p\n", $trace_entry->cache_address
-  printf "  Kind: "
-  p $trace_entry->kind
+  printf "Global code cache lookup trace:\n"
+  printf "  [%d] %p\n", $arg0, $trace_entry->code_cache_addr
   dont-repeat
 end
 
@@ -307,6 +236,102 @@ end
 define p-trace-entry-bb
   set language c++
   get-trace-entry $arg0
-  p-bb $trace_entry->cache_address
+  p-bb $trace_entry->code_cache_addr
   dont-repeat
+end
+
+
+# get-trace-cond-reg <min_trace> <str_reg_name> <str_bin_op> <int_value>
+#
+# Gets a pointer to a trace entry whose register meets a condition
+# specified by `str_reg_name str_bin_op int_value` and where the
+# trace number (1-indexed) is greater-than or equal to the `min_trace`.
+#
+# Puts its results into `$trace_entry` and `$trace_entry_num`.
+define get-trace-cond-reg
+  set language c++
+  set $__min_trace = (int) $arg0
+  set $__str_reg_name = $arg1
+  set $__str_bin_op = $arg2
+  set $__int_value = (unsigned long) $arg3
+  set $trace_entry = 0
+  set $trace_entry_num = 0
+  set $__i = 1
+  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  set $__reg_value = 0
+  set $__cond = 0
+
+  while 0 != $__head
+    if $__i >= $__min_trace
+
+      # Evaluate the condition using Python
+      python None ; \
+        reg = str(gdb.parse_and_eval("$__str_reg_name")).lower()[1:-1] ; \
+        bin_op = str(gdb.parse_and_eval("$__str_bin_op"))[1:-1] ; \
+        gdb.execute( \
+          "set $__reg_value = $__head->state.%s.value_64\n" % reg, \
+          from_tty=True, to_string=True) ; \
+        gdb.execute( \
+          "set $__cond = !!($__reg_value %s $__int_value)\n" % bin_op, \
+          from_tty=True, to_string=True)
+
+      if $__cond
+        set $trace_entry = $__head
+        set $trace_entry_num = $__i
+      end
+    end
+
+    # Either go to the next trace entry or bail out.
+    set $__i = $__i + 1
+    if !$trace_entry
+      set $__head = $__head->prev
+    else
+      set $__head = 0
+    end
+
+  end
+  dont-repeat
+end
+
+
+# internal-bb-by-reg-cond
+#
+# Internal command only; prints out the basic block for a condition-
+# based register lookup.
+define internal-bb-by-reg-cond
+  if $trace_entry
+    printf "Global code cache lookup where $%s %s %lx:\n", $__str_reg_name, $__str_bin_op, $__int_value
+    printf "  [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
+    p-bb $trace_entry->code_cache_addr
+  end
+end
+
+
+# p-bb-where-reg <str_reg_name> <str_bin_op> <int_value>
+#
+# Prints out the basic block where the register condition specified
+# by `str_reg_name str_bin_op int_value` is satisfied.
+define p-bb-where-reg
+  set $__str_reg_name = $arg0
+  set $__str_bin_op = $arg1
+  set $__int_value = (unsigned long) $arg2
+  get-trace-cond-reg 1 $arg0 $arg1 $arg2
+  internal-bb-by-reg-cond
+end
+
+
+# p-next-bb-where-reg <str_reg_name> <str_bin_op> <int_value>
+#
+# Prints out the next basic block where the register condition
+# specified by `str_reg_name str_bin_op int_value` is satisfied.
+# This assumes that either `p-bb-by-reg-cond` or
+# `p-next-bb-by-reg-cond` has been issued.
+define p-next-bb-where-reg
+  set $__str_reg_name = $arg0
+  set $__str_bin_op = $arg1
+  set $__int_value = (unsigned long) $arg2
+  if 0 < $trace_entry_num
+    get-trace-cond-reg ($trace_entry_num + 1) $arg0 $arg1 $arg2
+    internal-bb-by-reg-cond
+  end
 end

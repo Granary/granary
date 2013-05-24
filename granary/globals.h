@@ -44,9 +44,10 @@
 #define CONFIG_ENABLE_DIRECT_RETURN GRANARY_IN_KERNEL
 
 
-/// Should global code cache lookups be logged to the trace logger?
+/// Should execution be traced?
 #define CONFIG_TRACE_EXECUTION 1
 #define CONFIG_TRACE_PRINT_LOG 0
+#define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
 
@@ -89,7 +90,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically

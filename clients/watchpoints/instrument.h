@@ -52,8 +52,8 @@ namespace client {
 #endif
 
             /// Maximum counter index (inclusive).
-            MAX_COUNTER_INDEX           = 1, /*(
-                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1), */
+            MAX_COUNTER_INDEX           = (
+                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1),
 
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.

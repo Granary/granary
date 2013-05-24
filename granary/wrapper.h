@@ -59,6 +59,28 @@ namespace granary {
     struct type_wrapper_base {
     public:
 
+        enum {
+
+            HAS_PRE_IN_WRAPPER      = 0,
+            HAS_PRE_OUT_WRAPPER     = 0,
+
+            HAS_POST_IN_WRAPPER     = 0,
+            HAS_POST_OUT_WRAPPER    = 0,
+
+            HAS_RETURN_IN_WRAPPER   = 0,
+            HAS_RETURN_OUT_WRAPPER  = 0,
+
+            /// Does this type have any wrappers? This will be a bitmask of
+            /// the pre/post/return wrappers, so we can detect which are
+            /// present.
+            HAS_IN_WRAPPER          = 0,
+            HAS_OUT_WRAPPER         = 0,
+
+            /// Is a function pointer within T being used to track things (such
+            /// as preventing re-wrapping)?
+            HAS_META_INFO_TRACKER   = 0
+        };
+
         inline static void pre_in_wrap(T &, const int /* depth__ */) throw() { }
         inline static void post_in_wrap(T &, const int /* depth__ */) throw() { }
         inline static void return_in_wrap(T &, const int /* depth__ */) throw() { }
@@ -84,14 +106,9 @@ namespace granary {
             HAS_RETURN_IN_WRAPPER   = 0,
             HAS_RETURN_OUT_WRAPPER  = 0,
 
-            /// Does this type have any wrappers? This will be a bitmask of
-            /// the pre/post/return wrappers, so we can detect which are
-            /// present.
             HAS_IN_WRAPPER          = 0,
             HAS_OUT_WRAPPER         = 0,
 
-            /// Is a function pointer within T being used to track things (such
-            /// as preventing re-wrapping)?
             HAS_META_INFO_TRACKER   = 0
         };
     };
@@ -169,7 +186,7 @@ namespace granary {
     struct has_out_wrapper {
     public:
         enum {
-            VALUE = type_wrapper<T>::HAS_IN_WRAPPER
+            VALUE = type_wrapper<T>::HAS_OUT_WRAPPER
         };
     };
 
@@ -309,7 +326,9 @@ namespace granary {
 #define WRAP_BASIC_TYPE(basic_type) \
     WRAP_BASIC_TYPE_IMPL(basic_type *) \
     WRAP_BASIC_TYPE_IMPL(const basic_type *) \
-    WRAP_BASIC_TYPE_IMPL(volatile basic_type *)
+    WRAP_BASIC_TYPE_IMPL(volatile basic_type *) \
+    WRAP_BASIC_TYPE_IMPL(const volatile basic_type *)
+
 
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
@@ -847,17 +866,25 @@ namespace granary {
             typedef identity<type_name>::type wrapped_type__; \
             typedef type_wrapper_base<type_name> base_wrapper_type__; \
             \
+            enum { \
+                NEXT_HAS_IN = next_has_in_wrapper<wrapped_type__>::VALUE, \
+                NEXT_HAS_OUT = next_has_out_wrapper<wrapped_type__>::VALUE \
+            }; \
+            \
             struct impl__: public type_wrapper_base<type_name> \
             wrap_code; \
             \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
+                \
                 HAS_PRE_IN_WRAPPER = impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = impl__::HAS_PRE_OUT_WRAPPER, \
                 HAS_POST_IN_WRAPPER = impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = impl__::HAS_POST_OUT_WRAPPER, \
                 HAS_RETURN_IN_WRAPPER = impl__::HAS_RETURN_IN_WRAPPER, \
+                \
+                HAS_PRE_OUT_WRAPPER = impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = impl__::HAS_POST_OUT_WRAPPER, \
                 HAS_RETURN_OUT_WRAPPER = impl__::HAS_RETURN_OUT_WRAPPER, \
+                \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -896,19 +923,25 @@ namespace granary {
             typedef qual T *wrapped_type__; \
             typedef type_wrapper_base<qual T *> base_wrapper_type__; \
             \
+            enum { \
+                NEXT_HAS_IN = next_has_in_wrapper<wrapped_type__>::VALUE, \
+                NEXT_HAS_OUT = next_has_out_wrapper<wrapped_type__>::VALUE \
+            }; \
+            \
             struct impl__: public type_wrapper_base<qual T *> \
             wrap_code; \
             \
-            typedef next_has_in_wrapper<T *> NEXT_IN; \
-            typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
+                \
+                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
+                \
+                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
+                \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -936,19 +969,25 @@ namespace granary {
             typedef T *wrapped_type__; \
             typedef type_wrapper_base<T *> base_wrapper_type__; \
             \
+            enum { \
+                NEXT_HAS_IN = next_has_in_wrapper<wrapped_type__>::VALUE, \
+                NEXT_HAS_OUT = next_has_out_wrapper<wrapped_type__>::VALUE \
+            }; \
+            \
             struct impl__: public type_wrapper_base<T *> \
             wrap_code; \
             \
-            typedef next_has_in_wrapper<T *> NEXT_IN; \
-            typedef next_has_out_wrapper<T *> NEXT_OUT; \
             enum { \
                 HAS_META_INFO_TRACKER = 0, \
-                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
-                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
-                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
-                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
-                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_IN::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
-                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_OUT::VALUE & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
+                \
+                HAS_PRE_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & PRE_WRAP_MASK) && ) impl__::HAS_PRE_IN_WRAPPER, \
+                HAS_POST_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & POST_WRAP_MASK) && ) impl__::HAS_POST_IN_WRAPPER, \
+                HAS_RETURN_IN_WRAPPER = IF_KERNEL((NEXT_HAS_IN & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_IN_WRAPPER, \
+                \
+                HAS_PRE_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & PRE_WRAP_MASK) && ) impl__::HAS_PRE_OUT_WRAPPER, \
+                HAS_POST_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & POST_WRAP_MASK) && ) impl__::HAS_POST_OUT_WRAPPER, \
+                HAS_RETURN_OUT_WRAPPER = IF_KERNEL((NEXT_HAS_OUT & RETURN_WRAP_MASK) && ) impl__::HAS_RETURN_OUT_WRAPPER, \
+                \
                 HAS_IN_WRAPPER = 0 \
                                | (HAS_PRE_IN_WRAPPER << 0) \
                                | (HAS_POST_IN_WRAPPER << 1) \
@@ -1097,12 +1136,12 @@ namespace granary {
 
 #define NO_PRE_IN \
     enum { HAS_PRE_IN_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(pre_in) \
+    EMPTY_WRAP_FUNC_IMPL(pre_in)
 
 
 #define NO_PRE_OUT \
     enum { HAS_PRE_OUT_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(pre_out) \
+    EMPTY_WRAP_FUNC_IMPL(pre_out)
 
 
 #define NO_POST \
@@ -1113,12 +1152,12 @@ namespace granary {
 
 #define NO_POST_IN \
     enum { HAS_POST_IN_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(post_in) \
+    EMPTY_WRAP_FUNC_IMPL(post_in)
 
 
 #define NO_POST_OUT \
     enum { HAS_POST_OUT_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(post_out) \
+    EMPTY_WRAP_FUNC_IMPL(post_out)
 
 
 #define NO_RETURN \
@@ -1129,12 +1168,12 @@ namespace granary {
 
 #define NO_RETURN_IN \
     enum { HAS_RETURN_IN_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(return_in) \
+    EMPTY_WRAP_FUNC_IMPL(return_in)
 
 
 #define NO_RETURN_OUT \
     enum { HAS_RETURN_OUT_WRAPPER = 0 }; \
-    EMPTY_WRAP_FUNC_IMPL(return_out) \
+    EMPTY_WRAP_FUNC_IMPL(return_out)
 
 
 #define PRE_IN \
@@ -1187,85 +1226,85 @@ namespace granary {
 
 #define INHERIT_PRE_IN \
     enum { \
-        HAS_PRE_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
+        HAS_PRE_IN_WRAPPER = !!(NEXT_HAS_IN & PRE_WRAP_MASK) \
     };
 
 
 #define INHERIT_POST_IN \
     enum { \
-        HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
+        HAS_POST_IN_WRAPPER = !!(NEXT_HAS_IN & POST_WRAP_MASK) \
     };
 
 
 #define INHERIT_RETURN_IN \
     enum { \
-        HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_RETURN_IN_WRAPPER = !!(NEXT_HAS_IN & RETURN_WRAP_MASK) \
     };
 
 
 #define INHERIT_IN \
     enum { \
-        HAS_PRE_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK), \
-        HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
-        HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_PRE_IN_WRAPPER = !!(NEXT_HAS_IN & PRE_WRAP_MASK), \
+        HAS_POST_IN_WRAPPER = !!(NEXT_HAS_IN & POST_WRAP_MASK), \
+        HAS_RETURN_IN_WRAPPER = !!(NEXT_HAS_IN & RETURN_WRAP_MASK) \
     };
 
 
 #define INHERIT_PRE_OUT \
     enum { \
-        HAS_PRE_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
+        HAS_PRE_OUT_WRAPPER = !!(NEXT_HAS_OUT & PRE_WRAP_MASK) \
     };
 
 
 #define INHERIT_POST_OUT \
     enum { \
-        HAS_POST_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
+        HAS_POST_OUT_WRAPPER = !!(NEXT_HAS_OUT & POST_WRAP_MASK) \
     };
 
 
 #define INHERIT_RETURN_OUT \
     enum { \
-        HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_RETURN_OUT_WRAPPER = !!(NEXT_HAS_OUT & RETURN_WRAP_MASK) \
     };
 
 
 #define INHERIT_OUT \
     enum { \
-        HAS_PRE_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK), \
-        HAS_POST_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
-        HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_PRE_OUT_WRAPPER = !!(NEXT_HAS_OUT & PRE_WRAP_MASK), \
+        HAS_POST_OUT_WRAPPER = !!(NEXT_HAS_OUT & POST_WRAP_MASK), \
+        HAS_RETURN_OUT_WRAPPER = !!(NEXT_HAS_OUT & RETURN_WRAP_MASK) \
     };
 
 
 #define INHERIT_POST_INOUT \
     enum { \
-        HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
-        HAS_POST_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK) \
+        HAS_POST_IN_WRAPPER = !!(NEXT_HAS_IN & POST_WRAP_MASK), \
+        HAS_POST_OUT_WRAPPER = !!(NEXT_HAS_OUT & POST_WRAP_MASK) \
     };
 
 
 #define INHERIT_PRE_INOUT \
     enum { \
-        HAS_PRE_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK), \
-        HAS_PRE_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK) \
+        HAS_PRE_IN_WRAPPER = !!(NEXT_HAS_IN & PRE_WRAP_MASK), \
+        HAS_PRE_OUT_WRAPPER = !!(NEXT_HAS_OUT & PRE_WRAP_MASK) \
     };
 
 
 #define INHERIT_RETURN_INOUT \
     enum { \
-        HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK), \
-        HAS_RETURN_OUT_WRAPPER = !!(next_has_out_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_RETURN_IN_WRAPPER = !!(NEXT_HAS_IN & RETURN_WRAP_MASK), \
+        HAS_RETURN_OUT_WRAPPER = !!(NEXT_HAS_OUT & RETURN_WRAP_MASK) \
     };
 
 
 #define INHERIT_INOUT \
     enum { \
-        HAS_PRE_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK), \
-        HAS_POST_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
-        HAS_RETURN_IN_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK), \
-        HAS_PRE_OUT_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & PRE_WRAP_MASK), \
-        HAS_POST_OUT_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & POST_WRAP_MASK), \
-        HAS_RETURN_OUT_WRAPPER = !!(next_has_in_wrapper<wrapped_type__>::VALUE & RETURN_WRAP_MASK) \
+        HAS_PRE_IN_WRAPPER = !!(NEXT_HAS_IN & PRE_WRAP_MASK), \
+        HAS_POST_IN_WRAPPER = !!(NEXT_HAS_IN & POST_WRAP_MASK), \
+        HAS_RETURN_IN_WRAPPER = !!(NEXT_HAS_IN & RETURN_WRAP_MASK), \
+        HAS_PRE_OUT_WRAPPER = !!(NEXT_HAS_OUT & PRE_WRAP_MASK), \
+        HAS_POST_OUT_WRAPPER = !!(NEXT_HAS_OUT & POST_WRAP_MASK), \
+        HAS_RETURN_OUT_WRAPPER = !!(NEXT_HAS_OUT & RETURN_WRAP_MASK) \
     };
 
 

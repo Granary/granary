@@ -16,27 +16,7 @@
 #include "granary/detach.h"
 #include "granary/mangle.h"
 #include "granary/predict.h"
-#include "granary/trace_log.h"
 
-#include "granary/kernel/linux/module.h"
-extern "C" {
-    extern kernel_module *modules;
-
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_self(granary::app_pc addr) {
-        ASM("" :: "m"(addr));
-        (void) addr;
-    }
-}
-
-/// Logging for the trace log. This is helpful for kernel-space debugging, where
-/// the in-memory tracing data structure can be inspected to see the history of
-/// code cache lookups.
-#if CONFIG_TRACE_EXECUTION && 0
-#   define LOG(...) trace_log::log_entry(__VA_ARGS__)
-#else
-#   define LOG(...)
-#endif
 
 namespace granary {
 
@@ -99,7 +79,7 @@ namespace granary {
     ) throw() {
         IF_PERF( perf::visit_address_lookup(); )
 
-        // find the actual targeted address, independent of the policy.
+        // Find the actual targeted address, independent of the policy.
         instrumentation_policy policy(addr);
         app_pc app_target_addr(addr.unmangled_address());
         app_pc target_addr(nullptr);
@@ -108,7 +88,6 @@ namespace granary {
         if(CODE_CACHE->load(addr.as_address, target_addr)) {
             cpu->code_cache.store(addr.as_address, target_addr);
             IF_PERF( perf::visit_address_lookup_hit(); )
-            LOG(app_target_addr, target_addr, TARGET_ALREADY_IN_CACHE);
             return target_addr;
         }
 
@@ -130,48 +109,65 @@ namespace granary {
         if(is_code_cache_address(app_target_addr)
         || is_wrapper_address(app_target_addr)
         || is_gencode_address(app_target_addr)) {
-        //|| (modules->text_begin <= app_target_addr && app_target_addr < modules->text_end)) {
 #endif /* GRANARY_IN_KERNEL */
             target_addr = app_target_addr;
         }
 
+        bool force_detach(false);
+#if GRANARY_IN_KERNEL
+        // Ensure that we're in the correct policy context. This might cause
+        // some (inherited) property conversion.
+        if(is_host_address(app_target_addr)) {
+            force_detach = !policy.is_in_host_context();
+        }
+
+        // Handles policy conversion.
+        policy.in_host_context(is_host_address(app_target_addr));
+#else
+        // TODO: Assumes that in user space, we cannot figure out *where* the
+        //       true boundaries between host/app code are. As such, we just
+        //       assume that we will eventually return to host code, and
+        //       naturally detach.
+        policy.in_host_context(false);
+
+        // TODO: Later this might be something desirable to turn on. The effect
+        //       of enabling the next line is to make it so that returns detach.
+        //       This would negate the entire usefulness of the IBL-lookup of
+        //       returns, which would mean RETs could be left unmangled.
+        //       Enabling this would require a big change in how Granary is
+        //       attached to user space processes. Otherwise, this policy
+        //       property provides useful semantic information.
+        //force_detach = policy.is_return_target();
+#endif
+
+        // Figure out the non-policy-mangled target address, and find the base
+        // policy (absent any temporary properties).
+        instrumentation_policy base_policy(policy.base_policy());
+        mangled_address base_addr(app_target_addr, base_policy);
+
+        // Policy has gone through a property conversion (e.g. host->app,
+        // app->host, indirect->direct). Check to see if we actually have the
+        // converted version in the code cache.
+        bool base_addr_exists(false);
+        if(!target_addr && base_addr.as_address != addr.as_address) {
+            if(CODE_CACHE->load(base_addr.as_address, target_addr)) {
+                base_addr_exists = true;
+            }
+        }
+
+        // Can we detach to a known target?
         if(!target_addr) {
             target_addr = find_detach_target(app_target_addr, policy.context());
         }
 
-#if GRANARY_IN_KERNEL
-        // Not a detach target; figure out if we're in the wrong policy context.
-        if(!target_addr) {
-
-            // App code.
-            if(!policy.is_in_host_context()) {
-                if(is_host_address(app_target_addr)) {
-                    policy.in_host_context(true);
-                }
-
-            // Host code, going to app code.
-            } else if(is_app_address(app_target_addr)) {
-                policy.in_host_context(false);
-            }
-        }
-#endif /* GRANARY_IN_KERNEL */
-
-        // Figure out the non-policy-mangled target address, and get our policy.
-        instrumentation_policy base_policy(policy.base_policy());
-        mangled_address base_addr(app_target_addr, base_policy);
-
-        // Either a pseudo policy vs. a base policy, or the policy has gone
-        // through a property conversion.
-        bool base_addr_exists(false);
-        if(base_addr.as_address != addr.as_address) {
-            app_pc existing_target_addr(nullptr);
-            if(CODE_CACHE->load(base_addr.as_address, existing_target_addr)) {
-                base_addr_exists = true;
-                target_addr = existing_target_addr;
-            }
+        // Should we apparently detach? This isn't necessarily a true detach
+        // (mostly a user space case), but lets us guarantee certain things
+        // about (semi-)consistently applying the policy propagation rules.
+        if(!target_addr && force_detach) {
+            target_addr = app_target_addr;
         }
 
-        // If we don't have a target yet then translate the target assuming its
+        // If we don't have a target yet then translate the target assuming it's
         // app or host code.
         bool created_bb(false);
         if(!target_addr) {
@@ -203,9 +199,9 @@ namespace granary {
         // Propagate the base target to the CPU-private code cache.
         cpu->code_cache.store(base_addr.as_address, target_addr);
 
-        // If the original policy was an indirect psudo-policy, then add an
-        // exit routine to it.
-        if(policy.is_indirect_cti_policy()) {
+        // If this code cache lookup is the result of an indirect CALL/JMP, or
+        // from a RET, then we need to generate an IBL/RBL exit stub.
+        if(policy.is_indirect_cti_target() || policy.is_return_target()) {
             target_addr = instruction_list_mangler::ibl_exit_routine(target_addr);
             if(!CODE_CACHE->store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
                 cpu->fragment_allocator.free_last();
@@ -215,7 +211,6 @@ namespace granary {
             cpu->code_cache.store(addr.as_address, target_addr);
         }
 
-        LOG(app_target_addr, target_addr, TARGET_TRANSLATED);
         return target_addr;
     }
 

@@ -232,7 +232,7 @@ namespace granary {
 
 
     /// Represents a machine register.
-    union machine_register {
+    union general_purpose_register {
         uint64_t value_64;
 
         struct {
@@ -252,6 +252,30 @@ namespace granary {
         } __attribute__((packed));
 
     } __attribute__((packed));
+
+
+    /// The machine state of the general purpose registers.
+    ///
+    /// Note: For consistency with `register_manager` and
+    ///       `save_and_restore_registers`, this excludes `rsp` as it is forced
+    ///       to always be live.
+    struct simple_machine_state {
+        general_purpose_register r15;
+        general_purpose_register r14;
+        general_purpose_register r13;
+        general_purpose_register r12;
+        general_purpose_register r11;
+        general_purpose_register r10;
+        general_purpose_register r9;
+        general_purpose_register r8;
+        general_purpose_register rdi;
+        general_purpose_register rsi;
+        general_purpose_register rbp;
+        general_purpose_register rbx;
+        general_purpose_register rdx;
+        general_purpose_register rcx;
+        general_purpose_register rax;
+    };
 
 }
 

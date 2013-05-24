@@ -55,7 +55,7 @@ namespace granary {
 
     /// Policy ID tracker.
     std::atomic<unsigned> instrumentation_policy::NEXT_POLICY_ID(
-        ATOMIC_VAR_INIT(instrumentation_policy::NUM_POLICIES));
+        ATOMIC_VAR_INIT(0));
 
 
     /// Get the policy for a policy-extended mangled address.

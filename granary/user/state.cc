@@ -34,6 +34,11 @@ namespace granary {
         }
     }
 
+    /// This pre-processor check exists only to "hint" to Eclipse not to resolve
+    /// names to the following functions when instrumenting kernel code. This
+    /// does not affect the runtime.
+#if !GRANARY_IN_KERNEL
+
     extern "C" bool is_code_cache_address(app_pc) throw() {
         return true; // TODO
     }
@@ -45,6 +50,8 @@ namespace granary {
     extern "C" bool is_gencode_address(app_pc) throw() {
         return true; // TODO
     }
+
+#endif /* GRANARY_IN_KERNEL */
 }
 
 

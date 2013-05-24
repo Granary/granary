@@ -40,14 +40,6 @@ namespace granary {
     struct instrumentation_policy {
     private:
 
-        enum {
-            MISSING_POLICY_ID = 0,
-            NUM_PSEUDO_POLICIES = 1,
-            NUM_POLICIES = 1 + NUM_PSEUDO_POLICIES,
-
-            INDIRECT_CTI_POLICY_INCREMENT = 1
-        };
-
 
         friend struct basic_block;
         friend struct code_cache;
@@ -116,18 +108,41 @@ namespace granary {
         /// Policy ID tracker.
         static std::atomic<unsigned> NEXT_POLICY_ID;
 
-        union {
+        enum {
+            NUM_TEMPORARY_PROPERTIES = 2,
+            NUM_INHERITED_PROERTIES = 2,
+            NUM_PROPERTIES = NUM_TEMPORARY_PROPERTIES + NUM_INHERITED_PROERTIES
+        };
 
+
+        union {
+            /// Note: When adding properties to this list, be sure to keep
+            ///       `NUM_TEMPORARY_PROPERTIES`, `NUM_INHERITED_PROERTIES`,
+            ///       and `base_policy` synchronised.
             struct {
-                /// Temporary policy properties.
+
+                /// Temporary property; this tells the code cache lookup
+                /// function that it is coming from an indirect CTI, which
+                /// causes the generation of an IBL exit stub for the
+                /// targeted a basic block.
                 bool is_indirect_target:1;
 
-                /// Inherited policy properties.
+                /// Temporary property; this tells the code cache lookup
+                /// function that it is coming from a return, which tells it
+                /// that it should ignore policy behaviours (e.g. auto-
+                /// instrument host code).
+                bool is_return_target:1;
+
+                /// Inherited property; this tells us if we should save/restore
+                /// all XMM registers.
                 bool is_in_xmm_context:1;
+
+                /// Inherited property; this tells us whether we are
+                /// instrumenting host code or app code.
                 bool is_in_host_context:1;
 
                 /// Policy identifier.
-                uint16_t id:13;
+                uint16_t id:(16 - NUM_PROPERTIES);
 
             } __attribute__((packed)) u;
 
@@ -138,7 +153,7 @@ namespace granary {
 
 
         enum {
-            MAX_NUM_POLICY_IDS = 1ULL << (16 - 3)
+            MAX_NUM_POLICY_IDS = 1ULL << (16 - NUM_PROPERTIES)
         };
 
 
@@ -256,18 +271,28 @@ namespace granary {
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
-        inline instrumentation_policy indirect_cti_policy(void) throw() {
-            instrumentation_policy policy;
-            policy.as_raw_bits = as_raw_bits;
-            policy.u.is_indirect_target = true;
-            return policy;
+        inline void indirect_cti_target(bool val=true) throw() {
+            u.is_indirect_target = val;
         }
 
         /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
         /// policy is used to help us "leave" the indirect branch lookup
         /// mechanism and restore any saved state.
-        inline bool is_indirect_cti_policy(void) const throw() {
+        inline bool is_indirect_cti_target(void) const throw() {
             return u.is_indirect_target;
+        }
+
+
+        /// Update the properties of this policy to be inside of an xmm context.
+        inline void return_target(bool val=true) throw() {
+            u.is_return_target = val;
+        }
+
+
+        /// Returns whether or not the policy in the current context is xmm
+        /// safe.
+        inline bool is_return_target(void) const throw() {
+            return u.is_return_target;
         }
 
 
@@ -277,6 +302,7 @@ namespace granary {
             instrumentation_policy policy;
             policy.as_raw_bits = as_raw_bits;
             policy.u.is_indirect_target = false;
+            policy.u.is_return_target = false;
             return policy;
         }
 
@@ -289,6 +315,15 @@ namespace granary {
 
 
     public:
+
+        /// Get the detach context for this policy.
+        inline runtime_context context(void) const throw() {
+            if(is_in_host_context()) {
+                return RUNNING_AS_HOST;
+            } else {
+                return RUNNING_AS_APP;
+            }
+        }
 
 
         /// Update the propertings of this policy to be inside of a host code
@@ -304,16 +339,6 @@ namespace granary {
         }
 
 
-        /// Get the detach context for this policy.
-        inline runtime_context context(void) const throw() {
-            if(is_in_host_context()) {
-                return RUNNING_AS_HOST;
-            } else {
-                return RUNNING_AS_APP;
-            }
-        }
-
-
         /// Returns true iff we should automatically switch to the host context
         /// instead of detaching.
         inline bool is_host_auto_instrumented(void) const throw() {
@@ -326,11 +351,13 @@ namespace granary {
             u.is_in_xmm_context = val;
         }
 
+
         /// Returns whether or not the policy in the current context is xmm
         /// safe.
         inline bool is_in_xmm_context(void) const throw() {
             return u.is_in_xmm_context;
         }
+
 
         /// Inherit the properties of another policy.
         inline void inherit_properties(instrumentation_policy that) throw() {
@@ -413,10 +440,8 @@ namespace granary {
         /// Initialise the policy `T`.
         static unsigned init_policy(void) throw() {
 
-            // get IDs for one policy and its pseudo-policies
             unsigned policy_id(
-                instrumentation_policy::NEXT_POLICY_ID.fetch_add(
-                    instrumentation_policy::NUM_POLICIES));
+                instrumentation_policy::NEXT_POLICY_ID.fetch_add(1));
 
             instrumentation_policy::AUTO_VISIT_HOST[policy_id] = \
                 !!(T::AUTO_INSTRUMENT_HOST);

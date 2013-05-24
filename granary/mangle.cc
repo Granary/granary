@@ -163,11 +163,11 @@ namespace granary {
 
         if(IBL_ENTRY_RETURN == ibl_kind) {
 
-            // kernel space: save `reg_target_addr` and load the return address.
+            // Kernel space: save `reg_target_addr` and load the return address.
             if(!REDZONE_SIZE) {
                 FAULT; // should not be calling this from kernel space
 
-            // user space: overlay the redzone on top of the return address,
+            // User space: overlay the redzone on top of the return address,
             // and default over to our usual mechanism.
             } else {
                 stack_offset = REDZONE_SIZE - 8;
@@ -192,29 +192,26 @@ namespace granary {
         }
 
         in = ibl.insert_after(in, push_(reg_target_addr));
-        stack_offset += 8;
-
         IF_IBL_PREDICT( in = ibl.insert_after(in, push_(reg_predict_table_ptr)); )
+        stack_offset += IF_IBL_PREDICT_ELSE(16, 8);
 
-        stack_offset += IF_IBL_PREDICT_ELSE(8, 0);
-
-        // if this was a call, then the stack offset was also shifted by
+        // If this was a call, then the stack offset was also shifted by
         // the push of the return address
         if(IBL_ENTRY_CALL == ibl_kind) {
             stack_offset += 8;
         }
 
-        // adjust the target operand if it's on the stack
+        // Adjust the target operand if it's on the stack
         if(dynamorio::BASE_DISP_kind == target.kind
         && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
             target.value.base_disp.disp += stack_offset;
         }
 
-        // make a "fake" basic block so that we can also instrument / mangle
+        // Make a "fake" basic block so that we can also instrument / mangle
         // the memory loads needed to complete this indirect call or jump.
         instruction_list tail_bb;
 
-        // load the target address into `reg_target_addr`. This might be a
+        // Load the target address into `reg_target_addr`. This might be a
         // normal base/disp kind, or a relative address, or an absolute
         // address.
         if(dynamorio::REG_kind != target.kind) {
@@ -234,35 +231,35 @@ namespace granary {
 
             tail_bb.append(mov_ld_(reg_target_addr, target));
 
-        // target is in a register
+        // Target is in a register.
         } else if(reg_target_addr.value.reg != target.value.reg) {
             tail_bb.append(mov_ld_(reg_target_addr, target));
         }
 
-        // instrument the memory instructions needed to complete this CALL
+        // Instrument the memory instructions needed to complete this CALL
         // or JMP.
         instruction tail_bb_end(tail_bb.append(label_()));
         if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
             instrumentation_policy tail_policy(policy);
 
-            // kill this registers so that the instrumentation can use it.
+            // Kill this registers so that the instrumentation can use it.
             IF_IBL_PREDICT( tail_bb.append(
                 mangled(mov_imm_(reg_predict_table_ptr, int64_(0)))); )
 
-            // kill all flags so that the instrumentation can use them if
+            // Kill all flags so that the instrumentation can use them if
             // possible.
             if(IBL_ENTRY_CALL == ibl_kind) {
                 tail_bb.append(mangled(popf_()));
             }
 
-            // make sure all other registers appear live.
+            // Make sure all other registers appear live.
             tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
 
             tail_policy.instrument(cpu, thread, *bb, tail_bb);
             mangle(tail_bb);
         }
 
-        // add the instructions back into the stub.
+        // Add the instructions back into the stub.
         for(instruction tail_in(tail_bb.first()), next_tail_in;
             tail_in.is_valid();
             tail_in = next_tail_in) {
@@ -282,8 +279,8 @@ namespace granary {
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
 
-            // allocate a table pointer for this basic block. This value of this
-            // table pointer can be changed at runtime by the code_cache.
+            // Allocate a table pointer for this basic block. This value of
+            // this table pointer can be changed at runtime by the code_cache.
             prediction_table **predict_table(cpu->small_allocator. \
                 allocate<prediction_table *>());
 
@@ -336,38 +333,26 @@ namespace granary {
         instrumentation_policy target_policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
-        const unsigned policy_bits(target_policy.encode());
-        if(routine[policy_bits]) {
-            return routine[policy_bits];
+        const unsigned target_policy_bits(target_policy.encode());
+        if(routine[target_policy_bits]) {
+            return routine[target_policy_bits];
         }
 
         instruction_list ibl;
 
-        // This is interesting. If the policy is an indirect policy, then that
-        // means that we indirectly JMP'd to a RET, and the forwarding to RET
-        // optimisation in the code cache is being used. In that case, we need
-        // to "leave" the indirect branch stub so that we can re-enter it for
-        // the RET.
-        //
-        // Here we operate on the policy of the supposed basic block rather than
-        // the target, as operating on the target policy would be non-sensical.
-        // In the general case, the code cache find functions only operate on
-        // base policies except for the aforementioned optimisation.
-        if(policy.is_indirect_cti_policy()) {
-            ibl_exit_stub(ibl, nullptr);
-        }
-
 #   if !GRANARY_IN_KERNEL
         ibl_entry_stub(
             ibl, ibl.last(), target_policy, operand(*reg::rsp), IBL_ENTRY_RETURN);
-
         ibl.append(push_(reg_compare_addr));
 #   else
+        // This overlays the return and target address, and does some tricks to
+        // save `reg_target_addr` in place of the return address, without doing
+        // and `XCHG` on memory (which would be a locked instruction).
         IF_IBL_PREDICT( ibl.append(push_(reg_predict_table_ptr)); )
         ibl.append(push_(reg_compare_addr));
         ibl.append(mov_ld_(reg_compare_addr, reg_target_addr));
         ibl.append(mov_ld_(reg_target_addr, reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)]));
-        ibl.append(mov_st_(reg::rsp[8], reg_compare_addr));
+        ibl.append(mov_st_(reg::rsp[IF_IBL_PREDICT_ELSE(16, 8)], reg_compare_addr));
 #   endif
 
         // on the stack:
@@ -377,7 +362,7 @@ namespace granary {
         //      reg_predict_table_ptr   (cond. saved: arg2)
         //      reg_compare_addr        (saved: rcx)
 
-        // the call instruction will be 8 byte aligned, and will occupy ~5bytes.
+        // The call instruction will be 8 byte aligned, and will occupy ~5bytes.
         // the subsequent jmp needed to link the basic block (which ends with
         // the call) will also by 8 byte aligned, and will be padded to 8 bytes
         // (so that the call's basic block and the subsequent block can be
@@ -388,12 +373,12 @@ namespace granary {
         ibl.append(lea_(
             reg_compare_addr, reg_target_addr[16 - RETURN_ADDRESS_OFFSET]));
 
-        // load and zero-extend the (potential) 32-bit header.
+        // Load and zero-extend the (potential) 32-bit header.
         operand header_mem(*reg_compare_addr);
         header_mem.size = dynamorio::OPSZ_4;
         ibl.append(mov_ld_(reg_compare_addr_32, seg::cs(header_mem)));
 
-        // compare against the header
+        // Compare against the header
         ibl.append(push_(reg::rax));
         ibl.append(mov_imm_(reg::rax, int64_(-basic_block_info::HEADER)));
         ibl.append(lea_(reg_compare_addr, reg_compare_addr + reg::rax));
@@ -428,8 +413,8 @@ namespace granary {
 #   endif
 
         // quick double check ;-)
-        if(routine[policy_bits]) {
-            return routine[policy_bits];
+        if(routine[target_policy_bits]) {
+            return routine[target_policy_bits];
         }
 
         IF_PERF( perf::visit_rbl(ibl); )
@@ -438,7 +423,7 @@ namespace granary {
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>( ibl.encoded_size()));
         ibl.encode(temp);
-        routine[policy_bits] = temp;
+        routine[target_policy_bits] = temp;
 
         return temp;
     }
@@ -473,12 +458,12 @@ namespace granary {
     /// enabled, then the CPU-private lookup function might add a prediction
     /// entry to the CTI.
     app_pc instruction_list_mangler::ibl_entry_routine(
-        instrumentation_policy policy
+        instrumentation_policy target_policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
-        const unsigned policy_bits(policy.encode());
-        if(routine[policy_bits]) {
-            return routine[policy_bits];
+        const unsigned target_policy_bits(target_policy.encode());
+        if(routine[target_policy_bits]) {
+            return routine[target_policy_bits];
         }
 
         // on the stack:
@@ -495,7 +480,7 @@ namespace granary {
         // mangle the target address with the policy. This corresponds to the
         // `mangled_address` argument to the `code_cache::find*` functions.
         ibl.append(shl_(reg_target_addr, int8_(mangled_address::NUM_MANGLED_BITS)));
-        ibl.append(add_(reg_target_addr, int32_(policy_bits)));
+        ibl.append(add_(reg_target_addr, int32_(target_policy_bits)));
 
         // save all registers for the IBL.
         register_manager all_regs;
@@ -511,7 +496,7 @@ namespace granary {
             save_and_restore_registers(all_regs, ibl, ibl.last()));
 
 #if !GRANARY_IN_KERNEL
-        if(policy.is_in_xmm_context()) {
+        if(target_policy.is_in_xmm_context()) {
             safe = save_and_restore_xmm_registers(
                 all_regs, ibl, safe, XMM_SAVE_UNALIGNED);
 
@@ -571,7 +556,7 @@ namespace granary {
 
         IF_PERF( perf::visit_ibl(ibl); )
 
-        routine[policy_bits] = temp;
+        routine[target_policy_bits] = temp;
         return temp;
     }
 
@@ -1000,21 +985,11 @@ namespace granary {
         }
 #endif
 
-        // If the detach target isn't too far away then we're done.
-        if(detach_target_pc && !is_far_away(estimator_pc, detach_target_pc)) {
-            target.value.pc = detach_target_pc;
-            in.set_cti_target(target);
-            in.set_mangled();
-
-#if !CONFIG_ENABLE_DIRECT_RETURN
-            // Just in case the previous instruction was a call, and this is the
-            // JMP to the next BB, or in case this is a call, and the next
-            // instruction is a JMP to the next BB.
-            if(!in.next().is_valid() || in.is_call()) {
-                in.set_patchable();
-            }
-#endif
-            return;
+        // First detach check: try to see if we should detach from our current
+        // policy context, before any context conversion can happen.
+        if(!detach_target_pc){
+            detach_target_pc = find_detach_target(
+                target_pc, target_policy.context());
         }
 
         // Fall-through:
@@ -1032,26 +1007,33 @@ namespace granary {
         && !policy.is_in_host_context()
         && policy.is_host_auto_instrumented()
         && is_host_address(target_pc)) {
-
-            target_policy.in_host_context();
-            in.set_policy(target_policy);
-
+            target_policy.in_host_context(true);
             am = mangled_address(target_pc, target_policy);
-            detach_target_pc = nullptr;
+        }
+
+        // Forcibly resolve the target policy to the instruction.
+        in.set_policy(target_policy);
 
         // Otherwise, we're either in application or host code, and we may or
         // may not want to detach.
-        } else if(!detach_target_pc){
-            detach_target_pc = find_detach_target(target_pc, policy.context());
+        //
+        // This can be a fall-through from above, where we want to auto-
+        // instrument the host, but there is a host-context detach point which
+        // must be considered.
+        if(!detach_target_pc){
+            detach_target_pc = find_detach_target(
+                target_pc, target_policy.context());
         }
 
         // If this is a detach point then replace the target address with the
         // detach address. This can be tricky because the instruction might not
         // be a call/jmp (i.e. it might be a conditional branch)
-        if(nullptr != detach_target_pc) {
+        if(detach_target_pc) {
 
             if(is_far_away(estimator_pc, detach_target_pc)) {
 
+                // TODO: convert to an alternative form in the case of a
+                //       conditional branch.
                 ASSERT(in.is_call() || in.is_jump());
 
                 app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
@@ -1120,7 +1102,6 @@ namespace granary {
         //       can make good predictions.
         if(in.is_call()) {
             instruction start_of_stub(ls->prepend(label_()));
-
             ibl_entry_stub(
                 *ls,
                 start_of_stub,
@@ -1159,7 +1140,7 @@ namespace granary {
             target_policy = policy;
         }
 
-        // convert the policy into an IBL policy.
+        // Convert the policy into an IBL policy.
         instrumentation_policy target_policy_ibl(policy);
         target_policy_ibl.inherit_properties(policy);
 
@@ -1168,21 +1149,64 @@ namespace granary {
             return;
 
         } else if(in.is_return()) {
+            target_policy.return_target(true);
+            target_policy.indirect_cti_target(false);
+            target_policy.in_host_context(false);
+
+            // Forcibly resolve the policy. Unlike indirect CTIs, we don't
+            // mark the target as host auto-instrumented. The protocol here is
+            // that we don't want to auto-instrument host code on a return,
+            // even if that behaviour is set within the policy.
+            in.set_policy(target_policy);
+
             mangle_indirect_cti(
                 in,
                 operand(*reg::rsp),
-                target_policy.indirect_cti_policy()
+                target_policy
             );
+
         } else {
             operand target(in.cti_target());
+
+            // Direct CTI.
             if(dynamorio::opnd_is_pc(target)) {
+
+                // Sane defaults until we resolve more info.
+                target_policy.return_target(false);
+                target_policy.indirect_cti_target(false);
+
                 mangle_direct_cti(in, target, target_policy);
+
+            // Indirect CTI.
             } else if(!dynamorio::opnd_is_instr(target)) {
+                target_policy.return_target(false);
+                target_policy.indirect_cti_target(true);
+
+                // Tell the code cache lookup routine that if we switch to host
+                // code that we can instrument it. The protocol here is that if
+                // we aren't auto-instrumenting, and if the client
+                // instrumentation marks a CTI as going to a host context, then
+                // we will instrument it. If the CTI actually goes to app code,
+                // then we auto-convert the policy to be in the app context. If
+                // we are auto-instrumenting, then the behaviour is as if every
+                // indirect CTI were marked as going to host code, and so we
+                // do the right thing.
+                if(target_policy.is_host_auto_instrumented()) {
+                    target_policy.in_host_context(true);
+                }
+
+                // Forcibly resolve the policy.
+                in.set_policy(target_policy);
+
                 mangle_indirect_cti(
                     in,
                     target,
-                    target_policy.indirect_cti_policy()
+                    target_policy
                 );
+
+            // CTI to a label.
+            } else {
+                ASSERT(target_policy == policy);
             }
         }
     }

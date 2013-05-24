@@ -303,4 +303,14 @@ using namespace client::wp;
 #endif
 
 
+#if defined(CAN_WRAP___switch_to)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(__switch_to, RUNNING_AS_HOST)
+#endif
+
+
+#if defined(CAN_WRAP___schedule)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(__schedule, RUNNING_AS_HOST)
+#endif
+
+
 #endif /* WRAPPERS_H_ */

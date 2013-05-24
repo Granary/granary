@@ -144,7 +144,7 @@ namespace granary {
         /// enabled, then the CPU-private lookup function might add a prediction
         /// entry to the CTI.
         static app_pc ibl_entry_routine(
-            instrumentation_policy policy
+            instrumentation_policy target_policy
         ) throw();
 
 
@@ -172,7 +172,7 @@ namespace granary {
         /// Checks to see if a return address is in the code cache. If so, it
         /// RETs to the address, otherwise it JMPs to the IBL entry routine.
         app_pc rbl_entry_routine(
-            instrumentation_policy policy
+            instrumentation_policy target_policy
         ) throw();
 #endif
 

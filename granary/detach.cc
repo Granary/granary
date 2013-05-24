@@ -117,10 +117,7 @@ namespace granary {
                 return nullptr;
             }
             fallback = detach_addr;
-
-        } /* else if(!is_app_address(detach_addr)) {
-            return nullptr;
-        }*/
+        }
 #endif
 
         app_pc redirect_addr(nullptr);

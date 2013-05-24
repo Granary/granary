@@ -502,7 +502,7 @@ namespace granary {
 #if !GRANARY_IN_KERNEL
         // We should have detached by this point, but oh well.
         if(X86_INT3 == *byte_pc) {
-
+            // TODO: gdb breakpoint?
         }
 #endif
 

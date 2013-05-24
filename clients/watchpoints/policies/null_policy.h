@@ -22,7 +22,7 @@ namespace client {
         struct null_policy {
 
             enum {
-                AUTO_INSTRUMENT_HOST = false
+                AUTO_INSTRUMENT_HOST = true
             };
 
             static void visit_read(
