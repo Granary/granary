@@ -95,7 +95,6 @@ namespace client {
 
 
         static_assert((false
-            || 8 == NUM_HIGH_ORDER_BITS
             || 16 == NUM_HIGH_ORDER_BITS),
             "The number of high order bits for a watched address descriptor "
             "index must be either 8 or 16, as sub-8/16 writes cannot be made "
@@ -149,7 +148,15 @@ namespace client {
             /// must be left as-is.
             bool can_replace[MAX_NUM_OPERANDS];
 
+            /// The operand sizes of each of the memory operands.
             operand_size sizes[MAX_NUM_OPERANDS];
+
+#if GRANARY_IN_KERNEL
+            /// Whether any one of the addresses might be a user space address,
+            /// which means all could be. This is deduced by looking for certain
+            /// binary patterns.
+            bool might_be_user_address;
+#endif
 
             /// The number of operands that need to be instrumented.
             unsigned num_ops;
@@ -500,6 +507,31 @@ namespace client {
                 if(!tracker.num_ops) {
                     continue;
                 }
+
+#if GRANARY_IN_KERNEL
+                enum {
+                    DATA32_XCHG_AX_AX = 0x906666U
+                };
+
+                // Try to determine if this might be an access to a user space
+                // address by pattern matching the binary instructions.
+                if(in.next().is_valid() && in.prev().is_valid()
+                && in.next().pc() && in.prev().pc()
+                && 3 == in.next().encoded_size()
+                && 3 == in.prev().encoded_size()) {
+                    unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+                    tracker.might_be_user_address = (
+                        0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
+                     && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
+                }
+
+                // TODO: Later we should handle watched user space addresses,
+                //       or instruction patterns that take this form but
+                //       aren't actually watched addresses.
+                if(tracker.might_be_user_address) {
+                    continue;
+                }
+#endif
 
                 // Mangle the instruction. This makes it "safer" for use by
                 // later generic watchpoint instrumentation.

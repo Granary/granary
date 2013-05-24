@@ -175,6 +175,12 @@ using namespace client::wp;
             mutex_lock(unwatched_address_check(lock));
         })
 #   endif
+#   ifndef APP_WRAPPER_FOR_mutex_lock
+#       define APP_WRAPPER_FOR_mutex_lock
+        FUNCTION_WRAPPER_VOID(APP, mutex_lock, (struct mutex * lock), {
+            mutex_lock(unwatched_address_check(lock));
+        })
+#   endif
 #endif
 
 
@@ -182,6 +188,12 @@ using namespace client::wp;
 #   ifndef HOST_WRAPPER_FOR_mutex_lock_interruptible
 #       define HOST_WRAPPER_FOR_mutex_lock_interruptible
         FUNCTION_WRAPPER(HOST, mutex_lock_interruptible, (int), (struct mutex * lock), {
+            return mutex_lock_interruptible(unwatched_address_check(lock));
+        })
+#   endif
+#   ifndef APP_WRAPPER_FOR_mutex_lock_interruptible
+#       define APP_WRAPPER_FOR_mutex_lock_interruptible
+        FUNCTION_WRAPPER(APP, mutex_lock_interruptible, (int), (struct mutex * lock), {
             return mutex_lock_interruptible(unwatched_address_check(lock));
         })
 #   endif
@@ -195,6 +207,12 @@ using namespace client::wp;
             return mutex_lock_killable(unwatched_address_check(lock));
         })
 #   endif
+#   ifndef APP_WRAPPER_FOR_mutex_lock_killable
+#       define APP_WRAPPER_FOR_mutex_lock_killable
+        FUNCTION_WRAPPER(APP, mutex_lock_killable, (int), (struct mutex * lock), {
+            return mutex_lock_killable(unwatched_address_check(lock));
+        })
+#   endif
 #endif
 
 
@@ -202,6 +220,12 @@ using namespace client::wp;
 #   ifndef HOST_WRAPPER_FOR_mutex_trylock
 #       define HOST_WRAPPER_FOR_mutex_trylock
         FUNCTION_WRAPPER(HOST, mutex_trylock, (int), (struct mutex * lock), {
+            return mutex_trylock(unwatched_address_check(lock));
+        })
+#   endif
+#   ifndef APP_WRAPPER_FOR_mutex_trylock
+#       define APP_WRAPPER_FOR_mutex_trylock
+        FUNCTION_WRAPPER(APP, mutex_trylock, (int), (struct mutex * lock), {
             return mutex_trylock(unwatched_address_check(lock));
         })
 #   endif
@@ -215,11 +239,17 @@ using namespace client::wp;
             mutex_unlock(unwatched_address_check(lock));
         })
 #   endif
+#   ifndef APP_WRAPPER_FOR_mutex_unlock
+#       define APP_WRAPPER_FOR_mutex_unlock
+        FUNCTION_WRAPPER_VOID(APP, mutex_unlock, (struct mutex * lock), {
+            mutex_unlock(unwatched_address_check(lock));
+        })
+#   endif
 #endif
 
 
-#define COPY_TO_FROM_USER(func) \
-    FUNCTION_WRAPPER(HOST, func, (unsigned long), (void *a, void *b, unsigned len), {\
+#define COPY_TO_FROM_USER(context, func) \
+    FUNCTION_WRAPPER(context, func, (unsigned long), (void *a, void *b, unsigned len), {\
         return func( \
             unwatched_address_check(a), \
             unwatched_address_check(b), \
@@ -230,7 +260,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP_copy_user_enhanced_fast_string) && CAN_WRAP_copy_user_enhanced_fast_string
 #   ifndef HOST_WRAPPER_FOR_copy_user_enhanced_fast_string
 #       define HOST_WRAPPER_FOR_copy_user_enhanced_fast_string
-        COPY_TO_FROM_USER(copy_user_enhanced_fast_string)
+        COPY_TO_FROM_USER(HOST, copy_user_enhanced_fast_string)
+#   endif
+#   ifndef APP_WRAPPER_FOR_copy_user_enhanced_fast_string
+#       define APP_WRAPPER_FOR_copy_user_enhanced_fast_string
+        COPY_TO_FROM_USER(APP, copy_user_enhanced_fast_string)
 #   endif
 #endif
 
@@ -238,7 +272,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP_copy_user_generic_string) && CAN_WRAP_copy_user_generic_string
 #   ifndef HOST_WRAPPER_FOR_copy_user_generic_string
 #       define HOST_WRAPPER_FOR_copy_user_generic_string
-        COPY_TO_FROM_USER(copy_user_generic_string)
+        COPY_TO_FROM_USER(HOST, copy_user_generic_string)
+#   endif
+#   ifndef APP_WRAPPER_FOR_copy_user_generic_string
+#       define APP_WRAPPER_FOR_copy_user_generic_string
+        COPY_TO_FROM_USER(APP, copy_user_generic_string)
 #   endif
 #endif
 
@@ -246,7 +284,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP_copy_user_generic_unrolled) && CAN_WRAP_copy_user_generic_unrolled
 #   ifndef HOST_WRAPPER_FOR_copy_user_generic_unrolled
 #       define HOST_WRAPPER_FOR_copy_user_generic_unrolled
-        COPY_TO_FROM_USER(copy_user_generic_unrolled)
+        COPY_TO_FROM_USER(HOST, copy_user_generic_unrolled)
+#   endif
+#   ifndef APP_WRAPPER_FOR_copy_user_generic_unrolled
+#       define APP_WRAPPER_FOR_copy_user_generic_unrolled
+        COPY_TO_FROM_USER(APP, copy_user_generic_unrolled)
 #   endif
 #endif
 
@@ -254,7 +296,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP__copy_to_user) && CAN_WRAP__copy_to_user
 #   ifndef HOST_WRAPPER_FOR__copy_to_user
 #       define HOST_WRAPPER_FOR__copy_to_user
-        COPY_TO_FROM_USER(_copy_to_user)
+        COPY_TO_FROM_USER(HOST, _copy_to_user)
+#   endif
+#   ifndef APP_WRAPPER_FOR__copy_to_user
+#       define APP_WRAPPER_FOR__copy_to_user
+        COPY_TO_FROM_USER(APP, _copy_to_user)
 #   endif
 #endif
 
@@ -262,7 +308,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP__copy_from_user) && CAN_WRAP__copy_from_user
 #   ifndef HOST_WRAPPER_FOR__copy_from_user
 #       define HOST_WRAPPER_FOR__copy_from_user
-        COPY_TO_FROM_USER(_copy_from_user)
+        COPY_TO_FROM_USER(HOST, _copy_from_user)
+#   endif
+#   ifndef APP_WRAPPER_FOR__copy_from_user
+#       define APP_WRAPPER_FOR__copy_from_user
+        COPY_TO_FROM_USER(APP, _copy_from_user)
 #   endif
 #endif
 
@@ -270,7 +320,11 @@ using namespace client::wp;
 #if defined(CAN_WRAP_copy_in_user) && CAN_WRAP_copy_in_user
 #   ifndef HOST_WRAPPER_FOR_copy_in_user
 #       define HOST_WRAPPER_FOR_copy_in_user
-        COPY_TO_FROM_USER(copy_in_user)
+        COPY_TO_FROM_USER(HOST, copy_in_user)
+#   endif
+#   ifndef APP_WRAPPER_FOR_copy_in_user
+#       define APP_WRAPPER_FOR_copy_in_user
+        COPY_TO_FROM_USER(APP, copy_in_user)
 #   endif
 #endif
 
@@ -279,6 +333,16 @@ using namespace client::wp;
 #   ifndef HOST_WRAPPER_FOR___copy_user_nocache
 #       define HOST_WRAPPER_FOR___copy_user_nocache
         FUNCTION_WRAPPER(HOST, __copy_user_nocache, (long), (void * dst , const void *src, unsigned size, int zerorest), {
+            return __copy_user_nocache(
+                unwatched_address_check(dst),
+                unwatched_address_check(src),
+                size,
+                zerorest);
+        })
+#   endif
+#   ifndef APP_WRAPPER_FOR___copy_user_nocache
+#       define APP_WRAPPER_FOR___copy_user_nocache
+        FUNCTION_WRAPPER(APP, __copy_user_nocache, (long), (void * dst , const void *src, unsigned size, int zerorest), {
             return __copy_user_nocache(
                 unwatched_address_check(dst),
                 unwatched_address_check(src),
@@ -300,16 +364,34 @@ using namespace client::wp;
                 zerorest);
         })
 #   endif
+#   ifndef APP_WRAPPER_FOR_copy_user_handle_tail
+#       define APP_WRAPPER_FOR_copy_user_handle_tail
+        FUNCTION_WRAPPER(APP, copy_user_handle_tail, (unsigned long), ( char * to , char * from , unsigned len , unsigned zerorest ), {
+            return copy_user_handle_tail(
+                unwatched_address_check(to),
+                unwatched_address_check(from),
+                len,
+                zerorest);
+        })
+#   endif
 #endif
 
 
 #if defined(CAN_WRAP___switch_to)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(__switch_to, RUNNING_AS_APP)
     GRANARY_DETACH_INSTEAD_OF_WRAP(__switch_to, RUNNING_AS_HOST)
 #endif
 
 
 #if defined(CAN_WRAP___schedule)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(__schedule, RUNNING_AS_APP)
     GRANARY_DETACH_INSTEAD_OF_WRAP(__schedule, RUNNING_AS_HOST)
+#endif
+
+
+#if defined(CAN_WRAP__cond_resched)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(_cond_resched, RUNNING_AS_APP)
+    GRANARY_DETACH_INSTEAD_OF_WRAP(_cond_resched, RUNNING_AS_HOST)
 #endif
 
 

@@ -18,7 +18,7 @@
 #define WP_IGNORE_FRAME_POINTER 0
 
 
-/// Size (in bits) of the counter index. This should either be 8 or 16.
+/// Size (in bits) of the counter index. This should either be 16.
 ///
 /// Note: The lowest order bit of the counter index is reserved for detecting
 ///       if an address is watched or not.
@@ -74,5 +74,10 @@
 #   define IF_PARTIAL_INDEX(...)
 #endif
 
+
+/// Double check the settings.
+#if 16 != WP_COUNTER_INDEX_WIDTH
+#   error "The counter index width must be 16 for kernel-space compatibility."
+#endif
 
 #endif /* WATCHPOINT_CONFIG_H_ */

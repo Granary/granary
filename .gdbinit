@@ -71,10 +71,23 @@ set language c++
 define p-bb-info
   set language c++
   set $__bb = ((granary::basic_block_info *) $arg0)
+  set $__policy_addr = &($__bb->policy_bits)
+  set $__policy = ((granary::instrumentation_policy *) $__policy_addr)
   printf "Basic block info:\n"
-  printf "  App address: %p\n", $__bb.generating_pc
-  printf "  Stub instructions: %p\n", ($arg0 - $__bb.num_bytes)
-  printf "  Instructions: %p\n", ($arg0 - $__bb.num_bytes + $__bb.num_patch_bytes)
+  printf "  App address: %p\n", $__bb->generating_pc
+  printf "  Stub instructions: %p\n", ($arg0 - $__bb->num_bytes)
+  printf "  Instructions: %p\n", ($arg0 - $__bb->num_bytes + $__bb->num_patch_bytes)
+  printf "  Is indirect CTI target: %d\n", $__policy->u.is_indirect_target
+  printf "  Is return target: %d\n", $__policy->u.is_return_target
+  printf "  Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
+  printf "  Is in host context: %d\n", $__policy->u.is_in_host_context
+  printf "  Policy ID: %d\n", $__policy->u.id
+  printf "  Instrumentation Function: "
+  if 1 == $__policy->u.is_in_host_context
+    info sym granary::instrumentation_policy::HOST_VISITORS[$__policy->u.id]
+  else
+    info sym granary::instrumentation_policy::APP_VISITORS[$__policy->u.id]
+  end
   dont-repeat
 end
 
@@ -300,7 +313,7 @@ end
 # based register lookup.
 define internal-bb-by-reg-cond
   if $trace_entry
-    printf "Global code cache lookup where $%s %s %lx:\n", $__str_reg_name, $__str_bin_op, $__int_value
+    printf "Global code cache lookup where $%s %s %lx:\n", $arg0, $arg1, $arg2
     printf "  [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
     p-bb $trace_entry->code_cache_addr
   end
@@ -316,7 +329,7 @@ define p-bb-where-reg
   set $__str_bin_op = $arg1
   set $__int_value = (unsigned long) $arg2
   get-trace-cond-reg 1 $arg0 $arg1 $arg2
-  internal-bb-by-reg-cond
+  internal-bb-by-reg-cond $__str_reg_name $__str_bin_op $__int_value
 end
 
 

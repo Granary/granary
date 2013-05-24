@@ -135,7 +135,7 @@
 #if GRANARY_USE_PIC
 #   define CONFIG_RUN_TEST_CASES 0
 #else
-#   define CONFIG_RUN_TEST_CASES 0
+#   define CONFIG_RUN_TEST_CASES 1
 #endif
 
 

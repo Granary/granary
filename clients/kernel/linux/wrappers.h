@@ -9,6 +9,12 @@
 #ifndef CLIENT_KERNEL_LINUX_WRAPPERS_H_
 #define CLIENT_KERNEL_LINUX_WRAPPERS_H_
 
+/// Null watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_NULL
+#   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
+#endif
+
+
 /// Bounds checking watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_BOUND
 #   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
