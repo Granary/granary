@@ -557,17 +557,42 @@ namespace granary {
 
 
     /// Represents a "bad" instantiation of the `wrapped_function` template.
-    /// If this is instantiated, then it implies that something is missing,
-    /// e.g. a wrapper in `granary/gen/*_wrappers.h`.
+    /// If this is instantiated, then we will treat the original function as the
+    /// detach point (because this is the app context).
     template <
-        enum function_wrapper_id id,
-        enum runtime_context context
+        enum function_wrapper_id id
     >
-    struct wrapped_function_impl<id, context, false, custom_wrapped_function> {
+    struct wrapped_function_impl<
+        id,
+        RUNNING_AS_APP,
+        false,
+        custom_wrapped_function
+    > {
+        // There is no `apply` method/value here to purposefully raise a
+        // compiler error about something (e.g. having C-style variadict
+        // arguments) that should be manually wrapped.
+    };
 
-        // Intentionally missing `apply` function so that a reasonable compiler
-        // error will give us the function id as well as its type signature.
 
+    /// Represents a "bad" instantiation of the `wrapped_function` template. If
+    /// If this is instantiated, then we will treat the original function as not
+    /// being a detach point because we are in the host context.
+    template <
+        enum function_wrapper_id id
+    >
+    struct wrapped_function_impl<
+        id,
+        RUNNING_AS_HOST,
+        false,
+        custom_wrapped_function
+    > {
+
+        /// Apply in this case is effectively a nullptr. This is a sort-of hack
+        /// that only ends up working because of C-style casts in `wrapper.cc`
+        /// where I can access `::apply`, somet
+        enum : uintptr_t {
+            apply = 0
+        };
     };
 
 
@@ -587,31 +612,28 @@ namespace granary {
     > { };
 
 
-    /// Return the address of a function wrapper given its id and type.
+    /// Gives access to the a wrapped function's apply static method, even if
+    /// that function is a C-style variadic function.
+    template <
+       enum function_wrapper_id id,
+       enum runtime_context context,
+       typename T
+    >
+    struct wrapper_of
+       : public wrapped_function<id, context, custom_wrapped_function>
+    {};
+
+
+    /// Gives access to the a wrapped function's apply static method.
     template <
         enum function_wrapper_id id,
+        enum runtime_context context,
         typename R,
         typename... Args
     >
-    FORCE_INLINE
-    constexpr uintptr_t wrapper_of(R (*)(Args...)) throw() {
-        return reinterpret_cast<uintptr_t>(
-            wrapped_function<id, RUNNING_AS_APP, R, Args...>::apply);
-    }
-
-
-    /// Return the address of a function wrapper given its id and type, where
-    /// the function being wrapped is a C-style variadic function.
-    template <
-        enum function_wrapper_id id,
-        typename T
-    >
-    FORCE_INLINE
-    constexpr uintptr_t wrapper_of(T *) throw() {
-        return reinterpret_cast<uintptr_t>(
-            wrapped_function<
-                id, RUNNING_AS_APP, custom_wrapped_function>::apply);
-    }
+    struct wrapper_of<id, context, R (Args...)>
+        : public wrapped_function<id, context, R, Args...>
+    {};
 
 
     /// A pretty ugly hack to pass the target address from gencode into a
@@ -1015,24 +1037,6 @@ namespace granary {
     }
 
 
-/// Context-specific wrapping for manually-wrapped functions.
-#define FUNCTION_WRAPPER_RUNNING_AS_APP(function_name)
-
-
-#define FUNCTION_WRAPPER_RUNNING_AS_HOST(function_name) \
-    STATIC_INITIALISE_ID(CAT(detach_from_host_on_, function_name), { \
-        add_detach_target( \
-            unsafe_cast<app_pc>(IF_USER_ELSE(function_name, CAT(DETACH_ADDR_, function_name))), \
-            unsafe_cast<app_pc>(wrapped_function_impl< \
-                CAT(DETACH_ID_, function_name), \
-                RUNNING_AS_HOST, \
-                false, \
-                custom_wrapped_function \
-            >::apply), \
-            RUNNING_AS_HOST); \
-    })
-
-
 #define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
@@ -1058,7 +1062,6 @@ namespace granary {
                 wrapper_code \
             } \
         }; \
-        CAT(FUNCTION_WRAPPER_, context)(function_name) \
     }
 
 
@@ -1085,7 +1088,6 @@ namespace granary {
                 wrapper_code \
             } \
         }; \
-        CAT(FUNCTION_WRAPPER_, context)(function_name) \
     }
 
 

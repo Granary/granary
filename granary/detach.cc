@@ -26,6 +26,43 @@ namespace granary {
     static static_data<cpu_private_code_cache> DETACH_HASH_TABLE[2];
 
 
+#if !GRANARY_IN_KERNEL
+    static void wrap_user_address(
+        function_wrapper &wrapper,
+        runtime_context context,
+        app_pc wrapper_address,
+        uintptr_t dlsym_address
+    ) throw() {
+        if(wrapper.original_address) {
+            DETACH_HASH_TABLE[context]->store(
+                reinterpret_cast<app_pc>(wrapper.original_address),
+                wrapper_address);
+        }
+
+        auto dlsym_ = dlsym;
+
+        // This evil beast allows us to have something like `free` resolve
+        // to _GI___libc_free.
+        while(dlsym_address && wrapper.original_address != dlsym_address) {
+            DETACH_HASH_TABLE[context]->store(
+                reinterpret_cast<app_pc>(dlsym_address),
+                wrapper_address);
+
+            auto prev_dlsym_ = dlsym_;
+            dlsym_ = unsafe_cast<decltype(dlsym_)>(
+                prev_dlsym_(RTLD_NEXT, "dlsym"));
+
+            if(!dlsym_ || dlsym_ == prev_dlsym_) {
+                break;
+            }
+
+            dlsym_address = unsafe_cast<uintptr_t>(
+                dlsym_(RTLD_DEFAULT, wrapper.name));
+        }
+    }
+#endif
+
+
     STATIC_INITIALISE_ID(detach_hash_table, {
 
         DETACH_HASH_TABLE[RUNNING_AS_APP].construct();
@@ -34,9 +71,18 @@ namespace granary {
         // Add all wrappers to the detach hash table.
         IF_WRAPPERS( for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
-            DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                reinterpret_cast<app_pc>(wrapper.original_address),
-                reinterpret_cast<app_pc>(wrapper.wrapper_address));
+
+            if(wrapper.app_wrapper_address) {
+                DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
+                    reinterpret_cast<app_pc>(wrapper.original_address),
+                    reinterpret_cast<app_pc>(wrapper.app_wrapper_address));
+            }
+
+            if(wrapper.host_wrapper_address) {
+                DETACH_HASH_TABLE[RUNNING_AS_HOST]->store(
+                    reinterpret_cast<app_pc>(wrapper.original_address),
+                    reinterpret_cast<app_pc>(wrapper.host_wrapper_address));
+            }
         } )
 
         // Add internal dynamic symbols to the detach hash table.
@@ -47,8 +93,6 @@ namespace granary {
                 break;
             }
 
-            auto dlsym_ = dlsym;
-
             uintptr_t dlsym_address(reinterpret_cast<uintptr_t>(
                 dlsym(RTLD_DEFAULT, wrapper.name)));
 
@@ -58,34 +102,17 @@ namespace granary {
                 wrapper.original_address = dlsym_address;
             }
 
-            if(wrapper.original_address && !wrapper.wrapper_address) {
-                wrapper.wrapper_address = wrapper.original_address;
-            }
+            wrap_user_address(
+                wrapper,
+                RUNNING_AS_APP,
+                reinterpret_cast<app_pc>(wrapper.app_wrapper_address),
+                dlsym_address);
 
-            if(wrapper.original_address) {
-                DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                    reinterpret_cast<app_pc>(wrapper.original_address),
-                    reinterpret_cast<app_pc>(wrapper.wrapper_address));
-            }
-
-            // This evil beast allows us to have something like `free` resolve
-            // to _GI___libc_free.
-            while(dlsym_address && wrapper.original_address != dlsym_address) {
-                DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
-                    reinterpret_cast<app_pc>(dlsym_address),
-                    reinterpret_cast<app_pc>(wrapper.wrapper_address));
-
-                auto prev_dlsym_ = dlsym_;
-                dlsym_ = unsafe_cast<decltype(dlsym_)>(
-                    prev_dlsym_(RTLD_NEXT, "dlsym"));
-
-                if(!dlsym_ || dlsym_ == prev_dlsym_) {
-                    break;
-                }
-
-                dlsym_address = unsafe_cast<uintptr_t>(
-                    dlsym_(RTLD_DEFAULT, wrapper.name));
-            }
+            wrap_user_address(
+                wrapper,
+                RUNNING_AS_HOST,
+                reinterpret_cast<app_pc>(wrapper.host_wrapper_address),
+                dlsym_address);
         } )
     })
 

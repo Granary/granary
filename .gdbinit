@@ -70,9 +70,23 @@ set language c++
 # whose meta-information is located at address ADDR.
 define p-bb-info
   set language c++
-  set $__bb = ((granary::basic_block_info *) $arg0)
+
+  # Find the basic block.
+  set $__addr = (unsigned long) $arg0
+  if ($__addr % 4)
+    set $__addr = $__addr + (4 - ($__addr % 4))
+  end
+  set $__int = (uint32_t *) $__addr
+  while *$__int != 0xD4D5D682
+    set $__int = $__int + 1
+  end
+
+  # Extract info.
+  set $__bb = ((granary::basic_block_info *) $__int)
   set $__policy_addr = &($__bb->policy_bits)
   set $__policy = ((granary::instrumentation_policy *) $__policy_addr)
+
+  # Print the info.
   printf "Basic block info:\n"
   printf "  App address: %p\n", $__bb->generating_pc
   printf "  Stub instructions: %p\n", ($arg0 - $__bb->num_bytes)
@@ -186,7 +200,8 @@ define p-wrapper
   set $__w = &(granary::FUNCTION_WRAPPERS[(int) $arg0])
   printf "Function wrapper %s (%d):\n", $__w->name, (int) $arg0
   printf "  Original address: %p\n", $__w->original_address
-  printf "  Wrapper address: %p\n", $__w->wrapper_address
+  printf "  App Wrapper address: %p\n", $__w->app_wrapper_address
+  printf "  Host Wrapper address: %p\n", $__w->host_wrapper_address
   dont-repeat
 end
 

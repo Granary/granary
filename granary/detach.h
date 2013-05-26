@@ -63,7 +63,8 @@ namespace granary {
     /// original function addresses to wrapped function addresses.
     struct function_wrapper {
         uintptr_t original_address;
-        uintptr_t wrapper_address;
+        uintptr_t app_wrapper_address;
+        uintptr_t host_wrapper_address;
         const char * const name;
     };
 

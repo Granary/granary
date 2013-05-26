@@ -77,8 +77,8 @@ namespace granary {
     // first, generate detach entries for wrappers
 #   define WRAP_FOR_DETACH(func) \
     {   (uintptr_t) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
-        wrapper_of<DETACH_ID_ ## func>( \
-            IF_USER_ELSE(::func, (decltype(::func) *) nullptr)), \
+        (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \
+        (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_HOST, decltype(::func)>::apply, \
         #func },
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
@@ -87,7 +87,7 @@ namespace granary {
 #   else
 #       include "granary/gen/user_detach.inc"
 #   endif
-        {0, 0, nullptr},
+        {0, 0, 0, nullptr}, // Sentinel.
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
 #   undef TYPED_DETACH
@@ -96,16 +96,14 @@ namespace granary {
     // looked up using dlsym.
 #   define WRAP_FOR_DETACH(func)
 #   define DETACH(func)  \
-    {   0, \
-        0, \
-        #func },
+    { 0, 0, 0, #func },
 #   define TYPED_DETACH(func) DETACH(func)
 #   if GRANARY_IN_KERNEL
 #       include "granary/gen/kernel_detach.inc"
 #   else
 #       include "granary/gen/user_detach.inc"
 #   endif
-        {0, 0, nullptr}
+        {0, 0, 0, nullptr} // Sentinel.
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
     };

@@ -50,7 +50,9 @@ namespace client { namespace wp {
         interrupt_stack_frame &isf,
         interrupt_vector vector
     ) throw() {
-        if(VECTOR_GENERAL_PROTECTION == vector) {
+        if(VECTOR_GENERAL_PROTECTION == vector
+        || VECTOR_STACK_FAULT == vector) {
+
             instrumentation_policy policy(START_POLICY);
             policy.in_host_context();
 

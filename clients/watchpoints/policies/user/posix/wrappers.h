@@ -17,7 +17,7 @@ using namespace client::wp;
 #ifndef APP_WRAPPER_FOR_pointer
 #   define APP_WRAPPER_FOR_pointer
     POINTER_WRAPPER({
-        NO_PRE_IN
+        INHERIT_PRE_IN
         PRE_OUT {
             if(is_valid_address(arg)) {
                 arg = unwatched_address(arg);

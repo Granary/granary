@@ -562,9 +562,10 @@ namespace granary {
 
     /// Forcibly kill a particular 64-bit register. Here we do something
     /// special in that we don't consider a register dead unless we
-    /// are actually using the full 64-bit register. This is because something
-    /// like `MOV AL, CL`, while looking like it kills `RCX`, is only killing
-    /// the low 8 bytes of `RCX`, and the other bytes might still be live.
+    /// are actually using at least 32 bits of register. This is because
+    /// something like `MOV AL, CL`, while looking like it kills `RCX`, is only
+    /// killing the low 8 bytes of `RCX`, and the other bytes might still be
+    /// live.
     void register_manager::kill_64(dynamorio::reg_id_t reg) throw() {
         const uint8_t reg64(REG_TO_REG64[reg]);
         if(reg64 && (reg64 == reg || REG_TO_REG32[reg] == reg)) {
