@@ -136,7 +136,7 @@
 #define STATIC_INITIALISE_ID(id, ...) \
     STATIC_INITIALISE_(CAT(CAT(id, __LINE__), CAT(_, __COUNTER__)), ##__VA_ARGS__)
 
-#if !CONFIG_RUN_TEST_CASES
+#if !CONFIG_ENABLE_ASSERTIONS
 #   define IF_TEST(...)
 #   define ADD_TEST(func, desc)
 #   define ASSERT(...)

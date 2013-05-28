@@ -45,7 +45,6 @@ REG_KIND_SUMMARY = {
   Register.KIND_DEBUG:              "debug",
   Register.KIND_CONTROL:            "control",
   Register.KIND_TEST:               "test",
-  Register.KIND_MEMORY_MAPPED:      "mmap",
   Register.KIND_INSTRUCTION:        "ip",
 }
 
@@ -144,26 +143,30 @@ class UnifiedAddressOperand(UnifiedOperand):
   def unify(self, op):
     form = self.forms[
         op.segment_register,
+        None is not op.displacement,
         not not op.base_register,
-        not not op.index_register]
+        not not op.index_register,
+        None is not op.scale]
     form.unify(op)
 
   def generate(self):
-    for (seg, has_b, has_i), op in self.forms.items():
+    for (seg, has_d, _, _, has_s), op in self.forms.items():
       for base in op.base_register:
         for index in op.index_register:
+          if not base and not index:
+            continue
           gen_op = AddressOperand()
+          gen_op.displacement = has_d and 0 or None
           gen_op.segment_register = seg
           gen_op.base_register = base
           gen_op.index_register = index
-          gen_op.scale = int(has_s)
+          gen_op.scale = has_s and 1 or None
           yield gen_op
     raise StopIteration()
 
   def summarize(self):
     summaries = set()
-    for (seg, _, _), op in self.forms.items():
-
+    for (seg, _, _,_, _), op in self.forms.items():
       for base in op.base_register:
         for index in op.index_register:
           if not base and not index:
@@ -182,31 +185,6 @@ class UnifiedAddressOperand(UnifiedOperand):
           summary += ")"
           summaries.add(summary)
     return iter(summaries)
-
-
-PREFIX_SUMMARIES = {
-  Instruction.PREFIX_REP          : "rep",
-  Instruction.PREFIX_REPE         : "repz",
-  Instruction.PREFIX_REPZ         : "repz",
-  Instruction.PREFIX_REPNE        : "repnz",
-  Instruction.PREFIX_REPNZ        : "repnz",
-  Instruction.PREFIX_LOCK         : "lock",
-  Instruction.PREFIX_DATA16       : "data16",
-  Instruction.PREFIX_DATA32       : "data32",
-  Instruction.PREFIX_ADDR16       : "addr16",
-  Instruction.PREFIX_ADDR32       : "addr32",
-  Instruction.PREFIX_REX          : "rex",
-  Instruction.PREFIX_REX_W        : "rex.W",
-  Instruction.PREFIX_REX_R        : "rex.R",
-  Instruction.PREFIX_REX_X        : "rex.X",
-  Instruction.PREFIX_REX_B        : "rex.B",
-  Instruction.PREFIX_SEG_CS       : "cs",
-  Instruction.PREFIX_SEG_SS       : "ss",
-  Instruction.PREFIX_SEG_DS       : "ds",
-  Instruction.PREFIX_SEG_ES       : "es",
-  Instruction.PREFIX_SEG_FS       : "fs",
-  Instruction.PREFIX_SEG_GS       : "gs",
-}
 
 
 class UnifiedInstruction(object):
@@ -256,17 +234,10 @@ class UnifiedInstruction(object):
   def summarize(self):
     global PREFIX_SUMMARIES
     for key, uops in self.operands.items():
-      prefixes = []
-      suffixes = key[1]
-
-      for prefix in PREFIX_SUMMARIES:
-        if prefix & key[0]:
-          prefixes.append(PREFIX_SUMMARIES[prefix])
-
       summary = "%s %s%s" % (
-          " ".join(prefixes),
-          self.mnemonic.lower(),
-          "".join(s.lower() for s in suffixes))
+          " ".join(key[0]), # prefixes
+          self.mnemonic.lower(), # mnemonic
+          "".join(s.lower() for s in key[1])) # suffixes
       uop_groups = itertools.product(
           *map(lambda uop: list(uop.summarize()), uops))
 

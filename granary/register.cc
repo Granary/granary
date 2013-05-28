@@ -434,17 +434,82 @@ namespace granary {
     /// Visit the destination operands of an instruction. This will kill
     /// register destinations and revive registers that are used in base/
     /// disp operands.
+    ///
+    /// Note: This behaves differently for instructions where a register
+    ///       appears twice within the destinations (as in MOVS), in that
+    ///       it ensures that the register remains live, regardless of the
+    ///       ordering of the destination operands.
     void register_manager::visit_dests(dynamorio::instr_t *in) throw() {
         unsigned num_dests(dynamorio::instr_num_dsts(in));
+        uint16_t prev_live_64(live);
+        uint16_t must_live(FORCE_LIVE);
+
         for(unsigned i(0); i < num_dests; i++) {
-            dynamorio::opnd_t opnd(dynamorio::instr_get_dst(in, i));
-            if(dynamorio::REG_kind == opnd.kind) {
-                kill(opnd);
-            } else {
-                revive(opnd);
+            const dynamorio::opnd_t op(dynamorio::instr_get_dst(in, i));
+
+            // Note: In a single step, we can revive up to two registers, and
+            //       kill at most one.
+
+            if(dynamorio::REG_kind == op.kind) {
+                kill(op);
+            } else if(dynamorio::BASE_DISP_kind == op.kind) {
+                prev_live_64 = live;
+                live = 0;
+                revive_64(op.value.base_disp.base_reg);
+                revive_64(op.value.base_disp.index_reg);
+                must_live |= live;
+                live = prev_live_64;
+            }
+        }
+
+        live |= must_live;
+    }
+
+
+#if CONFIG_ENABLE_ASSERTIONS
+    /// This will visit destination operands and attempt to "find" potentially
+    /// complicated instructions to deal with.
+    void register_manager::visit_dests_simple_forward(dynamorio::instr_t *in) throw() {
+        unsigned num_dests(dynamorio::instr_num_dsts(in));
+        for(unsigned i(0); i < num_dests; i++) {
+            const dynamorio::opnd_t op(dynamorio::instr_get_dst(in, i));
+            if(dynamorio::REG_kind == op.kind) {
+                kill(op);
+            } else if(dynamorio::BASE_DISP_kind == op.kind) {
+                revive_64(op.value.base_disp.base_reg);
+                revive_64(op.value.base_disp.index_reg);
             }
         }
     }
+    void register_manager::visit_dests_simple_backward(dynamorio::instr_t *in) throw() {
+        unsigned num_dests(dynamorio::instr_num_dsts(in));
+        for(int i(num_dests); i-- > 0; ) {
+            const dynamorio::opnd_t op(dynamorio::instr_get_dst(in, i));
+            if(dynamorio::REG_kind == op.kind) {
+                kill(op);
+            } else if(dynamorio::BASE_DISP_kind == op.kind) {
+                revive_64(op.value.base_disp.base_reg);
+                revive_64(op.value.base_disp.index_reg);
+            }
+        }
+    }
+    void register_manager::visit_dests_check(dynamorio::instr_t *in) throw() {
+        const uint16_t orig_live(live);
+        visit_dests(in);
+        const uint16_t correct_live_after(live);
+        live = orig_live;
+        visit_dests_simple_forward(in);
+        const uint16_t simple_live_forward(live);
+        live = orig_live;
+        visit_dests_simple_backward(in);
+        const uint16_t simple_live_backward(live);
+
+        live = correct_live_after;
+
+        ASSERT(simple_live_forward == simple_live_backward);
+        ASSERT(simple_live_forward == correct_live_after);
+    }
+#endif
 
 
     /// Visit the source operands of an instruction. This will revive

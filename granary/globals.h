@@ -132,10 +132,11 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#if GRANARY_USE_PIC
-#   define CONFIG_RUN_TEST_CASES 0
-#else
+#define CONFIG_ENABLE_ASSERTIONS 1
+#if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 1
+#else
+#   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC)
 #endif
 
 

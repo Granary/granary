@@ -43,8 +43,10 @@ namespace client { namespace wp {
         // Guard against RSP up here as it will never be returned by get_zombie
         // (as a preventive measure for preventing the stack pointer from being
         // clobbered). Also, treat all stack addresses as unwatched.
-        if(dynamorio::DR_REG_RSP == op->value.base_disp.base_reg
-        || dynamorio::DR_REG_RSP == op->value.base_disp.index_reg) {
+        const dynamorio::reg_id_t base_reg(op->value.base_disp.base_reg);
+        const dynamorio::reg_id_t index_reg(op->value.base_disp.index_reg);
+        if(dynamorio::DR_REG_RSP == register_manager::scale(base_reg, REG_64)
+        || dynamorio::DR_REG_RSP == register_manager::scale(index_reg, REG_64)) {
             return;
         }
 
@@ -107,18 +109,25 @@ namespace client { namespace wp {
         // save the original regs, then modify them in place.
         } else {
             switch(tracker.in.op_code()) {
-            // optimisation for simple instructions that are typically used and
+            // Optimisation for simple instructions that are typically used and
             // are known to have replaceable operands.
             case dynamorio::OP_mov_ld:
             case dynamorio::OP_mov_st:
+            case dynamorio::OP_movzx:
+            case dynamorio::OP_movsx:
             case dynamorio::OP_add:
             case dynamorio::OP_sub:
             case dynamorio::OP_inc:
             case dynamorio::OP_dec:
+            case dynamorio::OP_and:
             case dynamorio::OP_or:
             case dynamorio::OP_xor:
+            case dynamorio::OP_not:
             case dynamorio::OP_xadd:
             case dynamorio::OP_xchg:
+            case dynamorio::OP_sar:
+            case dynamorio::OP_shr:
+            case dynamorio::OP_shl:
                 tracker.can_replace[tracker.num_ops] = true;
                 break;
             default:
@@ -153,14 +162,14 @@ namespace client { namespace wp {
     ) throw() {
         const unsigned eflags(dynamorio::instr_get_eflags(in));
 
-        // assume flags do not propagate through RETs or CALLs.
+        // Assume flags do not propagate through RETs or CALLs.
         if(in.is_return() || in.is_call()) {
             next_reads_carry_flag = false;
             tracker.restore_carry_flag_before = false;
             tracker.restore_carry_flag_after = false;
             return;
 
-        // for a specific propagation for CTIs.
+        // For a specific propagation for CTIs.
         } else if(in.is_cti()) {
             next_reads_carry_flag = true;
             tracker.restore_carry_flag_before = true;
@@ -180,7 +189,7 @@ namespace client { namespace wp {
             tracker.restore_carry_flag_before = false;
             tracker.restore_carry_flag_after = false;
 
-        // inherit
+        // Inherit
         } else {
             tracker.restore_carry_flag_before = false;
             tracker.restore_carry_flag_after = next_reads_carry_flag;
@@ -195,35 +204,31 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker
     ) throw() {
         instruction ret(in);
-        register_manager live(tracker.live_regs);
-        register_manager spill;
+        dynamorio::reg_id_t spill_reg;
 
-        spill.kill_all();
-        spill.revive(in);
-        live.revive(in);
-
-        // mangle a push instruction.
+        // Mangle a push instruction.
         switch(in.op_code()) {
 
         case dynamorio::OP_push: {
-            dynamorio::reg_id_t spill_reg(live.get_zombie());
+            spill_reg = tracker.live_regs.get_zombie();
             operand op = *(tracker.ops[0]);
 
-            // a dead register is available.
+            // A dead register is available.
             if(spill_reg) {
                 const operand dead_reg(spill_reg);
                 ret = ls.insert_before(in, mov_ld_(dead_reg, op));
                 ls.insert_before(in, push_(dead_reg));
+                tracker.spill_regs.revive(spill_reg);
 
-            // we need to spill a register to emulate the PUSH.
+            // We need to spill a register to emulate the PUSH.
             } else {
-                spill_reg = spill.get_zombie();
+                spill_reg = tracker.spill_regs.get_zombie();
 
                 ASSERT(spill_reg);
 
                 const operand dead_reg(spill_reg);
 
-                // don't need to protect from the userspace redzone on a push.
+                // Don't need to protect from the userspace redzone on a push.
                 ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
                 ret.set_pc(in.pc());
                 ls.insert_before(in, push_(dead_reg));
@@ -232,30 +237,30 @@ namespace client { namespace wp {
                 ls.insert_before(in, pop_(dead_reg));
             }
 
-            tracker.live_regs.revive(spill_reg);
             ls.remove(in);
             break;
         }
 
         case dynamorio::OP_pop: {
-            dynamorio::reg_id_t spill_reg(live.get_zombie());
+            spill_reg = tracker.live_regs.get_zombie();
             operand op = *tracker.ops[0];
 
-            // a dead register is available.
+            // A dead register is available.
             if(spill_reg) {
                 const operand dead_reg(spill_reg);
                 ret = ls.insert_before(in, pop_(dead_reg));
                 ret.set_pc(in.pc());
                 ret = ls.insert_before(in, mov_st_(op, dead_reg));
+                tracker.spill_regs.revive(spill_reg);
 
-            // we need to spill a register to emulate the POP.
+            // We need to spill a register to emulate the POP.
             } else {
-                spill_reg = spill.get_zombie();
+                spill_reg = tracker.spill_regs.get_zombie();
                 ASSERT(spill_reg);
 
                 const operand dead_reg(spill_reg);
 
-                // don't need to protect from the userspace redzone on a pop.
+                // Don't need to protect from the userspace redzone on a pop.
                 ret = ls.insert_before(in, push_(dead_reg));
                 ret.set_pc(in.pc());
                 ls.insert_before(in, mov_ld_(dead_reg, reg::rsp[8]));
@@ -264,7 +269,31 @@ namespace client { namespace wp {
                 ls.insert_before(in, lea_(reg::rsp, reg::rsp[8]));
             }
 
-            tracker.live_regs.revive(spill_reg);
+            ls.remove(in);
+            break;
+        }
+
+        // Emulate an XLAT so there are so many annoying special cases with it
+        // in later instrumentation.
+        case dynamorio::OP_xlat: {
+            spill_reg = tracker.live_regs.get_zombie();
+
+            if(spill_reg) {
+                tracker.spill_regs.revive(spill_reg);
+
+                const operand dead_reg(spill_reg);
+                ls.insert_before(in, movzx_(dead_reg, reg::al));
+                ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
+                ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
+            } else {
+                const operand dead_reg(tracker.spill_regs.get_zombie());
+                ls.insert_before(in, push_(dead_reg));
+                ls.insert_before(in, movzx_(dead_reg, reg::al));
+                ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
+                ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
+                ls.insert_before(in, pop_(dead_reg));
+            }
+
             ls.remove(in);
             break;
         }
@@ -274,13 +303,6 @@ namespace client { namespace wp {
 
         return ret;
     }
-
-
-    /// The scale of registers that will be used to mask the tainted bits of a
-    /// watched address.
-    const register_scale REG_SCALE = (8 == NUM_HIGH_ORDER_BITS
-        ? REG_8
-        : REG_16);
 
 
     /// Save the carry flag, if needed. We use the carry flag extensively. For
@@ -294,24 +316,19 @@ namespace client { namespace wp {
         bool &spilled_carry_flag
     ) throw() {
 
-        dynamorio::reg_id_t carry_flag(0);
-        dynamorio::reg_id_t carry_flag_64(0);
+        dynamorio::reg_id_t carry_flag(dynamorio::DR_REG_NULL);
+        dynamorio::reg_id_t carry_flag_64(dynamorio::DR_REG_NULL);
 
         if(!tracker.restore_carry_flag_before
         && !tracker.restore_carry_flag_after) {
             return carry_flag_64;
         }
 
-        register_manager live(tracker.live_regs);
-        register_manager spill;
+        carry_flag_64 = tracker.live_regs.get_zombie();
 
-        spill.kill_all();
-        spill.revive(tracker.in);
-        live.revive(tracker.in);
-
-        carry_flag_64 = live.get_zombie();
+        // We need to spill a register to store a carry flag.
         if(!carry_flag_64) {
-            carry_flag_64 = spill.get_zombie();
+            carry_flag_64 = tracker.spill_regs.get_zombie();
             ASSERT(carry_flag_64);
 
             carry_flag = register_manager::scale(carry_flag_64, REG_8);
@@ -319,63 +336,49 @@ namespace client { namespace wp {
                 push_(operand(carry_flag_64)));
             spilled_carry_flag = true;
 
+        // We can steal a register to store the carry flag.
         } else {
+            tracker.spill_regs.revive(carry_flag_64);
             carry_flag = register_manager::scale(carry_flag_64, REG_8);
         }
 
         ls.insert_before(before,
             setcc_(dynamorio::OP_setb, operand(carry_flag)));
 
-        tracker.live_regs.revive(carry_flag_64);
         return carry_flag_64;
     }
 
 
-    /// Revive certain registers. This is special-purposed to look for matching
-    /// register operands in an instruction (e.g. `RAX` in `CMPXCHG`), and allow
-    /// us to ensure that `RAX` is not seen as dead (as would be the case if we
-    /// only visited destination operands). The issue at play here is that `RAX`
-    /// is an implicit operand, and the other infrastructure for handling
-    /// implicits looks for memory operands and not register operands.
-    static void kill_register_op(
-        const operand_ref &op,
-        register_manager &sources,
-        register_manager &dests
-    ) throw() {
-        if(SOURCE_OPERAND == op.kind) {
-            if(dynamorio::REG_kind == op->kind) {
-                sources.kill(op->value.reg);
-            }
-        } else if(DEST_OPERAND == op.kind) {
-            if(dynamorio::REG_kind == op->kind) {
-                dests.kill(op->value.reg);
-            } else {
-                dests.revive(*op);
-            }
-        }
-    }
-
-
-    /// Need to make sure that registers (that are not used in memory
-    /// operands) but that are used as both sources and dests (e.g.
-    /// RAX in CMPXCHG) are treated as live.
-    void revive_matching_operand_regs(
-        register_manager &rm,
+#if GRANARY_IN_KERNEL
+    /// Tries to match a binary pattern of the form:
+    ///
+    ///     data32 xchg %ax, %ax
+    ///     <memory instruction>
+    ///     data32 xchg %ax, %ax
+    ///
+    /// If the pattern is matched then `tracker.might_be_user_address` is
+    /// set to true.
+    void match_userspace_address_deref(
+        watchpoint_tracker &tracker,
         instruction in
     ) throw() {
-        register_manager sources;
-        register_manager dests;
-        in.for_each_operand(kill_register_op, sources, dests);
+        enum {
+            DATA32_XCHG_AX_AX = 0x906666U
+        };
 
-        for(dynamorio::reg_id_t dead_dest(dests.get_zombie());
-            dead_dest;
-            dead_dest = dests.get_zombie()) {
-
-            if(sources.is_dead(dead_dest)) {
-                rm.revive(dead_dest);
-            }
+        // Try to determine if this might be an access to a user space
+        // address by pattern matching the binary instructions.
+        if(in.next().is_valid() && in.prev().is_valid()
+        && in.next().pc() && in.prev().pc()
+        && 3 == in.next().encoded_size()
+        && 3 == in.prev().encoded_size()) {
+            const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+            tracker.might_be_user_address = (
+                0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
+             && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
         }
     }
+#endif
 
 
 #if !GRANARY_IN_KERNEL
@@ -424,14 +427,15 @@ namespace client { namespace wp {
         instruction before(ls.insert_before(in, label_()));
         instruction after(ls.insert_after(in, label_()));
 
-        // Helps use get spill registers that *aren't* used by the instruction.
-        register_manager in_regs;
-        in_regs.kill_all();
-        in_regs.revive(in);
+        // Figure out exactly which registers this (and only this) instruction
+        // kills.
+        register_manager regs_killed_by_in;
+        regs_killed_by_in.visit_dests(in);
 
         // If an XMM reg is used then we can replace all operands.
-        if(in_regs.has_live_xmm()) {
+        if(tracker.spill_regs.has_live_xmm()) {
             tracker.can_replace[0] = true;
+            tracker.can_replace[1] = true;
         }
 
         // Save the carry flag.
@@ -440,198 +444,221 @@ namespace client { namespace wp {
             ls, before, tracker, spilled_carry_flag));
 
         // The register that stores the (potentially) computed memory address.
-        dynamorio::reg_id_t op_reg[MAX_NUM_OPERANDS] = {0};
-        bool op_reg_was_spilled[MAX_NUM_OPERANDS] = {false};
-        dynamorio::reg_id_t op_reg_has_watched_bits[MAX_NUM_OPERANDS] = {0};
-
-        // constructor for the immediate value that is used to mask the watched
-        // address.
-        operand (*mov_mask_imm_)(uint64_t) = (8 == NUM_HIGH_ORDER_BITS
-            ? int8_
-            : int16_);
-
-        const bool is_xlat(dynamorio::OP_xlat == in.op_code());
-
-        IF_TEST( register_manager dest_regs; )
-        IF_TEST( dest_regs.visit_dests(in); )
-        IF_TEST( revive_matching_operand_regs(dest_regs, in); )
+        dynamorio::reg_id_t addr_reg;
 
         for(unsigned i(0); i < tracker.num_ops; ++i) {
 
+            instruction not_a_watchpoint(label_());
             const operand_ref &op(tracker.ops[i]);
+            const operand original_op(*op);
             const bool can_change(tracker.can_replace[i]);
+            bool addr_reg_was_spilled(false);
 
             // Try to figure out if this operand is a base/disp type that is
-            // "simple", i.e. `(R)`, or `(,R,1)`.
+            // "simple", i.e. `(R)`, or `(,R,1)`. This is used for later
+            // optimisation.
             bool op_is_simple_reg(false);
-            if(!op->value.base_disp.index_reg) {
-                op_is_simple_reg = !op->value.base_disp.disp;
-            } else if(!op->value.base_disp.base_reg) {
-                op_is_simple_reg = !op->value.base_disp.disp
-                                && (1 >= op->value.base_disp.scale);
+            if(!original_op.value.base_disp.index_reg) {
+                op_is_simple_reg = !original_op.value.base_disp.disp;
+            } else if(!original_op.value.base_disp.base_reg) {
+                op_is_simple_reg = !original_op.value.base_disp.disp
+                                && (1 >= original_op.value.base_disp.scale);
             }
 
             // Spill the register if necessary.
-            bool using_original_reg(false);
-            bool try_get_op_reg(false);
+            bool addr_reg_is_only_op_reg(false);
+            addr_reg = tracker.live_regs.get_zombie();
 
-            do {
-                try_get_op_reg = false;
-                op_reg[i] = tracker.live_regs.get_zombie();
+            // We've got to spill a register to store the computed (potentially)
+            // watched address.
+            if(!addr_reg) {
+                addr_reg = tracker.spill_regs.get_zombie();
+                addr_reg_was_spilled = true;
+                addr_reg_is_only_op_reg = false;
+                ls.insert_before(before, push_(operand(addr_reg)));
 
-                if(!op_reg[i]) {
-                    op_reg[i] = in_regs.get_zombie();
-                    op_reg_was_spilled[i] = true;
-                    using_original_reg = false;
-                    ls.insert_before(before, push_(operand(op_reg[i])));
-                } else {
+            // We have stolen a register for storing the watched address.
+            } else {
+                tracker.spill_regs.revive(addr_reg);
 
-                    // Try to detect of op_reg[i] is actually one of the
-                    // registers used in the operand.
-                    if(!op->value.base_disp.index_reg) {
-                        using_original_reg = op_reg[i] == register_manager::scale(
-                            op->value.base_disp.base_reg, REG_64);
+                // Try to detect of addr_reg is the only register used in
+                // the operand.
+                if(!original_op.value.base_disp.index_reg) {
+                    addr_reg_is_only_op_reg = (
+                        addr_reg == register_manager::scale(
+                            original_op.value.base_disp.base_reg, REG_64));
 
-                    } else if(!op->value.base_disp.base_reg) {
-                        using_original_reg = op_reg[i] == register_manager::scale(
-                            op->value.base_disp.index_reg, REG_64);
-                    }
-
-                    // The `op_reg` is killed in the instruction, but live after
-                    // the instruction. `!using_original_reg` is a necessary
-                    // condition for checking if we need to save/restore the
-                    // original reg's (inside the operand) value.
-                    if(!using_original_reg
-                    && !is_xlat
-                    && tracker.live_regs.is_dead(op_reg[i])
-                    && tracker.live_regs_after.is_live(op_reg[i])) {
-                        try_get_op_reg = true;
-                    }
+                } else if(!original_op.value.base_disp.base_reg) {
+                    addr_reg_is_only_op_reg = (
+                        addr_reg == register_manager::scale(
+                            original_op.value.base_disp.index_reg, REG_64));
                 }
-            } while(try_get_op_reg);
-
-            dynamorio::reg_id_t op_reg_to_test(op_reg[i]);
-
-            // Note: we are guaranteed that op_reg[i] != RAX or RBX. See
-            // instrument.h.
-            if(is_xlat) {
-                using_original_reg = true;
-                op_reg_to_test = dynamorio::DR_REG_RBX;
             }
 
-            const operand addr(op_reg[i]);
+            const operand addr(addr_reg);
 
-            // We are using the original reg, but we need to do compute the
+            // We are using the original register, but we need to do compute the
             // final address as there is a scale or displacement.
-            bool compute_addr(!using_original_reg);
-            if(!compute_addr && !is_xlat) {
-                compute_addr = 0 != op->value.base_disp.disp
-                            || 1 < op->value.base_disp.scale;
-
+            bool compute_addr(true);
+            if(addr_reg_is_only_op_reg) {
+                compute_addr = 0 != original_op.value.base_disp.disp
+                            || 1 < original_op.value.base_disp.scale;
             }
 
-            // If we aren't stealing the reg that we will (in most cases) test,
-            // then we need to compute the memory address to be dereferenced.
+            // If we aren't stealing the register that we will (in most cases)
+            // test, then we need to compute the memory address to be
+            // dereferenced.
             if(compute_addr) {
                 ls.insert_before(before, lea_(addr, *op));
 
                 // Replace the operand if possible.
                 if(can_change) {
                     operand op_replacement(*addr);
-                    op_replacement.size = op->size;
+                    op_replacement.size = original_op.size;
                     const_cast<operand_ref &>(op) = op_replacement;
                 }
             }
 
-            // Test for a watched address.
+            // Test for a watched address. This sets the carry flag, and lets
+            // us go ahead and re-purpose `addr` if necessary for later
+            // restoring.
             ls.insert_before(before,
-                bt_(operand(op_reg_to_test), int8_(DISTINGUISHING_BIT_OFFSET)));
+                bt_(addr, int8_(DISTINGUISHING_BIT_OFFSET)));
 
-            // Save the original register value if we're not modifying the
-            // original operand. If we can change the operand, then we already
-            // have, so we don't need to worry about index/displacement of
-            // this operand.
-            dynamorio::reg_id_t original_addr_reg(op_reg[i]);
-            bool try_save_original_addr_reg(true);
-            bool restore_unwatched_reg(false);
+            // Figure out what the original (single) register of the operand
+            // is, if any. This is so that later we can restore the original
+            // address register to its previous state if necessary.
+            dynamorio::reg_id_t original_addr_reg(dynamorio::DR_REG_NULL);
 
             // Can't be changed and the register that we clobbered isn't the
             // one that's part of the instruction.
-            if(!can_change && !using_original_reg) {
-                original_addr_reg = op->value.base_disp.base_reg;
+            if(!can_change) {
+                original_addr_reg = original_op.value.base_disp.base_reg;
 
-            // XLAT's don't use their original reg; we need to specifically
-            // save RBX because it will be clobbered.
-            } else if(is_xlat) {
-                original_addr_reg = dynamorio::DR_REG_RBX;
-
-            // Don't need to save the register that we might clobber for later.
+            // Two cases:
+            //      - We're clobbering the original register operand that is
+            //        the source of the address in the operand, so remember it.
+            //      - We're not clobbering the original (it is live after the
+            //        op or elsewhere within the op), but we are replacing the
+            //        original op with our new one, and s the original has
+            //        changed.
             } else {
-                try_save_original_addr_reg = false;
+                original_addr_reg = addr_reg;
             }
 
-            // Try to see if we need to save, and thus restore, the original
-            // value of the register.
-            operand original_addr(original_addr_reg);
-            if(try_save_original_addr_reg
-            && tracker.live_regs_after.is_live(original_addr_reg)) {
+            // Curious bug detected.
+            ASSERT(!(true
+             && can_change
+             && addr_reg_is_only_op_reg
+             && regs_killed_by_in.is_live(original_addr_reg)
+             && tracker.live_regs_after.is_live(original_addr_reg)
+            ));
+
+            // Figure out if we need to restore `original_addr_reg` after the
+            // instruction executes.
+            //
+            // Need to double check that we don't uselessly attempt to restore
+            // a spilled register.
+            bool restore_unwatched_reg(false);
+            bool restore_full_unwatched_reg(false);
+            if(regs_killed_by_in.is_live(original_addr_reg)
+            && tracker.live_regs_after.is_live(original_addr_reg)
+            && (!addr_reg_was_spilled || original_addr_reg != addr_reg)) {
+
                 restore_unwatched_reg = true;
 
-                // Only save the register if the LEA doesn't effect a save of
-                // the register's original value for us.
-                if(!op_is_simple_reg) {
+                // If we are using string instructions then operand address
+                // might have been changed by the instruction itself. As such,
+                // we need to restore the counter index, but nothing else.
+                if(dynamorio::OP_ins <= in.op_code()
+                && in.op_code() <= dynamorio::OP_repne_scas) {
+                    restore_full_unwatched_reg = false;
+                } else {
+                    restore_full_unwatched_reg = true;
+
+#if CONFIG_ENABLE_ASSERTIONS
+                    // Try to detect really unusual corner cases like the MOVS
+                    // instructions.
+                    register_manager live_after;
+                    live_after.visit_dests_check(in);
+#endif
+                }
+            }
+
+            // Bug detected; We need to restore the original register, but we've
+            // gone and potentially clobbered it.
+            ASSERT(!(true
+             && compute_addr
+             && addr_reg_is_only_op_reg
+             && restore_unwatched_reg
+            ));
+
+            // Figure out if we need to save `original_addr_reg` before the
+            // instruction.
+            //
+            //      - If we're not going to restore it, then we clearly don't
+            //        need to save it.
+            //      - If we can replace the operand, then we don't need to
+            //        restore the register because we would never have changed
+            //        it.
+            //      - If the operand is not simple, i.e. if the `LEA`
+            //
+            // What is an example of a case where we need to restore the
+            // address after the instruction, but where we don't also need to
+            // save it beforehand (i.e. where we can change the operand)?
+            //
+            //      ?????
+            //
+            // Note: If no such condition exists then the conditions which
+            //       determine `restore_unwatched_reg` should be tightened.
+            const operand original_addr(original_addr_reg);
+            bool double_restore_unwatched_reg(false);
+            if(restore_unwatched_reg) {
+
+                // Bug detected; use this to figure out interesting cases
+                // above that our current framework doesn't handle.
+                ASSERT(!can_change);
+
+                // Two cases:
+                //      - If the operand is not a simple register, then any
+                //        previous LEA might have computed the effective address
+                //        (including displacement/scale), and so that previously
+                //        computed address is unsatisfactory for restoring.
+                //      - If the address was not previously computed, then we
+                //        need to compute it.
+                if(!op_is_simple_reg || !compute_addr) {
+                    double_restore_unwatched_reg = true;
                     ls.insert_before(before, mov_st_(addr, original_addr));
                 }
             }
 
-            // The register is both live and dead in the dests. This happens
-            // in cases like STOS, where RDI is read in the sources, read
-            // in the dests (for the memory op), and written in the dests
-            // to update to the next byte/word/doubleword/quadword. So, we
-            // need to save the high-order watchpoint bytes for later restoring.
-            if(dynamorio::OP_ins <= in.op_code()
-                   && in.op_code() <= dynamorio::OP_repne_scas) {
-
-                op_reg_has_watched_bits[i] = register_manager::scale(
-                    original_addr_reg, REG_SCALE);
-
-                restore_unwatched_reg = false;
-            }
-
             // Jump around the slow path if a watched address is detected.
-            instruction not_a_watchpoint(label_());
             ls.insert_before(before,
                 mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
 
-            // if this was an XLAT, then we didn't resolve the full watched
-            // address into `addr`. Do it now.
-            if(is_xlat) {
-                ls.insert_before(before, movzx_(addr, reg::al));
-                ls.insert_before(before, lea_(addr, addr + reg::rbx));
-            }
-
-            // we've found a watched address; note: we assume that watchpoint-
-            // implementation instrumentation will not clobber the operands
-            // from sources/dests.
+            // We've found a watched address.
+            //
+            // Note: we assume that higher level instrumentation will not
+            //       clobber the operands from sources/dests.
             tracker.labels[i] = ls.insert_before(before, label_());
             tracker.regs[i] = addr;
             tracker.sizes[i] = static_cast<operand_size>(
-                dynamorio::opnd_size_in_bytes(op->size));
+                dynamorio::opnd_size_in_bytes(original_op.size));
 
-            // In the case of XLAT, we (unfortunately) still need to save
-            // RBX to the clobbered reg so that in the fast path we can
-            // restore it, thus making the fast and slow paths uniform. This is
-            // because above we re-clobber `addr` with the computed XLAT address
-            // so that we can expose it to higher-level instrumentation.
-            if(is_xlat && restore_unwatched_reg) {
-                ls.insert_before(before, mov_st_(addr, reg::rbx));
+            // On the slow path, we might still need to restore `original_addr`
+            // later, so make sure it's saved before we overwrite
+            // `original_addr`.
+            if(double_restore_unwatched_reg) {
+                ls.insert_before(before, mov_st_(addr, original_addr));
             }
 
-            // mask the high order bits.
+            // Mask the high order 16 bits.
+            const operand original_addr_16(
+                register_manager::scale(original_addr_reg, REG_16));
             ls.insert_before(before, bswap_(original_addr));
             ls.insert_before(before, mov_imm_(
-                operand(register_manager::scale(original_addr_reg, REG_SCALE)),
-                mov_mask_imm_(IF_USER_ELSE(0ULL, ~0ULL))));
+                original_addr_16,
+                int16_(IF_USER_ELSE(0ULL, ~0ULL))));
             ls.insert_before(before, bswap_(original_addr));
 
             // target of the jump if this isn't a watched address.
@@ -639,7 +666,30 @@ namespace client { namespace wp {
 
             // Restore a register after the operand if necessary.
             if(restore_unwatched_reg) {
-                ls.insert_before(after, mov_ld_(original_addr, addr));
+
+                // Potentially a bug, or just an optimisation opportunity.
+                ASSERT(addr_reg != original_addr_reg);
+
+                // Restore the full register, because it has not been modified
+                // by this instruction.
+                if(restore_full_unwatched_reg) {
+                    ls.insert_before(after, mov_ld_(original_addr, addr));
+
+                // Restore only the watched bits, because it the remaining bits
+                // have potentially been modified by this instruction.
+                } else {
+                    ls.insert_before(after, bswap_(original_addr));
+                    ls.insert_before(after, bswap_(addr));
+                    ls.insert_before(after, mov_st_(
+                        original_addr_16,
+                        operand(register_manager::scale(addr_reg, REG_16))));
+                    ls.insert_before(after, bswap_(original_addr));
+                }
+            }
+
+            // Restore the register if it was spilled.
+            if(addr_reg_was_spilled) {
+                ls.insert_before(after, pop_(operand(addr_reg)));
             }
         }
 
@@ -650,36 +700,14 @@ namespace client { namespace wp {
                     int8_(0)));
         }
 
-        // Restore any spilled/clobbered registers.
-        for(int i(tracker.num_ops); i --> 0; ) {
-
-            // Restore the watched bits in the case of string instructions. This
-            // starts with two BSWAPs so that we can get at the stored bits in
-            // op_reg[i] on both the fast and slow paths.
-            if(op_reg_has_watched_bits[i]) {
-               operand orig_reg(register_manager::scale(
-                    op_reg_has_watched_bits[i], REG_64));
-
-                ls.insert_before(after, bswap_(orig_reg));
-                ls.insert_before(after, bswap_(operand(op_reg[i])));
-                ls.insert_before(after, mov_st_(
-                    operand(op_reg_has_watched_bits[i]),
-                    operand(register_manager::scale(op_reg[i], REG_SCALE))));
-                ls.insert_before(after, bswap_(orig_reg));
-            }
-
-            if(op_reg_was_spilled[i]) {
-                ls.insert_before(after, pop_(operand(op_reg[i])));
-            }
-        }
-
-        // restore the carry flag after executing the instruction.
+        // Restore the carry flag after executing the instruction.
         if(tracker.restore_carry_flag_after) {
             ls.insert_before(after,
                 bt_(operand(register_manager::scale(carry_flag, REG_16)),
                     int8_(0)));
         }
 
+        // Restore the register used to spill the carry flag, if necessary.
         if(spilled_carry_flag) {
             ls.insert_before(after, pop_(operand(carry_flag)));
         }

@@ -18,6 +18,13 @@
 #define WP_IGNORE_FRAME_POINTER 0
 
 
+/// Check for user space addresses. This adds an extra two instructions to
+/// kernel-mode instrumentation and can be a useful debugging aid when trying
+/// to see if an instrumentation error might be caused by the presence of a
+/// user space address.
+#define WP_CHECK_FOR_USER_ADDRESS 1
+
+
 /// Size (in bits) of the counter index. This should either be 16.
 ///
 /// Note: The lowest order bit of the counter index is reserved for detecting

@@ -68,6 +68,15 @@ namespace granary {
             return visit_dests(in.instr);
         }
 
+#if CONFIG_ENABLE_ASSERTIONS
+        void visit_dests_check(dynamorio::instr_t *in) throw();
+        void visit_dests_simple_forward(dynamorio::instr_t *in) throw();
+        void visit_dests_simple_backward(dynamorio::instr_t *in) throw();
+        inline void visit_dests_check(instruction in) throw() {
+            return visit_dests_check(in.instr);
+        }
+#endif
+
 
         /// Visit the source operands of an instruction. This will kill
         /// register destinations and revive registers that are used in base/

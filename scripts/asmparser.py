@@ -34,8 +34,7 @@ class Register(object):
   KIND_DEBUG              = 6
   KIND_CONTROL            = 7
   KIND_TEST               = 8
-  KIND_MEMORY_MAPPED      = 9
-  KIND_INSTRUCTION        = 10
+  KIND_INSTRUCTION        = 9
 
   # Cache of register objects.
   CACHE = {}
@@ -308,6 +307,11 @@ class ImmediateOperand(Operand):
       op_str = op_str[1:]
     return ImmediateOperand(int(op_str, base=0))
 
+  # Re-serialise this operand as a string in a way that can be
+  # parsed again.
+  def __str__(self):
+    return "$0x%x" % self.value
+
 
 class RegisterOperand(Operand):
   """Represents a register operand."""
@@ -342,12 +346,23 @@ class RegisterOperand(Operand):
     cls.CACHE[op_str] = op
     return op
 
+  # Re-serialise this operand as a string in a way that can be
+  # parsed again.
+  def __str__(self):
+    ret = ""
+    if self.segment_register:
+      ret = str(self.segment_register)
+      if self.base_register:
+        ret += ":"
+    if self.base_register:
+      ret += str(self.base_register)
+    return ret
+
 
 class MemoryOperand(Operand):
   """Represents an address operand."""
 
   CACHE = {}
-  ONE_MB = 2**20
   KIND = 3
 
   __slots__ = ('address',)
@@ -365,17 +380,14 @@ class MemoryOperand(Operand):
     if addr in cls.CACHE:
       return cls.CACHE[addr]
 
-    op = None
-    # Consider addresses in the first 1MB to be memory-mapped
-    # registers.
-    if addr < cls.ONE_MB:
-      op = AddressOperand()
-      op.base_register = Register(addr, 0, Register.KIND_MEMORY_MAPPED)
-    else:
-      op = MemoryOperand(addr)
-
+    op = MemoryOperand(addr)
     cls.CACHE[addr] = op
     return op
+
+  # Re-serialise this operand as a string in a way that can be
+  # parsed again.
+  def __str__(self):
+    return "0x%x" % self.address
 
 
 class AddressOperand(Operand):
@@ -395,8 +407,8 @@ class AddressOperand(Operand):
     self.base_register = None
     self.index_register = None
     self.segment_register = None
-    self.displacement = 0
-    self.scale = 0
+    self.displacement = None
+    self.scale = None
 
   @classmethod
   def parse(cls, op_str):
@@ -433,6 +445,21 @@ class AddressOperand(Operand):
 
     return op
 
+  # Re-serialise this operand as a string in a way that can be
+  # parsed again.
+  def __str__(self):
+    ret = ""
+    if self.segment_register:
+      ret += "%s:" % str(self.segment_register)
+    if self.displacement is not None:
+      ret += "0x%x" % self.displacement
+    ret += "("
+    if self.base_register:
+      ret += str(self.base_register)
+    if self.index_register:
+      ret += ",%s,%d" % (str(self.index_register), self.scale)
+    ret += ")"
+
 
 class Instruction(object):
   """Represents an instruction."""
@@ -444,37 +471,19 @@ class Instruction(object):
     'operands',
   )
 
-  # Instruction prefixes.
-  PREFIX_REP          = (1 <<   0)
-  PREFIX_REPE         = (1 <<   1)
-  PREFIX_REPZ         = (1 <<   1)
-  PREFIX_REPNE        = (1 <<   2)
-  PREFIX_REPNZ        = (1 <<   2)
-  PREFIX_LOCK         = (1 <<   3)
-  PREFIX_DATA16       = (1 <<   4)
-  PREFIX_DATA32       = (1 <<   5)
-  PREFIX_ADDR16       = (1 <<   6)
-  PREFIX_ADDR32       = (1 <<   7)
-  PREFIX_REX          = (1 <<   9)
-  PREFIX_REX_W        = (1 <<  10)
-  PREFIX_REX_R        = (1 <<  11)
-  PREFIX_REX_X        = (1 <<  12)
-  PREFIX_REX_B        = (1 <<  13)
-  PREFIX_SEG_CS       = (1 <<  14)
-  PREFIX_SEG_SS       = (1 <<  15)
-  PREFIX_SEG_DS       = (1 <<  16)
-  PREFIX_SEG_ES       = (1 <<  17)
-  PREFIX_SEG_FS       = (1 <<  18)
-  PREFIX_SEG_GS       = (1 <<  19)
-
   # Initialise an Instruction instance with default values.
   #
   # Note: Instruction objects should not be manually initialised.
   def __init__(self):
     self.mnemonic = None
-    self.prefixes = 0
+    self.prefixes = None
     self.suffixes = None
     self.operands = []
+
+  # Re-serialise this instruction as a string in a way that can be
+  # parsed again.
+  def __str__(self):
+    pass
 
 
 class ASMParser(object):
@@ -491,30 +500,6 @@ class ASMParser(object):
 
   ADJACENT_SPACES = re.compile(r"([ \t\r\n]+)")
 
-  PREFIXES = {
-    "REP":          Instruction.PREFIX_REP,
-    "REPE":         Instruction.PREFIX_REPE,
-    "REPZ":         Instruction.PREFIX_REPZ,
-    "REPNE":        Instruction.PREFIX_REPNE,
-    "REPNZ":        Instruction.PREFIX_REPNZ,
-    "LOCK":         Instruction.PREFIX_LOCK,
-    "DATA16":       Instruction.PREFIX_DATA16,
-    "DATA32":       Instruction.PREFIX_DATA32,
-    "ADDR16":       Instruction.PREFIX_ADDR16,
-    "ADDR32":       Instruction.PREFIX_ADDR32,
-    "REX":          Instruction.PREFIX_REX,
-    "REX.W":        Instruction.PREFIX_REX_W,
-    "REX.R":        Instruction.PREFIX_REX_R,
-    "REX.X":        Instruction.PREFIX_REX_X,
-    "REX.B":        Instruction.PREFIX_REX_B,
-    "CS":           Instruction.PREFIX_SEG_CS,
-    "SS":           Instruction.PREFIX_SEG_SS,
-    "DS":           Instruction.PREFIX_SEG_DS,
-    "ES":           Instruction.PREFIX_SEG_ES,
-    "FS":           Instruction.PREFIX_SEG_FS,
-    "GS":           Instruction.PREFIX_SEG_GS,
-  }
-
   # GAS/AT&T instruction size suffixes.
   SIZE_SUFFIX = "BWLQSDT"
 
@@ -529,6 +514,7 @@ class ASMParser(object):
     "SETB", "SETNB", "SETL", "SETNL", "SETS", "SETNS",
     "NOT", "SHL", "SAL", "ADD", "MUL", "IMUL", "BTS", "AND", "TEST", "BT",
     "MOVS", "MOVZ", "STOS",
+    "MOVSS",
     "LIDT", "SIDT", "LGDT", "SGDT", "HLT", "RDRAND",
     "MWAIT",
 
@@ -628,19 +614,13 @@ class ASMParser(object):
 
     # Extract the instruction prefixes.
     i = 0
+    prefixes = []
     for part in map(str.upper, parts):
-      sub_prefixes = []
-      if "REX." in part:
-        sub_prefixes = map(lambda p: "REX." + p, list(part[4:]))
-      elif part in self.PREFIXES:
-        sub_prefixes = [part]
-
-      if not sub_prefixes:
+      if "REX." in part or part in self.PREFIXES:
+        prefixes.append(part)
+        i += 1
+      else:
         break
-
-      i += 1
-      for sub_prefix in sub_prefixes:
-        ins.prefixes |= self.PREFIXES[sub_prefix]
 
     # Prefixes or empty.
     if i >= len(parts):
@@ -667,6 +647,7 @@ class ASMParser(object):
         break
 
     ins.mnemonic = mnemonic
+    ins.prefixes = tuple(prefixes)
     ins.suffixes = tuple(suffixes)
 
     # Parse the operands. First they need to be reasonably split up.
@@ -681,9 +662,9 @@ class ASMParser(object):
     op_strs = self.COMMA_AFTER_REG.sub(r"\1|", op_strs)
 
     if op_strs:
-      ins.operands = map(
+      ins.operands = tuple(map(
           lambda s: Operand.parse(mnemonic, s),
-          op_strs.split("|"))
+          op_strs.split("|")))
 
     # Visit the parsed instruction.
     self.instruction_visitor(ins)

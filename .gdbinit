@@ -14,15 +14,10 @@ set language c++
 # to `0` or `1` depending on whether we are instrumenting in
 # user space or kernel space, respectively.
 define set-user-detect
-  set logging file tmp.gdb
-  set logging overwrite on
-  set logging redirect on
-  set logging on
-  python print "set $__in_user_space = %d" % int(None is not gdb.current_progspace().filename)
-  set logging off
-  set logging redirect off
-  set logging overwrite off
-  source tmp.gdb
+  python None ; \
+    gdb.execute( \
+      "set $__in_user_space = %d" % int(None is not gdb.current_progspace().filename), \
+      from_tty=True, to_string=True)
 end
 
 
@@ -118,18 +113,15 @@ define x-ins
   set $num_ins = 0
 
   while $__dont_exit
-
     set $__orig_start = $__start
 
-    set logging file /dev/null
-    set logging overwrite on
-    set logging redirect on
-    set logging on
-    x/2i $__start
-    set $__start = $_
-    set logging off
-    set logging redirect off
-    set logging overwrite off
+    python None ; \
+      gdb.execute( \
+        "x/2i $__start\n", \
+        from_tty=True, to_string=True) ; \
+      gdb.execute( \
+        "set $__start = $_\n", \
+        from_tty=True, to_string=True)
 
     set $__in = (uint8_t *) $__start
     if $__start == $__end || 0xEA == *$__in || 0xD4 == *$__in || 0x82 == *$__in
@@ -328,8 +320,36 @@ end
 # based register lookup.
 define internal-bb-by-reg-cond
   if $trace_entry
-    printf "Global code cache lookup where $%s %s %lx:\n", $arg0, $arg1, $arg2
+    set $__str_reg_name = $arg0
+    set $__str_bin_op = $arg1
+    set $__int_value = (unsigned long) $arg2
+
+    python None ; \
+      reg = str(gdb.parse_and_eval("$__str_reg_name")).lower()[1:-1] ; \
+      bin_op = str(gdb.parse_and_eval("$__str_bin_op"))[1:-1] ; \
+      val = str(gdb.parse_and_eval("$__int_value")).lower() ; \
+      print "Global code cache lookup where %s %s %s:" % ( \
+        reg, bin_op, val)
+
     printf "  [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
+    printf "Regs:\n"
+    printf "  r15: 0x%lx\n", $trace_entry->state.r15.value_64
+    printf "  r14: 0x%lx\n", $trace_entry->state.r14.value_64
+    printf "  r13: 0x%lx\n", $trace_entry->state.r13.value_64
+    printf "  r12: 0x%lx\n", $trace_entry->state.r12.value_64
+    printf "  r11: 0x%lx\n", $trace_entry->state.r11.value_64
+    printf "  r10: 0x%lx\n", $trace_entry->state.r10.value_64
+    printf "  r9:  0x%lx\n", $trace_entry->state.r9.value_64
+    printf "  r8:  0x%lx\n", $trace_entry->state.r8.value_64
+    printf "  rdi: 0x%lx\n", $trace_entry->state.rdi.value_64
+    printf "  rsi: 0x%lx\n", $trace_entry->state.rsi.value_64
+    printf "  rbp: 0x%lx\n", $trace_entry->state.rbp.value_64
+    printf "  rbx: 0x%lx\n", $trace_entry->state.rbx.value_64
+    printf "  rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
+    printf "  rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
+    printf "  rax: 0x%lx\n", $trace_entry->state.rax.value_64
+    printf "  "
+    printf "\n"
     p-bb $trace_entry->code_cache_addr
   end
 end
@@ -359,7 +379,8 @@ define p-next-bb-where-reg
   set $__str_bin_op = $arg1
   set $__int_value = (unsigned long) $arg2
   if 0 < $trace_entry_num
-    get-trace-cond-reg ($trace_entry_num + 1) $arg0 $arg1 $arg2
-    internal-bb-by-reg-cond
+    set $__i = $trace_entry_num + 1
+    get-trace-cond-reg $__i $__str_reg_name $__str_bin_op $__int_value
+    internal-bb-by-reg-cond $__str_reg_name $__str_bin_op $__int_value
   end
 end

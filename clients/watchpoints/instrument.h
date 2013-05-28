@@ -129,6 +129,7 @@ namespace client {
             /// Tracks which registers are live at the current instruction
             /// that we are instrumenting.
             granary::register_manager live_regs;
+            granary::register_manager spill_regs;
             granary::register_manager live_regs_after;
 
             /// Direct references to the operands within an instruction.
@@ -218,11 +219,16 @@ namespace client {
         ) throw();
 
 
-        /// Need to make sure that registers (that are not used in memory
-        /// operands) but that are used as both sources and dests (e.g.
-        /// RAX in CMPXCHG) are treated as live.
-        void revive_matching_operand_regs(
-            granary::register_manager &rm,
+        /// Tries to match a binary pattern of the form:
+        ///
+        ///     data32 xchg %ax, %ax
+        ///     <memory instruction>
+        ///     data32 xchg %ax, %ax
+        ///
+        /// If the pattern is matched then `tracker.might_be_user_address` is
+        /// set to true.
+        void match_userspace_address_deref(
+            watchpoint_tracker &tracker,
             granary::instruction in
         ) throw();
 
@@ -463,31 +469,21 @@ namespace client {
                 // Special case for XLAT; to expose the "full" watched address
                 // to higher-level instrumentation, we need to compute the full
                 // address, but doing so risks clobbering RBX or RAX if either
-                // is dead (RAX is guaranteed dead).
+                // is dead (RAX is potentially dead).
                 if(dynamorio::OP_xlat == in.op_code()) {
-                    tracker.live_regs.revive(dynamorio::DR_REG_RBX);
-                    tracker.live_regs.revive(dynamorio::DR_REG_RAX);
-
-                // Kill the destination regs of this instruction so that we can
-                // can take advantage of those.
-                //
-                // Note: this operates in the reverse order as
-                //       `register_manager::visit` so that we can make sure we
-                //       don't clobber source registers while still being able
-                //       to use destination registers.
+                    tracker.live_regs.revive(in);
                 } else {
-                    tracker.live_regs.visit_sources(in);
-                    tracker.live_regs.visit_dests(in);
+                    tracker.live_regs.visit(in);
                 }
 
-                // track the carry flag. The carry flag will be used to detect
+                // Track the carry flag. The carry flag will be used to detect
                 // watched addresses.
                 wp::track_carry_flag(tracker, in, next_reads_carry_flag);
 
-                // compute live regs for next iteration based on this
+                // Compute live regs for next iteration based on this
                 // instruction (before it is potentially modified, which would
                 // corrupt the live reg set going forward).
-                next_live_regs.visit(in);
+                next_live_regs = tracker.live_regs;
 
                 // Ignore two special purpose instructions which have memory-
                 // like operands but don't actually touch memory.
@@ -499,9 +495,7 @@ namespace client {
                     continue;
                 }
 
-                wp::revive_matching_operand_regs(tracker.live_regs, in);
-
-                // try to find memory operations.
+                // Try to find memory operations.
                 tracker.in = in;
                 in.for_each_operand(wp::find_memory_operand, tracker);
                 if(!tracker.num_ops) {
@@ -509,29 +503,20 @@ namespace client {
                 }
 
 #if GRANARY_IN_KERNEL
-                enum {
-                    DATA32_XCHG_AX_AX = 0x906666U
-                };
+#   if WP_CHECK_FOR_USER_ADDRESS
+                tracker.might_be_user_address = true;
+#   else
+                wp::match_userspace_address_deref(tracker, in);
+#   endif /* WP_CHECK_FOR_USER_ADDRESS */
+#endif /* GRANARY_IN_KERNEL */
 
-                // Try to determine if this might be an access to a user space
-                // address by pattern matching the binary instructions.
-                if(in.next().is_valid() && in.prev().is_valid()
-                && in.next().pc() && in.prev().pc()
-                && 3 == in.next().encoded_size()
-                && 3 == in.prev().encoded_size()) {
-                    unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-                    tracker.might_be_user_address = (
-                        0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
-                     && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
-                }
+                // TODO: debugging.
+                tracker.live_regs.revive_all();
 
-                // TODO: Later we should handle watched user space addresses,
-                //       or instruction patterns that take this form but
-                //       aren't actually watched addresses.
-                if(tracker.might_be_user_address) {
-                    continue;
-                }
-#endif
+                // Before we do any mangling (which might spill registers), go
+                // and figure out what registers can never be spilled.
+                tracker.spill_regs.kill_all();
+                tracker.spill_regs.revive(in);
 
                 // Mangle the instruction. This makes it "safer" for use by
                 // later generic watchpoint instrumentation.
@@ -546,11 +531,11 @@ namespace client {
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )
 
-                // apply generic watchpoint instrumentation to the necessary
+                // Apply generic watchpoint instrumentation to the necessary
                 // operands.
                 wp::visit_operands(ls, in, tracker);
 
-                // allow `Watcher` to add instrumentation within the existing
+                // Allow `Watcher` to add instrumentation within the existing
                 // watchpoint instrumentation. This gives it access to an
                 // operand (register) that contains the watched address being
                 // read or written to.
