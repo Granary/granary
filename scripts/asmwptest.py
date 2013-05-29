@@ -1,4 +1,13 @@
-"""Automatically generate test cases for watchpoints.
+"""Automatically generate the instructions that need to be manually
+tested for the watchpoint instrumentation.
+
+The purpose of this script is to parse the output of `objdump` and
+derive a string of assembly instructions that should be tested
+by Granary. Granary will test these instructions by decoding each
+and using the extra information about these instructions made
+available to the DynamoRIO side of Granary to auto-generate
+instruction-specific test cases. These test cases will be run
+"natively" and instrumented, with their results compared.
 
 Author:       Peter Goodman (peter.goodman@gmail.com)
 Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
@@ -13,10 +22,19 @@ INSTRUCTIONS = collections.defaultdict(UnifiedInstruction)
 
 
 class RegisterRenamer(object):
-  """Manages renaming registersin a consistent way."""
+  """Manages renaming registers in a consistent way.
 
-  RENAME_ORDER_MEM = map(Register.parse, (
-    "%r11", "%r12", "%r13", "%r14", "%r15"
+  Registers participating in a memory operand are renamed
+  according to one set of choices, while non-memory operand
+  registers are renamed in another way.
+
+  While this approach to renaming does not guarantee that all
+  index registers will receive the same name, it generally
+  yields a good enough renaming such that we can group many
+  like instructions together."""
+
+  RENAME_BASE = map(Register.parse, (
+    "%r11", "%r12", "%r13", "%r14", 
   ))
 
   RENAME_ORDER_REG = map(Register.parse, (
@@ -103,6 +121,7 @@ def collect_instruction(ins):
 
   global INSTRUCTIONS
   INSTRUCTIONS[ins.mnemonic_disambiguated].unify(ins)
+
 
 if __name__ == "__main__":
   import sys
