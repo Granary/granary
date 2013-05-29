@@ -46,6 +46,7 @@ REG_KIND_SUMMARY = {
   Register.KIND_CONTROL:            "control",
   Register.KIND_TEST:               "test",
   Register.KIND_INSTRUCTION:        "ip",
+  Register.KIND_STACK:              "sp",
 }
 
 
@@ -227,12 +228,21 @@ class UnifiedInstruction(object):
 
   # Generate different instantiations of this unified instruction.
   def generate(self):
-    pass
+    for key, uops in self.operands.items():
+      op_groups = itertools.product(
+          *map(lambda uop: list(uop.generate()), uops))
+      for op_group in op_groups:
+        ins = Instruction()
+        ins.mnemonic = self.mnemonic
+        ins.prefixes = key[0]
+        ins.suffixes = key[1]
+        ins.operands = op_group
+        yield ins
+    raise StopIteration()
 
   # Generate summary strings of the parsed instructions grouped
   # under this unified instruction.
   def summarize(self):
-    global PREFIX_SUMMARIES
     for key, uops in self.operands.items():
       summary = "%s %s%s" % (
           " ".join(key[0]), # prefixes
@@ -246,28 +256,27 @@ class UnifiedInstruction(object):
     raise StopIteration()
        
 
-# Set of all unified instructions, grouped by opcode.
-INSTRUCTIONS = collections.defaultdict(UnifiedInstruction)
+# Test program to summarize instruction forms.
+if __name__ == "__main__":
 
+  # Set of all unified instructions, grouped by opcode.
+  INSTRUCTIONS = collections.defaultdict(UnifiedInstruction)
 
-# Unify a parsed instruction into a UnifiedInstruction.
-def unify_instruction(ins):
-  global INSTRUCTIONS
-  INSTRUCTIONS[ins.mnemonic].unify(ins)
+  # Unify a parsed instruction into a UnifiedInstruction.
+  def unify_instruction(ins):
+    global INSTRUCTIONS
+    INSTRUCTIONS[ins.mnemonic_disambiguated].unify(ins)
 
+  import sys
+  parser = ASMParser(unify_instruction)
 
-import sys
-parser = ASMParser(unify_instruction)
+  with open(sys.argv[1], "r") as lines:
+    parser.parse(lines)
 
-
-with open(sys.argv[1], "r") as lines:
-  parser.parse(lines)
-
-
-for mnemonic, uins in INSTRUCTIONS.items():
-  print "###", mnemonic
-  print "```asm"
-  for summarized_in in uins.summarize():
-    print summarized_in
-  print "```"
-  print
+  for mnemonic, uins in INSTRUCTIONS.items():
+    print "###", mnemonic
+    print "```asm"
+    for summarized_in in uins.summarize():
+      print summarized_in
+    print "```"
+    print

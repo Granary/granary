@@ -22,6 +22,7 @@ class Register(object):
     'mnemonic',
     'size',
     'parent',
+    'children',
     'kind',
   )
 
@@ -35,6 +36,7 @@ class Register(object):
   KIND_CONTROL            = 7
   KIND_TEST               = 8
   KIND_INSTRUCTION        = 9
+  KIND_STACK              = 10
 
   # Cache of register objects.
   CACHE = {}
@@ -45,6 +47,13 @@ class Register(object):
     self.size = size
     self.kind = kind
     self.parent = parent and self.CACHE[parent] or None
+    self.children = set([self])
+    
+    parent = self.parent
+    while parent:
+      parent.children.add(self)
+      parent = parent.parent
+
     self.CACHE[mnemonic] = self
 
   @classmethod
@@ -53,13 +62,17 @@ class Register(object):
       mnemonic = mnemonic[1:]
     return cls.CACHE[mnemonic.upper()]
 
+  def __str__(self):
+    return "%%%s" % self.mnemonic
+
 
 Register("RIP",   8,  Register.KIND_INSTRUCTION)
+
 Register("RAX",   8,  Register.KIND_GENERAL_PURPOSE)
 Register("RCX",   8,  Register.KIND_GENERAL_PURPOSE)
 Register("RDX",   8,  Register.KIND_GENERAL_PURPOSE)
 Register("RBX",   8,  Register.KIND_GENERAL_PURPOSE)
-Register("RSP",   8,  Register.KIND_GENERAL_PURPOSE)
+Register("RSP",   8,  Register.KIND_STACK)
 Register("RBP",   8,  Register.KIND_GENERAL_PURPOSE)
 Register("RSI",   8,  Register.KIND_GENERAL_PURPOSE)
 Register("RDI",   8,  Register.KIND_GENERAL_PURPOSE)
@@ -76,7 +89,7 @@ Register("EAX",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RAX")
 Register("ECX",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RCX")
 Register("EDX",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RDX")
 Register("EBX",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RBX")
-Register("ESP",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RSP")
+Register("ESP",   4,  Register.KIND_STACK,             parent="RSP")
 Register("EBP",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RBP")
 Register("ESI",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RSI")
 Register("EDI",   4,  Register.KIND_GENERAL_PURPOSE,   parent="RDI")
@@ -93,7 +106,7 @@ Register("AX",    2,  Register.KIND_GENERAL_PURPOSE,   parent="EAX")
 Register("CX",    2,  Register.KIND_GENERAL_PURPOSE,   parent="ECX")
 Register("DX",    2,  Register.KIND_GENERAL_PURPOSE,   parent="EDX")
 Register("BX",    2,  Register.KIND_GENERAL_PURPOSE,   parent="EBX")
-Register("SP",    2,  Register.KIND_GENERAL_PURPOSE,   parent="ESP")
+Register("SP",    2,  Register.KIND_STACK,             parent="ESP")
 Register("BP",    2,  Register.KIND_GENERAL_PURPOSE,   parent="EBP")
 Register("SI",    2,  Register.KIND_GENERAL_PURPOSE,   parent="ESI")
 Register("DI",    2,  Register.KIND_GENERAL_PURPOSE,   parent="EDI")
@@ -122,7 +135,7 @@ Register("R12B",  1,  Register.KIND_GENERAL_PURPOSE,   parent="R12W")
 Register("R13B",  1,  Register.KIND_GENERAL_PURPOSE,   parent="R13W")
 Register("R14B",  1,  Register.KIND_GENERAL_PURPOSE,   parent="R14W")
 Register("R15B",  1,  Register.KIND_GENERAL_PURPOSE,   parent="R15W")
-Register("SPL",   1,  Register.KIND_GENERAL_PURPOSE,   parent="SP")
+Register("SPL",   1,  Register.KIND_STACK,             parent="SP")
 Register("BPL",   1,  Register.KIND_GENERAL_PURPOSE,   parent="BP")
 Register("SIL",   1,  Register.KIND_GENERAL_PURPOSE,   parent="SI")
 Register("DIL",   1,  Register.KIND_GENERAL_PURPOSE,   parent="DI")
@@ -286,9 +299,9 @@ class Operand(object):
 
     if self.base_register:
       return Register.KIND_GENERAL_PURPOSE == self.base_register.kind
-    else:
-      assert self.index_register
+    elif self.index_register:
       return True
+    return False
 
 
 class ImmediateOperand(Operand):
@@ -310,7 +323,8 @@ class ImmediateOperand(Operand):
   # Re-serialise this operand as a string in a way that can be
   # parsed again.
   def __str__(self):
-    return "$0x%x" % self.value
+    return "$%s0x%x" % (
+      self.value < 0 and "-" or "", abs(self.value))
 
 
 class RegisterOperand(Operand):
@@ -387,7 +401,8 @@ class MemoryOperand(Operand):
   # Re-serialise this operand as a string in a way that can be
   # parsed again.
   def __str__(self):
-    return "0x%x" % self.address
+    return "%s0x%x" % (
+      self.address < 0 and "-" or "", abs(self.address))
 
 
 class AddressOperand(Operand):
@@ -412,7 +427,7 @@ class AddressOperand(Operand):
 
   @classmethod
   def parse(cls, op_str):
-    orgi_op_str = op_str
+    orig_op_str = op_str
     op = AddressOperand()
     parts = op_str.split(":")
     if 2 == len(parts):
@@ -430,8 +445,9 @@ class AddressOperand(Operand):
       parts = parts[1:]
 
     # Parse or skip the base register.
-    if parts and parts[0]:
-      op.base_register = Register.parse(parts[0])
+    if parts:
+      if parts[0]:
+        op.base_register = Register.parse(parts[0])
       parts = parts[1:]
 
     # Parse the scale.
@@ -452,13 +468,15 @@ class AddressOperand(Operand):
     if self.segment_register:
       ret += "%s:" % str(self.segment_register)
     if self.displacement is not None:
-      ret += "0x%x" % self.displacement
+      ret += "%s0x%x" % (
+        self.displacement < 0 and "-" or "", abs(self.displacement))
     ret += "("
     if self.base_register:
       ret += str(self.base_register)
     if self.index_register:
       ret += ",%s,%d" % (str(self.index_register), self.scale)
     ret += ")"
+    return ret
 
 
 class Instruction(object):
@@ -466,6 +484,7 @@ class Instruction(object):
 
   __slots__ = (
     'mnemonic',
+    'mnemonic_disambiguated', # Close to Intel syntax.
     'prefixes',
     'suffixes',
     'operands',
@@ -476,6 +495,7 @@ class Instruction(object):
   # Note: Instruction objects should not be manually initialised.
   def __init__(self):
     self.mnemonic = None
+    self.mnemonic_disambiguated = None
     self.prefixes = None
     self.suffixes = None
     self.operands = []
@@ -483,7 +503,90 @@ class Instruction(object):
   # Re-serialise this instruction as a string in a way that can be
   # parsed again.
   def __str__(self):
-    pass
+    ret = ""
+    if self.prefixes:
+      ret = " ".join(self.prefixes)
+    ret += " %s" % self.mnemonic
+    if self.suffixes:
+      ret += self.suffixes
+    ret += " "
+    if self.mnemonic in ("CALL", "JMP", "LCALL", "LJMP") \
+    and self.operands:
+      if isinstance(self.operands[0], RegisterOperand):
+        ret += "*"
+      elif isinstance(self.operands[0], AddressOperand) \
+      and self.operands[0].is_effective_address():
+        ret += "*"
+    ret += ",".join(str(op) for op in self.operands)
+    return ret.lower().strip()
+
+  # Returns True iff this instruction is a control-flow instruction.
+  def is_cti(self):
+    if self.mnemonic.startswith("J"):
+      return True
+    return self.mnemonic in ("CALL", "LCALL", "RET", "LRET", "LJMP")
+
+  # Returns True iff this instruction operates on memory.
+  def accesses_memory(self):
+    if self.mnemonic in ("LEA", "NOP"):
+      return False
+    for op in self.operands:
+      if op.is_effective_address():
+        return True
+    return False
+
+  # Set of instructions that implicitly change the stack pointer
+  # and/or operate on stack memory.
+  STACK_INSTRUCTIONS = set([
+    "CALL", "LCALL",
+    "RET", "LRET",
+    "IRET",
+    "PUSH", "POP",
+    "PUSHA", "POPA",
+    "PUSHF", "POPF",
+  ])
+
+  # Returns true iff an instruction operates on the stack. This
+  # includes reading/writing the stack pointer, changing the stack
+  # pointer, or reading/writing stack memory using the stack pointer.
+  def operates_on_stack(self):
+    if self.mnemonic in self.STACK_INSTRUCTIONS:
+      return True
+    for op in self.operands:
+      if isinstance(op, RegisterOperand) \
+      or isinstance(op, AddressOperand):
+        if op.base_register \
+        and Register.KIND_STACK == op.base_register.kind:
+          return True
+      if isinstance(op, AddressOperand):
+        if op.index_register \
+        and Register.KIND_STACK == op.index_register.kind:
+          return True
+    return False
+
+  # Set of FPU register kinds.
+  FPU_REGISTER_KINDS = (
+    Register.KIND_X87_FPU_STACK_REG,
+    Register.KIND_MMX,
+    Register.KIND_SIMD,
+  )
+
+  # Returns True if this instruction uses floating point registers,
+  # mmx registers, or xmm registers.
+  def uses_fpu(self):
+    if self.mnemonic.startswith("F"):
+      return True
+    for op in self.operands:
+      if isinstance(op, RegisterOperand) \
+      or isinstance(op, AddressOperand):
+        if op.base_register \
+        and op.base_register.kind in self.FPU_REGISTER_KINDS:
+          return True
+      if isinstance(op, AddressOperand):
+        if op.index_register \
+        and op.index_register.kind in self.FPU_REGISTER_KINDS:
+          return True
+    return False
 
 
 class ASMParser(object):
@@ -500,6 +603,31 @@ class ASMParser(object):
 
   ADJACENT_SPACES = re.compile(r"([ \t\r\n]+)")
 
+
+  PREFIXES = set([
+    "REP",
+    "REPE",
+    "REPZ",
+    "REPNE",
+    "REPNZ",
+    "LOCK",
+    "DATA16",
+    "DATA32",
+    "ADDR16",
+    "ADDR32",
+    "REX",
+    "REX.W",
+    "REX.R",
+    "REX.X",
+    "REX.B",
+    "CS",
+    "SS",
+    "DS",
+    "ES",
+    "FS",
+    "GS",
+  ])
+
   # GAS/AT&T instruction size suffixes.
   SIZE_SUFFIX = "BWLQSDT"
 
@@ -513,8 +641,8 @@ class ASMParser(object):
 
     "SETB", "SETNB", "SETL", "SETNL", "SETS", "SETNS",
     "NOT", "SHL", "SAL", "ADD", "MUL", "IMUL", "BTS", "AND", "TEST", "BT",
-    "MOVS", "MOVZ", "STOS",
-    "MOVSS",
+    "MOVZ", "MOVSS",
+    "INS", "MOVS", "OUTS", "LODS", "STOS", "CMPS", "SCAS", 
     "LIDT", "SIDT", "LGDT", "SGDT", "HLT", "RDRAND",
     "MWAIT",
 
@@ -524,16 +652,6 @@ class ASMParser(object):
   }
 
   MULTI_SIZED_INSTRUCTIONS = re.compile(r"^(MOVS|MOVZ|SHR|SHL)")
-
-  #{
-  #  "B":            Operand.SIZE_1,
-  #  "W":            Operand.SIZE_2,
-  #  "L":            Operand.SIZE_4,
-  #  "Q":            Operand.SIZE_8,
-  #  "S":            Operand.SIZE_4,
-  #  "D":            Operand.SIZE_8,
-  #  "T":            Operand.SIZE_16,
-  #}
 
   # Regular expressions for matching split points in operand strings.
   COMMA_BEFORE_BASE_DISP = re.compile(
@@ -630,7 +748,7 @@ class ASMParser(object):
     op_strs = "".join(parts[i+1:]).lower()
 
     # Extract the instruction suffixes.
-    suffixes = []
+    suffixes = ""
     if "." in mnemonic:
       mnemonic, suffixes = mnemonic.split(".")
       suffixes = map(lambda s: ".%s" % s, suffixes)
@@ -641,14 +759,21 @@ class ASMParser(object):
     #       deal with those just yet.
     while mnemonic not in self.NO_SUFFIX \
     and mnemonic[-1] in self.SIZE_SUFFIX:
-      suffixes.insert(0, mnemonic[-1])
+      suffixes = "%s%s" % (mnemonic[-1], suffixes)
       mnemonic = mnemonic[:-1]
       if not self.MULTI_SIZED_INSTRUCTIONS.match(mnemonic):
         break
 
     ins.mnemonic = mnemonic
     ins.prefixes = tuple(prefixes)
-    ins.suffixes = tuple(suffixes)
+    if suffixes:
+      ins.suffixes = suffixes
+
+    ins.mnemonic_disambiguated = ins.mnemonic
+    if ins.mnemonic == "MOVS" and suffixes and 2 <= len(suffixes):
+      ins.mnemonic_disambiguated = "MOVSX"
+    elif ins.mnemonic == "MOVZ":
+      ins.mnemonic_disambiguated = "MOVZX"
 
     # Parse the operands. First they need to be reasonably split up.
     op_strs = self.ST_REG.sub(r"%st\1", op_strs)
@@ -668,3 +793,13 @@ class ASMParser(object):
 
     # Visit the parsed instruction.
     self.instruction_visitor(ins)
+
+if __name__ == "__main__":
+  import sys
+
+  def print_instruction(ins):
+    print str(ins)
+
+  parser = ASMParser(print_instruction)
+  with open(sys.argv[1], "r") as lines:
+    parser.parse(lines)

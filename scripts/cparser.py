@@ -1,7 +1,8 @@
 """C Parser.
 
-This module defines a C tokenizer and parser. The result of parsing is an
-abstract syntax tree.
+This module defines a C tokenizer and parser. The result of parsing is 
+mostly an internal AST-like representation of declarations and their
+types.
 
 This module assumes that the input source code is valid, pre-processed C. That
 is, this parser makes no attempts to discover or report syntax or semantic
@@ -877,9 +878,14 @@ class CTypeAttributes(object):
       setattr(self, k, kargs[k])
 
   def has_default_attrs(self):
-    if self.is_const or self.is_register or self.is_auto or self.is_volatile:
+    if self.is_const \
+    or self.is_register \
+    or self.is_auto \
+    or self.is_volatile:
       return False
-    elif self.is_restrict or self.is_signed or self.is_unsigned:
+    elif self.is_restrict \
+    or self.is_signed \
+    or self.is_unsigned:
       return False
     return True
   
@@ -898,8 +904,8 @@ class CTypeAttributes(object):
 
 class CTypeNameAttributes(object):
   """Defines attributes specific to some named object. These attributes
-  include both visibility specifiers as well as function/variable extended
-  attributes."""
+  include both visibility specifiers as well as function/variable 
+  extended attributes."""
 
   __slots__ = ('attrs', 'is_inline', 'is_extern', 'is_static')
 

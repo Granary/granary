@@ -190,7 +190,7 @@ namespace granary {
                 cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
 
-                // TODO: minor memory leak with basic block state and vtables.
+                // TODO: minor memory leak with basic block state.
                 //       consider switching to a "transactional" allocator.
                 CODE_CACHE->load(base_addr.as_address, target_addr);
             }
