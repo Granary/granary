@@ -497,14 +497,7 @@ namespace granary {
     /// the instruction cannot be decoded, then *pc is set to NULL.
     instruction instruction::decode(app_pc *pc) throw() {
         instruction self(make_instr());
-        uint8_t *byte_pc(unsafe_cast<uint8_t *>(*pc));
-
-#if !GRANARY_IN_KERNEL
-        // We should have detached by this point, but oh well.
-        if(X86_INT3 == *byte_pc) {
-            // TODO: gdb breakpoint?
-        }
-#endif
+        uint8_t *byte_pc(*pc);
 
         *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, self.instr);
         dynamorio::decode(DCONTEXT, byte_pc, self.instr);

@@ -25,6 +25,8 @@ void segfault_handler(int) {
 #endif
 
 #include <chrono>
+#include <ratio>
+
 struct clock
 {
     typedef unsigned long long                 rep;

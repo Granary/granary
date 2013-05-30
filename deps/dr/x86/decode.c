@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -111,7 +111,7 @@ set_x86_mode(dcontext_t *dcontext, bool x86)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialised || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
+        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         old_mode = initexit_x86_mode;
         initexit_x86_mode = x86;
     } else {
@@ -142,7 +142,7 @@ get_x86_mode(dcontext_t *dcontext)
         dcontext = get_thread_private_dcontext();
     /* Support GLOBAL_DCONTEXT or NULL for standalone/static modes */
     if (dcontext == NULL || dcontext == GLOBAL_DCONTEXT) {
-        ASSERT(!dynamo_initialised || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
+        ASSERT(!dynamo_initialized || dynamo_exited || dcontext == GLOBAL_DCONTEXT);
         return initexit_x86_mode;
     } else
         return dcontext->x86_mode;
@@ -706,7 +706,7 @@ read_instruction(byte *pc, byte *orig_pc,
     const instr_info_t *info;
     bool vex_noprefix = false;
 
-    /* initialise di */
+    /* initialize di */
     /* though we only need di->start_pc for full decode rip-rel (and
      * there only post-read_instruction()) and decode_from_copy(), and
      * di->orig_pc only for decode_from_copy(), we assume that
@@ -873,12 +873,30 @@ read_instruction(byte *pc, byte *orig_pc,
         if (di->vex_encoded)
             idx += 4;
         info = &prefix_extensions[code][idx];
-        if (di->rep_prefix)
+        if (info->type == INVALID && !DYNAMO_OPTION(decode_strict)) {
+            /* i#1118: some of these seem to not be invalid with
+             * prefixes that land in blank slots in the decode tables.
+             * Though it seems to only be btc, bsf, and bsr (the SSE*
+             * instrs really do seem invalid when given unlisted prefixes),
+             * we'd rather err on the side of treating as valid, which is
+             * after all what gdb and dumpbin list.  Even if these
+             * fault when executed, we know the length, so there's no
+             * downside to listing as valid, for DR anyway.
+             * Users of drdecodelib may want to be more aggressive: hence the
+             * -decode_strict option.
+             */
+            /* Take the base entry w/o prefixes and keep the prefixes */
+            info = &prefix_extensions[code][0 + (di->vex_encoded ? 4 : 0)];
+        } else if (di->rep_prefix)
             di->rep_prefix = false;
-        else if (di->data_prefix)
-            di->data_prefix = false;
         else if (di->repne_prefix)
             di->repne_prefix = false;
+        if (di->data_prefix &&
+            /* Don't remove it if the entry doesn't list 0x66:
+             * e.g., OP_bsr (i#1118).
+             */
+            (info->opcode >> 24) == PREFIX_DATA)
+            di->data_prefix = false;
         if (info->type == REX_EXT) {
             /* discard old info, get new one */
             int code = (int) info->code;
@@ -1003,8 +1021,8 @@ read_instruction(byte *pc, byte *orig_pc,
             for (i=0; i<sz; i++)
                 snprintf(&bytes[i*3], 3, "%02x ", *(di->start_pc+i));
             bytes[sz*3-1] = '\0'; /* -1 to kill trailing space */
-            SYSLOG_INTERNAL_WARNING_ONCE("spurious rep/repne prefix @"PFX" (%s): "
-                                         "decoding error?", di->start_pc, bytes);
+            SYSLOG_INTERNAL_WARNING_ONCE("spurious rep/repne prefix @"PFX" (%s): ",
+                                         di->start_pc, bytes);
         }
     });
 #endif
@@ -1725,7 +1743,7 @@ decode_eflags_usage(dcontext_t *dcontext, byte *pc, uint *usage)
 /* Decodes the opcode and eflags usage of instruction at address pc
  * into instr.
  * This corresponds to a Level 2 decoding.
- * Assumes that instr is already initialised, but uses the x86/x64 mode
+ * Assumes that instr is already initialized, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.
@@ -1791,7 +1809,7 @@ check_is_variable_size(opnd_t op)
 /* Decodes the instruction at address pc into instr, filling in the
  * instruction's opcode, eflags usage, prefixes, and operands.
  * This corresponds to a Level 3 decoding.
- * Assumes that instr is already initialised, but uses the x86/x64 mode
+ * Assumes that instr is already initialized, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.

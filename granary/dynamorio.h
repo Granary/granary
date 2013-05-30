@@ -568,28 +568,53 @@ typedef byte opnd_size_t;
 
 struct _opnd_t {
     byte kind;
+    /* size field only used for immed_ints and addresses
+     * it holds a OPSZ_ field from decode.h
+     * we need it so we can pick the proper instruction form for
+     * encoding -- an alternative would be to split all the opcodes
+     * up into different data size versions.
+     */
     opnd_size_t size;
+    /* To avoid increasing our union beyond 64 bits, we store additional data
+     * needed for x64 operand types here in the alignment padding.
+     */
     union {
-        ushort far_pc_seg_selector;
-        reg_id_t segment :8;
-        ushort disp;
+        ushort far_pc_seg_selector; /* FAR_PC_kind and FAR_INSTR_kind */
+        /* We could fit segment in value.base_disp but more consistent here */
+        reg_id_t segment : 8; /* BASE_DISP_kind, REL_ADDR_kind,
+                                                * and ABS_ADDR_kind */
+        ushort disp;           /* MEM_INSTR_kind */
+        ushort shift;          /* INSTR_kind */
     } seg;
     union {
-        ptr_int_t immed_int;
-        float immed_float;
-        app_pc pc;
-        instr_t * instr;
-        reg_id_t reg;
+        /* all are 64 bits or less */
+        /* NULL_kind has no value */
+        ptr_int_t immed_int;   /* IMMED_INTEGER_kind */
+        float immed_float;     /* IMMED_FLOAT_kind */
+        /* PR 225937: today we provide no way of specifying a 16-bit immediate
+         * (encoded as a data16 prefix, which also implies a 16-bit EIP,
+         * making it only useful for far pcs)
+         */
+        app_pc pc;             /* PC_kind and FAR_PC_kind */
+        /* For FAR_PC_kind and FAR_INSTR_kind, we use pc/instr, and keep the
+         * segment selector (which is NOT a DR_SEG_ constant) in far_pc_seg_selector
+         * above, to save space.
+         */
+        instr_t *instr;         /* INSTR_kind, FAR_INSTR_kind, and MEM_INSTR_kind */
+        reg_id_t reg;           /* REG_kind */
         struct {
             int disp;
-            reg_id_t base_reg :8;
-            reg_id_t index_reg :8;
-            byte scale :4;
-            byte encode_zero_disp :1;
-            byte force_full_disp :1;
-            byte disp_short_addr :1;
-        } base_disp;
-        void * addr;
+            reg_id_t base_reg : 8;
+            reg_id_t index_reg : 8;
+            /* to get cl to not align to 4 bytes we can't use uint here
+             * when we have reg_id_t elsewhere: it won't combine them
+             * (gcc will). alternative is all uint and no reg_id_t. */
+            byte scale : 4;
+            byte/*bool*/ encode_zero_disp : 1;
+            byte/*bool*/ force_full_disp : 1; /* don't use 8-bit even w/ 8-bit value */
+            byte/*bool*/ disp_short_addr : 1; /* 16-bit (32 in x64) addr (disp-only) */
+        } base_disp;            /* BASE_DISP_kind */
+        void *addr;             /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
 };
 

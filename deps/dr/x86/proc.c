@@ -120,7 +120,7 @@ get_cache_sizes_amd(uint max_ext_val)
     uint cpuid_res_local[4]; /* eax, ebx, ecx, and edx registers (in that order) */
 
     if (max_ext_val >= 0x80000005) {
-#ifdef LINUX
+#ifdef UNIX
         our_cpuid((int*)cpuid_res_local, 0x80000005);
 #else
         __cpuid(cpuid_res_local, 0x80000005);
@@ -130,7 +130,7 @@ get_cache_sizes_amd(uint max_ext_val)
     }
 
     if (max_ext_val >= 0x80000006) {
-#ifdef LINUX
+#ifdef UNIX
         our_cpuid((int*)cpuid_res_local, 0x80000006);
 #else
         __cpuid(cpuid_res_local, 0x80000006);
@@ -149,7 +149,7 @@ get_cache_sizes_intel(uint max_val)
     if (max_val < 2)
         return;
 
-#ifdef LINUX
+#ifdef UNIX
     our_cpuid((int*)cache_codes, 2);
 #else
     __cpuid(cache_codes, 2);
@@ -240,7 +240,7 @@ get_processor_specific_info(void)
     }
 
     /* first verify on Intel processor */
-#ifdef LINUX
+#ifdef UNIX
     our_cpuid(cpuid_res_local, 0);
 #else
     __cpuid(cpuid_res_local, 0);
@@ -267,7 +267,7 @@ get_processor_specific_info(void)
     }
 
     /* Try to get extended cpuid information */
-#ifdef LINUX
+#ifdef UNIX
     our_cpuid(cpuid_res_local, 0x80000000);
 #else
     __cpuid(cpuid_res_local, 0x80000000);
@@ -276,7 +276,7 @@ get_processor_specific_info(void)
 
     /* Extended feature flags */
     if (max_ext_val >= 0x80000001) {
-#ifdef LINUX
+#ifdef UNIX
         our_cpuid(cpuid_res_local, 0x80000001);
 #else
         __cpuid(cpuid_res_local, 0x80000001);
@@ -358,7 +358,7 @@ get_processor_specific_info(void)
 
     /* Processor brand string */
     if (max_ext_val >= 0x80000004) {
-#ifdef LINUX
+#ifdef UNIX
         our_cpuid((int*)&brand_string[0], 0x80000002);
         our_cpuid((int*)&brand_string[4], 0x80000003);
         our_cpuid((int*)&brand_string[8], 0x80000004);
@@ -696,4 +696,4 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_frstor(dcontext, buf));
     }
 }
-#endif
+#endif /* GRANARY */

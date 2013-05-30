@@ -70,6 +70,46 @@ namespace granary {
     }
 
 
+    /// Push all registers that are dead in a register manager.
+    instruction save_registers(
+        register_manager regs,
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        for(;;) {
+            dynamorio::reg_id_t reg_id(regs.get_zombie());
+            if(!reg_id) {
+                break;
+            }
+
+            in = ls.insert_after(in, push_(operand(reg_id)));
+        }
+
+        return in;
+    }
+
+
+    /// Pop all registers that are dead in a register manager.
+    instruction restore_registers(
+        register_manager regs,
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        instruction last(ls.insert_after(in, label_()));
+        in = last;
+        for(;;) {
+            dynamorio::reg_id_t reg_id(regs.get_zombie());
+            if(!reg_id) {
+                break;
+            }
+
+            in = ls.insert_before(in, pop_(operand(reg_id)));
+        }
+
+        return last;
+    }
+
+
     /// Save all dead registers within a particular register manager. This is
     /// useful for saving/restoring only those registers used by a function.
     ///
@@ -77,8 +117,10 @@ namespace granary {
     /// save and restore the undead registers of `regs` after `in`, and returns
     /// the handle of the last pushed register, so that further instructions
     /// can be placed in-between the saving/restoring instructions.
+    ///
+    /// Note: This
     instruction save_and_restore_registers(
-        register_manager &regs,
+        register_manager regs,
         instruction_list &ls,
         instruction in
     ) throw() {

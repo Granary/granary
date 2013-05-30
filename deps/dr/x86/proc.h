@@ -396,5 +396,5 @@ DR_API
  */
 void 
 proc_restore_fpstate(byte *buf);
-#endif
+#endif /* GRANARY */
 #endif /* _PROC_H_ */

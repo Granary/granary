@@ -282,6 +282,15 @@ namespace granary {
             uint32_t _32_to_63;
         } __attribute__((packed));
         uint64_t value;
+
+        inline void clear_arithmetic_flags(void) throw() {
+            carry = false;
+            parity = false;
+            aux_carry = false;
+            zero = false;
+            sign = false;
+        }
+
     } __attribute__((packed));
 
 
@@ -363,10 +372,11 @@ extern "C" {
     extern void granary_break_on_fault(void);
     extern int granary_fault(void);
 
-#if GRANARY_IN_KERNEL
     extern granary::eflags granary_disable_interrupts(void);
     extern granary::eflags granary_load_flags(void);
     extern void granary_store_flags(granary::eflags);
+
+#if GRANARY_IN_KERNEL
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
 #endif /* GRANARY_IN_KERNEL */

@@ -50,7 +50,7 @@
 #include "arch_exports.h" /* for FRAG_IS_32 and FRAG_IS_X86_TO_X64 */
 
 /* FIXME: check on all platforms: these are for Fedora 8 and XP SP2
- * Keep in synch w/ defines in pre_inject_asm.asm
+ * Keep in synch w/ defines in x86.asm
  */
 #define CS32_SELECTOR 0x23
 #define CS64_SELECTOR 0x33
@@ -116,12 +116,6 @@ mixed_mode_enabled(void)
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))
 #define DSTACK_OFFSET          ((PROT_OFFS)+offsetof(dcontext_t, dstack))
-#define NATIVE_EXEC_RETVAL_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, native_exec_retval))
-#define NATIVE_EXEC_RETLOC_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, native_exec_retloc))
-#ifdef RETURN_STACK
-# define RSTACK_OFFSET         ((PROT_OFFS)+offsetof(dcontext_t, rstack))
-# define TOP_OF_RSTACK_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, top_of_rstack))
-#endif
 
 #define FRAGMENT_FIELD_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, fragment_field))
 #define PRIVATE_CODE_OFFSET    ((PROT_OFFS)+offsetof(dcontext_t, private_code))
@@ -135,16 +129,13 @@ mixed_mode_enabled(void)
 #  define PRIV_RPC_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, priv_nt_rpc))
 #  define APP_NLS_CACHE_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, app_nls_cache))
 #  define PRIV_NLS_CACHE_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, priv_nls_cache))
+#  define APP_STACK_LIMIT_OFFSET ((PROT_OFFS)+offsetof(dcontext_t, app_stack_limit))
 # endif
 # define NONSWAPPED_SCRATCH_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, nonswapped_scratch))
 #endif
 
 #ifdef TRACE_HEAD_CACHE_INCR 
 # define TRACE_HEAD_PC_OFFSET  ((PROT_OFFS)+offsetof(dcontext_t, trace_head_pc))
-#endif
-
-#ifdef NATIVE_RETURN_CALLDEPTH
-# define CALL_DEPTH_OFFSET     ((PROT_OFFS)+offsetof(dcontext_t, call_depth))
 #endif
 
 #ifdef WINDOWS
@@ -331,10 +322,6 @@ const char *get_target_delete_entry_name(dcontext_t *dcontext,
      offsetof(per_thread_t, bb_ibt[(branch_type)]))
 
 
-#ifdef RETURN_STACK
-cache_pc return_lookup_routine(dcontext_t *dcontext);
-cache_pc unlinked_return_routine(dcontext_t *dcontext);
-#endif
 #ifdef WINDOWS
 /* PR 282576: These separate routines are ugly, but less ugly than adding param to
  * after_shared_syscall_code(), which is called in many places and usually passed a
@@ -370,6 +357,19 @@ void mangle_insert_clone_code(dcontext_t *dcontext, instrlist_t *ilist,
                               _IF_X64(gencode_mode_t mode));
 void
 set_selfmod_sandbox_offsets(dcontext_t *dcontext);
+/* the stack size of a full context switch for clean call */
+int
+get_clean_call_switch_stack_size(void);
+/* extra temporarily-used stack usage beyond
+ * get_clean_call_switch_stack_size()
+ */
+int
+get_clean_call_temp_stack_size(void);
+
+void
+insert_clear_eflags(dcontext_t *dcontext, clean_call_info_t *cci,
+                    instrlist_t *ilist, instr_t *instr);
+
 uint
 insert_push_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
                           instrlist_t *ilist, instr_t *instr,
@@ -381,9 +381,14 @@ insert_pop_all_registers(dcontext_t *dcontext, clean_call_info_t *cci,
 bool
 parameters_stack_padded(void);
 /* Inserts a complete call to callee with the passed-in arguments */
-void
+bool
 insert_meta_call_vargs(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr,
-                       bool clean_call, void *callee, uint num_args, opnd_t *args);
+                       bool clean_call, byte *encode_pc, void *callee,
+                       uint num_args, opnd_t *args);
+bool
+insert_reachable_cti(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                     byte *encode_pc, byte *target, bool jmp, bool precise,
+                     reg_id_t scratch, instr_t **inlined_tgt_instr);
 void
 insert_get_mcontext_base(dcontext_t *dcontext, instrlist_t *ilist, 
                          instr_t *where, reg_id_t reg);
@@ -504,7 +509,7 @@ typedef struct _far_ref_t {
 
 /* Defines book-keeping structures needed for an indirect branch lookup routine */
 typedef struct ibl_code_t {
-    bool initialised:1; /* currently only used for ibl routines */
+    bool initialized:1; /* currently only used for ibl routines */
     bool thread_shared_routine:1;
     bool ibl_head_is_inlined:1;
     byte *indirect_branch_lookup_routine;
@@ -573,10 +578,6 @@ typedef struct _generated_code_t {
     byte *ibl_routines_end;
 #endif
 
-#ifdef RETURN_STACK
-    byte *return_lookup;
-    byte *unlinked_return;
-#endif
 #ifdef WINDOWS
     /* for the shared_syscalls option */
     ibl_code_t shared_syscall_code;
@@ -610,7 +611,7 @@ typedef struct _generated_code_t {
     uint do_vmkuw_syscall_offs; /* offs of pc after actual syscall instr */
 # endif
 #endif
-#ifdef LINUX
+#ifdef UNIX
     /* PR 212290: can't be static code in x86.asm since it can't be PIC */
     byte *new_thread_dynamo_start;
 #endif
@@ -642,6 +643,9 @@ typedef struct _generated_code_t {
     byte *client_ibl_xfer;
     uint client_ibl_unlink_offs;
 #endif
+    /* i#171: out-of-line clean call context switch */
+    byte *clean_call_save;
+    byte *clean_call_restore;
 
     bool thread_shared;
     bool writable;
@@ -680,6 +684,11 @@ byte * emit_trace_head_return_coarse(dcontext_t *dcontext, generated_code_t *cod
                                      byte *pc);
 cache_pc fcache_return_coarse_routine(IF_X64(gencode_mode_t mode));
 cache_pc trace_head_return_coarse_routine(IF_X64(gencode_mode_t mode));
+
+/* shared clean call context switch */
+bool client_clean_call_is_thread_private();
+cache_pc get_clean_call_save(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
+cache_pc get_clean_call_restore(dcontext_t *dcontext _IF_X64(gencode_mode_t mode));
 
 void protect_generated_code(generated_code_t *code, bool writable);
 
@@ -738,7 +747,7 @@ get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
  * if we have TLS and support sysenter (PR 361894) 
  */
 #define USE_SHARED_GENCODE()                                         \
-    (USE_SHARED_GENCODE_ALWAYS() || IF_LINUX(IF_HAVE_TLS_ELSE(true, false) ||) \
+    (USE_SHARED_GENCODE_ALWAYS() || IF_UNIX(IF_HAVE_TLS_ELSE(true, false) ||) \
      SHARED_FRAGMENTS_ENABLED() || DYNAMO_OPTION(shared_trace_ibl_routine))
 
 #define USE_SHARED_BB_IBL() \
@@ -790,13 +799,6 @@ void update_indirect_branch_lookup(dcontext_t *dcontext);
 
 byte *emit_far_ibl(dcontext_t *dcontext, byte *pc, ibl_code_t *ibl_code, cache_pc ibl_tgt
                    _IF_X64(far_ref_t *far_jmp_opnd));
-
-#ifdef RETURN_STACK
-byte * emit_return_lookup(dcontext_t *dcontext, byte *pc,
-                          byte *indirect_branch_lookup_pc,
-                          byte *unlinked_ib_lookup_pc,
-                          byte **return_lookup_pc);
-#endif
 
 #ifndef WINDOWS
 void update_syscalls(dcontext_t *dcontext);
@@ -860,7 +862,7 @@ byte * emit_do_vmkuw_syscall(dcontext_t *dcontext, generated_code_t *code, byte 
 # endif
 #endif
 
-#ifdef LINUX
+#ifdef UNIX
 byte * 
 emit_new_thread_dynamo_start(dcontext_t *dcontext, byte *pc);
 
@@ -878,6 +880,13 @@ emit_trace_head_incr_shared(dcontext_t *dcontext, byte *pc, byte *fcache_return_
 byte *
 emit_client_ibl_xfer(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 #endif
+
+/* clean calls are used by core DR: native_exec, so not in CLIENT_INTERFACE */
+byte *
+emit_clean_call_save(dcontext_t *dcontext, byte *pc, generated_code_t *code);
+
+byte *
+emit_clean_call_restore(dcontext_t *dcontext, byte *pc, generated_code_t *code);
 
 void
 insert_save_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
@@ -926,11 +935,7 @@ void check_return_ra_mangled(dcontext_t *dcontext,
                              volatile reg_t reg_ecx, volatile reg_t reg_eax);
 #endif
 
-/* experimental native execution feature */
-/* in x86_code.c */
-void entering_native(void);
-
-#ifdef LINUX
+#ifdef UNIX
 void new_thread_setup(priv_mcontext_t *mc);
 #endif
 

@@ -51,11 +51,27 @@ namespace granary {
     register_manager find_used_regs_in_func(app_pc func) throw();
 
 
+    /// Push all registers that are dead in a register manager.
+    instruction save_registers(
+        register_manager regs,
+        instruction_list &ls,
+        instruction in
+    ) throw();
+
+
+    /// Pop all registers that are dead in a register manager.
+    instruction restore_registers(
+        register_manager regs,
+        instruction_list &ls,
+        instruction in
+    ) throw();
+
+
     /// Save all dead 64-bit registers within a particular register manager.
     /// This is useful for saving/restoring only those registers used by a
     /// function.
     instruction save_and_restore_registers(
-        register_manager &regs,
+        register_manager regs,
         instruction_list &ls,
         instruction in
     ) throw();

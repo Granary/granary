@@ -32,29 +32,42 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker
     ) throw() {
 
-        // In 64-bit mode, we'll ignore GS and FS-segmented addresses because
-        // the offsets from those are generally not addresses.
-        if(dynamorio::BASE_DISP_kind != op->kind
-        || dynamorio::DR_SEG_GS == op->seg.segment
-        || dynamorio::DR_SEG_FS == op->seg.segment) {
+        // Ignore non-address kinds.
+        const operand ref_to_op(*op);
+        if(dynamorio::BASE_DISP_kind != ref_to_op.kind) {
             return;
         }
+
+        const dynamorio::reg_id_t base_reg(op->value.base_disp.base_reg);
+        const dynamorio::reg_id_t index_reg(op->value.base_disp.index_reg);
+        const dynamorio::reg_id_t base_reg_64(
+            register_manager::scale(base_reg, REG_64));
+        const dynamorio::reg_id_t index_reg_64(
+            register_manager::scale(index_reg, REG_64));
 
         // Guard against RSP up here as it will never be returned by get_zombie
         // (as a preventive measure for preventing the stack pointer from being
         // clobbered). Also, treat all stack addresses as unwatched.
-        const dynamorio::reg_id_t base_reg(op->value.base_disp.base_reg);
-        const dynamorio::reg_id_t index_reg(op->value.base_disp.index_reg);
-        if(dynamorio::DR_REG_RSP == register_manager::scale(base_reg, REG_64)
-        || dynamorio::DR_REG_RSP == register_manager::scale(index_reg, REG_64)) {
+        if(dynamorio::DR_REG_RSP == base_reg_64
+        || dynamorio::DR_REG_RSP == index_reg_64) {
             return;
         }
 
+        // Make sure we've got at least one 64-bit register.
+        if(base_reg) {
+            if(base_reg != base_reg_64) {
+                return;
+            }
+        } else {
+            if(index_reg != index_reg_64) {
+                return;
+            }
+        }
+
         register_manager rm;
-        const operand ref_to_op(*op);
         rm.kill(ref_to_op);
 
-        // make sure we've got at least one general purpose register
+        // Make sure we've got at least one general purpose register
         dynamorio::reg_id_t regs[2];
         regs[0] = rm.get_zombie();
         regs[1] = rm.get_zombie();
@@ -493,6 +506,12 @@ namespace client { namespace wp {
                         addr_reg == register_manager::scale(
                             original_op.value.base_disp.index_reg, REG_64));
                 }
+
+                // If we're using an explicit segment then we technically have
+                // more registers in play.
+                if(original_op.seg.segment) {
+                    addr_reg_is_only_op_reg = false;
+                }
             }
 
             const operand addr(addr_reg);
@@ -503,6 +522,10 @@ namespace client { namespace wp {
             if(addr_reg_is_only_op_reg) {
                 compute_addr = 0 != original_op.value.base_disp.disp
                             || 1 < original_op.value.base_disp.scale;
+            }
+
+            if(dynamorio::OP_clflush == in.op_code()) {
+                ASM("");
             }
 
             // If we aren't stealing the register that we will (in most cases)

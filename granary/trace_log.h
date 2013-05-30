@@ -15,7 +15,7 @@ namespace granary {
 
     /// Forward declarations.
     struct instruction_list;
-    struct simple_machine_state;
+    union simple_machine_state;
     struct instrumentation_policy;
 
     struct trace_log {

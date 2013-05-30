@@ -162,7 +162,7 @@ reg_is_16bit(reg_id_t reg)
 {
     return (reg >= REG_START_16 && reg <= REG_STOP_16);
 }
-#endif
+#endif /* GRANARY */
 
 bool
 opnd_is_reg_32bit(opnd_t opnd)
@@ -232,8 +232,8 @@ opnd_get_size(opnd_t opnd)
     case ABS_ADDR_kind: 
 #endif
     case MEM_INSTR_kind:
-        return opnd.size;
     case INSTR_kind:
+        return opnd.size;
     case PC_kind:
         return OPSZ_PTR;
     case FAR_PC_kind:
@@ -258,6 +258,7 @@ opnd_set_size(opnd_t *opnd, opnd_size_t newsize)
     case ABS_ADDR_kind: 
 #endif
     case MEM_INSTR_kind:
+    case INSTR_kind:
         opnd->size = newsize;
         return;
     default:
@@ -339,7 +340,7 @@ opnd_get_immed_float(opnd_t opnd)
      */
     return opnd.value.immed_float;
 }
-#endif
+#endif /* GRANARY */
 
 /* address operands */
 
@@ -355,7 +356,7 @@ opnd_create_far_pc(ushort seg_selector, app_pc pc)
 }
 
 opnd_t
-opnd_create_instr(instr_t *instr)
+opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift)
 {
     opnd_t opnd IF_GRANARY(= {0});
 #ifdef GRANARY
@@ -372,7 +373,15 @@ opnd_create_instr(instr_t *instr)
 #endif
     opnd.kind = INSTR_kind;
     opnd.value.instr = instr;
+    opnd.seg.shift = shift;
+    opnd.size = size;
     return opnd;
+}
+
+opnd_t
+opnd_create_instr(instr_t *instr)
+{
+    return opnd_create_instr_ex(instr, OPSZ_PTR, 0);
 }
 
 opnd_t
@@ -426,6 +435,14 @@ opnd_get_instr(opnd_t opnd)
     CLIENT_ASSERT(opnd_is_instr(opnd) || opnd_is_mem_instr(opnd),
                   "opnd_get_instr called on non-instr");
     return opnd.value.instr;
+}
+
+DR_API
+ushort
+opnd_get_shift(opnd_t opnd)
+{
+    CLIENT_ASSERT(opnd_is_near_instr(opnd), "opnd_get_shift called on non-near-instr");
+    return opnd.seg.shift;
 }
 
 short 
@@ -575,10 +592,17 @@ opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size)
      * the sib byte the base-disp ends up being one byte longer.
      */
     if (IF_X64_ELSE((ptr_uint_t)addr <= UINT_MAX, true)) {
+        bool need_addr32 = false;
         CLIENT_ASSERT(CHECK_TRUNCATE_TYPE_uint((ptr_uint_t)addr),
                       "internal error: abs addr too large");
-        return opnd_create_far_base_disp(seg, REG_NULL, REG_NULL, 0,
-                                         (int)(ptr_int_t)addr, data_size);
+#ifdef X64
+        /* To reach the high 2GB of the lower 4GB we need the addr32 prefix */
+        if ((ptr_uint_t)addr > INT_MAX)
+            need_addr32 = X64_MODE_DC(get_thread_private_dcontext());
+#endif
+        return opnd_create_far_base_disp_ex(seg, REG_NULL, REG_NULL, 0,
+                                            (int)(ptr_int_t)addr, data_size,
+                                            false, false, need_addr32);
     } 
 #ifdef X64
     else {
@@ -762,7 +786,7 @@ opnd_get_reg_used(opnd_t opnd, int index)
 const reg_id_t regparms[] = {
 #ifdef X64
     REGPARM_0, REGPARM_1, REGPARM_2, REGPARM_3, 
-# ifdef LINUX
+# ifdef UNIX
     REGPARM_4, REGPARM_5,
 # endif
 #endif
@@ -1000,6 +1024,9 @@ bool opnd_same(opnd_t op1, opnd_t op2)
         return (op1.seg.far_pc_seg_selector == op2.seg.far_pc_seg_selector && 
                 op1.value.pc == op2.value.pc);
     case INSTR_kind:
+        return (op1.value.instr == op2.value.instr &&
+                op1.seg.shift == op2.seg.shift &&
+                op1.size == op2.size);
     case FAR_INSTR_kind:
         return op1.value.instr == op2.value.instr;
     case REG_kind: 
@@ -1686,7 +1713,7 @@ instr_create(dcontext_t *dcontext)
 #else
     instr_t *instr = (instr_t*) heap_alloc(
         dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
-#endif
+#endif /* GRANARY */
 
     /* everything initialises to 0, even flags, to indicate
      * an uninitialised instruction */
@@ -1701,8 +1728,10 @@ instr_destroy(dcontext_t *dcontext, instr_t *instr)
 {
     instr_free(dcontext, instr);
 
+#ifndef GRANARY
     /* CAUTION: assumes that instr is not part of any instrlist */
-    //heap_free(dcontext, instr, sizeof(instr_t) HEAPACCT(ACCT_IR));
+    heap_free(dcontext, instr, sizeof(instr_t) HEAPACCT(ACCT_IR));
+#endif /* GRANARY */
 }
 
 /* returns a clone of orig, but with next and prev fields set to NULL */
@@ -1759,8 +1788,8 @@ instr_clone(dcontext_t *dcontext, instr_t *orig)
 void
 instr_init(dcontext_t *dcontext, instr_t *instr)
 {
-    /* everything initialises to 0, even flags, to indicate
-     * an uninitialised instruction */
+    /* everything initializes to 0, even flags, to indicate
+     * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     IF_X64(instr_set_x86_mode(instr, get_x86_mode(dcontext)));
 }
@@ -1830,7 +1859,7 @@ instr_mem_usage(instr_t *instr)
 
 /* Frees all dynamically allocated storage that was allocated by instr
  * Also zeroes out instr's fields
- * This instr must have been initialised before!
+ * This instr must have been initialized before!
  */
 void 
 instr_reset(dcontext_t *dcontext, instr_t *instr)
@@ -1845,7 +1874,7 @@ instr_reset(dcontext_t *dcontext, instr_t *instr)
  * fields, whether instr is ok to mangle, and instr's x86 mode.
  * Use this routine when you want to decode more information into the
  * same instr_t structure.
- * This instr must have been initialised before!
+ * This instr must have been initialized before!
  */
 void 
 instr_reuse(dcontext_t *dcontext, instr_t *instr)
@@ -1974,9 +2003,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
         byte *tmp;
         CLIENT_ASSERT(!instr_raw_bits_valid(instr),
                       "encode instr: bit validity error"); /* else shouldn't get here */
-
         instr_allocate_raw_bits(dcontext, instr, len);
-
         /* we use a hack in order to take advantage of
          * copy_and_re_relativize_raw_instr(), which copies from instr->bytes
          * using rip-rel-calculating routines that also use instr->bytes.
@@ -1997,7 +2024,7 @@ private_instr_encode(dcontext_t *dcontext, instr_t *instr, bool always_cache)
 #define inlined_instr_get_opcode(instr) \
     (IF_DEBUG_(CLIENT_ASSERT(sizeof(*instr) == sizeof(instr_t), "invalid type")) \
      (((instr)->opcode == OP_UNDECODED) ? \
-      (instr_decode_opcode(get_thread_private_dcontext(), instr), (instr)->opcode) : \
+      (instr_decode_with_current_dcontext(instr), (instr)->opcode) : \
       (instr)->opcode))
 int
 instr_get_opcode(instr_t *instr)
@@ -2036,7 +2063,7 @@ instr_set_opcode(instr_t *instr, int opcode)
  * Not to be confused with an invalid opcode, which can be OP_INVALID or
  * OP_UNDECODED.  OP_INVALID means an instruction with no valid fields:
  * raw bits (may exist but do not correspond to a valid instr), opcode,
- * eflags, or operands.  It could be an uninitialised
+ * eflags, or operands.  It could be an uninitialized
  * instruction or the result of decoding an invalid sequence of bytes.
  */
 bool 
@@ -2578,7 +2605,7 @@ instr_free_raw_bits(dcontext_t *dcontext, instr_t *instr)
 
 /* creates array of bytes to store raw bytes of an instr into
  * (original bits are read-only)
- * initialises array to the original bits!
+ * initializes array to the original bits!
  */
 void
 instr_allocate_raw_bits(dcontext_t *dcontext, instr_t *instr, uint num_bytes)
@@ -2817,6 +2844,10 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
         /* insert every separated instr into list */
         newinstr = instr_create(dcontext);
         newbytes = decode_raw(dcontext, curbytes, newinstr);
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        if (expand_should_set_translation(dcontext))
+            instr_set_translation(newinstr, curbytes);
+#endif
         if (newbytes == NULL) {
             /* invalid instr -- stop expanding, point instr at remaining bytes */
             instr_set_raw_bits(instr, curbytes, remaining_bytes);
@@ -2875,7 +2906,7 @@ instr_expand(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr)
     IF_X64(set_x86_mode(dcontext, old_mode));
     return firstinstr;
 }
-#endif
+#endif /* GRANARY */
 
 bool
 instr_is_level_0(instr_t *instr) 
@@ -2949,7 +2980,7 @@ instrlist_last_expanded(dcontext_t *dcontext, instrlist_t *ilist)
     instr_expand(dcontext, ilist, instrlist_last(ilist));
     return instrlist_last(ilist);
 }
-#endif
+#endif /* GRANARY */
 
 /* If instr is not already at the level of decode_cti, decodes enough
  * from the raw bits pointed to by instr to bring it to that level.
@@ -3039,6 +3070,10 @@ instr_decode(dcontext_t *dcontext, instr_t *instr)
         CLIENT_ASSERT(instr_raw_bits_valid(instr), "instr_decode: raw bits are invalid");
         instr_reuse(dcontext, instr);
         next_pc = decode(dcontext, instr_get_raw_bits(instr), instr);
+#ifndef NOT_DYNAMORIO_CORE_PROPER
+        if (expand_should_set_translation(dcontext))
+            instr_set_translation(instr, instr_get_raw_bits(instr));
+#endif
 #ifdef X64
         set_x86_mode(dcontext, old_mode);
         /* decode sets raw bits which invalidates rip_rel, but
@@ -3150,7 +3185,7 @@ instrlist_decode_cti(dcontext_t *dcontext, instrlist_t *ilist)
     });
     LOG(THREAD, LOG_ALL, 4, "done with instrlist_decode_cti\n");
 }
-#endif
+#endif /* GRANARY */
 /****************************************************************************/
 /* utility routines */
 
@@ -3636,7 +3671,7 @@ instr_compute_address(instr_t *instr, dr_mcontext_t *mc)
     /* only supports GPRs so we ignore mc.size */
     return instr_compute_address_priv(instr, dr_mcontext_as_priv_mcontext(mc));
 }
-#endif
+#endif /* GRANARY */
 
 /* Calculates the size, in bytes, of the memory read or write of instr
  * If instr does not reference memory, or is invalid, returns 0
@@ -4031,7 +4066,7 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
         return false;
     return true;
 }
-#endif
+#endif /* GRANARY */
 
 bool
 instr_is_interrupt(instr_t *instr)

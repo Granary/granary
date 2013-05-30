@@ -268,22 +268,27 @@ namespace granary {
     /// Note: For consistency with `register_manager` and
     ///       `save_and_restore_registers`, this excludes `rsp` as it is forced
     ///       to always be live.
-    struct simple_machine_state {
-        general_purpose_register r15;
-        general_purpose_register r14;
-        general_purpose_register r13;
-        general_purpose_register r12;
-        general_purpose_register r11;
-        general_purpose_register r10;
-        general_purpose_register r9;
-        general_purpose_register r8;
-        general_purpose_register rdi;
-        general_purpose_register rsi;
-        general_purpose_register rbp;
-        general_purpose_register rbx;
-        general_purpose_register rdx;
-        general_purpose_register rcx;
-        general_purpose_register rax;
+    union simple_machine_state {
+        struct {
+            general_purpose_register r15;
+            general_purpose_register r14;
+            general_purpose_register r13;
+            general_purpose_register r12;
+            general_purpose_register r11;
+            general_purpose_register r10;
+            general_purpose_register r9;
+            general_purpose_register r8;
+            general_purpose_register rdi;
+            general_purpose_register rsi;
+            general_purpose_register rbp;
+            general_purpose_register rbx;
+            general_purpose_register rdx;
+            general_purpose_register rcx;
+            general_purpose_register rax;
+        };
+        general_purpose_register regs[15];
+
+        general_purpose_register &operator[](dynamorio::reg_id_t) throw();
     };
 
 }

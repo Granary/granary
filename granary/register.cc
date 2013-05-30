@@ -763,5 +763,19 @@ namespace granary {
         FAULT;
         return false;
     }
+
+
+    /// Store a value into the machine state given a specific register.
+    general_purpose_register &simple_machine_state::operator[](
+        dynamorio::reg_id_t reg
+    ) throw() {
+        reg = register_manager::scale(reg, REG_64);
+        ASSERT(dynamorio::DR_REG_NULL != reg);
+        ASSERT(dynamorio::DR_REG_RSP != reg)
+        if(dynamorio::DR_REG_RSP < reg) {
+            reg -= 1;
+        }
+        return regs[15 - reg];
+    }
 }
 

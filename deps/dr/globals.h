@@ -10,6 +10,8 @@
 #define Granary_GLOBALS_H_
 
 #define GRANARY
+#define NOT_DYNAMORIO_CORE_PROPER
+
 #define heap_free granary_heap_free
 #define heap_alloc granary_heap_alloc
 #define FAULT (granary_break_on_fault(), granary_fault())
@@ -18,6 +20,7 @@
 #define IF_GRANARY_ELSE(x,y) x
 #define IF_NOT_GRANARY(...)
 #define LINUX 1
+#define UNIX 1
 #define X64 1
 #define CLIENT_INTERFACE 1
 #define DR_API
@@ -54,6 +57,7 @@
 #define SHARED_FRAGMENTS_ENABLED() 0
 
 #define IF_LINUX(x) x
+#define IF_UNIX(x) x
 #define IF_CLIENT_INTERFACE(x)
 #define IF_INTERNAL(x)
 #define STATS_INC(x)
@@ -96,6 +100,7 @@ extern "C" {
 #define DYNAMO_OPTION(x) DYNAMO_OPTION_ ## x
 #define DYNAMO_OPTION_shared_trace_ibl_routine 0
 #define DYNAMO_OPTION_x86_to_x64 0
+#define DYNAMO_OPTION_decode_strict 1
 
 #define TLS_XAX_SLOT 0
 #define TLS_XBX_SLOT 0
@@ -104,6 +109,7 @@ extern "C" {
 
 #define dynamo_exited 0
 #define dynamo_initialised 0
+#define dynamo_initialized 0
 #define assert_reachable 0
 #define GLOBAL_DCONTEXT (&DCONTEXT)
 

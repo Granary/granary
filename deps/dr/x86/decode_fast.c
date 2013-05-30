@@ -900,7 +900,7 @@ convert_8bit_offset(byte *pc, byte offset, uint len)
  * Does NOT fill in any other prefix flags unless this is a cti instr
  * and the flags affect the instr.
  *
- * Assumes that instr is already initialised, but uses the x86/x64 mode
+ * Assumes that instr is already initialized, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.
@@ -1274,7 +1274,7 @@ decode_cti(dcontext_t *dcontext, byte *pc, instr_t *instr)
         return (pc + 1);
     }
 
-#ifdef LINUX
+#ifdef UNIX
     /* mov_seg instruction detection for i#107: mangling seg update/query. */
     if (INTERNAL_OPTION(mangle_app_seg) && (byte0 == 0x8c || byte0 == 0x8e)) {
         instr_set_opcode(instr, OP_mov_seg);
@@ -1308,7 +1308,7 @@ decode_next_pc(dcontext_t *dcontext, byte *pc)
 /* Decodes the size of the instruction at address pc and points instr
  * at the raw bits for the instruction.
  * This corresponds to a Level 1 decoding.
- * Assumes that instr is already initialised, but uses the x86/x64 mode
+ * Assumes that instr is already initialized, but uses the x86/x64 mode
  * for the current thread rather than that set in instr.
  * If caller is re-using same instr struct over multiple decodings,
  * should call instr_reset or instr_reuse.

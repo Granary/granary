@@ -46,7 +46,7 @@
     (void)(TEST(INSTR_OPERANDS_VALID, (instr)->flags) ? \
            (instr) : instr_decode_with_current_dcontext(instr))
 #endif
-#endif
+#endif /* GRANARY */
 
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
 #define CLIENT_ASSERT_(cond, msg) IF_DEBUG_(CLIENT_ASSERT(cond, msg))
@@ -166,7 +166,7 @@ opnd_is_far_rel_addr(opnd_t opnd)
 
 /* opnd_t constructors */
 
-/* XXX: How can we macro-ify these?  We can use C99 initialisers or a copy from
+/* XXX: How can we macro-ify these?  We can use C99 initializers or a copy from
  * a constant, but that implies a full initialization, when we could otherwise
  * partially intialize.  Do we care?
  */
@@ -174,7 +174,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_null(void)
 {
-    opnd_t opnd = {0};
+    opnd_t opnd IF_GRANARY( = {0} );
     opnd.kind = NULL_kind;
     return opnd;
 }
@@ -183,7 +183,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_reg(reg_id_t r)
 {
-    opnd_t opnd = {0};  /* GRANARY TODO: was IF_DEBUG(= {0})  FIXME: Needed until i#417 is fixed. */
+    opnd_t opnd IF_GRANARY( = {0} );  /* GRANARY TODO: was IF_DEBUG(= {0})  FIXME: Needed until i#417 is fixed. */
     CLIENT_ASSERT(r <= DR_REG_LAST_ENUM && r != DR_REG_INVALID,
                   "opnd_create_reg: invalid register");
     opnd.kind = REG_kind;
@@ -196,7 +196,7 @@ INSTR_INLINE
 opnd_t
 opnd_create_pc(app_pc pc)
 {
-    opnd_t opnd = {0};
+    opnd_t opnd IF_GRANARY( = {0} );
     opnd.kind = PC_kind;
     opnd.value.pc = pc;
     return opnd;
@@ -243,7 +243,7 @@ instr_ok_to_mangle(instr_t *instr)
 }
 
 #ifdef AVOID_API_EXPORT
-/* This is hot internally, but unlikely to be used by clients. */
+/* These are hot internally, but unlikely to be used by clients. */
 INSTR_INLINE
 bool
 instr_operands_valid(instr_t *instr)

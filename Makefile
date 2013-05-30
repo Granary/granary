@@ -172,6 +172,8 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_frame_pointer.o
+	GR_OBJS += bin/clients/watchpoints/tests/x86/test_auto_data.o
+	GR_OBJS += bin/clients/watchpoints/tests/test_auto.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
@@ -481,6 +483,7 @@ install:
 	@-mkdir bin/clients/watchpoints/policies/kernel > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/kernel/linux > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/tests > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/tests/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/deps > /dev/null 2>&1 ||:
 	@-mkdir bin/deps/icxxabi > /dev/null 2>&1 ||:

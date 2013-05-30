@@ -58,9 +58,7 @@ class Register(object):
 
   @classmethod
   def parse(cls, mnemonic):
-    if mnemonic.startswith("%"):
-      mnemonic = mnemonic[1:]
-    return cls.CACHE[mnemonic.upper()]
+    return cls.CACHE[mnemonic.strip("%*()").upper()]
 
   def __str__(self):
     return "%%%s" % self.mnemonic
@@ -335,7 +333,6 @@ class RegisterOperand(Operand):
     'base_register',
   )
 
-  CACHE = {}
   KIND = 2
 
   def __init__(self, seg, base):
@@ -345,20 +342,13 @@ class RegisterOperand(Operand):
   @classmethod
   def parse(cls, op_str):
     op_str = op_str.replace("*", "")
-
-    if op_str in cls.CACHE:
-      return cls.CACHE[op_str]
-
     parts = op_str.split(":")
     base_register = Register.parse(parts[-1])
     segment_register = None
     parts = parts[:-1]
     if parts:
       segment_register = Register.parse(parts[0])
-
-    op = RegisterOperand(segment_register, base_register)
-    cls.CACHE[op_str] = op
-    return op
+    return RegisterOperand(segment_register, base_register)
 
   # Re-serialise this operand as a string in a way that can be
   # parsed again.
@@ -603,7 +593,6 @@ class ASMParser(object):
 
   ADJACENT_SPACES = re.compile(r"([ \t\r\n]+)")
 
-
   PREFIXES = set([
     "REP",
     "REPE",
@@ -634,7 +623,7 @@ class ASMParser(object):
   # Instructions that look like that have a size suffix but don't.
   #
   # Note: This is an incomplete list.
-  NO_SUFFIX = {
+  NO_SUFFIX = set([
     "SWAPGS", "SYSEXIT", "FWAIT", "MOVABS", 
     "JB", "JNB", "JL", "JNL", "JS", "JNS",
     "CMOVB", "CMOVNB", "CMOVL", "CMOVNL", "CMOVS", "CMOVNS", 
@@ -649,9 +638,22 @@ class ASMParser(object):
     "STD", "CLD", "SBB",
 
     "FCOS", "FMUL", "FXTRACT",
-  }
+  ])
 
-  MULTI_SIZED_INSTRUCTIONS = re.compile(r"^(MOVS|MOVZ|SHR|SHL)")
+  # String instructions.
+  STRING_OPS = set([
+    "INS", "MOVS", "OUTS", "LODS", "STOS", "CMPS", "SCAS",
+  ])
+
+  # Valid registers that can appear in a string instruction.
+  STRING_REGS = set(
+      Register.parse("%rdi").children \
+    | Register.parse("%rsi").children \
+    | Register.parse("%rax").children
+  )
+
+  # Sign- and zero-extension MOV.
+  MULTI_SIZED_INSTRUCTIONS = re.compile(r"^(MOVS|MOVZ)")
 
   # Regular expressions for matching split points in operand strings.
   COMMA_BEFORE_BASE_DISP = re.compile(
@@ -690,6 +692,29 @@ class ASMParser(object):
     for line in lines:
       self._parse_line(i, line)
       i += 1
+
+  # Returns True if this instruction is an invalid string instruction.
+  # This can come up in some binaries where invalid registers are used
+  # in some of the string instructions.
+  def _uses_invalid_regs(self, mnemonic, ops):
+    valid_regs = None
+    if mnemonic in self.STRING_OPS:
+      valid_regs = self.STRING_REGS
+    elif "XLAT" == mnemonic:
+      valid_regs = Register.parse("%rbx").children
+    else:
+      return False
+
+    for op in ops:
+      if isinstance(op, AddressOperand) \
+      or isinstance(op, RegisterOperand):
+        if op.base_register and op.base_register not in valid_regs:
+          return True
+
+      if isinstance(op, AddressOperand):
+        if op.index_register and op.index_register not in valid_regs:
+          return True
+    return False
 
   # Parse a single line of output from `objdump` and try to extract a
   # single instruction.
@@ -750,8 +775,9 @@ class ASMParser(object):
     # Extract the instruction suffixes.
     suffixes = ""
     if "." in mnemonic:
-      mnemonic, suffixes = mnemonic.split(".")
-      suffixes = map(lambda s: ".%s" % s, suffixes)
+      mnemonic, suffix = mnemonic.split(".")
+      if suffix:
+        suffixes = ".%s" % suffix
 
     # Get the mnemonic and the operand size suffix.
     #
@@ -769,6 +795,7 @@ class ASMParser(object):
     if suffixes:
       ins.suffixes = suffixes
 
+    # Uses Intel mnemonics for disambiguating some instructions.
     ins.mnemonic_disambiguated = ins.mnemonic
     if ins.mnemonic == "MOVS" and suffixes and 2 <= len(suffixes):
       ins.mnemonic_disambiguated = "MOVSX"
@@ -791,15 +818,17 @@ class ASMParser(object):
           lambda s: Operand.parse(mnemonic, s),
           op_strs.split("|")))
 
+    # Detect some invalid instructions by their use of the improper
+    # registers.
+    if self._uses_invalid_regs(mnemonic, ins.operands):
+      return
+
     # Visit the parsed instruction.
     self.instruction_visitor(ins)
 
 if __name__ == "__main__":
   import sys
 
-  def print_instruction(ins):
-    print str(ins)
-
-  parser = ASMParser(print_instruction)
+  parser = ASMParser(lambda ins: None)
   with open(sys.argv[1], "r") as lines:
     parser.parse(lines)

@@ -21,6 +21,12 @@ from asmunify import *
 INSTRUCTIONS = collections.defaultdict(UnifiedInstruction)
 
 
+# String instructions.
+STRING_OPS = set([
+  "INS", "MOVS", "OUTS", "LODS", "STOS", "CMPS", "SCAS", 
+])
+
+
 class RegisterRenamer(object):
   """Manages renaming registers in a consistent way.
 
@@ -33,7 +39,7 @@ class RegisterRenamer(object):
   yields a good enough renaming such that we can group many
   like instructions together."""
 
-  RENAME_BASE = map(Register.parse, (
+  RENAME_ORDER_MEM = map(Register.parse, (
     "%r11", "%r12", "%r13", "%r14", 
   ))
 
@@ -44,7 +50,14 @@ class RegisterRenamer(object):
   # Set of instructions that can't have their registers renamed.
   CANT_RENAME = set([
     "XLAT",
-    "INS", "MOVS", "OUTS", "LODS", "STOS", "CMPS", "SCAS", 
+    "IN", "OUT",
+
+    # Others.
+    "XSAVE", "XSAVE64",
+
+    # This is for backward compatibility issues as we don't want
+    # to complicate this by having to introduce REX prefixes.
+    "SHR", "SHL", "SAR", "SAL",
   ])
 
   __slots__ = (
@@ -107,17 +120,32 @@ class RegisterRenamer(object):
             op.index_register, op.__class__)
 
 
+# Removes any REX prefixes.
+def remove_REX_prefixes(ins):
+  ins.prefixes = tuple(filter(lambda p: "REX" not in p, ins.prefixes))
+
+
 # Decide whether or not to collect this instruction as a source
 # for test generation.
 def collect_instruction(ins):
   if ins.is_cti() \
   or not ins.accesses_memory() \
   or ins.operates_on_stack() \
-  or ins.uses_fpu():
+  or ins.uses_fpu() \
+  or ins.mnemonic in ("XSAVE", "XSAVE64", "XRSTOR", "XRSTOR64"):
     return
+
+  # Drop the operands of string operations because they don't
+  # assemble with GAS.
+  global STRING_OPS
+  if ins.mnemonic_disambiguated in STRING_OPS:
+    ins.operands = []
 
   renamer = RegisterRenamer()
   renamer.rename(ins)
+
+  # REX prefixes cannot be assembled by GAS.
+  remove_REX_prefixes(ins)
 
   global INSTRUCTIONS
   INSTRUCTIONS[ins.mnemonic_disambiguated].unify(ins)
@@ -136,5 +164,5 @@ if __name__ == "__main__":
       gen_ins.add(str(ins))
 
     for ins in gen_ins:
-      print ins
+      print ins, ";"
     print

@@ -459,6 +459,10 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
+            // Start with all registers dead, in case a basic block somehow
+            // doesn't end with a CTI (as is the case with some test cases).
+            next_live_regs.kill_all();
+
             for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
                 prev_in = in.prev();
 
@@ -510,13 +514,18 @@ namespace client {
 #   endif /* WP_CHECK_FOR_USER_ADDRESS */
 #endif /* GRANARY_IN_KERNEL */
 
-                // TODO: debugging.
-                tracker.live_regs.revive_all();
-
                 // Before we do any mangling (which might spill registers), go
                 // and figure out what registers can never be spilled.
                 tracker.spill_regs.kill_all();
                 tracker.spill_regs.revive(in);
+
+                // Revive the counting register just in case some pre-mangling
+                // has occurred on these instructions.
+                if(dynamorio::OP_ins <= in.op_code()
+                && in.op_code() <= dynamorio::OP_repne_scas) {
+                    tracker.live_regs.revive(dynamorio::DR_REG_RCX);
+                    tracker.spill_regs.revive(dynamorio::DR_REG_RCX);
+                }
 
                 // Mangle the instruction. This makes it "safer" for use by
                 // later generic watchpoint instrumentation.

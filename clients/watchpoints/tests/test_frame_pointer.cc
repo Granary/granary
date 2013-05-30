@@ -68,7 +68,7 @@ namespace test {
 
         granary::app_pc mov((granary::app_pc) unwatched_move_fp);
         granary::basic_block call_mov(granary::code_cache::find(
-                mov, granary::policy_for<client::watchpoint_null_policy>()));
+            mov, granary::policy_for<client::watchpoint_null_policy>()));
 
         WP_FP_FOO = 1;
         call_mov.call<void>();

@@ -522,6 +522,7 @@ struct _opnd_t {
         reg_id_t segment : REG_SPECIFIER_BITS; /* BASE_DISP_kind, REL_ADDR_kind,
                                                 * and ABS_ADDR_kind */
         ushort disp;           /* MEM_INSTR_kind */
+        ushort shift;          /* INSTR_kind */
     } seg;
     union {
         /* all are 64 bits or less */
@@ -571,7 +572,7 @@ struct _opnd_t {
 /* DR_API EXPORT BEGIN */
 #ifdef DR_FAST_IR
 /** x86 operand kinds */
-enum op_kind_type {
+enum operand_kind_type {
     NULL_kind,
     IMMED_INTEGER_kind,
     IMMED_FLOAT_kind,
@@ -648,6 +649,17 @@ DR_API
  */
 opnd_t 
 opnd_create_instr(instr_t *instr);
+
+DR_API
+/**
+ * Returns an operand whose value will be the encoded address of \p
+ * instr.  This operand can be used as an immediate integer or as a
+ * direct call or jump target.  Its size is the specified \p size.
+ * Its value can be optionally right-shifted by \p shift from the
+ * encoded address.
+ */
+opnd_t
+opnd_create_instr_ex(instr_t *instr, opnd_size_t size, ushort shift);
 
 DR_API
 /**
@@ -753,7 +765,7 @@ DR_API
  *    needs to be specified for an absolute address; otherwise, simply
  *    use the desired short registers for base and/or index).
  *
- * (Both of those are false when using opnd_create_far_base_disp()).
+ * (All of these are false when using opnd_create_far_base_disp()).
  */
 opnd_t
 opnd_create_far_base_disp_ex(reg_id_t seg, reg_id_t base_reg, reg_id_t index_reg,
@@ -771,8 +783,12 @@ DR_API
  * opnd_create_base_disp(DR_REG_NULL, DR_REG_NULL, 0, (int)addr, data_size).
  *
  * Otherwise, this routine creates a separate operand type with an
- * absolute 64-bit memory address.  Note that such an operand can only be
- * used as a load or store from or to the rax register.
+ * absolute 64-bit memory address.  Such an operand can only be
+ * guaranteed to be encodable in absolute form as a load or store from
+ * or to the rax (or eax) register.  It will automatically be
+ * converted to a pc-relative operand (as though
+ * opnd_create_rel_addr() had been called) if it is used in any other
+ * way.
  */
 opnd_t 
 opnd_create_abs_addr(void *addr, opnd_size_t data_size);
@@ -788,8 +804,12 @@ DR_API
  * opnd_create_far_base_disp(seg, DR_REG_NULL, DR_REG_NULL, 0, (int)addr, data_size).
  *
  * Otherwise, this routine creates a separate operand type with an
- * absolute 64-bit memory address.  Note that such an operand can only be
- * used as a load or store from or to the rax register.
+ * absolute 64-bit memory address.  Such an operand can only be
+ * guaranteed to be encodable in absolute form as a load or store from
+ * or to the rax (or eax) register.  It will automatically be
+ * converted to a pc-relative operand (as though
+ * opnd_create_far_rel_addr() had been called) if it is used in any
+ * other way.
  */
 opnd_t 
 opnd_create_far_abs_addr(reg_id_t seg, void *addr, opnd_size_t data_size);
@@ -804,11 +824,23 @@ DR_API
  * if \p addr is out of reach of a 32-bit signed displacement from the
  * next instruction, encoding will fail.
  *
- * DR guarantees that all of its code caches and heap are within the
- * same 2GB memory region.  DR also loads client libraries within
- * 32-bit reachability of its code caches and heap.  This means that
- * any static data or code in a client library, or any data allocated
- * using DR's API, is guaranteed to be reachable from code cache code.
+ * DR guarantees that all of its code caches, all client libraries and
+ * Extensions (though not copies of system libraries), and all client
+ * memory allocated through dr_thread_alloc(), dr_global_alloc(),
+ * dr_nonheap_alloc(), or dr_custom_alloc() with
+ * #DR_ALLOC_CACHE_REACHABLE, can reach each other with a 32-bit
+ * displacement.  Thus, any normally-allocated data or any static data
+ * or code in a client library is guaranteed to be reachable from code
+ * cache code.  Memory allocated through system libraries (including
+ * malloc, operator new, and HeapAlloc) is not guaranteed to be
+ * reachable: only memory directly allocated via DR's API.  The
+ * runtime option -reachable_heap can be used to guarantee that
+ * all memory is reachable.
+ *
+ * If \p addr is not pc-reachable at encoding time and this operand is
+ * used in a load or store to or from the rax (or eax) register, an
+ * absolute form will be used (as though opnd_create_abs_addr() had
+ * been called).
  *
  * The operand has data size data_size (must be a OPSZ_ constant).
  *
@@ -829,11 +861,23 @@ DR_API
  * via a 32-bit signed displacement from the next instruction at emit
  * time.
  *
- * DR guarantees that all of its code caches and heap are within the
- * same 2GB memory region.  DR also loads client libraries within
- * 32-bit reachability of its code caches and heap.  This means that
- * any static data or code in a client library, or any data allocated
- * using DR's API, is guaranteed to be reachable from code cache code.
+ * DR guarantees that all of its code caches, all client libraries and
+ * Extensions (though not copies of system libraries), and all client
+ * memory allocated through dr_thread_alloc(), dr_global_alloc(),
+ * dr_nonheap_alloc(), or dr_custom_alloc() with
+ * #DR_ALLOC_CACHE_REACHABLE, can reach each other with a 32-bit
+ * displacement.  Thus, any normally-allocated data or any static data
+ * or code in a client library is guaranteed to be reachable from code
+ * cache code.  Memory allocated through system libraries (including
+ * malloc, operator new, and HeapAlloc) is not guaranteed to be
+ * reachable: only memory directly allocated via DR's API.  The
+ * runtime option -reachable_heap can be used to guarantee that
+ * all memory is reachable.
+ *
+ * If \p addr is not pc-reachable at encoding time and this operand is
+ * used in a load or store to or from the rax (or eax) register, an
+ * absolute form will be used (as though opnd_create_far_abs_addr()
+ * had been called).
  *
  * The operand has data size \p data_size (must be a OPSZ_ constant).
  *
@@ -1042,7 +1086,8 @@ opnd_get_size(opnd_t opnd);
 DR_API
 /** 
  * Sets the data size of \p opnd.
- * Assumes \p opnd is an immediate integer or a memory reference.
+ * Assumes \p opnd is an immediate integer, a memory reference,
+ * or an instr_t pointer address operand.
  */
 void   
 opnd_set_size(opnd_t *opnd, opnd_size_t newsize);
@@ -1086,6 +1131,11 @@ DR_API
 /** Assumes \p opnd is an instr_t (near, far, or memory) operand and returns its value. */
 instr_t*
 opnd_get_instr(opnd_t opnd);
+
+DR_API
+/** Assumes \p opnd is a near instr_t operand and returns its shift value. */
+ushort
+opnd_get_shift(opnd_t opnd);
 
 DR_API
 /**
@@ -1821,7 +1871,7 @@ struct _instr_t {
 
 DR_API
 /**
- * Returns an initialised instr_t allocated on the thread-local heap.
+ * Returns an initialized instr_t allocated on the thread-local heap.
  * Sets the x86/x64 mode of the returned instr_t to the mode of dcontext.
  */
 /* For -x86_to_x64, sets the mode of the instr to the code cache mode instead of
@@ -1830,7 +1880,7 @@ instr_t*
 instr_create(dcontext_t *dcontext);
 
 DR_API
-/** Initialises \p instr.
+/** Initializes \p instr.
  * Sets the x86/x64 mode of \p instr to the mode of dcontext.
  */
 void
@@ -1849,7 +1899,7 @@ instr_free(dcontext_t *dcontext, instr_t *instr);
 DR_API
 /**
  * Performs both instr_free() and instr_init().
- * \p instr must have been initialised.
+ * \p instr must have been initialized.
  */
 void
 instr_reset(dcontext_t *dcontext, instr_t *instr);
@@ -1860,7 +1910,7 @@ DR_API
  * except for allocated bits.
  * Also zeroes out \p instr's fields, except for raw bit fields,
  * whether \p instr is instr_ok_to_mangle(), and the x86 mode of \p instr.
- * \p instr must have been initialised.
+ * \p instr must have been initialized.
  */
 void
 instr_reuse(dcontext_t *dcontext, instr_t *instr);
@@ -2113,8 +2163,7 @@ DR_API
 /**
  * Returns a copy of \p orig with separately allocated memory for
  * operands and raw bytes if they were present in \p orig.
- * Cloning an instruction with a non-zero \p note field is not
- * supported.
+ * Only a shallow copy of the \p note field is made.
  */
 instr_t *
 instr_clone(dcontext_t *dcontext, instr_t *orig);
@@ -2149,7 +2198,7 @@ DR_API
  * Not to be confused with an invalid opcode, which can be OP_INVALID or
  * OP_UNDECODED.  OP_INVALID means an instruction with no valid fields:
  * raw bits (may exist but do not correspond to a valid instr), opcode,
- * eflags, or operands.  It could be an uninitialised
+ * eflags, or operands.  It could be an uninitialized
  * instruction or the result of decoding an invalid sequence of bytes.
  */
 bool 
@@ -2198,7 +2247,7 @@ instr_num_dsts(instr_t *instr);
 
 DR_API
 /**
- * Assumes that \p instr has been initialised but does not have any
+ * Assumes that \p instr has been initialized but does not have any
  * operands yet.  Allocates storage for \p num_srcs source operands
  * and \p num_dsts destination operands.
  */
@@ -2388,7 +2437,7 @@ DR_API
 /**
  * Allocates \p num_bytes of memory for \p instr's raw bits.
  * If \p instr currently points to raw bits, the allocated memory is
- * initialised with the bytes pointed to.
+ * initialized with the bytes pointed to.
  * \p instr is then set to point to the allocated memory.
  */
 void 
@@ -2938,7 +2987,7 @@ instr_compute_address_ex_pos(instr_t *instr, dr_mcontext_t *mc, uint index,
 bool
 instr_compute_address_ex_priv(instr_t *instr, priv_mcontext_t *mc, uint index,
                               OUT app_pc *addr, OUT bool *write, OUT uint *pos);
-#endif
+#endif /* GRANARY */
 DR_API
 /**
  * Calculates the size, in bytes, of the memory read or write of \p instr.
@@ -3064,7 +3113,7 @@ instr_is_cti_short_rewrite(instr_t *instr, byte *pc);
 
 byte *
 remangle_short_rewrite(dcontext_t *dcontext, instr_t *instr, byte *pc, app_pc target);
-#endif
+#endif /* GRANARY */
 
 DR_API
 /**
@@ -3314,7 +3363,7 @@ instr_create_nbyte_nop(dcontext_t *dcontext, uint num_bytes, bool raw);
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and no sources or destinations.
  */
 instr_t *
@@ -3322,7 +3371,7 @@ instr_create_0dst_0src(dcontext_t *dcontext, int opcode);
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and a single source (\p src).
  */
 instr_t *
@@ -3331,7 +3380,7 @@ instr_create_0dst_1src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and two sources (\p src1, \p src2).
  */
 instr_t *
@@ -3340,7 +3389,7 @@ instr_create_0dst_2src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode and three sources
  * (\p src1, \p src2, \p src3).
  */
@@ -3350,7 +3399,7 @@ instr_create_0dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode and one destination (\p dst).
  */
 instr_t *
@@ -3359,7 +3408,7 @@ instr_create_1dst_0src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination(\p dst),
  * and one source (\p src).
  */
@@ -3369,7 +3418,7 @@ instr_create_1dst_1src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and two sources (\p src1, \p src2).
  */
@@ -3379,7 +3428,7 @@ instr_create_1dst_2src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and three sources (\p src1, \p src2, \p src3).
  */
@@ -3389,7 +3438,7 @@ instr_create_1dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, one destination (\p dst),
  * and five sources (\p src1, \p src2, \p src3, \p src4, \p src5).
  */
@@ -3400,7 +3449,7 @@ instr_create_1dst_5src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and no sources.
  */
@@ -3410,7 +3459,7 @@ instr_create_2dst_0src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and one source (\p src).
  */
@@ -3420,7 +3469,7 @@ instr_create_2dst_1src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and two sources (\p src1, \p src2).
  */
@@ -3430,7 +3479,7 @@ instr_create_2dst_2src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and three sources (\p src1, \p src2, \p src3).
  */
@@ -3441,7 +3490,7 @@ instr_create_2dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated on the
+ * Convenience routine that returns an initialized instr_t allocated on the
  * thread-local heap with opcode \p opcode, two destinations (\p dst1, \p dst2)
  * and four sources (\p src1, \p src2, \p src3, \p src4).
  */
@@ -3452,7 +3501,7 @@ instr_create_2dst_4src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and no sources.
  */
@@ -3462,7 +3511,7 @@ instr_create_3dst_0src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and three sources 
  * (\p src1, \p src2, \p src3).
@@ -3474,7 +3523,7 @@ instr_create_3dst_3src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and four sources 
  * (\p src1, \p src2, \p src3, \p src4).
@@ -3486,7 +3535,7 @@ instr_create_3dst_4src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, three destinations
  * (\p dst1, \p dst2, \p dst3) and five sources
  * (\p src1, \p src2, \p src3, \p src4, \p src5).
@@ -3499,7 +3548,7 @@ instr_create_3dst_5src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, four destinations
  * (\p dst1, \p dst2, \p dst3, \p dst4) and 1 source (\p src).
  */
@@ -3510,7 +3559,7 @@ instr_create_4dst_1src(dcontext_t *dcontext, int opcode,
 
 DR_API
 /**
- * Convenience routine that returns an initialised instr_t allocated
+ * Convenience routine that returns an initialized instr_t allocated
  * on the thread-local heap with opcode \p opcode, four destinations
  * (\p dst1, \p dst2, \p dst3, \p dst4) and four sources
  * (\p src1, \p src2, \p src3, \p src4).
@@ -3521,12 +3570,12 @@ instr_create_4dst_4src(dcontext_t *dcontext, int opcode,
                        opnd_t src1, opnd_t src2, opnd_t src3, opnd_t src4);
 
 DR_API
-/** Convenience routine that returns an initialised instr_t for OP_popa. */
+/** Convenience routine that returns an initialized instr_t for OP_popa. */
 instr_t *
 instr_create_popa(dcontext_t *dcontext);
 
 DR_API
-/** Convenience routine that returns an initialised instr_t for OP_pusha. */
+/** Convenience routine that returns an initialized instr_t for OP_pusha. */
 instr_t *
 instr_create_pusha(dcontext_t *dcontext);
 
@@ -3534,7 +3583,7 @@ instr_create_pusha(dcontext_t *dcontext);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 1 byte (byte).
  */
 instr_t *
@@ -3542,7 +3591,7 @@ instr_create_raw_1byte(dcontext_t *dcontext, byte byte);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 2 bytes (byte1, byte2).
  */
 instr_t *
@@ -3550,7 +3599,7 @@ instr_create_raw_2bytes(dcontext_t *dcontext, byte byte1, byte byte2);
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 3 bytes (byte1, byte2, byte3).
  */
 instr_t *
@@ -3559,7 +3608,7 @@ instr_create_raw_3bytes(dcontext_t *dcontext, byte byte1,
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 4 bytes (byte1, byte2, byte3, byte4).
  */
 instr_t *
@@ -3568,7 +3617,7 @@ instr_create_raw_4bytes(dcontext_t *dcontext, byte byte1,
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 5 bytes (byte1, byte2, byte3, byte4, byte5).
  */
 instr_t *
@@ -3577,7 +3626,7 @@ instr_create_raw_5bytes(dcontext_t *dcontext, byte byte1,
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 6 bytes (byte1, byte2, byte3, byte4, byte5, byte6).
  */
 instr_t *
@@ -3586,7 +3635,7 @@ instr_create_raw_6bytes(dcontext_t *dcontext, byte byte1, byte byte2,
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7).
  */
@@ -3597,7 +3646,7 @@ instr_create_raw_7bytes(dcontext_t *dcontext, byte byte1, byte byte2,
 
 DR_UNS_API
 /**
- * Convenience routine that returns an initialised instr_t with invalid operands
+ * Convenience routine that returns an initialized instr_t with invalid operands
  * and allocated raw bits with 7 bytes (byte1, byte2, byte3, byte4, byte5, byte6,
  * byte7, byte8).
  */
@@ -3628,12 +3677,8 @@ instr_t * instr_create_restore_from_dc_via_reg(dcontext_t *dcontext, reg_id_t ba
 instr_t * instr_create_jump_via_dcontext(dcontext_t *dcontext, int offs);
 instr_t * instr_create_save_dynamo_stack(dcontext_t *dcontext);
 instr_t * instr_create_restore_dynamo_stack(dcontext_t *dcontext);
-#ifdef RETURN_STACK
-instr_t * instr_create_restore_dynamo_return_stack(dcontext_t *dcontext);
-instr_t * instr_create_save_dynamo_return_stack(dcontext_t *dcontext);
-#endif
 opnd_t update_dcontext_address(opnd_t op, dcontext_t *old_dcontext,
-                             dcontext_t *new_dcontext);
+                               dcontext_t *new_dcontext);
 opnd_t opnd_create_tls_slot(int offs);
 /* For size, use a OPSZ_ value from decode.h, typically OPSZ_1 or OPSZ_4 */
 opnd_t opnd_create_sized_tls_slot(int offs, opnd_size_t size);
@@ -3800,7 +3845,7 @@ enum { /* FIXME: vs RAW_OPCODE_* enum */
 /* This should be kept in sync w/ the defines in x86/x86.asm */
 enum {
 #ifdef X64
-# ifdef LINUX
+# ifdef UNIX
     /* SysV ABI calling convention */
     NUM_REGPARM          = 6,
     REGPARM_0            = REG_RDI,
@@ -4440,7 +4485,7 @@ enum op_code_type {
 /* 538 */     OP_palignr,        /* &prefix_extensions[133][0], */ /**< palignr opcode */
 
     /* SSE4 (incl AMD (SSE4A) and Intel-specific (SSE4.1, SSE4.2) extensions */
-/* 539 */     OP_popcnt,         /* &second_byte[0xb8], */ /**< popcnt opcode */
+/* 539 */     OP_popcnt,         /* &prefix_extensions[140][1], */ /**< popcnt opcode */
 /* 540 */     OP_movntss,        /* &prefix_extensions[11][1], */ /**< movntss opcode */
 /* 541 */     OP_movntsd,        /* &prefix_extensions[11][3], */ /**< movntsd opcode */
 /* 542 */     OP_extrq,          /* &prefix_extensions[134][2], */ /**< extrq opcode */

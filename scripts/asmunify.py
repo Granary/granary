@@ -10,6 +10,7 @@ Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 import collections
 import itertools
 
+
 from asmparser import *
 
 
@@ -247,7 +248,7 @@ class UnifiedInstruction(object):
       summary = "%s %s%s" % (
           " ".join(key[0]), # prefixes
           self.mnemonic.lower(), # mnemonic
-          "".join(s.lower() for s in key[1])) # suffixes
+          key[1] and key[1] or "") # suffixes
       uop_groups = itertools.product(
           *map(lambda uop: list(uop.summarize()), uops))
 

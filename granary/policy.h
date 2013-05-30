@@ -184,6 +184,8 @@ namespace granary {
             return policy;
         }
 
+    public:
+
         /// Invoke client code instrumentation.
         inline instrumentation_policy instrument(
             cpu_state_handle &cpu,
@@ -223,7 +225,7 @@ namespace granary {
         }
 #endif
 
-    public:
+
 
         /// Do not allow default initialisations of policies: require that they
         /// have IDs through some well-defined means.

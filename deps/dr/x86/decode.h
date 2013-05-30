@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -299,6 +299,10 @@ typedef struct decode_info_t {
     /* immed info */
     opnd_size_t size_immed;
     opnd_size_t size_immed2;
+    bool immed_pc_relativize:1;
+    bool immed_subtract_length:1;
+    bool immed_pc_rel_offs:1;
+    ushort immed_shift;
     ptr_int_t immed;
     ptr_int_t immed2; /* this additional field could be 32-bit on all platforms */
     /* These fields are only used when decoding rip-relative data refs */
@@ -667,7 +671,7 @@ DR_UNS_API
  * into \p instr.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialised, and uses the x86/x64 mode
+ * Assumes that \p instr is already initialized, and uses the x86/x64 mode
  * set for it rather than the current thread's mode!
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
@@ -683,7 +687,7 @@ DR_API
  * instruction's opcode, eflags usage, prefixes, and operands.
  * The instruction's raw bits are set to valid and pointed at \p pc
  * (xref instr_get_raw_bits()).
- * Assumes that \p instr is already initialised, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialized, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
@@ -708,7 +712,7 @@ DR_API
  * (see instr_get_translation()) is set to \p orig_pc.
  * The instruction's opcode, eflags usage, prefixes, and operands are
  * all filled in.
- * Assumes that \p instr is already initialised, but uses the x86/x64 mode
+ * Assumes that \p instr is already initialized, but uses the x86/x64 mode
  * for the thread \p dcontext rather than that set in instr.
  * If caller is re-using same instr_t struct over multiple decodings,
  * caller should call instr_reset() or instr_reuse().
