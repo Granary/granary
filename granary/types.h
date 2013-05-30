@@ -32,6 +32,8 @@ extern "C" {
 #endif
 
 
+#define __attribute__(...)
+
 #if GRANARY_IN_KERNEL
 
     /* Big hack: the kernel has it's own definition for bool, which we macro'd
@@ -60,6 +62,8 @@ extern "C" {
 #   undef restrict
 #   undef __restrict
 #endif
+
+#undef __attribute__
 
 #if defined(__clang__)
 #   pragma clang diagnostic pop
