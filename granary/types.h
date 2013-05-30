@@ -32,8 +32,6 @@ extern "C" {
 #endif
 
 
-#define __attribute__(...)
-
 #if GRANARY_IN_KERNEL
 
     /* Big hack: the kernel has it's own definition for bool, which we macro'd
@@ -52,7 +50,7 @@ extern "C" {
 #   include "granary/gen/kernel_types.h"
 #else
 #   define _Bool bool
-// OS X-specific hack.
+    // OS X-specific hack.
 #   ifdef __APPLE__
         typedef wchar_t __darwin_wchar_t;
 #   endif
@@ -62,8 +60,6 @@ extern "C" {
 #   undef restrict
 #   undef __restrict
 #endif
-
-#undef __attribute__
 
 #if defined(__clang__)
 #   pragma clang diagnostic pop
