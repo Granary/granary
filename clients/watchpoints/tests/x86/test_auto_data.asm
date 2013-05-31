@@ -347,7 +347,7 @@ GLOBAL_LABEL(granary_wp_auto_instructions_begin:)
     cmovgel (%r14),%r10d ;
     cmovgel (%r14,%r13,1),%r10d ;
 
-    crc32w (%r14),%r10d ;
+    crc32w (%rcx),%r10d ;
     crc32l (%r14),%r10d ;
     crc32b (%r14),%r10d ;
     crc32q (%r14),%r10 ;

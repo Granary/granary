@@ -125,14 +125,23 @@ def remove_REX_prefixes(ins):
   ins.prefixes = tuple(filter(lambda p: "REX" not in p, ins.prefixes))
 
 
+# Instructions to ignore.
+IGNORE = set([
+  "XSAVE", "XSAVE64", "XRSTOR", "XRSTOR64",
+  "LIDT", "SIDT", "LGDT", "SGDT",
+])
+
+
 # Decide whether or not to collect this instruction as a source
 # for test generation.
 def collect_instruction(ins):
+  global IGNORE
+  
   if ins.is_cti() \
   or not ins.accesses_memory() \
   or ins.operates_on_stack() \
   or ins.uses_fpu() \
-  or ins.mnemonic in ("XSAVE", "XSAVE64", "XRSTOR", "XRSTOR64"):
+  or ins.mnemonic in IGNORE:
     return
 
   # Drop the operands of string operations because they don't

@@ -70,26 +70,29 @@ void make_direct_call(void) throw() {
 
 #include "granary/test.h"
 int main(int argc, const char **argv) throw() {
+
+    using namespace granary;
+
 #if ENABLE_SEGFAULT_HANDLER
     signal(SIGSEGV, segfault_handler);
 #endif
     (void) argc;
     (void) argv;
 
-    granary::init();
+    init();
 
 #if CONFIG_RUN_TEST_CASES
-    granary::run_tests();
+    run_tests();
 #endif
 
 #if 0
-    granary::basic_block in_bb(granary::code_cache::find(
-        (granary::app_pc) make_indirect_call,
-        granary::policy_for<granary::test_policy>()));
+    basic_block in_bb(code_cache::find(
+        (app_pc) make_indirect_call,
+        policy_for<test_policy>()));
 
-    granary::basic_block dir_bb(granary::code_cache::find(
-        (granary::app_pc) make_direct_call,
-        granary::policy_for<granary::test_policy>()));
+    basic_block dir_bb(code_cache::find(
+        (app_pc) make_direct_call,
+        policy_for<test_policy>()));
 
     // warm up the code cache
     in_bb.call<void>();
@@ -128,7 +131,7 @@ int main(int argc, const char **argv) throw() {
         ticks_per_iter.count());
 #endif
 
-    IF_PERF( granary::perf::report(); )
+    IF_PERF( perf::report(); )
 
     return 0;
 }

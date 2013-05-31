@@ -2489,7 +2489,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             /* if OPCODE_{MODRM,SUFFIX} there can be no prefix-opcode byte */
             !TESTANY(OPCODE_MODRM|OPCODE_SUFFIX, info->opcode)) {
             /* prefix byte is part of opcode */
-            *field_ptr = (byte)(info->opcode >> 24); 
+            *field_ptr = (byte)(info->opcode >> 24);
             field_ptr++;
         }
 
@@ -2543,7 +2543,21 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     /* opcode depends on entire modrm byte */
     if (!TEST(REQUIRES_VEX, info->flags) && TEST(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
+#if 0 && defined(GRANARY)
+        enum {
+            MOD_EXT_LEN = 12
+        };
+
+        // Handle OP_clflush encoding issue.
+        byte mod_reg_rm = (byte)(info->opcode >> 24);
+        if(&(mod_extensions[3][0]) == info) {
+            mod_reg_rm = (mod_reg_rm & 0xF8) | di.rm;
+        }
+
+        *field_ptr = mod_reg_rm;
+#else
         *field_ptr = (byte)(info->opcode >> 24); 
+#endif /* GRANARY */
         field_ptr++;
         di.mod = 5; /* prevent modrm output from opnds below */
     }

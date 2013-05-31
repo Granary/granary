@@ -128,11 +128,15 @@ namespace test {
             ls.append(mov_imm_(operand(dead_reg), int64_(0)));
         }
 
-        // Read from the carry flag, if necessary.
+        // Read from the carry flag (revive it).
         if(config.carry_flag_live_after) {
             instruction target(label_());
             ls.append(jb_(instr_(target)));
             ls.append(target);
+
+        // Write to the carry flag (kill it).
+        } else {
+            ls.append(bt_(reg::rax, int8_(0)));
         }
 
         // Revive all the registers.
@@ -243,8 +247,6 @@ namespace test {
         ls.append(ret_());
 
         ls.encode(config.exec_code);
-
-        printf("Emitted code %p\n", config.exec_code);
     }
 
 
@@ -258,20 +260,144 @@ namespace test {
 
         register_manager dead_regs(input_config.dead_regs);
         dynamorio::reg_id_t dead_reg(dead_regs.get_zombie());
+
+        // Compare the flags.
+        if(!input_config.carry_flag_live_after) {
+            actual_output.flags.carry = desired_output.flags.carry;
+        }
+
+        // Print out the flags state on a failure.
+        if(actual_output.flags.value != desired_output.flags.value) {
+
+            printf("Tested instruction: %p\n", input_config.test_in_addr);
+            printf("Emitted code: %p\n", input_config.exec_code);
+
+            printf("          desired  actual\n");
+            printf("carry     %d       %d\n",
+                desired_output.flags.carry, actual_output.flags.carry);
+            printf("parity    %d       %d\n",
+                desired_output.flags.parity, actual_output.flags.parity);
+            printf("aux_carry %d       %d\n",
+                desired_output.flags.aux_carry, actual_output.flags.aux_carry);
+            printf("zero      %d       %d\n",
+                desired_output.flags.zero, actual_output.flags.zero);
+            printf("sign      %d       %d\n",
+                desired_output.flags.sign, actual_output.flags.sign);
+            return false;
+        }
+
+        // Compare the memory operands.
+        int cmp(memcmp(
+            &(desired_output.mem_value[0]),
+            &(actual_output.mem_value[0]),
+            (sizeof desired_output.mem_value[0]) * 4));
+
+        // Print out the memory value differences of the failure.
+        if(0 != cmp) {
+            printf("Tested instruction: %p\n", input_config.test_in_addr);
+            printf("Emitted code: %p\n", input_config.exec_code);
+
+            printf("        desired      actual\n");
+            printf("mem[0]  0x%016x  0x%016x\n",
+                desired_output.mem_value[0],
+                actual_output.mem_value[0]);
+            printf("mem[1]  0x%016x  0x%016x\n",
+                desired_output.mem_value[1],
+                actual_output.mem_value[1]);
+            printf("mem[2]  0x%016x  0x%016x\n",
+                desired_output.mem_value[2],
+                actual_output.mem_value[2]);
+            printf("mem[3]  0x%016x  0x%016x\n",
+                desired_output.mem_value[3],
+                actual_output.mem_value[3]);
+            return false;
+        }
+
+        // Force some registers to be equivalent.
         for(; dead_reg; dead_reg = dead_regs.get_zombie()) {
             actual_output.regs[dead_reg].value_64 = \
                 desired_output.regs[dead_reg].value_64;
         }
 
-        int cmp(memcmp(
+        // Compare the registers.
+        cmp = memcmp(
             &(desired_output.regs),
             &(actual_output.regs),
-            sizeof actual_output.regs));
+            sizeof actual_output.regs);
+
+        // Pint out the register state of the failure.
         if(0 != cmp) {
+            printf("Tested instruction: %p\n", input_config.test_in_addr);
+            printf("Emitted code: %p\n", input_config.exec_code);
+            printf("      desired       actual\n");
+            printf("rax:  0x%016x  0x%016x\n",
+                desired_output.regs.rax, actual_output.regs.rax);
+            printf("rcx:  0x%016x  0x%016x\n",
+                desired_output.regs.rcx, actual_output.regs.rcx);
+            printf("rdx:  0x%016x  0x%016x\n",
+                desired_output.regs.rdx, actual_output.regs.rdx);
+            printf("rbx:  0x%016x  0x%016x\n",
+                desired_output.regs.rbx, actual_output.regs.rbx);
+            printf("rbp:  0x%016x  0x%016x\n",
+                desired_output.regs.rbp, actual_output.regs.rbp);
+            printf("rsi:  0x%016x  0x%016x\n",
+                desired_output.regs.rsi, actual_output.regs.rsi);
+            printf("rdi:  0x%016x  0x%016x\n",
+                desired_output.regs.rdi, actual_output.regs.rdi);
+            printf("r8:   0x%016x  0x%016x\n",
+                desired_output.regs.r8, actual_output.regs.r8);
+            printf("r9:   0x%016x  0x%016x\n",
+                desired_output.regs.r9, actual_output.regs.r9);
+            printf("r10:  0x%016x  0x%016x\n",
+                desired_output.regs.r10, actual_output.regs.r10);
+            printf("r11:  0x%016x  0x%016x\n",
+                desired_output.regs.r11, actual_output.regs.r11);
+            printf("r12:  0x%016x  0x%016x\n",
+                desired_output.regs.r12, actual_output.regs.r12);
+            printf("r13:  0x%016x  0x%016x\n",
+                desired_output.regs.r13, actual_output.regs.r13);
+            printf("r14:  0x%016x  0x%016x\n",
+                desired_output.regs.r14, actual_output.regs.r14);
+            printf("r15:  0x%016x  0x%016x\n",
+                desired_output.regs.r15, actual_output.regs.r15);
             return false;
         }
 
         return true;
+    }
+
+
+    /// Run a test.
+    static void run_test(
+        test_config &input_config,
+        test_config &desired_output,
+        test_config &actual_output
+    ) {
+        using namespace granary;
+        test_config restore;
+
+        memcpy(&restore, &input_config, sizeof input_config);
+
+        void (*func)(void) = unsafe_cast<void (*)(void)>(input_config.exec_code);
+
+        // Get the expected output and test it against the basic instrumented
+        // output.
+        desired_output.instrument = false;
+        generate_code(input_config);
+        func();
+        memcpy(&desired_output, &input_config, sizeof actual_output);
+
+        // Run a basic version that is instrumented.
+        memcpy(&input_config, &restore, sizeof input_config);
+        actual_output.instrument = true;
+        generate_code(input_config);
+        func();
+        memcpy(&actual_output, &input_config, sizeof actual_output);
+
+        ASSERT(compare_output_configs(
+            input_config, desired_output, actual_output));
+
+        memcpy(&input_config, &restore, sizeof actual_output);
     }
 
 
@@ -280,46 +406,124 @@ namespace test {
     static void test_instruction(granary::instruction in) throw() {
         using namespace granary;
 
-        test_config config;
         test_config input_config;
-        test_config output_config;
+        test_config desired_output;
+        test_config actual_output;
 
-        memset(&config, 0, sizeof config);
+        memset(&input_config, 0, sizeof input_config);
 
         // Make sure the count register has a decent value just in case this
         // instruction has a REP prefix.
-        config.regs[dynamorio::DR_REG_RCX].value_64 = 1ULL;
+        input_config.regs[dynamorio::DR_REG_RCX].value_64 = 1ULL;
 
-        in.for_each_operand(visit_operand, config);
+        in.for_each_operand(visit_operand, input_config);
 
-        if(config.found_operand_error) {
+        if(input_config.found_operand_error) {
             return;
         }
 
-        config.flags = granary_load_flags();
-        config.flags.clear_arithmetic_flags();
-        config.test_in_addr = in.pc();
-        config.mem_value[0] = 0xBEEFBEEFBEEFBEEFULL;
-        config.mem_value[0] = 0xDEADDEADDEADDEADULL;
-        config.dead_regs.revive_all();
-        config.exec_code = global_state::FRAGMENT_ALLOCATOR-> \
+        input_config.flags = granary_load_flags();
+        input_config.flags.clear_arithmetic_flags();
+        input_config.test_in_addr = in.pc();
+        input_config.mem_value[0] = 0xBEEFBEEFBEEFBEEFULL;
+        input_config.mem_value[0] = 0xDEADDEADDEADDEADULL;
+        input_config.exec_code = global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>(PAGE_SIZE);
 
-        memcpy(&input_config, &config, sizeof config);
-        void (*func)(void) = unsafe_cast<void (*)(void)>(config.exec_code);
 
-        generate_code(config);
-        func();
-        memcpy(&output_config, &config, sizeof config);
+        // Run 1.1
+        input_config.dead_regs.revive_all();
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
 
-        // Run a basic version that is instrumented.
-        memcpy(&config, &input_config, sizeof config);
-        config.instrument = true;
-        generate_code(config);
-        func();
+        // Run 1.2
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
 
-        ASSERT(compare_output_configs(input_config, output_config, config));
+        // Run 1.3
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill_sources(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 1.4
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill_dests(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 2.1
+        input_config.dead_regs.revive_all();
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 2.2
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 2.3
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill_sources(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 2.4
+        input_config.dead_regs.revive_all();
+        input_config.dead_regs.kill_dests(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 3.1
+        input_config.dead_regs.kill_all();
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 3.2
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 3.3
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive_sources(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 3.3
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive_dests(in);
+        input_config.carry_flag_live_after = true;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 4.1
+        input_config.dead_regs.kill_all();
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 4.2
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 4.3
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive_sources(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
+
+        // Run 4.4
+        input_config.dead_regs.kill_all();
+        input_config.dead_regs.revive_dests(in);
+        input_config.carry_flag_live_after = false;
+        run_test(input_config, desired_output, actual_output);
     }
+
 
     /// Test that MOV instructions are correctly watched.
     static void test_watchpoints_on_instructions(void) {
@@ -329,7 +533,6 @@ namespace test {
         app_pc end(unsafe_cast<app_pc>(&granary_wp_auto_instructions_end));
         app_pc pc(begin);
         for(; pc < end; ) {
-            printf("Testing %p\n", pc);
             test_instruction(instruction::decode(&pc));
         }
     }

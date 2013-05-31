@@ -88,22 +88,52 @@ namespace granary {
 
 
         /// Forcibly kill all registers used within an instruction.
-        ///
-        /// Note: if the instruction is a call, then all scratch registers are
-        ///       killed as well.
         void kill(dynamorio::instr_t *) throw();
         inline void kill(instruction in) throw() {
             return kill(in.instr);
         }
 
 
+        /// Forcibly kill all source registers used within an instruction.
+        inline void kill_sources(dynamorio::instr_t *in) throw() {
+            kill(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        }
+        inline void kill_sources(instruction in) throw() {
+            return kill_sources(in.instr);
+        }
+
+
+        /// Forcibly kill all destination registers used within an instruction.
+        inline void kill_dests(dynamorio::instr_t *in) throw() {
+            kill(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
+        }
+        inline void kill_dests(instruction in) throw() {
+            return kill_dests(in.instr);
+        }
+
+
         /// Forcibly revive all registers used within an instruction.
-        ///
-        /// Note: if the instruction is a call, then all scratch registers are
-        ///       killed as well.
         void revive(dynamorio::instr_t *) throw();
         inline void revive(instruction in) throw() {
             return revive(in.instr);
+        }
+
+
+        /// Forcibly revive all source registers used within an instruction.
+        inline void revive_sources(dynamorio::instr_t *in) throw() {
+            revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        }
+        inline void revive_sources(instruction in) throw() {
+            return revive_sources(in.instr);
+        }
+
+
+        /// Forcibly revive all destination registers used within an instruction.
+        inline void revive_dests(dynamorio::instr_t *in) throw() {
+            revive(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
+        }
+        inline void revive_dests(instruction in) throw() {
+            return revive_dests(in.instr);
         }
 
 
