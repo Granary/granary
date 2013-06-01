@@ -22,8 +22,9 @@ INSTRUCTIONS = collections.defaultdict(UnifiedInstruction)
 
 
 # String instructions.
-STRING_OPS = set([
+REMOVE_OPERANDS = set([
   "INS", "MOVS", "OUTS", "LODS", "STOS", "CMPS", "SCAS", 
+  "XLAT",
 ])
 
 
@@ -57,7 +58,11 @@ class RegisterRenamer(object):
 
     # This is for backward compatibility issues as we don't want
     # to complicate this by having to introduce REX prefixes.
-    "SHR", "SHL", "SAR", "SAL",
+    "SHR", "SHL", "SAR", "SAL", "ROR", "ROL", "RCL", "RCR",
+
+    # This is for convenience, because not all registers are valid
+    # so assume the used ones are.
+    "MOVSX", "MOVZX"
   ])
 
   __slots__ = (
@@ -98,6 +103,21 @@ class RegisterRenamer(object):
       self._assign_new_reg(reg, cls)
     return self.used[reg]
 
+  #def _reg_string(self, ins):
+  #  reg_str = []
+  #  for op in ins.operands:
+  #    if isinstance(op, AddressOperand) \
+  #    or isinstance(op, RegisterOperand):
+  #      if op.base_register \
+  #      and Register.KIND_GENERAL_PURPOSE == op.base_register.kind:
+  #        reg_str.append(op.base_register)
+  #
+  #    if isinstance(op, AddressOperand) \
+  #    and op.index_register \
+  #    and Register.KIND_GENERAL_PURPOSE == op.index_register.kind:
+  #      reg_str.append(op.index_register)
+  #  return reg_str
+
   # Renames the registers of an instruction. We use the newer
   # 64-bit registers (r8-r15) to avoid tricky clashes with
   # implicit operands that aren't specified in the assembly.
@@ -129,6 +149,8 @@ def remove_REX_prefixes(ins):
 IGNORE = set([
   "XSAVE", "XSAVE64", "XRSTOR", "XRSTOR64",
   "LIDT", "SIDT", "LGDT", "SGDT",
+  "IN", "OUT",
+  "INVLPG"
 ])
 
 
@@ -136,7 +158,7 @@ IGNORE = set([
 # for test generation.
 def collect_instruction(ins):
   global IGNORE
-  
+
   if ins.is_cti() \
   or not ins.accesses_memory() \
   or ins.operates_on_stack() \
@@ -146,8 +168,8 @@ def collect_instruction(ins):
 
   # Drop the operands of string operations because they don't
   # assemble with GAS.
-  global STRING_OPS
-  if ins.mnemonic_disambiguated in STRING_OPS:
+  global REMOVE_OPERANDS
+  if ins.mnemonic_disambiguated in REMOVE_OPERANDS:
     ins.operands = []
 
   renamer = RegisterRenamer()

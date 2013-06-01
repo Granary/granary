@@ -459,10 +459,6 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
-            // Start with all registers dead, in case a basic block somehow
-            // doesn't end with a CTI (as is the case with some test cases).
-            next_live_regs.kill_all();
-
             for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
                 prev_in = in.prev();
 
@@ -505,6 +501,23 @@ namespace client {
                 if(!tracker.num_ops) {
                     continue;
                 }
+
+                // Note: Both sides are screwed up.
+                if(tracker.num_ops == 1) {
+                    continue;
+                }
+
+                // Both sides screwed up.
+                if(dynamorio::OP_rep_stos <= in.op_code()
+                && in.op_code() <= dynamorio::OP_repne_scas) {
+                    continue;
+                }
+
+                if(dynamorio::OP_rep_movs != in.op_code()) {
+                    continue;
+                }
+
+                granary_do_break_on_translate = true;
 
 #if GRANARY_IN_KERNEL
 #   if WP_CHECK_FOR_USER_ADDRESS

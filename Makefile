@@ -25,7 +25,15 @@ GR_CLEAN =
 GR_OUTPUT_FORMAT =
 
 # Compilation options
-GR_DEBUG_LEVEL = -g3 -O0
+GR_DEBUG_LEVEL = -g3 
+
+# Optimisation level.
+ifeq ($(KERNEL),0)
+	GR_DEBUG_LEVEL += -O0
+else
+	GR_DEBUG_LEVEL += -O3
+endif
+
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
 GR_ASM_FLAGS = -I$(PWD)

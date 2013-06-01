@@ -13,7 +13,7 @@ extern "C" {
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if 0 && CONFIG_RUN_TEST_CASES
 
 #include "clients/watchpoints/policies/null_policy.h"
 #include "clients/watchpoints/tests/pp.h"
@@ -403,7 +403,10 @@ namespace test {
 
     /// Test watchpoints on an individual instruction by testing various
     /// different configurations for the same instruction.
-    static void test_instruction(granary::instruction in) throw() {
+    static void test_instruction(
+        granary::instruction in,
+        granary::app_pc exec_code
+    ) throw() {
         using namespace granary;
 
         test_config input_config;
@@ -427,9 +430,8 @@ namespace test {
         input_config.test_in_addr = in.pc();
         input_config.mem_value[0] = 0xBEEFBEEFBEEFBEEFULL;
         input_config.mem_value[0] = 0xDEADDEADDEADDEADULL;
-        input_config.exec_code = global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(PAGE_SIZE);
-
+        input_config.exec_code = exec_code;
+        printf("Testing %p\n", in.pc());
 
         // Run 1.1
         input_config.dead_regs.revive_all();
@@ -525,17 +527,25 @@ namespace test {
     }
 
 
-    /// Test that MOV instructions are correctly watched.
+    /// Test that instructions derived from the Linux kernel, Python, Clang, and
+    /// KCacheGrind are correctly instrumented.
     static void test_watchpoints_on_instructions(void) {
         using namespace granary;
 
         app_pc begin(unsafe_cast<app_pc>(&granary_wp_auto_instructions_begin));
         app_pc end(unsafe_cast<app_pc>(&granary_wp_auto_instructions_end));
         app_pc pc(begin);
+        app_pc exec_code(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>(PAGE_SIZE));
+        cpu_state_handle cpu;
+        thread_state_handle thread;
+
         for(; pc < end; ) {
-            test_instruction(instruction::decode(&pc));
+            granary::enter(cpu, thread);
+            test_instruction(instruction::decode(&pc), exec_code);
         }
     }
+
 
     ADD_TEST(test_watchpoints_on_instructions,
         "Check that memory instructions from the Linux kernel can correctly "

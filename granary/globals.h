@@ -52,7 +52,7 @@
 
 
 /// Do pre-mangling of instructions with the REP prefix?
-#define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 1
+#define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
 
 /// Use an RCU-protected hash table for the global code cache lookups, or use
@@ -396,6 +396,13 @@ extern "C" {
 
     /// Get the current stack pointer.
     extern uint64_t granary_get_stack_pointer(void);
+
+
+#if CONFIG_ENABLE_ASSERTIONS
+    /// Used in conjunction with GDB to improve code cache debugging.
+    extern bool granary_do_break_on_translate;
+    extern void granary_break_on_translate(void *addr);
+#endif /* CONFIG_ENABLE_ASSERTIONS*/
 }
 
 

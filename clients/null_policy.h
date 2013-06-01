@@ -22,7 +22,7 @@ namespace client {
 
 
         enum {
-            AUTO_INSTRUMENT_HOST = true
+            AUTO_INSTRUMENT_HOST = false
         };
 
 

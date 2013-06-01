@@ -35,10 +35,11 @@ end
 
 
 # Granary breakpoints
+catch throw
 b granary_fault
 b granary_break_on_fault
 b granary_break_on_predict
-
+b granary_break_on_translate
 
 # Kernel breakpoints
 if !$__in_user_space
@@ -57,6 +58,14 @@ end
 
 # Just re-affirm it.
 set language c++
+
+
+# Simplify user-space debugging of a DLL using by doing the proper
+# environment setup.
+define dll
+  set env LD_PRELOAD=./libgranary.so
+  share ./libgranary.so
+end
 
 
 # p-bb-info ADDR

@@ -463,6 +463,36 @@ namespace granary {
         }
 
         live |= must_live;
+
+        // Handle special cases where there is a "recursive" dependency between
+        // the sources and destination operands, and so it's insufficient to
+        // simply kill the destination registers in some cases.
+        switch(in->opcode) {
+        case dynamorio::OP_rep_ins:
+        case dynamorio::OP_rep_stos:
+        case dynamorio::OP_rep_scas:
+        case dynamorio::OP_repne_scas:
+            revive_64(dynamorio::DR_REG_RDI);
+            revive_64(dynamorio::DR_REG_RCX);
+            break;
+
+        case dynamorio::OP_rep_outs:
+        case dynamorio::OP_rep_lods:
+            revive_64(dynamorio::DR_REG_RSI);
+            revive_64(dynamorio::DR_REG_RCX);
+            break;
+
+        case dynamorio::OP_rep_movs:
+        case dynamorio::OP_rep_cmps:
+        case dynamorio::OP_repne_cmps:
+            revive_64(dynamorio::DR_REG_RSI);
+            revive_64(dynamorio::DR_REG_RDI);
+            revive_64(dynamorio::DR_REG_RCX);
+            break;
+
+        default:
+            break;
+        }
     }
 
 

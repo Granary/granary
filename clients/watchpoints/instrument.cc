@@ -438,7 +438,13 @@ namespace client { namespace wp {
     ) throw() {
 
         instruction before(ls.insert_before(in, label_()));
-        instruction after(ls.insert_after(in, label_()));
+
+        // Need multiple `after` labels so that PUSHes and POPs are in the
+        // correct order.
+        instruction after[MAX_NUM_OPERANDS];
+        for(unsigned i(0); i < tracker.num_ops; ++i) {
+            after[i] = ls.insert_after(in, label_());
+        }
 
         // Figure out exactly which registers this (and only this) instruction
         // kills.
@@ -522,10 +528,6 @@ namespace client { namespace wp {
             if(addr_reg_is_only_op_reg) {
                 compute_addr = 0 != original_op.value.base_disp.disp
                             || 1 < original_op.value.base_disp.scale;
-            }
-
-            if(dynamorio::OP_clflush == in.op_code()) {
-                ASM("");
             }
 
             // If we aren't stealing the register that we will (in most cases)
@@ -696,23 +698,23 @@ namespace client { namespace wp {
                 // Restore the full register, because it has not been modified
                 // by this instruction.
                 if(restore_full_unwatched_reg) {
-                    ls.insert_before(after, mov_ld_(original_addr, addr));
+                    ls.insert_before(after[i], mov_ld_(original_addr, addr));
 
                 // Restore only the watched bits, because it the remaining bits
                 // have potentially been modified by this instruction.
                 } else {
-                    ls.insert_before(after, bswap_(original_addr));
-                    ls.insert_before(after, bswap_(addr));
-                    ls.insert_before(after, mov_st_(
+                    ls.insert_before(after[i], bswap_(original_addr));
+                    ls.insert_before(after[i], bswap_(addr));
+                    ls.insert_before(after[i], mov_st_(
                         original_addr_16,
                         operand(register_manager::scale(addr_reg, REG_16))));
-                    ls.insert_before(after, bswap_(original_addr));
+                    ls.insert_before(after[i], bswap_(original_addr));
                 }
             }
 
             // Restore the register if it was spilled.
             if(addr_reg_was_spilled) {
-                ls.insert_before(after, pop_(operand(addr_reg)));
+                ls.insert_before(after[i], pop_(operand(addr_reg)));
             }
         }
 
@@ -725,14 +727,14 @@ namespace client { namespace wp {
 
         // Restore the carry flag after executing the instruction.
         if(tracker.restore_carry_flag_after) {
-            ls.insert_before(after,
+            ls.insert_before(after[0],
                 bt_(operand(register_manager::scale(carry_flag, REG_16)),
                     int8_(0)));
         }
 
         // Restore the register used to spill the carry flag, if necessary.
         if(spilled_carry_flag) {
-            ls.insert_before(after, pop_(operand(carry_flag)));
+            ls.insert_before(after[0], pop_(operand(carry_flag)));
         }
     }
 }}

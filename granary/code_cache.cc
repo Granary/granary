@@ -18,6 +18,22 @@
 #include "granary/predict.h"
 
 
+#if CONFIG_ENABLE_ASSERTIONS
+extern "C" {
+
+    /// Runtime conditional value for triggering this breakpoint.
+    bool granary_do_break_on_translate = false;
+
+
+    /// Auto-added GDB breakpoint.
+    __attribute__((noinline, optimize("O0")))
+    void granary_break_on_translate(void *addr) {
+        ASM("nop;" :: "m"(addr));
+        (void) addr;
+    }
+}
+#endif /* CONFIG_ENABLE_ASSERTIONS */
+
 namespace granary {
 
     namespace {
@@ -146,8 +162,8 @@ namespace granary {
         mangled_address base_addr(app_target_addr, base_policy);
 
         // Policy has gone through a property conversion (e.g. host->app,
-        // app->host, indirect->direct). Check to see if we actually have the
-        // converted version in the code cache.
+        // app->host, indirect->direct, return->direct). Check to see if we
+        // actually have the converted version in the code cache.
         bool base_addr_exists(false);
         if(!target_addr && base_addr.as_address != addr.as_address) {
             if(CODE_CACHE->load(base_addr.as_address, target_addr)) {
@@ -171,10 +187,26 @@ namespace granary {
         // app or host code.
         bool created_bb(false);
         if(!target_addr) {
+
+            IF_TEST( granary_do_break_on_translate = false; )
+
             basic_block bb(basic_block::translate(
                 base_policy, cpu, thread, app_target_addr));
             target_addr = bb.cache_pc_start;
             created_bb = true;
+
+#if CONFIG_ENABLE_ASSERTIONS
+            // The trick here is that if we've got a particular buggy
+            // instrumentation policy and we're trying to debug it then we can
+            // "narrow down" on a bug by excluding certain cases (i.e. divide
+            // and conquer). We can tell GDB that we've narrowed down on a bug
+            // without constantly having to add conditional breakpoints by
+            // setting `granary_do_break_on_translate` to `true` and then
+            // letting the automatically added breakpoint in GDB do the rest.
+            if(granary_do_break_on_translate) {
+                granary_break_on_translate(target_addr);
+            }
+#endif
         }
 
         // If the base policy address isn't in the code cache yet, put it there.
