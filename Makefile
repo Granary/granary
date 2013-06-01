@@ -36,7 +36,7 @@ endif
 
 GR_LD_PREFIX_FLAGS = 
 GR_LD_SUFFIX_FLAGS = 
-GR_ASM_FLAGS = -I$(PWD)
+GR_ASM_FLAGS = -I$(PWD) -DGRANARY_IN_ASSEMBLY
 GR_CC_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(PWD) $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
@@ -101,6 +101,15 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_STD = -std=c++11 -stdlib=libc++
 	endif
+
+# Non-Clang; try to make libcxx work if specified.
+else
+	
+	# Enable the newer standard and use it with libc++ by giving a path
+	# to its library files.
+	ifeq ('1','$(GR_LIBCXX)')
+		GR_CXX_FLAGS += -I$(shell locate libcxx/include | head -n 1)
+	endif
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
@@ -111,7 +120,9 @@ endif
 
 ifneq (,$(findstring icc,$(GR_CC))) # icc
 	GR_CC_FLAGS += -diag-disable 188 -diag-disable 186 
-	GR_CXX_FLAGS += -D__GXX_EXPERIMENTAL_CXX0X__ -Dnullptr="((void *) 0)"
+	GR_CXX_FLAGS += -D__GXX_EXPERIMENTAL_CXX0X__
+	GR_CXX_FLAGS += -D_GLIBCXX_USE_C99_STDINT_TR1
+	GR_CXX_FLAGS += -Dnullptr="((void *) 0)"
 	GR_CXX_STD = -std=c++11
 endif
 

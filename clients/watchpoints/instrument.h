@@ -209,6 +209,18 @@ namespace client {
         ) throw();
 
 
+        /// Mangle an instruction that contains a memory reference using GS
+        /// or FS.
+        ///
+        /// Note: This maintains the proper associations inside of
+        ///       `tracker.ops`.
+        void mangle_segment_mem_ops(
+            granary::instruction_list &ls,
+            granary::instruction in,
+            watchpoint_tracker &tracker
+        ) throw();
+
+
         /// Small state machine to track whether or not we can clobber the carry
         /// flag. The carry flag is relevant because we use the BT instruction to
         /// determine if the address is a watched address.
@@ -503,11 +515,56 @@ namespace client {
                 }
 
                 // Note: Both sides are screwed up.
-                if(tracker.num_ops == 1) {
+                if(tracker.num_ops != 1) {
                     continue;
                 }
 
+                const operand_ref &o(tracker.ops[0]);
+
+                // memory operand is a source reg
+                if(SOURCE_OPERAND != o.kind) {
+                    continue;
+                }
+
+                // no index reg
+                if(o->value.base_disp.index_reg) {
+                    continue;
+                }
+
+                // no segment
+                if(o->seg.segment) {
+                    continue;
+                }
+
+                // no displacement
+                if(o->value.base_disp.disp) {
+                    continue;
+                }
+
+                // base reg is live
+                if(tracker.live_regs.is_dead(o->value.base_disp.base_reg)) {
+                    continue;
+                }
+
+                // mov_ld
+                if(55 != in.op_code()) {
+                    continue;
+                }
+
+                // no translation.
+                if(in.pc()) {
+                    continue;
+                }
+
+                //printf("%p\n", in.pc());
+
+                granary_do_break_on_translate = true;
+
+                //granary_do_break_on_translate = true;
+                //continue;
+                /*
                 // Both sides screwed up.
+
                 if(dynamorio::OP_rep_stos <= in.op_code()
                 && in.op_code() <= dynamorio::OP_repne_scas) {
                     continue;
@@ -517,8 +574,8 @@ namespace client {
                     continue;
                 }
 
-                granary_do_break_on_translate = true;
 
+                */
 #if GRANARY_IN_KERNEL
 #   if WP_CHECK_FOR_USER_ADDRESS
                 tracker.might_be_user_address = true;
@@ -532,14 +589,6 @@ namespace client {
                 tracker.spill_regs.kill_all();
                 tracker.spill_regs.revive(in);
 
-                // Revive the counting register just in case some pre-mangling
-                // has occurred on these instructions.
-                if(dynamorio::OP_ins <= in.op_code()
-                && in.op_code() <= dynamorio::OP_repne_scas) {
-                    tracker.live_regs.revive(dynamorio::DR_REG_RCX);
-                    tracker.spill_regs.revive(dynamorio::DR_REG_RCX);
-                }
-
                 // Mangle the instruction. This makes it "safer" for use by
                 // later generic watchpoint instrumentation.
                 instruction old_in(in);
@@ -549,6 +598,9 @@ namespace client {
                     tracker.in = in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
+
+                // Mangle memory operands using the FS and GS segment registers.
+                //mangle_segment_mem_ops(ls, in, tracker);
 
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )

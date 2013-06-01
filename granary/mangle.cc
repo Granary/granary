@@ -215,21 +215,32 @@ namespace granary {
         // normal base/disp kind, or a relative address, or an absolute
         // address.
         if(dynamorio::REG_kind != target.kind) {
+
+            bool mangled_target(false);
+
             if(dynamorio::REL_ADDR_kind == target.kind
             || dynamorio::opnd_is_abs_addr(target)) {
 
                 app_pc target_addr(target.value.pc);
 
-                // do an indirect load using abs address
+                // Do an indirect load using abs address.
                 if(is_far_away(target_addr, estimator_pc)) {
                     tail_bb.append(mov_imm_(
                         reg_target_addr,
                         int64_(reinterpret_cast<uint64_t>(target_addr))));
                     target = *reg_target_addr;
+                    mangled_target = true;
                 }
             }
 
             tail_bb.append(mov_ld_(reg_target_addr, target));
+
+            // Notify higher levels of instrumentation that might be doing
+            // memory operand interposition that this insruction should not be
+            // interposed on.
+            if(mangled_target) {
+                tail_bb.last().set_mangled();
+            }
 
         // Target is in a register.
         } else if(reg_target_addr.value.reg != target.value.reg) {
@@ -1231,7 +1242,7 @@ namespace granary {
             return;
         }
 
-        // it's an LEA to a far address; convert to a 64-bit move.
+        // It's an LEA to a far address; convert to a 64-bit move.
         app_pc target_pc(in.instr->u.o.src0.value.pc);
         if(is_far_away(estimator_pc, target_pc)) {
             in.replace_with(mov_imm_(

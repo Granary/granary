@@ -487,6 +487,7 @@ namespace granary {
 #if !GRANARY_IN_KERNEL
     enum {
         X86_INT3 = 0xCC,
+        X86_REPZ = 0xF3,
         X86_RET_SHORT = 0xC3
     };
 #endif
@@ -498,6 +499,15 @@ namespace granary {
     instruction instruction::decode(app_pc *pc) throw() {
         instruction self(make_instr());
         uint8_t *byte_pc(*pc);
+
+#if !GRANARY_IN_KERNEL
+        // Deal with `REPZ RET` in user space with potential GDB breakpoints.
+        if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
+        && X86_RET_SHORT == byte_pc[1]) {
+            ++*pc;
+            ++byte_pc;
+        }
+#endif
 
         *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, self.instr);
         dynamorio::decode(DCONTEXT, byte_pc, self.instr);

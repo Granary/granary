@@ -218,13 +218,13 @@ namespace client { namespace wp {
     ) throw() {
         instruction ret(in);
         dynamorio::reg_id_t spill_reg;
+        operand op(*(tracker.ops[0]));
 
         // Mangle a push instruction.
         switch(in.op_code()) {
 
         case dynamorio::OP_push: {
             spill_reg = tracker.live_regs.get_zombie();
-            operand op = *(tracker.ops[0]);
 
             // A dead register is available.
             if(spill_reg) {
@@ -235,11 +235,7 @@ namespace client { namespace wp {
 
             // We need to spill a register to emulate the PUSH.
             } else {
-                spill_reg = tracker.spill_regs.get_zombie();
-
-                ASSERT(spill_reg);
-
-                const operand dead_reg(spill_reg);
+                const operand dead_reg(tracker.spill_regs.get_zombie());
 
                 // Don't need to protect from the userspace redzone on a push.
                 ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
@@ -256,7 +252,6 @@ namespace client { namespace wp {
 
         case dynamorio::OP_pop: {
             spill_reg = tracker.live_regs.get_zombie();
-            operand op = *tracker.ops[0];
 
             // A dead register is available.
             if(spill_reg) {
@@ -268,10 +263,7 @@ namespace client { namespace wp {
 
             // We need to spill a register to emulate the POP.
             } else {
-                spill_reg = tracker.spill_regs.get_zombie();
-                ASSERT(spill_reg);
-
-                const operand dead_reg(spill_reg);
+                const operand dead_reg(tracker.spill_regs.get_zombie());
 
                 // Don't need to protect from the userspace redzone on a pop.
                 ret = ls.insert_before(in, push_(dead_reg));
@@ -293,7 +285,6 @@ namespace client { namespace wp {
 
             if(spill_reg) {
                 tracker.spill_regs.revive(spill_reg);
-
                 const operand dead_reg(spill_reg);
                 ls.insert_before(in, movzx_(dead_reg, reg::al));
                 ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
@@ -315,6 +306,63 @@ namespace client { namespace wp {
         }
 
         return ret;
+    }
+
+
+    /// Mangle an instruction that contains a memory reference using GS
+    /// or FS.
+    ///
+    /// Note: This maintains the proper associations inside of
+    ///       `tracker.ops`.
+    void mangle_segment_mem_ops(
+        instruction_list &ls,
+        instruction in,
+        watchpoint_tracker &tracker
+    ) throw() {
+        // Try to mangle segmentation with GS and FS.
+        if(1 != tracker.num_ops) {
+            return;
+        }
+
+        printf("a");
+        operand op(*(tracker.ops[0]));
+        printf("b");
+
+        if(dynamorio::DR_SEG_GS != op.seg.segment
+        && dynamorio::DR_SEG_FS != op.seg.segment) {
+            return;
+        }
+
+        dynamorio::reg_id_t spill_reg(tracker.live_regs.get_zombie());
+        dynamorio::reg_id_t seg_reg(op.seg.segment);
+
+        op.seg.segment = dynamorio::DR_REG_NULL;
+
+        if(spill_reg) {
+            operand spill(spill_reg);
+            operand spill_seg(spill);
+            spill_seg.seg.segment = seg_reg;
+
+            ls.insert_before(in, lea_(spill, op));
+            ls.insert_before(in, mov_ld_(spill, spill_seg));
+
+            tracker.ops[0] = *spill;
+            tracker.spill_regs.revive(spill_reg);
+
+        } else {
+            operand spill(tracker.spill_regs.get_zombie());
+            operand spill_seg(spill);
+            spill_seg.seg.segment = seg_reg;
+
+            ls.insert_before(in, push_(spill));
+            ls.insert_before(in, lea_(spill, op));
+            ls.insert_before(in, mov_ld_(spill, spill_seg));
+            ls.insert_after(in, pop_(spill));
+
+            tracker.ops[0] = *spill;
+        }
+
+        granary_do_break_on_translate = true;
     }
 
 
@@ -419,6 +467,9 @@ namespace client { namespace wp {
         }
 
         ls.insert_after(first, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+
+        // TODO: Try to merge adjacent redzone guards.
+
         ls.insert_before(last, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
     }
 #endif

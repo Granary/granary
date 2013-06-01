@@ -149,7 +149,12 @@
         test__.desc = test_desc; \
         granary::static_test_list::append(test__); \
     })
-#   define ASSERT(...) {if(!(__VA_ARGS__)) { FAULT; }}
+#   define ASSERT(...) { \
+        if(!(__VA_ARGS__)) { \
+            granary::printf("Assert failed: %s %d\n", __FILE__, __LINE__); \
+            FAULT; \
+        } \
+    }
 #endif
 
 #define ASM(...) __asm__ __volatile__ ( __VA_ARGS__ )
@@ -290,5 +295,10 @@
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
+#ifndef GRANARY_IN_ASSEMBLY
+namespace granary {
+    extern int printf(const char *, ...) throw();
+}
+#endif /* GRANARY_IN_ASSEMBLY */
 
 #endif /* Granary_PP_H_ */
