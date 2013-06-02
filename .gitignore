@@ -22,6 +22,7 @@
 *.dylib
 *.dump
 *.core
+core
 
 # Random things
 .settings

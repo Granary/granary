@@ -4,6 +4,10 @@ KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 PWD = $(shell pwd)
 UNAME = $(shell uname)
 
+# Conditional compilation for kernel code; useful for testing if Granary code
+# compiles independent of the Linux kernel.
+KERNEL ?= 1
+
 # Config
 GR_NAME = granary
 
@@ -55,10 +59,6 @@ GR_OUTPUT_TYPES =
 GR_OUTPUT_WRAPPERS =
 
 GR_TYPE_INCLUDE = 
-
-# Conditional compilation for kernel code; useful for testing if Granary code
-# compiles independent of the Linux kernel.
-KERNEL ?= 1
 
 # Enable address sanitizer on Granary? Default is 2, which means it is
 # "unsupported", i.e. llvm was not compiled with compiler-rt.

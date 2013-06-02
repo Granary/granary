@@ -168,9 +168,7 @@ namespace client { namespace wp {
     /// Small state machine to track whether or not we can clobber the carry
     /// flag. The carry flag is relevant because we use the BT instruction to
     /// determine if the address is a watched address.
-    void track_carry_flag(
-        watchpoint_tracker &tracker,
-        instruction in,
+    void watchpoint_tracker::track_carry_flag(
         bool &next_reads_carry_flag
     ) throw() {
         const unsigned eflags(dynamorio::instr_get_eflags(in));
@@ -178,64 +176,62 @@ namespace client { namespace wp {
         // Assume flags do not propagate through RETs or CALLs.
         if(in.is_return() || in.is_call()) {
             next_reads_carry_flag = false;
-            tracker.restore_carry_flag_before = false;
-            tracker.restore_carry_flag_after = false;
+            restore_carry_flag_before = false;
+            restore_carry_flag_after = false;
             return;
 
         // For a specific propagation for CTIs.
         } else if(in.is_cti()) {
             next_reads_carry_flag = true;
-            tracker.restore_carry_flag_before = true;
-            tracker.restore_carry_flag_after = false;
+            restore_carry_flag_before = true;
+            restore_carry_flag_after = false;
             return;
         }
 
         // Read-after-write dependency.
         if(eflags & EFLAGS_READ_CF) {
             next_reads_carry_flag = true;
-            tracker.restore_carry_flag_before = true;
-            tracker.restore_carry_flag_after = false;
+            restore_carry_flag_before = true;
+            restore_carry_flag_after = false;
 
         // Output dependency.
         } else if(eflags & EFLAGS_WRITE_CF) {
             next_reads_carry_flag = false;
-            tracker.restore_carry_flag_before = false;
-            tracker.restore_carry_flag_after = false;
+            restore_carry_flag_before = false;
+            restore_carry_flag_after = false;
 
         // Inherit
         } else {
-            tracker.restore_carry_flag_before = false;
-            tracker.restore_carry_flag_after = next_reads_carry_flag;
+            restore_carry_flag_before = false;
+            restore_carry_flag_after = next_reads_carry_flag;
         }
     }
 
 
     /// Perform watchpoint-specific mangling of an instruction.
-    instruction mangle(
-        instruction_list &ls,
-        instruction in,
-        watchpoint_tracker &tracker
-    ) throw() {
+    bool watchpoint_tracker::mangle(instruction_list &ls) throw() {
         instruction ret(in);
+        bool mangled(true);
         dynamorio::reg_id_t spill_reg;
-        operand op(*(tracker.ops[0]));
+        operand op(*(ops[0]));
 
         // Mangle a push instruction.
         switch(in.op_code()) {
 
         case dynamorio::OP_push: {
-            spill_reg = tracker.live_regs.get_zombie();
+            spill_reg = live_regs.get_zombie();
 
             // A dead register is available.
             if(spill_reg) {
+                spill_regs.revive(spill_reg);
+
                 const operand dead_reg(spill_reg);
                 ret = ls.insert_before(in, mov_ld_(dead_reg, op));
                 ls.insert_before(in, push_(dead_reg));
-                tracker.spill_regs.revive(spill_reg);
 
             // We need to spill a register to emulate the PUSH.
             } else {
-                const operand dead_reg(tracker.spill_regs.get_zombie());
+                const operand dead_reg(spill_regs.get_zombie());
 
                 // Don't need to protect from the userspace redzone on a push.
                 ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
@@ -251,23 +247,22 @@ namespace client { namespace wp {
         }
 
         case dynamorio::OP_pop: {
-            spill_reg = tracker.live_regs.get_zombie();
+            spill_reg = live_regs.get_zombie();
 
             // A dead register is available.
             if(spill_reg) {
+                spill_regs.revive(spill_reg);
+
                 const operand dead_reg(spill_reg);
-                ret = ls.insert_before(in, pop_(dead_reg));
-                ret.set_pc(in.pc());
+                ls.insert_before(in, pop_(dead_reg));
                 ret = ls.insert_before(in, mov_st_(op, dead_reg));
-                tracker.spill_regs.revive(spill_reg);
 
             // We need to spill a register to emulate the POP.
             } else {
-                const operand dead_reg(tracker.spill_regs.get_zombie());
+                const operand dead_reg(spill_regs.get_zombie());
 
                 // Don't need to protect from the userspace redzone on a pop.
-                ret = ls.insert_before(in, push_(dead_reg));
-                ret.set_pc(in.pc());
+                ls.insert_before(in, push_(dead_reg));
                 ls.insert_before(in, mov_ld_(dead_reg, reg::rsp[8]));
                 ret = ls.insert_before(in, mov_st_(op, dead_reg));
                 ls.insert_before(in, pop_(dead_reg));
@@ -281,16 +276,17 @@ namespace client { namespace wp {
         // Emulate an XLAT so there are so many annoying special cases with it
         // in later instrumentation.
         case dynamorio::OP_xlat: {
-            spill_reg = tracker.live_regs.get_zombie();
+            spill_reg = live_regs.get_zombie();
 
             if(spill_reg) {
-                tracker.spill_regs.revive(spill_reg);
+                spill_regs.revive(spill_reg);
+
                 const operand dead_reg(spill_reg);
                 ls.insert_before(in, movzx_(dead_reg, reg::al));
                 ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
                 ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
             } else {
-                const operand dead_reg(tracker.spill_regs.get_zombie());
+                const operand dead_reg(spill_regs.get_zombie());
                 ls.insert_before(in, push_(dead_reg));
                 ls.insert_before(in, movzx_(dead_reg, reg::al));
                 ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
@@ -302,10 +298,17 @@ namespace client { namespace wp {
             break;
         }
 
-        default: break;
+        default:
+            mangled = false;
+            break;
         }
 
-        return ret;
+        if(mangled) {
+            ret.set_pc(in.pc());
+            in = ret;
+        }
+
+        return mangled;
     }
 
 
@@ -314,18 +317,16 @@ namespace client { namespace wp {
     ///
     /// Note: This maintains the proper associations inside of
     ///       `tracker.ops`.
-    void mangle_segment_mem_ops(
-        instruction_list &ls,
-        instruction in,
-        watchpoint_tracker &tracker
+    void watchpoint_tracker::mangle_segment_mem_ops(
+        instruction_list &ls
     ) throw() {
         // Try to mangle segmentation with GS and FS.
-        if(1 != tracker.num_ops) {
+        if(1 != num_ops) {
             return;
         }
 
         printf("a");
-        operand op(*(tracker.ops[0]));
+        operand op(*(ops[0]));
         printf("b");
 
         if(dynamorio::DR_SEG_GS != op.seg.segment
@@ -333,7 +334,7 @@ namespace client { namespace wp {
             return;
         }
 
-        dynamorio::reg_id_t spill_reg(tracker.live_regs.get_zombie());
+        dynamorio::reg_id_t spill_reg(live_regs.get_zombie());
         dynamorio::reg_id_t seg_reg(op.seg.segment);
 
         op.seg.segment = dynamorio::DR_REG_NULL;
@@ -346,11 +347,11 @@ namespace client { namespace wp {
             ls.insert_before(in, lea_(spill, op));
             ls.insert_before(in, mov_ld_(spill, spill_seg));
 
-            tracker.ops[0] = *spill;
-            tracker.spill_regs.revive(spill_reg);
+            ops[0] = *spill;
+            spill_regs.revive(spill_reg);
 
         } else {
-            operand spill(tracker.spill_regs.get_zombie());
+            operand spill(spill_regs.get_zombie());
             operand spill_seg(spill);
             spill_seg.seg.segment = seg_reg;
 
@@ -359,7 +360,7 @@ namespace client { namespace wp {
             ls.insert_before(in, mov_ld_(spill, spill_seg));
             ls.insert_after(in, pop_(spill));
 
-            tracker.ops[0] = *spill;
+            ops[0] = *spill;
         }
 
         granary_do_break_on_translate = true;
@@ -370,26 +371,25 @@ namespace client { namespace wp {
     /// example, the BT instruction is used to both detect (and thus clobber
     /// CF) watchpoints, as well as to restore the carry flag, by testing the
     /// bit set with `SETcf` (`SETcc` variant).
-    static dynamorio::reg_id_t save_carry_flag(
+    dynamorio::reg_id_t watchpoint_tracker::save_carry_flag(
         instruction_list &ls,
         instruction before,
-        watchpoint_tracker &tracker,
         bool &spilled_carry_flag
     ) throw() {
 
         dynamorio::reg_id_t carry_flag(dynamorio::DR_REG_NULL);
         dynamorio::reg_id_t carry_flag_64(dynamorio::DR_REG_NULL);
 
-        if(!tracker.restore_carry_flag_before
-        && !tracker.restore_carry_flag_after) {
+        if(!restore_carry_flag_before
+        && !restore_carry_flag_after) {
             return carry_flag_64;
         }
 
-        carry_flag_64 = tracker.live_regs.get_zombie();
+        carry_flag_64 = live_regs.get_zombie();
 
         // We need to spill a register to store a carry flag.
         if(!carry_flag_64) {
-            carry_flag_64 = tracker.spill_regs.get_zombie();
+            carry_flag_64 = spill_regs.get_zombie();
             ASSERT(carry_flag_64);
 
             carry_flag = register_manager::scale(carry_flag_64, REG_8);
@@ -399,7 +399,7 @@ namespace client { namespace wp {
 
         // We can steal a register to store the carry flag.
         } else {
-            tracker.spill_regs.revive(carry_flag_64);
+            spill_regs.revive(carry_flag_64);
             carry_flag = register_manager::scale(carry_flag_64, REG_8);
         }
 
@@ -419,10 +419,7 @@ namespace client { namespace wp {
     ///
     /// If the pattern is matched then `tracker.might_be_user_address` is
     /// set to true.
-    void match_userspace_address_deref(
-        watchpoint_tracker &tracker,
-        instruction in
-    ) throw() {
+    void watchpoint_tracker::match_userspace_address_deref(void) throw() {
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
         };
@@ -434,7 +431,7 @@ namespace client { namespace wp {
         && 3 == in.next().encoded_size()
         && 3 == in.prev().encoded_size()) {
             const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-            tracker.might_be_user_address = (
+            might_be_user_address = (
                 0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
              && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
         }
@@ -482,18 +479,14 @@ namespace client { namespace wp {
     /// update the `sources` and `dests` field appropriately so that the
     /// `Watcher`s read/write visitors can access operands containing the
     /// watched addresses.
-    void visit_operands(
-        instruction_list &ls,
-        instruction in,
-        watchpoint_tracker &tracker
-    ) throw() {
+    void watchpoint_tracker::visit_operands(instruction_list &ls) throw() {
 
         instruction before(ls.insert_before(in, label_()));
 
         // Need multiple `after` labels so that PUSHes and POPs are in the
         // correct order.
         instruction after[MAX_NUM_OPERANDS];
-        for(unsigned i(0); i < tracker.num_ops; ++i) {
+        for(unsigned i(0); i < this->num_ops; ++i) {
             after[i] = ls.insert_after(in, label_());
         }
 
@@ -502,26 +495,30 @@ namespace client { namespace wp {
         register_manager regs_killed_by_in;
         regs_killed_by_in.visit_dests(in);
 
+        // The registers that can be used for storing our computed address.
+        register_manager regs_used_by_in;
+        regs_used_by_in.visit(in);
+
         // If an XMM reg is used then we can replace all operands.
-        if(tracker.spill_regs.has_live_xmm()) {
-            tracker.can_replace[0] = true;
-            tracker.can_replace[1] = true;
+        if(spill_regs.has_live_xmm()) {
+            can_replace[0] = true;
+            can_replace[1] = true;
         }
 
         // Save the carry flag.
         bool spilled_carry_flag(false);
-        dynamorio::reg_id_t carry_flag(save_carry_flag(
-            ls, before, tracker, spilled_carry_flag));
+        dynamorio::reg_id_t carry_flag(this->save_carry_flag(
+            ls, before, spilled_carry_flag));
 
         // The register that stores the (potentially) computed memory address.
         dynamorio::reg_id_t addr_reg;
 
-        for(unsigned i(0); i < tracker.num_ops; ++i) {
+        for(unsigned i(0); i < num_ops; ++i) {
 
             instruction not_a_watchpoint(label_());
-            const operand_ref &op(tracker.ops[i]);
+            const operand_ref &op(ops[i]);
             const operand original_op(*op);
-            const bool can_change(tracker.can_replace[i]);
+            const bool can_change(can_replace[i]);
             bool addr_reg_was_spilled(false);
 
             // Try to figure out if this operand is a base/disp type that is
@@ -537,19 +534,41 @@ namespace client { namespace wp {
 
             // Spill the register if necessary.
             bool addr_reg_is_only_op_reg(false);
-            addr_reg = tracker.live_regs.get_zombie();
+
+            // We have a special mechanism for determining if we need to restore
+            // `addr_reg`, so we don't go through the usual `live_regs`
+            // approach.
+
+            // We don't want to risk taking over a dead register if we can't
+            // change the original register, because if we can't change it then
+            // we might need to restore that register.
+            addr_reg = dynamorio::DR_REG_NULL;
+            if(can_change) {
+
+                // TODO: This is potentially unsafe!!! Hopefully the assertion
+                //       below when deciding if the register should be restored
+                //       will catch such unsafe cases ;-)
+                addr_reg = regs_used_by_in.get_zombie();
+            }
+
+            // Still try to steal if we couldn't above.
+            if(!addr_reg) {
+                addr_reg = live_regs.get_zombie();
+            } else {
+                live_regs.revive(addr_reg);
+            }
 
             // We've got to spill a register to store the computed (potentially)
             // watched address.
             if(!addr_reg) {
-                addr_reg = tracker.spill_regs.get_zombie();
+                addr_reg = spill_regs.get_zombie();
                 addr_reg_was_spilled = true;
                 addr_reg_is_only_op_reg = false;
                 ls.insert_before(before, push_(operand(addr_reg)));
 
             // We have stolen a register for storing the watched address.
             } else {
-                tracker.spill_regs.revive(addr_reg);
+                spill_regs.revive(addr_reg);
 
                 // Try to detect of addr_reg is the only register used in
                 // the operand.
@@ -627,7 +646,7 @@ namespace client { namespace wp {
              && can_change
              && addr_reg_is_only_op_reg
              && regs_killed_by_in.is_live(original_addr_reg)
-             && tracker.live_regs_after.is_live(original_addr_reg)
+             && live_regs_after.is_live(original_addr_reg)
             ));
 
             // Figure out if we need to restore `original_addr_reg` after the
@@ -638,7 +657,7 @@ namespace client { namespace wp {
             bool restore_unwatched_reg(false);
             bool restore_full_unwatched_reg(false);
             if(regs_killed_by_in.is_live(original_addr_reg)
-            && tracker.live_regs_after.is_live(original_addr_reg)
+            && live_regs_after.is_live(original_addr_reg)
             && (!addr_reg_was_spilled || original_addr_reg != addr_reg)) {
 
                 restore_unwatched_reg = true;
@@ -712,13 +731,23 @@ namespace client { namespace wp {
             ls.insert_before(before,
                 mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
 
+#if GRANARY_IN_KERNEL
+            /// Jump around user space addresses, if detected.
+            if(might_be_user_address) {
+                ls.insert_before(before,
+                    bt_(addr, int8_(DISTINGUISHING_BIT_OFFSET - 1)));
+                ls.insert_before(before,
+                    mangled(jnb_(instr_(not_a_watchpoint))));
+            }
+#endif
+
             // We've found a watched address.
             //
             // Note: we assume that higher level instrumentation will not
             //       clobber the operands from sources/dests.
-            tracker.labels[i] = ls.insert_before(before, label_());
-            tracker.regs[i] = addr;
-            tracker.sizes[i] = static_cast<operand_size>(
+            this->labels[i] = ls.insert_before(before, label_());
+            this->regs[i] = addr;
+            this->sizes[i] = static_cast<operand_size>(
                 dynamorio::opnd_size_in_bytes(original_op.size));
 
             // On the slow path, we might still need to restore `original_addr`
@@ -746,6 +775,9 @@ namespace client { namespace wp {
                 // Potentially a bug, or just an optimisation opportunity.
                 ASSERT(addr_reg != original_addr_reg);
 
+                // Can't restore from a killed register.
+                ASSERT(regs_killed_by_in.is_live(addr_reg));
+
                 // Restore the full register, because it has not been modified
                 // by this instruction.
                 if(restore_full_unwatched_reg) {
@@ -770,14 +802,14 @@ namespace client { namespace wp {
         }
 
         // Restore the carry flag before executing the instruction.
-        if(tracker.restore_carry_flag_before) {
+        if(this->restore_carry_flag_before) {
             ls.insert_before(before,
                 bt_(operand(register_manager::scale(carry_flag, REG_16)),
                     int8_(0)));
         }
 
         // Restore the carry flag after executing the instruction.
-        if(tracker.restore_carry_flag_after) {
+        if(this->restore_carry_flag_after) {
             ls.insert_before(after[0],
                 bt_(operand(register_manager::scale(carry_flag, REG_16)),
                     int8_(0)));

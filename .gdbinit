@@ -270,6 +270,31 @@ define p-trace-entry-bb
 end
 
 
+# p-trace-entry-regs N
+#
+# Prints the value of the registers on entry to the Nth trace log entry.
+define p-trace-entry-regs
+  set language c++
+  get-trace-entry $arg0
+  printf "Regs:\n"
+  printf "  r15: 0x%lx\n", $trace_entry->state.r15.value_64
+  printf "  r14: 0x%lx\n", $trace_entry->state.r14.value_64
+  printf "  r13: 0x%lx\n", $trace_entry->state.r13.value_64
+  printf "  r12: 0x%lx\n", $trace_entry->state.r12.value_64
+  printf "  r11: 0x%lx\n", $trace_entry->state.r11.value_64
+  printf "  r10: 0x%lx\n", $trace_entry->state.r10.value_64
+  printf "  r9:  0x%lx\n", $trace_entry->state.r9.value_64
+  printf "  r8:  0x%lx\n", $trace_entry->state.r8.value_64
+  printf "  rdi: 0x%lx\n", $trace_entry->state.rdi.value_64
+  printf "  rsi: 0x%lx\n", $trace_entry->state.rsi.value_64
+  printf "  rbp: 0x%lx\n", $trace_entry->state.rbp.value_64
+  printf "  rbx: 0x%lx\n", $trace_entry->state.rbx.value_64
+  printf "  rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
+  printf "  rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
+  printf "  rax: 0x%lx\n", $trace_entry->state.rax.value_64
+end
+
+
 # get-trace-cond-reg <min_trace> <str_reg_name> <str_bin_op> <int_value>
 #
 # Gets a pointer to a trace entry whose register meets a condition
@@ -341,23 +366,8 @@ define internal-bb-by-reg-cond
         reg, bin_op, val)
 
     printf "  [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
-    printf "Regs:\n"
-    printf "  r15: 0x%lx\n", $trace_entry->state.r15.value_64
-    printf "  r14: 0x%lx\n", $trace_entry->state.r14.value_64
-    printf "  r13: 0x%lx\n", $trace_entry->state.r13.value_64
-    printf "  r12: 0x%lx\n", $trace_entry->state.r12.value_64
-    printf "  r11: 0x%lx\n", $trace_entry->state.r11.value_64
-    printf "  r10: 0x%lx\n", $trace_entry->state.r10.value_64
-    printf "  r9:  0x%lx\n", $trace_entry->state.r9.value_64
-    printf "  r8:  0x%lx\n", $trace_entry->state.r8.value_64
-    printf "  rdi: 0x%lx\n", $trace_entry->state.rdi.value_64
-    printf "  rsi: 0x%lx\n", $trace_entry->state.rsi.value_64
-    printf "  rbp: 0x%lx\n", $trace_entry->state.rbp.value_64
-    printf "  rbx: 0x%lx\n", $trace_entry->state.rbx.value_64
-    printf "  rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
-    printf "  rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
-    printf "  rax: 0x%lx\n", $trace_entry->state.rax.value_64
-    printf "  "
+
+    p-trace-entry-regs $trace_entry_num
     printf "\n"
     p-bb $trace_entry->code_cache_addr
   end

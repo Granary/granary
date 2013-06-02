@@ -13,7 +13,9 @@ extern "C" {
 
 #include "granary/test.h"
 
-#if 0 && CONFIG_RUN_TEST_CASES
+#define RUN_AUTO_TESTS 0
+
+#if RUN_AUTO_TESTS && CONFIG_RUN_TEST_CASES
 
 #include "clients/watchpoints/policies/null_policy.h"
 #include "clients/watchpoints/tests/pp.h"

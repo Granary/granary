@@ -126,10 +126,16 @@ namespace client {
             /// Current instruction
             granary::instruction in;
 
-            /// Tracks which registers are live at the current instruction
-            /// that we are instrumenting.
+            /// Represents the set of instructions that we can legally save and
+            /// restore around the instrumented instruction without breaking
+            /// things.
             granary::register_manager live_regs;
+
+            /// Represents the set of registers that have already been spilled.
             granary::register_manager spill_regs;
+
+            /// Represents the set of registers that are actually live after
+            /// whatever instruction we're currently instrumenting.
             granary::register_manager live_regs_after;
 
             /// Direct references to the operands within an instruction.
@@ -165,6 +171,58 @@ namespace client {
             /// Track the carry flag.
             bool restore_carry_flag_before;
             bool restore_carry_flag_after;
+
+
+            /// Replace/update operands around the memory instruction. This will
+            /// update the `labels` field of the `operand_tracker` with labels in
+            /// instruction stream so that a `Watcher` can inject its own specific
+            /// instrumentation in at those well-defined points. This will also
+            /// update the `sources` and `dests` field appropriately so that the
+            /// `Watcher`s read/write visitors can access operands containing the
+            /// watched addresses.
+            void visit_operands(granary::instruction_list &) throw();
+
+
+            /// Perform watchpoint-specific mangling of an instruction.
+            bool mangle(granary::instruction_list &) throw();
+
+
+            /// Mangle an instruction that contains a memory reference using GS
+            /// or FS.
+            ///
+            /// Note: This maintains the proper associations inside of
+            ///       `tracker.ops`.
+            void mangle_segment_mem_ops(granary::instruction_list &ls) throw();
+
+
+            /// Small state machine to track whether or not we can clobber the carry
+            /// flag. The carry flag is relevant because we use the BT instruction to
+            /// determine if the address is a watched address.
+            void track_carry_flag(bool &) throw();
+
+
+            /// Save the carry flag, if needed. We use the carry flag extensively. For
+            /// example, the BT instruction is used to both detect (and thus clobber
+            /// CF) watchpoints, as well as to restore the carry flag, by testing the
+            /// bit set with `SETcf` (`SETcc` variant).
+            dynamorio::reg_id_t save_carry_flag(
+                granary::instruction_list &ls,
+                granary::instruction before,
+                bool &spilled_carry_flag
+            ) throw();
+
+
+#if GRANARY_IN_KERNEL
+            /// Tries to match a binary pattern of the form:
+            ///
+            ///     data32 xchg %ax, %ax
+            ///     <memory instruction>
+            ///     data32 xchg %ax, %ax
+            ///
+            /// If the pattern is matched then `tracker.might_be_user_address` is
+            /// set to true.
+            void match_userspace_address_deref(void) throw();
+#endif /* GRANARY_IN_KERNEL */
         };
 
 
@@ -184,64 +242,6 @@ namespace client {
             granary::instruction_list &ls,
             granary::instruction first,
             granary::instruction last
-        ) throw();
-
-
-        /// Replace/update operands around the memory instruction. This will
-        /// update the `labels` field of the `operand_tracker` with labels in
-        /// instruction stream so that a `Watcher` can inject its own specific
-        /// instrumentation in at those well-defined points. This will also
-        /// update the `sources` and `dests` field appropriately so that the
-        /// `Watcher`s read/write visitors can access operands containing the
-        /// watched addresses.
-        void visit_operands(
-            granary::instruction_list &,
-            granary::instruction,
-            watchpoint_tracker &
-        ) throw();
-
-
-        /// Perform watchpoint-specific mangling of an instruction.
-        granary::instruction mangle(
-            granary::instruction_list &,
-            granary::instruction,
-            watchpoint_tracker &
-        ) throw();
-
-
-        /// Mangle an instruction that contains a memory reference using GS
-        /// or FS.
-        ///
-        /// Note: This maintains the proper associations inside of
-        ///       `tracker.ops`.
-        void mangle_segment_mem_ops(
-            granary::instruction_list &ls,
-            granary::instruction in,
-            watchpoint_tracker &tracker
-        ) throw();
-
-
-        /// Small state machine to track whether or not we can clobber the carry
-        /// flag. The carry flag is relevant because we use the BT instruction to
-        /// determine if the address is a watched address.
-        void track_carry_flag(
-            watchpoint_tracker &,
-            granary::instruction,
-            bool &
-        ) throw();
-
-
-        /// Tries to match a binary pattern of the form:
-        ///
-        ///     data32 xchg %ax, %ax
-        ///     <memory instruction>
-        ///     data32 xchg %ax, %ax
-        ///
-        /// If the pattern is matched then `tracker.might_be_user_address` is
-        /// set to true.
-        void match_userspace_address_deref(
-            watchpoint_tracker &tracker,
-            granary::instruction in
         ) throw();
 
 
@@ -475,27 +475,22 @@ namespace client {
                 prev_in = in.prev();
 
                 memset(&tracker, 0, sizeof tracker);
+                tracker.in = in;
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
 
-                // Special case for XLAT; to expose the "full" watched address
-                // to higher-level instrumentation, we need to compute the full
-                // address, but doing so risks clobbering RBX or RAX if either
-                // is dead (RAX is potentially dead).
-                if(dynamorio::OP_xlat == in.op_code()) {
-                    tracker.live_regs.revive(in);
-                } else {
-                    tracker.live_regs.visit(in);
-                }
+                // Makes it so that we can't overwrite any registers used in
+                // the instruction.
+                tracker.live_regs.revive(in);
 
                 // Track the carry flag. The carry flag will be used to detect
                 // watched addresses.
-                wp::track_carry_flag(tracker, in, next_reads_carry_flag);
+                tracker.track_carry_flag(next_reads_carry_flag);
 
                 // Compute live regs for next iteration based on this
                 // instruction (before it is potentially modified, which would
                 // corrupt the live reg set going forward).
-                next_live_regs = tracker.live_regs;
+                next_live_regs.visit(in);
 
                 // Ignore two special purpose instructions which have memory-
                 // like operands but don't actually touch memory.
@@ -508,12 +503,12 @@ namespace client {
                 }
 
                 // Try to find memory operations.
-                tracker.in = in;
                 in.for_each_operand(wp::find_memory_operand, tracker);
                 if(!tracker.num_ops) {
                     continue;
                 }
 
+                /*
                 // Note: Both sides are screwed up.
                 if(tracker.num_ops != 1) {
                     continue;
@@ -526,8 +521,35 @@ namespace client {
                     continue;
                 }
 
+                // mov_ld
+                if(dynamorio::OP_mov_ld != in.op_code()) {
+                    continue;
+                }
+
+
                 // no index reg
                 if(o->value.base_disp.index_reg) {
+                    continue;
+                }
+                */
+
+                if(tracker.num_ops == 1) {
+                    const operand_ref &o(tracker.ops[0]);
+                    if(dynamorio::OP_ins <= in.op_code()
+                    && in.op_code() <= dynamorio::OP_repne_scas) {
+
+                    } else if(o->seg.segment == dynamorio::DR_SEG_GS
+                           || o->seg.segment == dynamorio::DR_SEG_FS) {
+                        granary_do_break_on_translate = true;
+                        continue;
+                    }
+                }
+
+                /*
+                const operand_ref &o(tracker.ops[0]);
+
+                // memory operand is a source reg
+                if(SOURCE_OPERAND != o.kind) {
                     continue;
                 }
 
@@ -541,24 +563,30 @@ namespace client {
                     continue;
                 }
 
-                // base reg is live
-                if(tracker.live_regs.is_dead(o->value.base_disp.base_reg)) {
+                // ! cmp
+                if(dynamorio::OP_cmp == in.op_code()) {
                     continue;
                 }
 
-                // mov_ld
-                if(55 != in.op_code()) {
+                if(dynamorio::OP_movsxd != in.op_code()) {
                     continue;
                 }
+                */
 
-                // no translation.
-                if(in.pc()) {
-                    continue;
-                }
+                //printf("%d\n", in.op_code());
 
-                //printf("%p\n", in.pc());
+                // has a translation.
+                //if(!in.pc()) {
+                //    continue;
+                //}
 
-                granary_do_break_on_translate = true;
+                //if(13 == ls.length()) {
+                //    continue;
+                //}
+
+                //ASM("int3;");
+
+                //granary_do_break_on_translate = true;
 
                 //granary_do_break_on_translate = true;
                 //continue;
@@ -580,7 +608,7 @@ namespace client {
 #   if WP_CHECK_FOR_USER_ADDRESS
                 tracker.might_be_user_address = true;
 #   else
-                wp::match_userspace_address_deref(tracker, in);
+                tracker.match_userspace_address_deref();
 #   endif /* WP_CHECK_FOR_USER_ADDRESS */
 #endif /* GRANARY_IN_KERNEL */
 
@@ -591,11 +619,9 @@ namespace client {
 
                 // Mangle the instruction. This makes it "safer" for use by
                 // later generic watchpoint instrumentation.
-                instruction old_in(in);
-                in = wp::mangle(ls, in, tracker);
-                if(in != old_in) {
+                if(tracker.mangle(ls)) {
                     tracker.num_ops = 0;
-                    tracker.in = in;
+                    in = tracker.in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
@@ -607,7 +633,7 @@ namespace client {
 
                 // Apply generic watchpoint instrumentation to the necessary
                 // operands.
-                wp::visit_operands(ls, in, tracker);
+                tracker.visit_operands(ls);
 
                 // Allow `Watcher` to add instrumentation within the existing
                 // watchpoint instrumentation. This gives it access to an

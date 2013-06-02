@@ -35,7 +35,7 @@ extern "C" {
 
     __attribute__((noinline, optimize("O0")))
     int granary_fault(void) {
-        ASM("int3; mov 0, %rax;");
+        ASM("int3; int3; mov 0, %rax;");
         return 1;
     }
 

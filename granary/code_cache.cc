@@ -21,13 +21,23 @@
 #if CONFIG_ENABLE_ASSERTIONS
 extern "C" {
 
-    /// Runtime conditional value for triggering this breakpoint.
+
+    /// Runtime conditional value for triggering a breakpoint on the following
+    /// function.
     bool granary_do_break_on_translate = false;
 
 
     /// Auto-added GDB breakpoint.
     __attribute__((noinline, optimize("O0")))
     void granary_break_on_translate(void *addr) {
+        //granary::printf("%p\n", addr);
+
+        //static int i(0);
+
+        //if(++i == 3) {
+        //   ASM("int3; int3;");
+        //}
+
         ASM("nop;" :: "m"(addr));
         (void) addr;
     }

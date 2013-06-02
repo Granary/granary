@@ -95,6 +95,8 @@
 #define FAULT (granary_break_on_fault(), granary_fault())
 #define FAULT_IF(...) if(__VA_ARGS__) { FAULT; }
 #define BARRIER ASM("" : : : "memory")
+#define UNUSED(var) ((void) var)
+#define USED(var) ASM("" :: "m"(var))
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
@@ -297,7 +299,7 @@
 
 #ifndef GRANARY_IN_ASSEMBLY
 namespace granary {
-    extern int printf(const char *, ...) throw();
+    extern int IF_USER_ELSE(printf, (*printf))(const char *, ...) throw();
 }
 #endif /* GRANARY_IN_ASSEMBLY */
 
