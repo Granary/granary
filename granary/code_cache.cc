@@ -28,18 +28,9 @@ extern "C" {
 
 
     /// Auto-added GDB breakpoint.
-    __attribute__((noinline, optimize("O0")))
+    DONT_OPTIMISE
     void granary_break_on_translate(void *addr) {
-        granary::printf("%p\n", addr);
-
-        //static int i(0);
-
-        //if(++i == 3) {
-        //   ASM("int3; int3;");
-        //}
-
-        ASM("nop;" :: "m"(addr));
-        (void) addr;
+        USED(addr);
     }
 }
 #endif /* CONFIG_ENABLE_ASSERTIONS */

@@ -98,8 +98,7 @@ namespace granary {
 
 
 	/// Detach Granary.
-	__attribute__((noinline, optimize("O0")))
-	void detach(void) throw();
+	DONT_OPTIMISE void detach(void) throw();
 
 }
 

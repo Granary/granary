@@ -47,22 +47,19 @@ enum {
     ITERATIONS = 10000000
 };
 
-__attribute__((noinline, optimize("O0")))
-void indirect_call_target(void) throw() {
+DONT_OPTIMISE void indirect_call_target(void) throw() {
     ASM("");
 }
 
 void (*indirect_func)(void) = indirect_call_target;
 
-__attribute__((noinline, optimize("O0")))
-void make_indirect_call(void) throw() {
+DONT_OPTIMISE void make_indirect_call(void) throw() {
     for(int i = 0; i < ITERATIONS; ++i) {
         indirect_func();
     }
 }
 
-__attribute__((noinline, optimize("O0")))
-void make_direct_call(void) throw() {
+DONT_OPTIMISE void make_direct_call(void) throw() {
     for(int i = 0; i < ITERATIONS; ++i) {
         indirect_call_target();
     }

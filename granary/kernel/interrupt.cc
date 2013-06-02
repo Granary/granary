@@ -320,21 +320,18 @@ namespace granary {
 
 
     extern "C" {
-        __attribute__((noinline, optimize("O0")))
-        void granary_break_on_interrupt(
+        DONT_OPTIMISE void granary_break_on_interrupt(
             granary::interrupt_stack_frame *isf,
             interrupt_vector vector,
             cpu_state_handle &cpu
         ) {
-            ASM("" :: "m"(isf), "m"(vector), "m"(cpu));
-            (void) isf;
-            (void) vector;
-            (void) cpu;
+            USED(isf);
+            USED(vector);
+            USED(cpu);
         }
 
 
-        __attribute__((noinline, optimize("O0")))
-        void granary_break_on_nested_task(void) {
+        DONT_OPTIMISE void granary_break_on_nested_task(void) {
             ASM("");
         }
     }

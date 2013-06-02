@@ -14,27 +14,23 @@ extern "C" {
 
 
 #if CONFIG_RUN_TEST_CASES
-    __attribute__((noinline, optimize("O0")))
-    int granary_test_return_true(void) {
+    DONT_OPTIMISE int granary_test_return_true(void) {
         return 1;
     }
 
-    __attribute__((noinline, optimize("O0")))
-    int granary_test_return_false(void) {
+    DONT_OPTIMISE int granary_test_return_false(void) {
         return 0;
     }
 #endif
 
 #if !GRANARY_IN_KERNEL
 
-    __attribute__((noinline, optimize("O0")))
-    void granary_break_on_fault(void) {
+    DONT_OPTIMISE void granary_break_on_fault(void) {
         ASM("");
     }
 
 
-    __attribute__((noinline, optimize("O0")))
-    int granary_fault(void) {
+    DONT_OPTIMISE int granary_fault(void) {
         ASM("int3; int3; mov 0, %rax;");
         return 1;
     }

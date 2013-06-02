@@ -17,7 +17,8 @@
 
 
 extern "C" {
-    __attribute__((noinline))
+
+    DONT_OPTIMISE
     void granary_break_on_predict(void) {
         ASM("");
     }

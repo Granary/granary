@@ -96,7 +96,8 @@
 #define FAULT_IF(...) if(__VA_ARGS__) { FAULT; }
 #define BARRIER ASM("" : : : "memory")
 #define UNUSED(var) ((void) var)
-#define USED(var) ASM("" :: "m"(var))
+#define USED(var) ASM("" :: "m"(var)); UNUSED(var)
+#define DONT_OPTIMISE __attribute__((noinline, optimize("O0")))
 
 #define IF_DEBUG(cond, expr) {if(cond) { expr; }}
 
