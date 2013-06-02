@@ -10,24 +10,24 @@ set language c++
 
 # set-user-detect
 #
-# Uses Python support to set the variable `$__in_user_space`
+# Uses Python support to set the variable `$in_user_space`
 # to `0` or `1` depending on whether we are instrumenting in
 # user space or kernel space, respectively.
 define set-user-detect
   python None ; \
     gdb.execute( \
-      "set $__in_user_space = %d" % int(None is not gdb.current_progspace().filename), \
+      "set $in_user_space = %d" % int(None is not gdb.current_progspace().filename), \
       from_tty=True, to_string=True)
 end
 
 
-# Detect if we're in user space and set `$__in_user_space`
+# Detect if we're in user space and set `$in_user_space`
 # appropriately.
 set-user-detect
 
 
 # Kernel setup
-if !$__in_user_space
+if !$in_user_space
   file ~/Code/linux-3.8.2/vmlinux
   target remote : 9999
   source ~/Code/Granary/granary.syms
@@ -42,7 +42,7 @@ b granary_break_on_predict
 b granary_break_on_translate
 
 # Kernel breakpoints
-if !$__in_user_space
+if !$in_user_space
   #b granary_break_on_interrupt
   b granary_break_on_nested_task
   b panic
@@ -65,6 +65,43 @@ set language c++
 define dll
   set env LD_PRELOAD=./libgranary.so
   share ./libgranary.so
+end
+
+
+# p-module-of <module address>
+#
+# Given a native address within a module that Granary instruments,
+# print the name of the module, and the offset within the module
+# of the module address.
+define p-module-of
+  set language c++
+  set $__module_address = (uint64_t) $arg0
+  set $__module = modules
+  set $__module_name = (const char *) 0
+  set $__module_begin = (uint64_t) 0
+  set $__module_offset = ~((uint64_t) 0)
+
+  while $__module
+    set $__this_module_begin = (uint64_t) $__module->text_begin
+    set $__this_module_end = (uint64_t) $__module->text_end
+    if $__module_address >= $__this_module_begin
+      if $__module_address < $__this_module_end
+        set $__module_offset = $__module_address - $__this_module_begin
+        set $__module_begin = $__this_module_begin
+        set $__module_name = $module->name
+      end
+    end
+    set $__module = $__module->next
+  end
+
+  if $__module_begin
+    p "Module containing address 0x%x:", $__module_address
+    p "  Module name: "
+    p $__module_name
+    p "  Relative offset in module '.text' section: 0x%x\n", $__module_offset
+  end
+
+  dont-repeat
 end
 
 
@@ -106,6 +143,13 @@ define p-bb-info
   else
     info sym granary::instrumentation_policy::APP_VISITORS[$__policy->u.id]
   end
+
+  # Print the module info for the app pc of this basic block.
+  if !$in_user_space
+    printf "\n"
+    p-module-of $__bb->generating_pc
+  end
+
   dont-repeat
 end
 
@@ -292,6 +336,7 @@ define p-trace-entry-regs
   printf "  rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
   printf "  rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
   printf "  rax: 0x%lx\n", $trace_entry->state.rax.value_64
+  dont-repeat
 end
 
 

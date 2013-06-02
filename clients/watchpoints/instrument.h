@@ -187,13 +187,14 @@ namespace client {
             bool mangle(granary::instruction_list &) throw();
 
 
+#if 0
             /// Mangle an instruction that contains a memory reference using GS
             /// or FS.
             ///
             /// Note: This maintains the proper associations inside of
             ///       `tracker.ops`.
             void mangle_segment_mem_ops(granary::instruction_list &ls) throw();
-
+#endif
 
             /// Small state machine to track whether or not we can clobber the carry
             /// flag. The carry flag is relevant because we use the BT instruction to

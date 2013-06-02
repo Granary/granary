@@ -312,6 +312,7 @@ namespace client { namespace wp {
     }
 
 
+#if 0
     /// Mangle an instruction that contains a memory reference using GS
     /// or FS.
     ///
@@ -365,6 +366,7 @@ namespace client { namespace wp {
 
         granary_do_break_on_translate = true;
     }
+#endif
 
 
     /// Save the carry flag, if needed. We use the carry flag extensively. For

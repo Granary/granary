@@ -126,14 +126,14 @@ namespace granary {
 
 
     /// Nice names for registers used by the IBL and RBL.
-    static operand reg_target_addr;
-    static operand reg_compare_addr;
-    static operand reg_compare_addr_32;
+    static operand reg_target_addr; // arg1, rdi
+    static operand reg_compare_addr; // rcx
+    static operand reg_compare_addr_32; // ecx
 
 
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-    static operand reg_predict_table_ptr;
-    static operand reg_predict_ptr;
+    static operand reg_predict_table_ptr; // arg2, rsi
+    static operand reg_predict_ptr; // ret, rax
 #endif
 
     STATIC_INITIALISE_ID(ibl_registers, {
@@ -218,7 +218,15 @@ namespace granary {
 
             bool mangled_target(false);
 
-            if(dynamorio::REL_ADDR_kind == target.kind
+            // Something like: `CALL *%FS:0xF00` or `CALL *%FS:%RAX` or
+            // `call *%FS:(%RAX);`.
+            if(dynamorio::DR_SEG_FS == target.seg.segment
+            || dynamorio::DR_SEG_GS == target.seg.segment) {
+
+                // Leave as is.
+
+            // Normal relative/absolute address.
+            } else if(dynamorio::REL_ADDR_kind == target.kind
             || dynamorio::opnd_is_abs_addr(target)) {
 
                 app_pc target_addr(target.value.pc);
