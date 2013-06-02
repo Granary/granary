@@ -29,10 +29,7 @@ namespace granary {
 
         /// Log the run of some code. This will add a lot of instructions to the
         /// beginning of an instruction list.
-        static void log_execution(
-            instruction_list &,
-            instrumentation_policy &
-        ) throw();
+        static void log_execution(instruction_list &) throw();
 
 
         /// A generic reverse-execution debugger.

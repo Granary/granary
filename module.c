@@ -313,22 +313,22 @@ static void preallocate_executable(void) {
     typedef void *(module_alloc_t)(unsigned long);
 
     enum {
-        _250_MB = 262144000,
-        _1_P = 4096,
-        _1_MB = 1048576
+        _1_MB = 1048576,
+        _100_MB = 100 * _1_MB,
+        _1_P = 4096
     };
 
     /// What is used internally by the kernel to allocate modules :D
     module_alloc_t *module_alloc_update_bounds  =
         (module_alloc_t *) DETACH_ADDR_module_alloc_update_bounds;
 
-    void *mem = module_alloc_update_bounds(_250_MB);
+    void *mem = module_alloc_update_bounds(_100_MB);
     if(!mem) {
         granary_fault();
     }
 
     EXEC_START = (unsigned long) mem;
-    EXEC_END = EXEC_START + _250_MB;
+    EXEC_END = EXEC_START + _100_MB;
 
     set_page_perms(
         set_memory_x,

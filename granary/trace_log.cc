@@ -78,10 +78,10 @@ namespace granary {
 
 
 #if CONFIG_TRACE_EXECUTION
-    app_pc trace_logger(bool in_xmm_context) throw() {
-        static volatile app_pc routine[2] = {nullptr};
-        if(routine[in_xmm_context]) {
-            return routine[in_xmm_context];
+    static app_pc trace_logger(void) throw() {
+        static volatile app_pc routine(nullptr);
+        if(routine) {
+            return routine;
         }
 
         instruction_list ls;
@@ -104,10 +104,10 @@ namespace granary {
         xmm_tail = ls.insert_after(in, label_());
 
 #   if !GRANARY_IN_KERNEL
-        if(in_xmm_context) {
-            in = save_and_restore_xmm_registers(
-                all_regs, ls, in, XMM_SAVE_ALIGNED);
-        }
+        // In some user space programs (e.g. kcachegrind), we need to
+        // unconditionally save all XMM registers.
+        in = save_and_restore_xmm_registers(
+            all_regs, ls, in, XMM_SAVE_ALIGNED);
 #   endif /* GRANARY_IN_KERNEL */
 
         in = insert_cti_after(ls, in,
@@ -127,7 +127,7 @@ namespace granary {
 
         BARRIER;
 
-        routine[in_xmm_context] = temp;
+        routine = temp;
         return temp;
     }
 #endif /* CONFIG_TRACE_EXECUTION */
@@ -135,10 +135,7 @@ namespace granary {
 
     /// Log the run of some code. This will add a lot of instructions to the
     /// beginning of an instruction list.
-    void trace_log::log_execution(
-        instruction_list &IF_TRACE(ls),
-        instrumentation_policy &IF_TRACE(policy)
-    ) throw() {
+    void trace_log::log_execution(instruction_list &IF_TRACE(ls)) throw() {
 #if CONFIG_TRACE_EXECUTION
         instruction in;
 
@@ -147,7 +144,7 @@ namespace granary {
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
         in = insert_cti_after(ls, in,
-            trace_logger(policy.is_in_xmm_context()),
+            trace_logger(),
             false, operand(),
             CTI_CALL);
 

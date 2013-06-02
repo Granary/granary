@@ -658,7 +658,7 @@ namespace granary {
 #if CONFIG_TRACE_EXECUTION
         // Add in logging at the beginning of the basic block so that we can
         // debug the flow of execution in the code cache.
-        trace_log::log_execution(ls, policy);
+        trace_log::log_execution(ls);
 #endif
 
         instruction bb_begin(ls.prepend(label_()));

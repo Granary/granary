@@ -75,8 +75,8 @@ end
 # of the module address.
 define p-module-of
   set language c++
-  set $__module_address = (uint64_t) $arg0
-  set $__module = modules
+  set $__func_address = (uint64_t) $arg0
+  set $__module = (struct kernel_module *) modules
   set $__module_name = (const char *) 0
   set $__module_begin = (uint64_t) 0
   set $__module_offset = ~((uint64_t) 0)
@@ -84,21 +84,20 @@ define p-module-of
   while $__module
     set $__this_module_begin = (uint64_t) $__module->text_begin
     set $__this_module_end = (uint64_t) $__module->text_end
-    if $__module_address >= $__this_module_begin
-      if $__module_address < $__this_module_end
-        set $__module_offset = $__module_address - $__this_module_begin
+    if $__func_address >= $__this_module_begin
+      if $__func_address < $__this_module_end
+        set $__module_offset = $__func_address - $__this_module_begin
         set $__module_begin = $__this_module_begin
-        set $__module_name = $module->name
+        set $__module_name = $__module->name
       end
     end
     set $__module = $__module->next
   end
 
   if $__module_begin
-    p "Module containing address 0x%x:", $__module_address
-    p "   Module name: "
-    p $__module_name
-    p "   Relative offset in module '.text' section: 0x%x\n", $__module_offset
+    printf "Module containing address 0x%lx:\n", $__func_address
+    printf "   Module name: %s\n", $__module_name
+    printf "   Relative offset in module '.text' section: 0x%x\n", $__module_offset
   end
 
   dont-repeat
@@ -127,6 +126,12 @@ define p-bb-info
   set $__policy_addr = &($__bb->policy_bits)
   set $__policy = ((granary::instrumentation_policy *) $__policy_addr)
 
+  # Print the module info for the app pc of this basic block.
+  if !$in_user_space
+    p-module-of $__bb->generating_pc
+    printf "\n"
+  end
+
   # Print the info.
   printf "Basic block info:\n"
   printf "   App address: %p\n", $__bb->generating_pc
@@ -142,12 +147,6 @@ define p-bb-info
     info sym granary::instrumentation_policy::HOST_VISITORS[$__policy->u.id]
   else
     info sym granary::instrumentation_policy::APP_VISITORS[$__policy->u.id]
-  end
-
-  # Print the module info for the app pc of this basic block.
-  if !$in_user_space
-    printf "\n"
-    p-module-of $__bb->generating_pc
   end
 
   dont-repeat
