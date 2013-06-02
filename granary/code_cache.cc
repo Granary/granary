@@ -30,7 +30,7 @@ extern "C" {
     /// Auto-added GDB breakpoint.
     __attribute__((noinline, optimize("O0")))
     void granary_break_on_translate(void *addr) {
-        //granary::printf("%p\n", addr);
+        granary::printf("%p\n", addr);
 
         //static int i(0);
 

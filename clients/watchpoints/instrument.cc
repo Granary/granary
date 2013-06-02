@@ -208,6 +208,18 @@ namespace client { namespace wp {
     }
 
 
+    /// Get an operand reference to a source operand that is `%RSP`.
+    static void get_rsp(operand_ref op, operand_ref &rsp_op) throw() {
+        if(SOURCE_OPERAND != op.kind
+        || dynamorio::REG_kind != op->kind
+        || dynamorio::DR_REG_RSP != op->value.reg) {
+            return;
+        }
+
+        rsp_op = op;
+    }
+
+
     /// Perform watchpoint-specific mangling of an instruction.
     bool watchpoint_tracker::mangle(instruction_list &ls) throw() {
         instruction ret(in);
@@ -298,10 +310,44 @@ namespace client { namespace wp {
             break;
         }
 
-        default:
+        // Look for something like `MOV %RSP, ...(%...);`.
+        default: {
+
+            // In this case, it doesn't matter if we mangle the instruction
+            // because we are not changing any of the memory operands.
             mangled = false;
+
+
+            if(1 < num_ops || DEST_OPERAND != ops[0].kind) {
+                break;
+            }
+
+            operand_ref rsp_op;
+            in.for_each_operand(get_rsp, rsp_op);
+            if(!rsp_op.is_valid()) {
+                break;
+            }
+
+            spill_reg = live_regs.get_zombie();
+
+            if(spill_reg) {
+                spill_regs.revive(spill_reg);
+
+                const operand dead_reg(spill_reg);
+                ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
+                rsp_op = dead_reg;
+
+            } else {
+                const operand dead_reg(spill_regs.get_zombie());
+                ls.insert_before(in, push_(dead_reg));
+                ls.insert_before(in, lea_(dead_reg, reg::rsp[8]));
+                ls.insert_after(in, pop_(dead_reg));
+                rsp_op = dead_reg;
+            }
+
             break;
-        }
+        } // end default case.
+        } // end switch
 
         if(mangled) {
             ret.set_pc(in.pc());
@@ -419,8 +465,7 @@ namespace client { namespace wp {
     ///     <memory instruction>
     ///     data32 xchg %ax, %ax
     ///
-    /// If the pattern is matched then `tracker.might_be_user_address` is
-    /// set to true.
+    /// If the pattern is matched then `check_bit_47` is set to true.
     void watchpoint_tracker::match_userspace_address_deref(void) throw() {
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
@@ -433,7 +478,7 @@ namespace client { namespace wp {
         && 3 == in.next().encoded_size()
         && 3 == in.prev().encoded_size()) {
             const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-            might_be_user_address = (
+            check_bit_47 = (
                 0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
              && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
         }
@@ -733,15 +778,15 @@ namespace client { namespace wp {
             ls.insert_before(before,
                 mangled(IF_USER_ELSE(jnb_, jb_)(instr_(not_a_watchpoint))));
 
-#if GRANARY_IN_KERNEL
-            /// Jump around user space addresses, if detected.
-            if(might_be_user_address) {
+            /// Check that bit 47 has the expected state. In kernel space, this
+            /// detects a user space address. In user space, this applies to
+            /// segment offsets.
+            if(check_bit_47) {
                 ls.insert_before(before,
                     bt_(addr, int8_(DISTINGUISHING_BIT_OFFSET - 1)));
                 ls.insert_before(before,
-                    mangled(jnb_(instr_(not_a_watchpoint))));
+                    mangled(IF_USER_ELSE(jb_, jnb_)(instr_(not_a_watchpoint))));
             }
-#endif
 
             // We've found a watched address.
             //

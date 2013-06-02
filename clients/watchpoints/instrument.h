@@ -158,12 +158,15 @@ namespace client {
             /// The operand sizes of each of the memory operands.
             operand_size sizes[MAX_NUM_OPERANDS];
 
-#if GRANARY_IN_KERNEL
-            /// Whether any one of the addresses might be a user space address,
-            /// which means all could be. This is deduced by looking for certain
-            /// binary patterns.
-            bool might_be_user_address;
-#endif
+            /// Kernel space:
+            ///     Applies if we detect a specific binary pattern, or if we
+            ///     have auto-detection of user space addresses enabled. Here,
+            ///     if bit 47 is 0 then we assume it's a user space address.
+            ///
+            /// User space:
+            ///     Applied when we have %FS- and %GS-segmented memory operands.
+            ///     We assume that indexes with bit 47 set to 1 are unwatched.
+            bool check_bit_47;
 
             /// The number of operands that need to be instrumented.
             unsigned num_ops;
@@ -498,6 +501,7 @@ namespace client {
                 if(dynamorio::OP_lea == in.op_code()
                 || dynamorio::OP_nop_modrm == in.op_code()
                 || dynamorio::OP_leave == in.op_code()
+                || dynamorio::OP_enter == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
                     continue;
@@ -509,30 +513,72 @@ namespace client {
                     continue;
                 }
 
-                /*
-                // Note: Both sides are screwed up.
+                // Only one operand.
                 if(tracker.num_ops != 1) {
                     continue;
                 }
 
                 const operand_ref &o(tracker.ops[0]);
 
-                // memory operand is a source reg
-                if(SOURCE_OPERAND != o.kind) {
+                // memory operand is a destination
+                if(SOURCE_OPERAND == o.kind) {
                     continue;
                 }
 
-                // mov_ld
-                if(dynamorio::OP_mov_ld != in.op_code()) {
+                if(dynamorio::OP_mov_st != in.op_code()) {
                     continue;
                 }
-
 
                 // no index reg
                 if(o->value.base_disp.index_reg) {
                     continue;
                 }
-                */
+
+                // has no segment
+                if(o->seg.segment) {
+                    continue;
+                }
+
+                // has a displacement
+                if(!o->value.base_disp.disp) {
+                    continue;
+                }
+
+                // base reg is live after
+                if(tracker.live_regs_after.is_dead(o->value.base_disp.base_reg)) {
+                    continue;
+                }
+
+                // base reg is rbx
+                if(dynamorio::DR_REG_RBX != o->value.base_disp.base_reg) {
+                    continue;
+                }
+
+                // 10 or more instructions
+                if(ls.length() < 10) {
+                    continue;
+                }
+
+                if(16 != ls.length()) {
+                    continue;
+                }
+
+                printf("%d\n", ls.length());
+
+                granary_do_break_on_translate = true;
+
+                //printf("%d\n", in.op_code());
+
+                /*
+
+
+
+
+                granary_do_break_on_translate = true;
+*/
+                /*
+
+
 
                 if(tracker.num_ops == 1) {
                     const operand_ref &o(tracker.ops[0]);
@@ -545,7 +591,7 @@ namespace client {
                         continue;
                     }
                 }
-
+                */
                 /*
                 const operand_ref &o(tracker.ops[0]);
 
@@ -607,10 +653,19 @@ namespace client {
                 */
 #if GRANARY_IN_KERNEL
 #   if WP_CHECK_FOR_USER_ADDRESS
-                tracker.might_be_user_address = true;
+                tracker.check_bit_47 = true;
 #   else
                 tracker.match_userspace_address_deref();
 #   endif /* WP_CHECK_FOR_USER_ADDRESS */
+#else
+                if(1 == tracker.num_ops) {
+                    const operand_ref &only_op(tracker.ops[0]);
+                    if(dynamorio::DR_SEG_GS == only_op->seg.segment
+                    || dynamorio::DR_SEG_FS == only_op->seg.segment) {
+                        tracker.check_bit_47 = true;
+                        continue;
+                    }
+                }
 #endif /* GRANARY_IN_KERNEL */
 
                 // Before we do any mangling (which might spill registers), go

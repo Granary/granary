@@ -96,9 +96,9 @@ define p-module-of
 
   if $__module_begin
     p "Module containing address 0x%x:", $__module_address
-    p "  Module name: "
+    p "   Module name: "
     p $__module_name
-    p "  Relative offset in module '.text' section: 0x%x\n", $__module_offset
+    p "   Relative offset in module '.text' section: 0x%x\n", $__module_offset
   end
 
   dont-repeat
@@ -129,15 +129,15 @@ define p-bb-info
 
   # Print the info.
   printf "Basic block info:\n"
-  printf "  App address: %p\n", $__bb->generating_pc
-  printf "  Stub instructions: %p\n", ($arg0 - $__bb->num_bytes)
-  printf "  Instructions: %p\n", ($arg0 - $__bb->num_bytes + $__bb->num_patch_bytes)
-  printf "  Is indirect CTI target: %d\n", $__policy->u.is_indirect_target
-  printf "  Is return target: %d\n", $__policy->u.is_return_target
-  printf "  Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
-  printf "  Is in host context: %d\n", $__policy->u.is_in_host_context
-  printf "  Policy ID: %d\n", $__policy->u.id
-  printf "  Instrumentation Function: "
+  printf "   App address: %p\n", $__bb->generating_pc
+  printf "   Stub instructions: %p\n", ($arg0 - $__bb->num_bytes)
+  printf "   Instructions: %p\n", ($arg0 - $__bb->num_bytes + $__bb->num_patch_bytes)
+  printf "   Is indirect CTI target: %d\n", $__policy->u.is_indirect_target
+  printf "   Is return target: %d\n", $__policy->u.is_return_target
+  printf "   Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
+  printf "   Is in host context: %d\n", $__policy->u.is_in_host_context
+  printf "   Policy ID: %d\n", $__policy->u.id
+  printf "   Instrumentation Function: "
   if 1 == $__policy->u.is_in_host_context
     info sym granary::instrumentation_policy::HOST_VISITORS[$__policy->u.id]
   else
@@ -230,9 +230,9 @@ define p-bb
 
   p-bb-info $__bb_info
   
-  printf "  Number of stub instructions: %d\n", $__num_stub_ins
-  printf "  Number of translated instructions: %d\n", $__num_trans_ins
-  printf "  Number of original instructions: %d\n", $__num_ins
+  printf "   Number of stub instructions: %d\n", $__num_stub_ins
+  printf "   Number of translated instructions: %d\n", $__num_trans_ins
+  printf "   Number of original instructions: %d\n", $__num_ins
   dont-repeat
 end
 
@@ -244,9 +244,9 @@ define p-wrapper
   set language c++
   set $__w = &(granary::FUNCTION_WRAPPERS[(int) $arg0])
   printf "Function wrapper %s (%d):\n", $__w->name, (int) $arg0
-  printf "  Original address: %p\n", $__w->original_address
-  printf "  App Wrapper address: %p\n", $__w->app_wrapper_address
-  printf "  Host Wrapper address: %p\n", $__w->host_wrapper_address
+  printf "   Original address: %p\n", $__w->original_address
+  printf "   App Wrapper address: %p\n", $__w->app_wrapper_address
+  printf "   Host Wrapper address: %p\n", $__w->host_wrapper_address
   dont-repeat
 end
 
@@ -261,7 +261,7 @@ define p-trace
   set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
   printf "Global code cache lookup trace:\n"
   while $__i > 0 && 0 != $__head
-    printf "  [%d] %p\n", $__j, $__head->code_cache_addr
+    printf "   [%d] %p\n", $__j, $__head->code_cache_addr
     set $__j = $__j + 1
     set $__i = $__i - 1
     set $__head = $__head->prev
@@ -298,7 +298,7 @@ define p-trace-entry
   set language c++
   get-trace-entry $arg0
   printf "Global code cache lookup trace:\n"
-  printf "  [%d] %p\n", $arg0, $trace_entry->code_cache_addr
+  printf "   [%d] %p\n", $arg0, $trace_entry->code_cache_addr
   dont-repeat
 end
 
@@ -321,21 +321,21 @@ define p-trace-entry-regs
   set language c++
   get-trace-entry $arg0
   printf "Regs:\n"
-  printf "  r15: 0x%lx\n", $trace_entry->state.r15.value_64
-  printf "  r14: 0x%lx\n", $trace_entry->state.r14.value_64
-  printf "  r13: 0x%lx\n", $trace_entry->state.r13.value_64
-  printf "  r12: 0x%lx\n", $trace_entry->state.r12.value_64
-  printf "  r11: 0x%lx\n", $trace_entry->state.r11.value_64
-  printf "  r10: 0x%lx\n", $trace_entry->state.r10.value_64
-  printf "  r9:  0x%lx\n", $trace_entry->state.r9.value_64
-  printf "  r8:  0x%lx\n", $trace_entry->state.r8.value_64
-  printf "  rdi: 0x%lx\n", $trace_entry->state.rdi.value_64
-  printf "  rsi: 0x%lx\n", $trace_entry->state.rsi.value_64
-  printf "  rbp: 0x%lx\n", $trace_entry->state.rbp.value_64
-  printf "  rbx: 0x%lx\n", $trace_entry->state.rbx.value_64
-  printf "  rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
-  printf "  rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
-  printf "  rax: 0x%lx\n", $trace_entry->state.rax.value_64
+  printf "   r15: 0x%lx\n", $trace_entry->state.r15.value_64
+  printf "   r14: 0x%lx\n", $trace_entry->state.r14.value_64
+  printf "   r13: 0x%lx\n", $trace_entry->state.r13.value_64
+  printf "   r12: 0x%lx\n", $trace_entry->state.r12.value_64
+  printf "   r11: 0x%lx\n", $trace_entry->state.r11.value_64
+  printf "   r10: 0x%lx\n", $trace_entry->state.r10.value_64
+  printf "   r9:  0x%lx\n", $trace_entry->state.r9.value_64
+  printf "   r8:  0x%lx\n", $trace_entry->state.r8.value_64
+  printf "   rdi: 0x%lx\n", $trace_entry->state.rdi.value_64
+  printf "   rsi: 0x%lx\n", $trace_entry->state.rsi.value_64
+  printf "   rbp: 0x%lx\n", $trace_entry->state.rbp.value_64
+  printf "   rbx: 0x%lx\n", $trace_entry->state.rbx.value_64
+  printf "   rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
+  printf "   rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
+  printf "   rax: 0x%lx\n", $trace_entry->state.rax.value_64
   dont-repeat
 end
 
@@ -410,7 +410,7 @@ define internal-bb-by-reg-cond
       print "Global code cache lookup where %s %s %s:" % ( \
         reg, bin_op, val)
 
-    printf "  [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
+    printf "   [%d] %p\n\n", $trace_entry_num, $trace_entry->code_cache_addr
 
     p-trace-entry-regs $trace_entry_num
     printf "\n"
