@@ -943,14 +943,14 @@ namespace granary {
         template <typename T> \
         struct type_wrapper<qual T *> { \
             typedef qual T *wrapped_type__; \
-            typedef type_wrapper_base<qual T *> base_wrapper_type__; \
+            typedef type_wrapper_base<wrapped_type__> base_wrapper_type__; \
             \
             enum { \
                 NEXT_HAS_IN = next_has_in_wrapper<wrapped_type__>::VALUE, \
                 NEXT_HAS_OUT = next_has_out_wrapper<wrapped_type__>::VALUE \
             }; \
             \
-            struct impl__: public type_wrapper_base<qual T *> \
+            struct impl__: public type_wrapper_base<wrapped_type__> \
             wrap_code; \
             \
             enum { \
@@ -989,14 +989,14 @@ namespace granary {
         template <typename T> \
         struct type_wrapper<T *> { \
             typedef T *wrapped_type__; \
-            typedef type_wrapper_base<T *> base_wrapper_type__; \
+            typedef type_wrapper_base<wrapped_type__> base_wrapper_type__; \
             \
             enum { \
                 NEXT_HAS_IN = next_has_in_wrapper<wrapped_type__>::VALUE, \
                 NEXT_HAS_OUT = next_has_out_wrapper<wrapped_type__>::VALUE \
             }; \
             \
-            struct impl__: public type_wrapper_base<T *> \
+            struct impl__: public type_wrapper_base<wrapped_type__> \
             wrap_code; \
             \
             enum { \

@@ -30,6 +30,7 @@ extern "C" {
     /// Auto-added GDB breakpoint.
     DONT_OPTIMISE
     void granary_break_on_translate(void *addr) {
+        //granary::printf("%p\n", addr);
         USED(addr);
     }
 }
@@ -189,8 +190,6 @@ namespace granary {
         bool created_bb(false);
         if(!target_addr) {
 
-            IF_TEST( granary_do_break_on_translate = false; )
-
             basic_block bb(basic_block::translate(
                 base_policy, cpu, thread, app_target_addr));
             target_addr = bb.cache_pc_start;
@@ -206,6 +205,7 @@ namespace granary {
             // letting the automatically added breakpoint in GDB do the rest.
             if(granary_do_break_on_translate) {
                 granary_break_on_translate(target_addr);
+                granary_do_break_on_translate = false;
             }
 #endif
         }

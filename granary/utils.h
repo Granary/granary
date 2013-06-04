@@ -40,8 +40,7 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
     FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
-        // Taken from Documentation/x86/x86_64/mm.txt
-        return addr > 0x00007fffffffffff && (addr >> 48) != 0xdead;
+        return 0 != (addr & 0x0000800000000000ULL); // && (addr >> 48) != 0xdead;
     }
 
 

@@ -64,6 +64,8 @@ namespace granary {
             instrumentation_policy target_policy
         ) throw();
 
+        void mangle_bit_scan(instruction in) throw();
+
         static void propagate_delay_region(
             instruction in,
             instruction first,

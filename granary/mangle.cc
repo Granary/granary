@@ -1502,6 +1502,54 @@ namespace granary {
 #endif
 
 
+    /// Mangle a bit scan to check for a 0 input. If the input is zero, the ZF
+    /// flag is set (as usual), but the destination operand is always given a
+    /// value of `~0`.
+    ///
+    /// The motivation for this mangling was because of how the undefined
+    /// behaviour of the instruction (in input zero) seemed to have interacted
+    /// with the watchpoints instrumentation. The kernel appears to expect the
+    /// value to be -1 when the input is 0, so we emulate that.
+    void instruction_list_mangler::mangle_bit_scan(instruction in) throw() {
+        instruction after_scan(label_());
+        instruction do_scan(label_());
+        const operand op(in.instr->u.o.src0);
+        const operand dest_op(in.instr->u.o.dsts[0]);
+        operand test_op;
+        register_manager rm;
+
+        operand undefined_value;
+        operand undefined_source;
+        switch(dynamorio::opnd_size_in_bytes(dest_op.size)) {
+        case 1: undefined_value = int8_(-1); break;
+        case 2: undefined_value = int16_(-1); break;
+        case 4: undefined_value = int32_(-1); break;
+        case 8: undefined_value = int64_(-1); break;
+        }
+
+        rm.kill_all();
+        rm.revive(in);
+
+        // We spill regardless so that we can store the "undefined" value.
+        test_op = rm.get_zombie();
+        undefined_source = test_op;
+        ls->insert_before(in, push_(test_op));
+        ls->insert_after(in, pop_(test_op));
+        if(dynamorio::REG_kind == op.kind) {
+            test_op = op;
+        }
+
+        ls->insert_after(in, after_scan);
+
+        ls->insert_before(in, test_(test_op, test_op));
+        ls->insert_before(in, jnz_(instr_(do_scan)));
+        ls->insert_before(in, mov_imm_(undefined_source, undefined_value));
+        ls->insert_before(in, mov_st_(dest_op, undefined_source));
+        ls->insert_before(in, jmp_(instr_(after_scan)));
+        ls->insert_before(in, do_scan);
+    }
+
+
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
     void instruction_list_mangler::mangle(instruction_list &ls_) throw() {
@@ -1539,7 +1587,7 @@ namespace granary {
                 mangle_sti(in);
 
 #if CONFIG_TRANSLATE_FAR_ADDRESSES
-            // look for cases where an lea loads from a memory address that is
+            // Look for cases where an `LEA` loads from a memory address that is
             // too far away and fix it.
             } else if(dynamorio::OP_lea == in.op_code()) {
 
@@ -1547,10 +1595,18 @@ namespace granary {
                 mangle_lea(in);
                 IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
 
-            // look for uses of relative addresses in operands that are no
+            // Look for uses of relative addresses in operands that are no
             // longer reachable with %rip-relative encoding, and convert to a
             // use of an absolute address.
             } else {
+
+                // Mangle bit scans to add a `TEST` instruction to their
+                // source operands.
+                if(dynamorio::OP_bsr == in.op_code()
+                || dynamorio::OP_bsf == in.op_code()) {
+                    mangle_bit_scan(in);
+                }
+
                 IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_far_memory_refs(in);
                 IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )

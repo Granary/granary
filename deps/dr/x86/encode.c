@@ -2205,7 +2205,8 @@ encode_cti(instr_t *instr, byte *copy_pc, byte *final_pc, bool check_reachable
         /* offset is from start of next instr */
         ptr_int_t offset = target - ((ptr_int_t)(pc + 4 - copy_pc + final_pc));
 #ifdef X64
-        if (IF_GRANARY(0 != target &&) check_reachable && !REL32_REACHABLE_OFFS(offset)) {
+        /* IF_GRANARY(0 != target &&)  */
+        if (check_reachable && !REL32_REACHABLE_OFFS(offset)) {
             CLIENT_ASSERT(!assert_reachable,
                           "encode_cti error: target beyond 32-bit reach");
             return NULL;

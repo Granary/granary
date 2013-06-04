@@ -104,6 +104,29 @@ define p-module-of
 end
 
 
+# get-bb-info ADDR
+#
+# Set the variable $bb to point to a `granary::basic_block_info`
+# structure. This scans the bytes following ADDR until it discovers
+# the correct magic value.
+define get-bb-info
+  set language c++
+  set $bb = 0
+  set $__addr = (unsigned long) $arg0
+  if 0 != ($__addr % 8)
+    set $__addr = $__addr - ($__addr % 8)
+  end
+
+  set $__addr = (uint32_t *) $__addr
+  while (*$__addr) != 0xD4D5D682
+    set $__addr = $__addr + 1
+  end
+
+  set $bb = (granary::basic_block_info *) $__addr
+  dont-repeat
+end
+
+
 # p-bb-info ADDR
 #
 # Print the basic block info structure information for the basic block
@@ -112,17 +135,10 @@ define p-bb-info
   set language c++
 
   # Find the basic block.
-  set $__addr = (unsigned long) $arg0
-  if ($__addr % 4)
-    set $__addr = $__addr + (4 - ($__addr % 4))
-  end
-  set $__int = (uint32_t *) $__addr
-  while *$__int != 0xD4D5D682
-    set $__int = $__int + 1
-  end
-
-  # Extract info.
-  set $__bb = ((granary::basic_block_info *) $__int)
+  get-bb-info $arg0
+  
+  set $__bb = $bb
+  set $__bb_addr = (unsigned long) $bb 
   set $__policy_addr = &($__bb->policy_bits)
   set $__policy = ((granary::instrumentation_policy *) $__policy_addr)
 
@@ -135,8 +151,8 @@ define p-bb-info
   # Print the info.
   printf "Basic block info:\n"
   printf "   App address: %p\n", $__bb->generating_pc
-  printf "   Stub instructions: %p\n", ($arg0 - $__bb->num_bytes)
-  printf "   Instructions: %p\n", ($arg0 - $__bb->num_bytes + $__bb->num_patch_bytes)
+  printf "   Stub instructions: %p\n", ($__bb_addr - $__bb->num_bytes)
+  printf "   Instructions: %p\n", ($__bb_addr - $__bb->num_bytes + $__bb->num_patch_bytes)
   printf "   Is indirect CTI target: %d\n", $__policy->u.is_indirect_target
   printf "   Is return target: %d\n", $__policy->u.is_return_target
   printf "   Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
@@ -192,19 +208,14 @@ end
 # of an instruction in the basic block.
 define p-bb
   set language c++
-  set $__a = (uint64_t) $arg0
-  set $__a = $__a + (($__a % 8) ? 8 - ($__a % 8): 0)
-  set $__int = (uint32_t *) $__a
+
   set $__num_stub_ins = 0
   set $__num_trans_ins = 0
   set $__num_ins = 0
 
-  while *$__int != 0xD4D5D682
-    set $__int = $__int + 1
-  end
-
-  set $__bb_info = (granary::basic_block_info *) $__int
-  set $__bb_info_addr = (uint64_t) $__int
+  get-bb-info $arg0
+  set $__bb_info = $bb
+  set $__bb_info_addr = (uint64_t) $bb
   set $__bb_stub = $__bb_info_addr - $__bb_info->num_bytes
   set $__bb_start = $__bb_stub + $__bb_info->num_patch_bytes
 

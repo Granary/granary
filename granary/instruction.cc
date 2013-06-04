@@ -100,6 +100,46 @@ namespace granary {
         app_pc ret(dynamorio::instr_encode(DCONTEXT, instr, pc_));
 
         instr->translation = pc_;
+        instr->length = (ret - pc_);
+
+#if CONFIG_CHECK_INSTRUCTION_ENCODE
+        if(dynamorio::OP_LABEL != instr->opcode) {
+            app_pc pc_2(pc_);
+            instruction in(decode(&pc_2));
+            dynamorio::instr_t *instr2(in.instr);
+            if(instr->opcode != instr2->opcode) {
+                if(dynamorio::OP_mov_ld == instr->opcode
+                && dynamorio::OP_mov_st == instr2->opcode) {
+                    // okay
+                } else if(dynamorio::OP_mov_st == instr->opcode
+                       && dynamorio::OP_mov_ld == instr2->opcode) {
+                    // okay
+                } else {
+                    ASSERT(false);
+                }
+            }
+            ASSERT(instr->length == instr2->length);
+            ASSERT(instr->num_dsts == instr2->num_dsts);
+            ASSERT(instr->num_srcs == instr2->num_srcs);
+            for(int i(0); i < instr->num_dsts; ++i) {
+                ASSERT(instr->u.o.dsts[i].kind == instr2->u.o.dsts[i].kind);
+            }
+            if(instr->num_srcs) {
+                if(instr->u.o.src0.kind != instr2->u.o.src0.kind) {
+                    if(4 == instr->u.o.src0.kind
+                    && 3 == instr2->u.o.src0.kind){
+                        ASSERT(instr->u.o.src0.value.instr->translation == instr2->u.o.src0.value.pc);
+                    } else {
+                        ASSERT(false);
+                    }
+                }
+                for(int i(0); i < instr->num_srcs - 1; ++i) {
+                    ASSERT(instr->u.o.srcs[i].kind == instr2->u.o.srcs[i].kind);
+                }
+            }
+        }
+#endif
+
         return ret;
     }
 
@@ -235,18 +275,6 @@ namespace granary {
     }
 
 
-    /// Move constructor.
-    instruction_list::instruction_list(self_type &&that) throw()
-        : first_(that.first_)
-        , last_(that.last_)
-        , length_(that.length_)
-    {
-        that.first_ = nullptr;
-        that.last_ = nullptr;
-        that.length_ = 0U;
-    }
-
-
     /// Clear the elements of the list, and release any memory associated
     /// with the elements of the list
     void instruction_list::clear(void) throw() {
@@ -266,6 +294,9 @@ namespace granary {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *before_item(last_);
 
+        ASSERT(!item->prev);
+        ASSERT(!item->next);
+
         last_ = item;
         item->prev = before_item;
         item->next = nullptr;
@@ -284,6 +315,9 @@ namespace granary {
     instruction instruction_list::prepend(instruction item_) throw() {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *after_item(first_);
+
+        ASSERT(!item->prev);
+        ASSERT(!item->next);
 
         first_ = item;
         item->next = after_item;
@@ -314,6 +348,9 @@ namespace granary {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *before_item(after_item->prev);
 
+        ASSERT(!item->prev);
+        ASSERT(!item->next);
+
         if(!before_item) {
             return prepend(item);
         }
@@ -335,6 +372,9 @@ namespace granary {
         dynamorio::instr_t *before_item(before_item_.instr);
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *after_item(before_item->next);
+
+        ASSERT(!item->prev);
+        ASSERT(!item->next);
 
         if(!after_item) {
             return append(item);
@@ -369,6 +409,9 @@ namespace granary {
         } else {
             last_ = prev;
         }
+
+        instr->prev = nullptr;
+        instr->next = nullptr;
 
         --length_;
     }

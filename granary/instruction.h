@@ -602,8 +602,9 @@ namespace granary {
         { }
 
 
-        /// Move constructor.
-        instruction_list(self_type &&that) throw();
+        /// Disallow copying in order to maintain consistency.
+        instruction_list(self_type &) throw() = delete;
+        self_type &operator=(const self_type &) = delete;
 
 
         /// Returns the number of elements in the list.

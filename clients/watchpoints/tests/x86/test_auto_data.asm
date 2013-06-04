@@ -9,6 +9,10 @@
 #include "granary/x86/asm_defines.asm"
 #include "granary/x86/asm_helpers.asm"
 
+#define RUN_AUTO_TESTS 0
+
+#if RUN_AUTO_TESTS
+
 START_FILE
 
     .globl SYMBOL(granary_wp_auto_instructions_begin)
@@ -8183,3 +8187,4 @@ GLOBAL_LABEL(granary_wp_auto_instructions_end:)
 
 END_FILE
 
+#endif

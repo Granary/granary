@@ -190,15 +190,6 @@ namespace client {
             bool mangle(granary::instruction_list &) throw();
 
 
-#if 0
-            /// Mangle an instruction that contains a memory reference using GS
-            /// or FS.
-            ///
-            /// Note: This maintains the proper associations inside of
-            ///       `tracker.ops`.
-            void mangle_segment_mem_ops(granary::instruction_list &ls) throw();
-#endif
-
             /// Small state machine to track whether or not we can clobber the carry
             /// flag. The carry flag is relevant because we use the BT instruction to
             /// determine if the address is a watched address.
@@ -468,6 +459,7 @@ namespace client {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
+
             using namespace granary;
 
             instruction prev_in;
@@ -542,9 +534,6 @@ namespace client {
                     in = tracker.in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
-
-                // Mangle memory operands using the FS and GS segment registers.
-                //mangle_segment_mem_ops(ls, in, tracker);
 
                 IF_USER( instruction first(ls.insert_before(in, label_())); )
                 IF_USER( instruction last(ls.insert_after(in, label_())); )

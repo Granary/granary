@@ -208,6 +208,103 @@ namespace client { namespace wp {
     }
 
 
+    /// Mangle something of the form `PUSH ...(...)`.
+    static instruction mangle_push(
+        watchpoint_tracker &tracker,
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        instruction ret(in);
+        operand op(*(tracker.ops[0]));
+        dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
+
+        // A dead register is available.
+        if(spill_reg) {
+            tracker.spill_regs.revive(spill_reg);
+
+            const operand dead_reg(spill_reg);
+            ret = ls.insert_before(in, mov_ld_(dead_reg, op));
+            ls.insert_before(in, push_(dead_reg));
+
+        // We need to spill a register to emulate the PUSH.
+        } else {
+            const operand dead_reg(tracker.spill_regs.get_zombie());
+
+            // Don't need to protect from the userspace redzone on a push.
+            ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
+            ret.set_pc(in.pc());
+            ls.insert_before(in, push_(dead_reg));
+            ret = ls.insert_before(in, mov_ld_(dead_reg, op));
+            ls.insert_before(in, mov_st_(reg::rsp[8], dead_reg));
+            ls.insert_before(in, pop_(dead_reg));
+        }
+
+        return ret;
+    }
+
+
+    /// Mangle something of the form `POP ...(...)`.
+    static instruction mangle_pop(
+        watchpoint_tracker &tracker,
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        instruction ret(in);
+        operand op(*(tracker.ops[0]));
+        dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
+
+        // A dead register is available.
+        if(spill_reg) {
+            tracker.spill_regs.revive(spill_reg);
+
+            const operand dead_reg(spill_reg);
+            ls.insert_before(in, pop_(dead_reg));
+            ret = ls.insert_before(in, mov_st_(op, dead_reg));
+
+        // We need to spill a register to emulate the POP.
+        } else {
+            const operand dead_reg(tracker.spill_regs.get_zombie());
+
+            // Don't need to protect from the userspace redzone on a pop.
+            ls.insert_before(in, push_(dead_reg));
+            ls.insert_before(in, mov_ld_(dead_reg, reg::rsp[8]));
+            ret = ls.insert_before(in, mov_st_(op, dead_reg));
+            ls.insert_before(in, pop_(dead_reg));
+            ls.insert_before(in, lea_(reg::rsp, reg::rsp[8]));
+        }
+
+        return ret;
+    }
+
+
+    /// Mangle something of the form `XLAT`.
+    static instruction mangle_xlat(
+        watchpoint_tracker &tracker,
+        instruction_list &ls,
+        instruction in
+    ) throw() {
+        instruction ret(in);
+        dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
+
+        if(spill_reg) {
+            tracker.spill_regs.revive(spill_reg);
+
+            const operand dead_reg(spill_reg);
+            ls.insert_before(in, movzx_(dead_reg, reg::al));
+            ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
+            ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
+        } else {
+            const operand dead_reg(tracker.spill_regs.get_zombie());
+            ls.insert_before(in, push_(dead_reg));
+            ls.insert_before(in, movzx_(dead_reg, reg::al));
+            ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
+            ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
+            ls.insert_before(in, pop_(dead_reg));
+        }
+        return ret;
+    }
+
+
     /// Get an operand reference to a source operand that is `%RSP`.
     static void get_rsp(operand_ref op, operand_ref &rsp_op) throw() {
         if(SOURCE_OPERAND != op.kind
@@ -220,67 +317,63 @@ namespace client { namespace wp {
     }
 
 
+    /// Mangle something of the form `MOV ...(...), %rsp`.
+    static void mangle_dest_sp(
+        watchpoint_tracker &tracker,
+        instruction_list &ls,
+        instruction in,
+        operand_ref &rsp_op
+    ) throw() {
+        UNUSED(tracker);
+        UNUSED(ls);
+        UNUSED(in);
+        UNUSED(rsp_op);
+        ASSERT(false);
+    }
+
+
+    /// Mangle something of the form `MOV %rsp, ...(...)`.
+    static void mangle_source_sp(
+        watchpoint_tracker &tracker,
+        instruction_list &ls,
+        instruction in,
+        operand_ref &rsp_op
+    ) throw() {
+        dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
+
+        if(spill_reg) {
+            tracker.spill_regs.revive(spill_reg);
+
+            const operand dead_reg(spill_reg);
+            ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
+            rsp_op = dead_reg;
+
+        } else {
+            const operand dead_reg(tracker.spill_regs.get_zombie());
+            ls.insert_before(in, push_(dead_reg));
+            ls.insert_before(in, lea_(dead_reg, reg::rsp[8]));
+            ls.insert_after(in, pop_(dead_reg));
+            rsp_op = dead_reg;
+        }
+    }
+
+
     /// Perform watchpoint-specific mangling of an instruction.
     bool watchpoint_tracker::mangle(instruction_list &ls) throw() {
         instruction ret(in);
         bool mangled(true);
-        dynamorio::reg_id_t spill_reg;
-        operand op(*(ops[0]));
 
         // Mangle a push instruction.
         switch(in.op_code()) {
 
         case dynamorio::OP_push: {
-            spill_reg = live_regs.get_zombie();
-
-            // A dead register is available.
-            if(spill_reg) {
-                spill_regs.revive(spill_reg);
-
-                const operand dead_reg(spill_reg);
-                ret = ls.insert_before(in, mov_ld_(dead_reg, op));
-                ls.insert_before(in, push_(dead_reg));
-
-            // We need to spill a register to emulate the PUSH.
-            } else {
-                const operand dead_reg(spill_regs.get_zombie());
-
-                // Don't need to protect from the userspace redzone on a push.
-                ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
-                ret.set_pc(in.pc());
-                ls.insert_before(in, push_(dead_reg));
-                ret = ls.insert_before(in, mov_ld_(dead_reg, op));
-                ls.insert_before(in, mov_st_(reg::rsp[8], dead_reg));
-                ls.insert_before(in, pop_(dead_reg));
-            }
-
+            ret = mangle_push(*this, ls, in);
             ls.remove(in);
             break;
         }
 
         case dynamorio::OP_pop: {
-            spill_reg = live_regs.get_zombie();
-
-            // A dead register is available.
-            if(spill_reg) {
-                spill_regs.revive(spill_reg);
-
-                const operand dead_reg(spill_reg);
-                ls.insert_before(in, pop_(dead_reg));
-                ret = ls.insert_before(in, mov_st_(op, dead_reg));
-
-            // We need to spill a register to emulate the POP.
-            } else {
-                const operand dead_reg(spill_regs.get_zombie());
-
-                // Don't need to protect from the userspace redzone on a pop.
-                ls.insert_before(in, push_(dead_reg));
-                ls.insert_before(in, mov_ld_(dead_reg, reg::rsp[8]));
-                ret = ls.insert_before(in, mov_st_(op, dead_reg));
-                ls.insert_before(in, pop_(dead_reg));
-                ls.insert_before(in, lea_(reg::rsp, reg::rsp[8]));
-            }
-
+            ret = mangle_pop(*this, ls, in);
             ls.remove(in);
             break;
         }
@@ -288,37 +381,17 @@ namespace client { namespace wp {
         // Emulate an XLAT so there are so many annoying special cases with it
         // in later instrumentation.
         case dynamorio::OP_xlat: {
-            spill_reg = live_regs.get_zombie();
-
-            if(spill_reg) {
-                spill_regs.revive(spill_reg);
-
-                const operand dead_reg(spill_reg);
-                ls.insert_before(in, movzx_(dead_reg, reg::al));
-                ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
-                ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
-            } else {
-                const operand dead_reg(spill_regs.get_zombie());
-                ls.insert_before(in, push_(dead_reg));
-                ls.insert_before(in, movzx_(dead_reg, reg::al));
-                ls.insert_before(in, lea_(dead_reg, dead_reg + reg::rbx));
-                ret = ls.insert_before(in, mov_ld_(reg::al, *dead_reg));
-                ls.insert_before(in, pop_(dead_reg));
-            }
-
+            ret = mangle_xlat(*this, ls, in);
             ls.remove(in);
             break;
         }
 
-        // Look for something like `MOV %RSP, ...(%...);`.
+        // Look for something like `MOV %RSP, ...(%...);` or `CMP %RSP, ...`.
         default: {
-
             // In this case, it doesn't matter if we mangle the instruction
             // because we are not changing any of the memory operands.
             mangled = false;
-
-
-            if(1 < num_ops || DEST_OPERAND != ops[0].kind) {
+            if(1 < num_ops) {
                 break;
             }
 
@@ -328,21 +401,10 @@ namespace client { namespace wp {
                 break;
             }
 
-            spill_reg = live_regs.get_zombie();
-
-            if(spill_reg) {
-                spill_regs.revive(spill_reg);
-
-                const operand dead_reg(spill_reg);
-                ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
-                rsp_op = dead_reg;
-
+            if(DEST_OPERAND == rsp_op.kind) {
+                mangle_dest_sp(*this, ls, in, rsp_op);
             } else {
-                const operand dead_reg(spill_regs.get_zombie());
-                ls.insert_before(in, push_(dead_reg));
-                ls.insert_before(in, lea_(dead_reg, reg::rsp[8]));
-                ls.insert_after(in, pop_(dead_reg));
-                rsp_op = dead_reg;
+                mangle_source_sp(*this, ls, in, rsp_op);
             }
 
             break;
@@ -356,63 +418,6 @@ namespace client { namespace wp {
 
         return mangled;
     }
-
-
-#if 0
-    /// Mangle an instruction that contains a memory reference using GS
-    /// or FS.
-    ///
-    /// Note: This maintains the proper associations inside of
-    ///       `tracker.ops`.
-    void watchpoint_tracker::mangle_segment_mem_ops(
-        instruction_list &ls
-    ) throw() {
-        // Try to mangle segmentation with GS and FS.
-        if(1 != num_ops) {
-            return;
-        }
-
-        printf("a");
-        operand op(*(ops[0]));
-        printf("b");
-
-        if(dynamorio::DR_SEG_GS != op.seg.segment
-        && dynamorio::DR_SEG_FS != op.seg.segment) {
-            return;
-        }
-
-        dynamorio::reg_id_t spill_reg(live_regs.get_zombie());
-        dynamorio::reg_id_t seg_reg(op.seg.segment);
-
-        op.seg.segment = dynamorio::DR_REG_NULL;
-
-        if(spill_reg) {
-            operand spill(spill_reg);
-            operand spill_seg(spill);
-            spill_seg.seg.segment = seg_reg;
-
-            ls.insert_before(in, lea_(spill, op));
-            ls.insert_before(in, mov_ld_(spill, spill_seg));
-
-            ops[0] = *spill;
-            spill_regs.revive(spill_reg);
-
-        } else {
-            operand spill(spill_regs.get_zombie());
-            operand spill_seg(spill);
-            spill_seg.seg.segment = seg_reg;
-
-            ls.insert_before(in, push_(spill));
-            ls.insert_before(in, lea_(spill, op));
-            ls.insert_before(in, mov_ld_(spill, spill_seg));
-            ls.insert_after(in, pop_(spill));
-
-            ops[0] = *spill;
-        }
-
-        granary_do_break_on_translate = true;
-    }
-#endif
 
 
     /// Save the carry flag, if needed. We use the carry flag extensively. For
