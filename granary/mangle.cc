@@ -1511,11 +1511,8 @@ namespace granary {
     /// with the watchpoints instrumentation. The kernel appears to expect the
     /// value to be -1 when the input is 0, so we emulate that.
     void instruction_list_mangler::mangle_bit_scan(instruction in) throw() {
-        instruction after_scan(label_());
-        instruction do_scan(label_());
         const operand op(in.instr->u.o.src0);
         const operand dest_op(in.instr->u.o.dsts[0]);
-        operand test_op;
         operand undefined_value;
 
         register_scale undef_scale(REG_64);
@@ -1535,24 +1532,13 @@ namespace granary {
         const dynamorio::reg_id_t undefined_source_reg_64(rm.get_zombie());
         const operand undefined_source_64(undefined_source_reg_64);
         const operand undefined_source(register_manager::scale(
-            undefined_source_reg_64, undef_scale))
-        ;
-        ls->insert_before(in, push_(undefined_source_64));
+            undefined_source_reg_64, undef_scale));
+
+        in = ls->insert_after(in, push_(undefined_source_64));
+        in = ls->insert_after(in, mov_imm_(undefined_source, undefined_value));
+        in = ls->insert_after(in,
+            cmovcc_(dynamorio::OP_cmovz, dest_op, undefined_source));
         ls->insert_after(in, pop_(undefined_source_64));
-        if(dynamorio::REG_kind == op.kind) {
-            test_op = op;
-        } else {
-            test_op = undefined_source;
-        }
-
-        ls->insert_after(in, after_scan);
-
-        ls->insert_before(in, test_(test_op, test_op));
-        ls->insert_before(in, jnz_(instr_(do_scan)));
-        ls->insert_before(in, mov_imm_(undefined_source, undefined_value));
-        ls->insert_before(in, mov_ld_(dest_op, undefined_source));
-        ls->insert_before(in, jmp_(instr_(after_scan)));
-        ls->insert_before(in, do_scan);
     }
 
 
