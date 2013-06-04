@@ -46,7 +46,7 @@ namespace granary {
 
     template <typename T>
     FORCE_INLINE static bool is_valid_address(T *addr) throw() {
-        return is_valid_address(unsafe_cast<uintptr_t>(addr));
+        return is_valid_address(reinterpret_cast<uintptr_t>(addr));
     }
 #else
     FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {

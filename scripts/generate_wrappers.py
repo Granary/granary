@@ -127,6 +127,7 @@ def wrap_struct(ctype):
   if will_pre:
     O("    NO_PRE_IN")
     O("    PRE_OUT {")
+    #O("        if(!&arg) { granary_break_on_fault(); }")
     pre_wrap_fields(ctype, O)
     O("    }")
   else:
@@ -135,6 +136,7 @@ def wrap_struct(ctype):
   if will_post:
     O("    NO_POST_IN")
     O("    POST_OUT {")
+    #O("        if(!&arg) { granary_break_on_fault(); }")
     post_wrap_fields(ctype, O)
     O("    }")
   else:
