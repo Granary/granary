@@ -1516,27 +1516,33 @@ namespace granary {
         const operand op(in.instr->u.o.src0);
         const operand dest_op(in.instr->u.o.dsts[0]);
         operand test_op;
-        register_manager rm;
-
         operand undefined_value;
-        operand undefined_source;
+
+        register_scale undef_scale(REG_64);
         switch(dynamorio::opnd_size_in_bytes(dest_op.size)) {
-        case 1: undefined_value = int8_(-1); break;
-        case 2: undefined_value = int16_(-1); break;
-        case 4: undefined_value = int32_(-1); break;
-        case 8: undefined_value = int64_(-1); break;
+        case 1: undefined_value = int8_(-1);    undef_scale = REG_8;  break;
+        case 2: undefined_value = int16_(-1);   undef_scale = REG_16; break;
+        case 4: undefined_value = int32_(-1);   undef_scale = REG_32; break;
+        case 8: undefined_value = int64_(-1);   undef_scale = REG_64; break;
+        default: ASSERT(false); break;
         }
 
+        register_manager rm;
         rm.kill_all();
         rm.revive(in);
 
         // We spill regardless so that we can store the "undefined" value.
-        test_op = rm.get_zombie();
-        undefined_source = test_op;
-        ls->insert_before(in, push_(test_op));
-        ls->insert_after(in, pop_(test_op));
+        const dynamorio::reg_id_t undefined_source_reg_64(rm.get_zombie());
+        const operand undefined_source_64(undefined_source_reg_64);
+        const operand undefined_source(register_manager::scale(
+            undefined_source_reg_64, undef_scale))
+        ;
+        ls->insert_before(in, push_(undefined_source_64));
+        ls->insert_after(in, pop_(undefined_source_64));
         if(dynamorio::REG_kind == op.kind) {
             test_op = op;
+        } else {
+            test_op = undefined_source;
         }
 
         ls->insert_after(in, after_scan);
@@ -1544,7 +1550,7 @@ namespace granary {
         ls->insert_before(in, test_(test_op, test_op));
         ls->insert_before(in, jnz_(instr_(do_scan)));
         ls->insert_before(in, mov_imm_(undefined_source, undefined_value));
-        ls->insert_before(in, mov_st_(dest_op, undefined_source));
+        ls->insert_before(in, mov_ld_(dest_op, undefined_source));
         ls->insert_before(in, jmp_(instr_(after_scan)));
         ls->insert_before(in, do_scan);
     }
