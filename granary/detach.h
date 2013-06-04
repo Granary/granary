@@ -29,7 +29,7 @@
 #define GRANARY_DETACH_POINT_ERROR(func_name) \
     STATIC_INITIALISE({ \
         granary::app_pc func(granary::unsafe_cast<granary::app_pc>(func_name)); \
-        granary::app_pc err(granary::unsafe_cast<granary::app_pc>(granary_fault)); \
+        granary::app_pc err(granary::unsafe_cast<granary::app_pc>(& granary_fault)); \
         granary::add_detach_target(func, err, granary::RUNNING_AS_HOST); \
         granary::add_detach_target(func, err, granary::RUNNING_AS_APP); \
     })

@@ -250,37 +250,48 @@ namespace client {
 
 
         /// Returns true iff an address is watched.
-        template <typename T>
-        inline bool is_watched_address(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+        inline bool is_watched_address(uintptr_t ptr) throw() {
 #if GRANARY_IN_KERNEL
             return DISTINGUISHING_BIT_MASK == (ptr | DISTINGUISHING_BIT_MASK);
 #else
             return DISTINGUISHING_BIT_MASK == (ptr & DISTINGUISHING_BIT_MASK);
 #endif
         }
+        template <typename T>
+        inline bool is_watched_address(T *ptr_) throw() {
+            return is_watched_address(reinterpret_cast<uintptr_t>(ptr_));
+        }
 
 
         /// Returns the unwatched version of an address, regardless of if it's
         /// watched.
-        template <typename T>
-        T unwatched_address(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+        inline uintptr_t unwatched_address(uintptr_t ptr) throw() {
 #if GRANARY_IN_KERNEL
-            return granary::unsafe_cast<T>(ptr | (~CLEAR_INDEX_MASK));
+            return ptr | (~CLEAR_INDEX_MASK);
 #else
-            return granary::unsafe_cast<T>(ptr & CLEAR_INDEX_MASK);
+            return ptr & CLEAR_INDEX_MASK;
 #endif
+        }
+        template <typename T>
+        inline T *unwatched_address(T *ptr_) throw() {
+            return reinterpret_cast<T *>(
+                unwatched_address(
+                    reinterpret_cast<uintptr_t>(ptr_)));
         }
 
 
         /// Returns the unwatched version of an address.
-        template <typename T>
-        T unwatched_address_check(T ptr_) throw() {
-            if(granary::is_valid_address(ptr_) && is_watched_address(ptr_)) {
-                return unwatched_address(ptr_);
+        inline uintptr_t unwatched_address_check(uintptr_t ptr) throw() {
+            if(granary::is_valid_address(ptr) && is_watched_address(ptr)) {
+                return unwatched_address(ptr);
             }
-            return ptr_;
+            return ptr;
+        }
+        template <typename T>
+        inline T *unwatched_address_check(T *ptr_) throw() {
+            return reinterpret_cast<T *>(
+                unwatched_address_check(
+                    reinterpret_cast<uintptr_t>(ptr_)));
         }
 
 

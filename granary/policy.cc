@@ -110,7 +110,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        instrumentation_policy visit_app_instructions(
+        static instrumentation_policy visit_app_instructions(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
@@ -121,7 +121,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        instrumentation_policy visit_host_instructions(
+        static instrumentation_policy visit_host_instructions(
             cpu_state_handle &,
             thread_state_handle &,
             basic_block_state &,
@@ -129,6 +129,20 @@ namespace granary {
         ) throw() {
             return granary::policy_for<missing_policy_policy>();
         }
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        /// Handle an interrupt in module code. Returns true iff the client
+        /// handles the interrupt.
+        static granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
+            granary::basic_block_state &,
+            granary::interrupt_stack_frame &,
+            granary::interrupt_vector
+        ) throw() {
+            return INTERRUPT_DEFER;
+        }
+#endif
     };
 
 

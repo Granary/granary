@@ -75,29 +75,35 @@ end
 # of the module address.
 define p-module-of
   set language c++
-  set $__func_address = (uint64_t) $arg0
+  set $__func_address = (unsigned long) $arg0
   set $__module = (struct kernel_module *) modules
   set $__module_name = (const char *) 0
-  set $__module_begin = (uint64_t) 0
-  set $__module_offset = ~((uint64_t) 0)
+  set $__module_begin = 0ull
+  set $__module_offset = 0ull
 
   while $__module
-    set $__this_module_begin = (uint64_t) $__module->text_begin
-    set $__this_module_end = (uint64_t) $__module->text_end
+    set $__this_module_begin = (unsigned long) $__module->text_begin
+    set $__this_module_end = (unsigned long) $__module->text_end
+    
     if $__func_address >= $__this_module_begin
       if $__func_address < $__this_module_end
-        set $__module_offset = $__func_address - $__this_module_begin
         set $__module_begin = $__this_module_begin
         set $__module_name = $__module->name
       end
     end
-    set $__module = $__module->next
+
+    if $__module_begin
+      set $__module = 0
+    else
+      set $__module = $__module->next
+    end
   end
 
   if $__module_begin
+    set $__module_offset = $__func_address - $__module_begin
     printf "Module containing address 0x%lx:\n", $__func_address
     printf "   Module name: %s\n", $__module_name
-    printf "   Relative offset in module '.text' section: 0x%x\n", $__module_offset
+    printf "   Relative offset in module '.text' section: 0x%lx\n", $__module_offset
   end
 
   dont-repeat

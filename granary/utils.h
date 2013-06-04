@@ -23,18 +23,70 @@
 
 namespace granary {
 
-    template <typename ToT, typename FromT>
-    FORCE_INLINE ToT unsafe_cast(const FromT &v) throw()  {
+
+    /// Non-integral, non-pointer type to something else.
+    template <
+        typename ToT,
+        typename FromT,
+        typename std::enable_if<
+            !std::is_pointer<FromT>::value,
+            int
+        >::type = 0
+    >
+    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+        static_assert(sizeof(FromT) == sizeof(ToT),
+            "Dangerous unsafe cast between two types of different sizes.");
+
         ToT dest;
         ::memcpy(&dest, &v, sizeof(ToT));
         return dest;
     }
 
-    template <typename ToT, typename FromT>
-    FORCE_INLINE ToT unsafe_cast(FromT *v) throw() {
-        return unsafe_cast<ToT>(
-            reinterpret_cast<uintptr_t>(v)
-        );
+
+    /// Pointer to non-pointer integral type.
+    template <
+        typename ToT,
+        typename FromT,
+        typename std::enable_if<
+            std::is_pointer<FromT>::value
+                && std::is_integral<ToT>::value
+                && !std::is_pointer<ToT>::value,
+            int
+        >::type = 0
+    >
+    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+        return static_cast<ToT>(reinterpret_cast<uintptr_t>(v));
+    }
+
+
+    /// Pointer to pointer type.
+    template <
+        typename ToT,
+        typename FromT,
+        typename std::enable_if<
+            std::is_pointer<FromT>::value
+                && std::is_pointer<ToT>::value,
+            int
+        >::type = 0
+    >
+    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+        return reinterpret_cast<ToT>(reinterpret_cast<uintptr_t>(v));
+    }
+
+
+    /// Pointer to non-integral, non-pointer type.
+    template <
+        typename ToT,
+        typename FromT,
+        typename std::enable_if<
+        std::is_pointer<FromT>::value
+            && !std::is_integral<ToT>::value
+            && !std::is_pointer<ToT>::value,
+        int
+        >::type = 0
+    >
+    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+        return unsafe_cast<ToT>(reinterpret_cast<uintptr_t>(v));
     }
 
 
@@ -56,7 +108,7 @@ namespace granary {
 
     template <typename T>
     FORCE_INLINE static bool is_valid_address(T *addr) throw() {
-        return is_valid_address(unsafe_cast<uintptr_t>(addr));
+        return is_valid_address(reinterpret_cast<uintptr_t>(addr));
     }
 #endif /* GRANARY_IN_KERNEL */
 

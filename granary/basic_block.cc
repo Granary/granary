@@ -541,7 +541,7 @@ namespace granary {
 
         bool fall_through_detach(false);
         bool detach_tail_call(false);
-        const app_pc detach_app_pc(unsafe_cast<app_pc>(detach));
+        const app_pc detach_app_pc(unsafe_cast<app_pc>(&detach));
         unsigned byte_len(0);
 
         for(;;) {

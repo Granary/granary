@@ -23,13 +23,13 @@ extern "C" {
     extern void __put_user_8 ( void ) ;
 }
 
-GRANARY_DETACH_POINT(__get_user_1)
-GRANARY_DETACH_POINT(__get_user_2)
-GRANARY_DETACH_POINT(__get_user_4)
-GRANARY_DETACH_POINT(__get_user_8)
+GRANARY_DETACH_POINT(&__get_user_1)
+GRANARY_DETACH_POINT(&__get_user_2)
+GRANARY_DETACH_POINT(&__get_user_4)
+GRANARY_DETACH_POINT(&__get_user_8)
 
-GRANARY_DETACH_POINT(__put_user_1)
-GRANARY_DETACH_POINT(__put_user_2)
-GRANARY_DETACH_POINT(__put_user_4)
-GRANARY_DETACH_POINT(__put_user_8)
+GRANARY_DETACH_POINT(&__put_user_1)
+GRANARY_DETACH_POINT(&__put_user_2)
+GRANARY_DETACH_POINT(&__put_user_4)
+GRANARY_DETACH_POINT(&__put_user_8)
 
