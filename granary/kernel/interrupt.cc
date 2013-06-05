@@ -369,15 +369,16 @@ namespace granary {
 
         if(is_code_cache_address(pc)) {
 
+#if 0
             kernel_preempt_enable();
             return INTERRUPT_DEFER;
 
-#if 0
+#else
             basic_block bb(pc);
             app_pc delay_begin(nullptr);
             app_pc delay_end(nullptr);
 
-            // we don't need to delay; let the client try to handle the
+            // We don't need to delay; let the client try to handle the
             // interrupt, or defer to the kernel if the client doesn't handle
             // the interrupt.
             if(!bb.get_interrupt_delay_range(delay_begin, delay_end)) {
@@ -387,6 +388,7 @@ namespace granary {
 
                 interrupt_handled_state ret(policy.handle_interrupt(
                     cpu, thread, *bb_state, *isf, vector));
+
 #if 0
                 // Try to prevent a GP.
                 if(INTERRUPT_IRET == ret) {
@@ -405,14 +407,14 @@ namespace granary {
                 kernel_preempt_enable();
                 return INTERRUPT_DEFER;
 #endif
+            } else {
+                // Delay the interrupt.
+                isf->instruction_pointer = emit_delayed_interrupt(
+                    cpu, isf, vector, delay_begin, delay_end);
+
+                kernel_preempt_enable();
+                return INTERRUPT_RETURN;
             }
-
-            // we need to delay
-            isf->instruction_pointer = emit_delayed_interrupt(
-                cpu, isf, vector, delay_begin, delay_end);
-
-            kernel_preempt_enable();
-            return INTERRUPT_RETURN;
 #endif
 
         }
@@ -428,7 +430,7 @@ namespace granary {
             IF_PERF( perf::visit_recursive_interrupt(); )
             granary_break_on_interrupt(isf, vector, cpu);
             kernel_preempt_enable();
-            disable_nested_task();
+            //disable_nested_task();
             return INTERRUPT_IRET;
         }
 
@@ -440,11 +442,22 @@ namespace granary {
             return INTERRUPT_DEFER;
         }
 
+        static bool check_all(false);
+
+        if(VECTOR_GENERAL_PROTECTION == vector || check_all) {
+            granary_break_on_interrupt(isf, vector, cpu);
+            check_all = true;
+        }
+
         interrupt_handled_state ret(client::handle_kernel_interrupt(
             cpu,
             thread,
             *isf,
             vector));
+
+        if(VECTOR_GENERAL_PROTECTION == vector || check_all) {
+            granary_break_on_interrupt(isf, vector, cpu);
+        }
 
 #if 0
         if(INTERRUPT_IRET == ret) {
@@ -457,9 +470,11 @@ namespace granary {
         }
 #endif
 
+#if 0
         if(INTERRUPT_IRET == ret) {
             disable_nested_task();
         }
+#endif
 
         kernel_preempt_enable();
 
@@ -476,8 +491,8 @@ namespace granary {
     ) throw() {
         instruction_list ls;
 
-        // this makes it convenient to find top of the ISF from the common
-        // interrupt handler
+        // This makes it convenient to find top of the ISF from the common
+        // interrupt handler.
         ls.append(push_(reg::rsp));
         if(!has_error_code(vector_num)) {
             ls.append(push_(seg::ss(*reg::rsp)));
@@ -510,15 +525,15 @@ namespace granary {
         operand isf_ptr(reg::arg1);
         operand vector(reg::arg2);
 
-        // save arg1 for later (likely clobbered by handle_interrupt) so that
+        // Save arg1 for later (likely clobbered by handle_interrupt) so that
         // if we are going to RET from the interrupt (instead of IRET), we can
         // do so regardless of whether the interrupt has an error code or not.
         ls.append(push_(isf_ptr));
 
-        // save the return value as it will be clobbered by handle_interrupt
+        // Save the return value as it will be clobbered by handle_interrupt
         ls.append(push_(reg::ret));
 
-        // check for a privilege level change: OR together CS and SS, then
+        // Check for a privilege level change: OR together CS and SS, then
         // inspect the low order bits. If they are both zero then we were
         // interrupted in kernel space.
         ls.append(mov_ld_(reg::ret,
@@ -571,7 +586,7 @@ namespace granary {
             ls.append(lea_(reg::rsp, reg::rsp[16])); // arg1 + return address
             ls.append(pop_(vector));
             ls.append(pop_(isf_ptr));
-            ls.append(pop_(reg::rsp)); // align to base of ISF
+            ls.append(lea_(reg::rsp, reg::rsp[16])); // align to base of ISF
             ls.append(iret_());
         }
 
@@ -589,29 +604,29 @@ namespace granary {
             ls.append(pop_(isf_ptr));
             ls.append(push_(reg::rax)); // will serve as a temp stack ptr
 
-            // use rax as a stack pointer
+            // Use RAX as a stack pointer.
             ls.append(mov_ld_(
                 reg::rax,
                 isf_ptr[offsetof(interrupt_stack_frame, stack_pointer)]));
 
-            // put the return address on the stack
+            // Put the return address on the stack.
             // TODO: unaligned RET?
             ls.append(mov_ld_(
                 reg::arg2,
                 isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)]));
             ls.append(mov_st_(reg::rax[-8], reg::arg2));
 
-            // put the flags on the stack.
+            // Put the flags on the stack.
             ls.append(mov_ld_(
                 reg::arg2,
                 isf_ptr[offsetof(interrupt_stack_frame, flags)]));
             ls.append(mov_st_(reg::rax[-16], reg::arg2));
 
-            // move the saved rax to a different location
+            // Move the saved rax to a different location.
             ls.append(mov_ld_(reg::arg2, *reg::rsp));
             ls.append(mov_st_(reg::rax[-24], reg::arg2));
 
-            // compute the new stack pointer, restore arg1, arg2, rsp, and rax.
+            // Compute the new stack pointer, restore arg1, arg2, rsp, and rax.
             ls.append(lea_(reg::rax, reg::rax[-24]));
             ls.append(mov_ld_(reg::arg2, reg::rsp[16]));
             ls.append(mov_ld_(reg::arg1, reg::rsp[24]));

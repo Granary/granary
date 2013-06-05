@@ -42,6 +42,7 @@ namespace client { namespace wp {
     }
 } /* wp namespace */
 
+
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     interrupt_handled_state handle_kernel_interrupt(
@@ -50,8 +51,7 @@ namespace client { namespace wp {
         interrupt_stack_frame &isf,
         interrupt_vector vector
     ) throw() {
-        if(VECTOR_GENERAL_PROTECTION == vector
-        || VECTOR_STACK_FAULT == vector) {
+        if(VECTOR_GENERAL_PROTECTION == vector && !isf.error_code) {
 
             instrumentation_policy policy(START_POLICY);
             policy.in_host_context();
@@ -59,7 +59,7 @@ namespace client { namespace wp {
             mangled_address target(isf.instruction_pointer, policy);
 
             isf.instruction_pointer = code_cache::find(cpu, thread, target);
-            return INTERRUPT_RETURN;
+            return INTERRUPT_IRET;
         }
         return INTERRUPT_DEFER;
     }

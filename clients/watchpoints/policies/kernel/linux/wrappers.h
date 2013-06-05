@@ -134,6 +134,44 @@ using namespace client::wp;
 #endif
 
 
+#if defined(CAN_WRAP_wake_up_bit) && CAN_WRAP_wake_up_bit
+#   ifndef APP_WRAPPER_FOR_wake_up_bit
+#       define APP_WRAPPER_FOR_wake_up_bit
+        FUNCTION_WRAPPER_VOID(APP, wake_up_bit, (void *word, int bit), {
+            wake_up_bit(unwatched_address_check(word), bit);
+        })
+#   endif
+#   ifndef HOST_WRAPPER_FOR_wake_up_bit
+#       define HOST_WRAPPER_FOR_wake_up_bit
+        FUNCTION_WRAPPER_VOID(HOST, wake_up_bit, (void *word, int bit), {
+            wake_up_bit(unwatched_address_check(word), bit);
+        })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___wake_up_bit) && CAN_WRAP___wake_up_bit
+#   ifndef APP_WRAPPER_FOR___wake_up_bit
+#       define APP_WRAPPER_FOR___wake_up_bit
+        FUNCTION_WRAPPER_VOID(APP, __wake_up_bit, (wait_queue_head_t *q, void *word, int bit), {
+            __wake_up_bit(
+                unwatched_address_check(q),
+                unwatched_address_check(word),
+                bit);
+        })
+#   endif
+#   ifndef HOST_WRAPPER_FOR___wake_up_bit
+#       define HOST_WRAPPER_FOR___wake_up_bit
+        FUNCTION_WRAPPER_VOID(HOST, __wake_up_bit, (wait_queue_head_t *q, void *word, int bit), {
+            __wake_up_bit(
+                unwatched_address_check(q),
+                unwatched_address_check(word),
+                bit);
+        })
+#   endif
+#endif
+
+
 #if defined(CAN_WRAP___phys_addr) && CAN_WRAP___phys_addr
 #   ifndef APP_WRAPPER_FOR___phys_addr
 #       define APP_WRAPPER_FOR___phys_addr

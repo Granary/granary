@@ -143,6 +143,7 @@ namespace granary {
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
+
         in = insert_cti_after(ls, in,
             trace_logger(),
             false, operand(),
