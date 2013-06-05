@@ -21,7 +21,6 @@ using namespace client::wp;
         PRE_OUT {
             if(is_valid_address(arg)) {
                 arg = unwatched_address(arg);
-                RELAX_WRAP_DEPTH;
                 PRE_OUT_WRAP(*arg);
             }
         }

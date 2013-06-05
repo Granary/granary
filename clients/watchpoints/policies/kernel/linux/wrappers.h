@@ -21,14 +21,12 @@ using namespace client::wp;
             if(!is_valid_address(arg)) {
                 return;
             }
-            RELAX_WRAP_DEPTH;
             PRE_OUT_WRAP(*unwatched_address_check(arg));
         }
         PRE_IN {
             if(!is_valid_address(arg)) {
                 return;
             }
-            RELAX_WRAP_DEPTH;
             PRE_IN_WRAP(*unwatched_address_check(arg));
         }
         INHERIT_POST_INOUT
