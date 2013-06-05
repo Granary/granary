@@ -198,7 +198,10 @@ ifeq ($(GR_CLIENT),watchpoint_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/policies/watched_policy.o
-	GR_OBJS += bin/clients/watchpoints/policies/kernel/linux/watched_policy.o
+	
+	ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/policies/kernel/linux/watched_policy.o
+	endif
 endif
 ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND

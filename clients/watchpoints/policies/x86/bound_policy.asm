@@ -105,7 +105,7 @@ START_FILE
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
         COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        call SYM(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg))); \
+        callq SYM(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg))); \
         @N@\
         \
     .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\
@@ -153,7 +153,7 @@ START_FILE
         IF_USER(@N@) \
         \
         COMMENT(Call out to our common handler.)\
-        call SYMBOL(_ZN6client2wp14visit_overflowEmPPhj); @N@\
+        callq SYMBOL(_ZN6client2wp14visit_overflowEmPPhj); @N@\
         @N@\
         \
         IF_USER(COMMENT(Restore the XMM registers.)) \
