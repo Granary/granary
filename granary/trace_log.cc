@@ -15,7 +15,19 @@
 #   include "granary/state.h"
 #endif
 
+
+extern "C" {
+
+#if GRANARY_IN_KERNEL && CONFIG_TRACE_RECORD_REGS && CONFIG_TRACE_EXECUTION
+    DONT_OPTIMISE void granary_break_on_gs_zero(void) {
+        ASM("");
+    }
+#endif
+}
+
+
 namespace granary {
+
 
 #if CONFIG_TRACE_EXECUTION
 #   if !CONFIG_TRACE_PRINT_LOG
@@ -64,6 +76,13 @@ namespace granary {
 
 #       if CONFIG_TRACE_RECORD_REGS
         item->state = *state;
+
+#           if GRANARY_IN_KERNEL
+        if(!state->gs.value_16) {
+            granary_break_on_gs_zero();
+        }
+#           endif
+
 #       else
         (void) state;
 #       endif /* CONFIG_TRACE_RECORD_REGS */
@@ -90,6 +109,22 @@ namespace granary {
         register_manager all_regs;
 
         all_regs.kill_all();
+
+#   if CONFIG_TRACE_RECORD_REGS
+        // Save the segment registers. There's probably a better way of doing
+        // this.
+        in = ls.append(lea_(reg::rsp, reg::rsp[-8]));
+        in = ls.append(push_(reg::rax));
+#       if GRANARY_IN_KERNEL
+        in = ls.append(mov_ld_(reg::rax, seg::gs[0]));
+        in = ls.append(mov_st_(reg::rsp[8], reg::rax));
+#       else
+        in = ls.append(mov_ld_(reg::rax, seg::fs[0]));
+        in = ls.append(mov_st_(reg::rsp[8], reg::rax));
+#       endif
+        in = ls.append(pop_(reg::rax));
+#   endif
+
         in = save_and_restore_registers(all_regs, ls, ls.last());
         in = ls.insert_after(in,
             mov_ld_(reg::arg1, reg::rsp[sizeof(simple_machine_state)]));
@@ -117,6 +152,11 @@ namespace granary {
 
         xmm_tail = insert_restore_old_stack_alignment_after(ls, xmm_tail);
         xmm_tail = insert_restore_flags_after(ls, xmm_tail);
+
+#   if CONFIG_TRACE_RECORD_REGS
+        // Get rid of the space for the segment registers.
+        ls.append(lea_(reg::rsp, reg::rsp[8]));
+#   endif
 
         ls.append(ret_());
 

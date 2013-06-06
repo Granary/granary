@@ -1592,13 +1592,12 @@ namespace granary {
             // use of an absolute address.
             } else {
 
-                // Mangle bit scans to add a `TEST` instruction to their
-                // source operands.
+#if 0
                 if(dynamorio::OP_bsr == in.op_code()
                 || dynamorio::OP_bsf == in.op_code()) {
                     mangle_bit_scan(in);
                 }
-
+#endif
                 IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_far_memory_refs(in);
                 IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )

@@ -265,11 +265,11 @@ namespace granary {
     union eflags {
         struct {
             bool carry:1; // low
-            bool _1:1; // must be 1
+            bool :1; // must be 1
             bool parity:1;
-            bool _3:1; // must be 0
+            bool :1; // must be 0
             bool aux_carry:1;
-            bool _5:1; // must be 0
+            bool :1; // must be 0
             bool zero:1;
             bool sign:1;
             bool trap:1;
@@ -278,15 +278,14 @@ namespace granary {
             bool overflow:1;
             bool io_privilege_level:1;
             bool nested_task:1;
-            bool _15:1; // must be 0
+            bool :1; // must be 0
             bool resume:1;
             bool virtual_8086_mode:1;
             bool alignment_check:1;
             bool virtual_interrupt:1;
             bool virtual_interrupt_pending:1;
             bool id_flag:1;
-            uint32_t _22_to_31:10;
-            uint32_t _32_to_63;
+            uint64_t :42;
         } __attribute__((packed));
         uint64_t value;
 

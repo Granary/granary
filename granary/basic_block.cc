@@ -90,6 +90,11 @@ namespace granary {
     }
 
 
+    enum {
+        DELAY_INSTRUCTION = instruction::DELAY_BEGIN | instruction::DELAY_END
+    };
+
+
     /// Get the state of all bytes of an instruction.
     static code_cache_byte_state
     get_instruction_state(
@@ -97,14 +102,10 @@ namespace granary {
         code_cache_byte_state prev_state
     ) throw() {
 
-        uint8_t flags(in.instr->granary_flags);
+        uint8_t flags(in.instr->granary_flags);;
 
-        enum {
-            SINGLETON = instruction::DELAY_BEGIN | instruction::DELAY_END
-        };
-
-        // single delayed instruction; makes no sense. It is considered native.
-        if(SINGLETON == (flags & SINGLETON)) {
+        // Single delayed instruction; makes no sense. It is considered native.
+        if(DELAY_INSTRUCTION == (flags & DELAY_INSTRUCTION)) {
             return code_cache_byte_state::BB_BYTE_NATIVE;
 
         } else if(flags & instruction::DELAY_BEGIN) {
@@ -132,8 +133,7 @@ namespace granary {
 
 
     /// Set the state of a pair of bits in memory.
-    static unsigned
-    initialise_state_bytes(
+    static unsigned initialise_state_bytes(
         basic_block_info *info,
         instruction in,
         app_pc bytes
@@ -154,7 +154,21 @@ namespace granary {
         unsigned num_delayed_instructions(0);
         unsigned prev_num_delayed_instructions(0);
 
+        instruction first(in);
+        bool has_delay(false);
         for(; in; in = in.next()) {
+            if(DELAY_INSTRUCTION & in.instr->granary_flags) {
+                has_delay = true;
+            }
+        }
+
+        // If we don't need state bytes, then don't initialise any!
+        info->has_delay_range = has_delay;
+        if(!has_delay) {
+            return 0;
+        }
+
+        for(in = first; in; in = in.next()) {
 
             code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
@@ -232,7 +246,7 @@ namespace granary {
             num_bytes += BB_INFO_BYTE_ALIGNMENT;
         }
 
-        // we've found the basic block info
+        // We've found the basic block info.
         info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
         cache_pc_end = cache_pc_current + num_bytes;
         cache_pc_start = cache_pc_end - info->num_bytes + info->num_patch_bytes;
@@ -254,9 +268,16 @@ namespace granary {
         app_pc &begin,
         app_pc &end
     ) const throw() {
+
+        // Quick check: if we don't have any delay ranges then we never
+        // allocated the state bits.
+        if(!info->has_delay_range) {
+            return false;
+        }
+
         app_pc start_with_stub(cache_pc_start - info->num_patch_bytes);
         const unsigned current_offset(cache_pc_current - start_with_stub);
-
+        const unsigned end_offset(info->num_bytes);
         code_cache_byte_state byte_state(get_state(
             pc_byte_states, current_offset));
 
@@ -264,13 +285,13 @@ namespace granary {
             SAFE_INTERRUPT_STATE = BB_BYTE_NATIVE | BB_BYTE_DELAY_BEGIN
         };
 
-        if(SAFE_INTERRUPT_STATE & byte_state) {
+        if(0 != (SAFE_INTERRUPT_STATE & byte_state)) {
             begin = nullptr;
             end = nullptr;
             return false;
         }
 
-        for(unsigned i(current_offset); ; ++i) {
+        for(unsigned i(current_offset); i < end_offset; ++i) {
             if(BB_BYTE_DELAY_END == get_state(pc_byte_states, i)) {
                 end = start_with_stub + i + 1;
                 break;
@@ -283,7 +304,7 @@ namespace granary {
             }
         }
 
-        return true;
+        return end && begin;
     }
 #endif
 
@@ -292,7 +313,21 @@ namespace granary {
     /// computes the size of each instruction, the amount of padding, meta
     /// information, etc.
     unsigned basic_block::size(instruction_list &ls) throw() {
+
+#if GRANARY_IN_KERNEL
+        unsigned size(0);
+        bool has_delay(false);
+        instruction in(ls.first());
+
+        for(; in.is_valid(); in = in.next()) {
+            size += in.encoded_size();
+            if(DELAY_INSTRUCTION & in.instr->granary_flags) {
+                has_delay = true;
+            }
+        }
+#else
         unsigned size(ls.encoded_size());
+#endif
 
         // alignment and meta info
         size += ALIGN_TO(size, BB_INFO_BYTE_ALIGNMENT);
@@ -301,9 +336,11 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         // counting set for the bits that have state info about the instruction
         // bytes
-        unsigned num_instruction_bits(size * BITS_PER_STATE);
-        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
-        size += num_instruction_bits / BITS_PER_BYTE;
+        if(has_delay) {
+            unsigned num_instruction_bits(size * BITS_PER_STATE);
+            num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
+            size += num_instruction_bits / BITS_PER_BYTE;
+        }
 #endif
 
         return size;
@@ -608,9 +645,18 @@ namespace granary {
                     break;
                 }
 
-#if CONFIG_TRACK_XMM_REGS
+
             // some other instruction
             } else {
+
+#if GRANARY_IN_KERNEL
+                if(dynamorio::OP_sysexit == in.op_code()
+                || dynamorio::OP_sysret == in.op_code()) {
+                    break;
+                }
+#endif
+
+#if CONFIG_TRACK_XMM_REGS
                 // update the policy to be in an xmm context.
                 if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
                     policy.in_xmm_context();

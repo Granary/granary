@@ -723,7 +723,7 @@ namespace client { namespace wp {
                 } else {
                     restore_full_unwatched_reg = true;
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if 0 && CONFIG_ENABLE_ASSERTIONS
                     // Try to detect really unusual corner cases like the MOVS
                     // instructions.
                     register_manager live_after;

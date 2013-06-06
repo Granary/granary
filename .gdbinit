@@ -45,6 +45,7 @@ b granary_break_on_translate
 if !$in_user_space
   b granary_break_on_interrupt
   b granary_break_on_nested_task
+  #b granary_break_on_gs_zero
   b panic
   b show_fault_oops
   b do_invalid_op
@@ -352,6 +353,11 @@ define p-trace-entry-regs
   printf "   rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
   printf "   rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
   printf "   rax: 0x%lx\n", $trace_entry->state.rax.value_64
+  if !$in_user_space
+    printf "   gs:  0x%lx\n", $trace_entry->state.gs.value_64
+  else
+    printf "   fs:  0x%lx\n", $trace_entry->state.fs.value_64
+  end
   dont-repeat
 end
 

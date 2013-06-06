@@ -451,7 +451,17 @@ namespace granary {
             //       kill at most one.
 
             if(dynamorio::REG_kind == op.kind) {
-                kill(op);
+
+                // Based on AMD64 manual that the destination operand is
+                // unchanged when the source operand is 0.
+                if(dynamorio::OP_bsr == in->opcode
+                || dynamorio::OP_bsf == in->opcode) {
+                    revive(op);
+
+                // Normal case.
+                } else {
+                    kill(op);
+                }
             } else if(dynamorio::BASE_DISP_kind == op.kind) {
                 prev_live_64 = live;
                 live = 0;

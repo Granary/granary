@@ -52,7 +52,11 @@ namespace granary {
         uint16_t num_bytes;
 
         /// Number of bytes of patch instructions beginning this basic block.
-        uint16_t num_patch_bytes;
+        uint16_t num_patch_bytes:15;
+
+        /// Does this basic block have any state bits following it? It will only
+        /// have state bits of there is a delay region.
+        bool has_delay_range:1;
 
         /// Represents the translation policy used to translate this basic
         /// block. This includes policy properties.

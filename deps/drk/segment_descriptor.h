@@ -66,7 +66,7 @@ typedef struct {
           uint32_t index : 13;
         } __attribute__((__packed__));
         struct {
-            unsigned short selector;
+            uint16_t selector;
         } __attribute__((__packed__));
     };
 } __attribute__((__packed__)) segment_selector_t;
@@ -83,10 +83,10 @@ segment_selector_decode(int selector, segment_selector_t *output)
 }
 
 #define SEGMENT_SELECTOR_ACCESSOR(selector_reg) \
-static inline unsigned short \
+static inline uint16_t \
 get_##selector_reg(void) \
 {\
-    unsigned short result; \
+    uint16_t result; \
     asm volatile("movw %%" #selector_reg ", %0" : "=m" (result)); \
     return result; \
 }

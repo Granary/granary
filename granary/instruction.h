@@ -687,15 +687,29 @@ namespace granary {
     /// Segment registers.
 #define MAKE_REG(name, upper_name)
 #define MAKE_SEG(name, upper_name) \
-    inline operand name(operand op) throw() { \
-        op.seg.segment = dynamorio::DR_ ## upper_name ; \
-        return op;\
-    } \
-    inline operand name(operand_base_disp op_) throw() { \
-        operand op(op_); \
-        op.seg.segment = dynamorio::DR_ ## upper_name ; \
-        return op;\
-    }
+    struct { \
+        inline operand operator()(operand op) throw() { \
+            op.seg.segment = dynamorio::DR_ ## upper_name ; \
+            return op;\
+        } \
+        inline operand operator()(operand_base_disp op_) throw() { \
+            operand op(op_); \
+            op.seg.segment = dynamorio::DR_ ## upper_name ; \
+            return op; \
+        } \
+        inline operand operator[](unsigned offset) throw() { \
+            operand op; \
+            op.seg.segment = dynamorio::DR_ ## upper_name ; \
+            op.seg.disp = dynamorio::DR_ ## upper_name ; \
+            op.seg.shift = dynamorio::DR_ ## upper_name ; \
+            op.seg.far_pc_seg_selector = dynamorio::DR_ ## upper_name ; \
+            op.value.immed_int = offset; \
+            op.size = dynamorio::OPSZ_8; \
+            op.kind = dynamorio::BASE_DISP_kind; \
+            return op; \
+        } \
+    } name;
+
     namespace seg {
 #   include "granary/x86/registers.h"
     }
