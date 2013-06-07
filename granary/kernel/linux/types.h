@@ -234,7 +234,7 @@
 #include <linux/posix_acl.h>
 /* taken from ext3/ext2*/
 
-
+#include <uapi/linux/posix_types.h>
 
 /* Manually defined to exist */
 struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);
