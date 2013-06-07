@@ -585,7 +585,15 @@ namespace granary {
             instruction in(instruction::decode(pc));
 
             // TODO: curiosity.
-            if(dynamorio::OP_INVALID == in.op_code()) {
+            if(dynamorio::OP_INVALID == in.op_code()
+            || dynamorio::OP_UNDECODED == in.op_code()) {
+
+#if CONFIG_ENABLE_ASSERTIONS
+                printf(
+                    "Failed to decode instruction at %p in "
+                    "block starting at %p\n",
+                    in.pc(), start_pc);
+#endif
                 granary_fault();
                 break;
             }

@@ -273,7 +273,8 @@ static int module_load_notifier(
 ) {
     struct kernel_module *internal_mod = NULL;
     struct module *mod = (struct module *) vmod;
-    printk("[granary] Notified of module 0x%p\n", vmod);
+    printk("[granary] Notified of module 0x%p [.text = %p]\n",
+        vmod, mod->module_core);
     printk("[granary] Module's name is: %s.\n", mod->name);
 
     internal_mod = find_interal_module(vmod);
