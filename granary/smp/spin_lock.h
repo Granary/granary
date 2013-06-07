@@ -28,7 +28,7 @@ namespace granary { namespace smp {
 
     public:
 
-        ~atomic_spin_lock(void) throw() = default;
+        ~atomic_spin_lock(void) = default;
 
         atomic_spin_lock(const atomic_spin_lock &) throw() = delete;
         atomic_spin_lock &operator=(const atomic_spin_lock &) throw() = delete;

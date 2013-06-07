@@ -662,7 +662,7 @@ namespace client { namespace wp {
                 if(can_change) {
                     operand op_replacement(*addr);
                     op_replacement.size = original_op.size;
-                    const_cast<operand_ref &>(op) = op_replacement;
+                    const_cast<operand_ref &>(op).replace_with(op_replacement);
                 }
             }
 

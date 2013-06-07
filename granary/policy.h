@@ -241,7 +241,6 @@ namespace granary {
             as_raw_bits = that.as_raw_bits;
         }
 
-        //instrumentation_policy(const instrumentation_policy &that) throw() = default;
         instrumentation_policy(const mangled_address &) throw();
 
         inline instrumentation_policy &

@@ -1317,7 +1317,7 @@ namespace granary {
             return;
         }
 
-        op = new_op; // update the op in place
+        op.replace_with(new_op); // update the op in place
     }
 
 

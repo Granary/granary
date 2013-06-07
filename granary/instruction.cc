@@ -235,22 +235,20 @@ namespace granary {
     /// Assign an operand to this operand ref; this will update the operand
     /// referenced by this ref in place, and will invalidate the raw bits
     /// of the instruction.
-    operand_ref &operand_ref::operator=(operand that) throw() {
+    void operand_ref::replace_with(operand that) throw() {
         *op = that;
         if(op2) {
             *op2 = that;
         }
         instruction(instr).invalidate_raw_bits();
-        return *this;
     }
 
-    operand_ref &operand_ref::operator=(operand_base_disp that) throw() {
+    void operand_ref::replace_with(operand_base_disp that) throw() {
         *op = operand(that);
         if(op2) {
             *op2 = *op;
         }
         instruction(instr).invalidate_raw_bits();
-        return *this;
     }
 
 
