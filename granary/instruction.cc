@@ -232,6 +232,16 @@ namespace granary {
     }
 
 
+    /// Copy another reference.
+    operand_ref &operand_ref::operator=(const operand_ref &that) throw() {
+        instr = that.instr;
+        op = that.op;
+        op2 = that.op2;
+        kind = that.kind;
+        return *this;
+    }
+
+
     /// Assign an operand to this operand ref; this will update the operand
     /// referenced by this ref in place, and will invalidate the raw bits
     /// of the instruction.

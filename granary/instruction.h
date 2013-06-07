@@ -210,11 +210,17 @@ namespace granary {
         /// as an lvalue in an assignment; invalidate the raw bits.
         operand *operator->(void) throw();
 
+
+        /// Copy another reference.
+        operand_ref &operator=(const operand_ref &that) throw();
+
+
         /// Assign an operand to this operand ref; this will update the operand
         /// referenced by this ref in place, and will invalidate the raw bits
         /// of the instruction.
         void replace_with(operand that) throw();
         void replace_with(operand_base_disp that) throw();
+
 
         inline bool is_valid(void) const throw() {
             return nullptr != instr;

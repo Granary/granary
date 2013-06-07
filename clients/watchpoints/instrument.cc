@@ -346,14 +346,14 @@ namespace client { namespace wp {
 
             const operand dead_reg(spill_reg);
             ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
-            rsp_op = dead_reg;
+            rsp_op.replace_with(dead_reg);
 
         } else {
             const operand dead_reg(tracker.spill_regs.get_zombie());
             ls.insert_before(in, push_(dead_reg));
             ls.insert_before(in, lea_(dead_reg, reg::rsp[8]));
             ls.insert_after(in, pop_(dead_reg));
-            rsp_op = dead_reg;
+            rsp_op.replace_with(dead_reg);
         }
     }
 
