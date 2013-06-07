@@ -84,6 +84,7 @@ namespace granary {
 
         friend struct code_cache;
 
+
         /// points to the counting set, where every pair of bits represents the
         /// state of some byte in the code cache; this counting set immediately
         /// follows the info block in memory.

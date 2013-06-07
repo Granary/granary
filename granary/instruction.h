@@ -703,7 +703,12 @@ namespace granary {
             op.seg.disp = dynamorio::DR_ ## upper_name ; \
             op.seg.shift = dynamorio::DR_ ## upper_name ; \
             op.seg.far_pc_seg_selector = dynamorio::DR_ ## upper_name ; \
-            op.value.immed_int = offset; \
+            if(!offset) { \
+                op.value.immed_int = 0; \
+                op.value.base_disp.encode_zero_disp = true; \
+            } else { \
+                op.value.base_disp.disp = offset; \
+            } \
             op.size = dynamorio::OPSZ_8; \
             op.kind = dynamorio::BASE_DISP_kind; \
             return op; \

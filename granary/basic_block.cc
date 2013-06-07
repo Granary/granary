@@ -20,7 +20,6 @@
 
 namespace granary {
 
-
     enum {
 
         BB_PADDING              = 0xEA,
@@ -143,20 +142,21 @@ namespace granary {
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
-        // initialise all state bytes to have their states as native
+        // Initialise all state bytes to have their states as native.
         memset(bytes, 0, num_state_bytes);
 
         unsigned byte_offset(0);
         unsigned prev_byte_offset(0);
 
-        // for each instruction
         code_cache_byte_state prev_state(BB_BYTE_NATIVE);
         unsigned num_delayed_instructions(0);
         unsigned prev_num_delayed_instructions(0);
 
+        // Scan the instructions to see if the interrupt delay feature is
+        // even being used.
         instruction first(in);
         bool has_delay(false);
-        for(; in; in = in.next()) {
+        for(; in.is_valid(); in = in.next()) {
             if(DELAY_INSTRUCTION & in.instr->granary_flags) {
                 has_delay = true;
             }
@@ -168,7 +168,7 @@ namespace granary {
             return 0;
         }
 
-        for(in = first; in; in = in.next()) {
+        for(in = first; in.is_valid(); in = in.next()) {
 
             code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
@@ -185,7 +185,7 @@ namespace granary {
                 num_delayed_instructions = 0;
             }
 
-            // the last delayed block was only one instruction long; clear its
+            // The last delayed block was only one instruction long; clear its
             // state bits so that it is not in fact delayed (as that makes
             // no sense).
             if(1 == prev_num_delayed_instructions) {
@@ -194,12 +194,12 @@ namespace granary {
                 }
             }
 
-            // for each byte of each instruction
+            // For each byte of each instruction.
             for(unsigned j(byte_offset); j < (byte_offset + num_bytes); ++j) {
                 set_state(bytes, j, stored_state);
             }
 
-            // update so that we have byte accuracy on begin/end.
+            // Update so that we have byte accuracy on begin/end.
             if(BB_BYTE_DELAY_BEGIN == state) {
                 set_state(bytes, byte_offset, BB_BYTE_DELAY_BEGIN);
             } else if(BB_BYTE_DELAY_END == state) {
@@ -227,33 +227,36 @@ namespace granary {
         , cache_pc_current(current_pc_)
         , cache_pc_end(nullptr)
     {
+        // Round our search address down to `BB_INFO_BYTE_ALIGNMENT` before we
+        // search for the meta info magic value.
+        uintptr_t addr(reinterpret_cast<uint64_t>(current_pc_));
+        addr -= (addr % BB_INFO_BYTE_ALIGNMENT);
 
-        // round up to the next 8-byte aligned quantity
-        uint64_t addr(reinterpret_cast<uint64_t>(current_pc_));
-        unsigned num_bytes = ALIGN_TO(addr, BB_INFO_BYTE_ALIGNMENT);
-        addr += num_bytes;
-
-        // go search for the basic block info by finding potential
+        // Go search for the basic block info by finding potential
         // addresses of the meta info, then checking their magic values.
-        for(uint64_t *ints(reinterpret_cast<uint64_t *>(addr)); ; ++ints) {
-            const basic_block_info * const potential_bb(
-                    unsafe_cast<basic_block_info *>(ints));
-
-            if(basic_block_info::HEADER == potential_bb->magic) {
+        uint32_t *ints(reinterpret_cast<uint32_t *>(addr));
+        for(; ; ++ints) {
+            if(basic_block_info::HEADER == *ints) {
                 break;
             }
-
-            num_bytes += BB_INFO_BYTE_ALIGNMENT;
         }
 
         // We've found the basic block info.
-        info = unsafe_cast<basic_block_info *>(current_pc_ + num_bytes);
-        cache_pc_end = cache_pc_current + num_bytes;
-        cache_pc_start = cache_pc_end - info->num_bytes + info->num_patch_bytes;
+        info = unsafe_cast<basic_block_info *>(ints);
+        cache_pc_end = reinterpret_cast<app_pc>(ints);
+        cache_pc_start = (cache_pc_end - info->num_bytes) \
+                       + info->num_patch_bytes;
         policy = instrumentation_policy::decode(info->policy_bits);
 
-        IF_KERNEL(pc_byte_states = reinterpret_cast<uint8_t *>(
-            cache_pc_end + sizeof(basic_block_info));)
+#if GRANARY_IN_KERNEL
+        // Initialise the byte states only if we have them.
+        if(info->has_delay_range) {
+            pc_byte_states = reinterpret_cast<uint8_t *>(
+                ints + sizeof(basic_block_info));
+        } else {
+            pc_byte_states = nullptr;
+        }
+#endif
     }
 
 
@@ -271,13 +274,25 @@ namespace granary {
 
         // Quick check: if we don't have any delay ranges then we never
         // allocated the state bits.
-        if(!info->has_delay_range) {
+        if(!pc_byte_states) {
+            return false;
+        }
+
+        // Interrupted in stub code (<) OR at the first non-stub code
+        // instruction (=).
+        //
+        // Note: This implies that code within a delay region should not
+        //       use features that would cause a stub to be generated.
+        if(cache_pc_current <= cache_pc_start) {
             return false;
         }
 
         app_pc start_with_stub(cache_pc_start - info->num_patch_bytes);
         const unsigned current_offset(cache_pc_current - start_with_stub);
         const unsigned end_offset(info->num_bytes);
+
+        ASSERT(current_offset < info->num_bytes);
+
         code_cache_byte_state byte_state(get_state(
             pc_byte_states, current_offset));
 
@@ -329,16 +344,17 @@ namespace granary {
         unsigned size(ls.encoded_size());
 #endif
 
-        // alignment and meta info
+        // Alignment and meta info.
         size += ALIGN_TO(size, BB_INFO_BYTE_ALIGNMENT);
-        size += sizeof(basic_block_info); // meta info
+        size += sizeof(basic_block_info);
 
 #if GRANARY_IN_KERNEL
-        // counting set for the bits that have state info about the instruction
-        // bytes
+        // State set, where pairs of bits represent the state of a byte within
+        // the instructions.
         if(has_delay) {
             unsigned num_instruction_bits(size * BITS_PER_STATE);
-            num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
+            num_instruction_bits += ALIGN_TO(
+                num_instruction_bits, BITS_PER_QWORD);
             size += num_instruction_bits / BITS_PER_BYTE;
         }
 #endif
@@ -355,41 +371,15 @@ namespace granary {
         unsigned size_(info->num_bytes + sizeof *info);
 
 #if GRANARY_IN_KERNEL
-        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
-        num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
-        size_ += num_instruction_bits / BITS_PER_BYTE;
+        if(pc_byte_states) {
+            unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+            num_instruction_bits += ALIGN_TO(
+                num_instruction_bits, BITS_PER_QWORD);
+            size_ += num_instruction_bits / BITS_PER_BYTE;
+        }
 #endif
         return size_;
     }
-
-
-#if CONFIG_BB_PATCH_LOCAL_BRANCHES
-    /// Get a handle for an instruction in the instruction list.
-    static instruction
-    find_local_back_edge_target(instruction_list &ls, app_pc pc) throw() {
-        instruction in(ls.first());
-        for(unsigned i(0), max(ls.length()); i < max; ++i) {
-            if(in.pc() == pc) {
-                return in;
-            }
-            in = in.next();
-        }
-        return instruction(nullptr);
-    }
-#endif
-
-
-    /// Represents a potential local branch target, and the instruction
-    /// that would need to be resolved if we can find the target within
-    /// the current basic block.
-    struct local_branch_target {
-        app_pc target;
-        instruction source;
-
-        bool operator<(const local_branch_target &that) const throw() {
-            return target < that.target;
-        }
-    };
 
 
 #if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS

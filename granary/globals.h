@@ -382,6 +382,9 @@ extern "C" {
     extern granary::eflags granary_load_flags(void);
     extern void granary_store_flags(granary::eflags);
 
+    extern uint64_t granary_get_gs_base(void);
+    extern uint64_t granary_get_fs_base(void);
+
 #if GRANARY_IN_KERNEL
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);

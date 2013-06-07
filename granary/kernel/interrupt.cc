@@ -368,20 +368,24 @@ namespace granary {
         IF_PERF( perf::visit_interrupt(); )
 
         if(is_code_cache_address(pc)) {
-
-#if 0
-            kernel_preempt_enable();
-            return INTERRUPT_DEFER;
-
-#else
             basic_block bb(pc);
             app_pc delay_begin(nullptr);
             app_pc delay_end(nullptr);
 
+            // We need to delay. After the delay has occurred, we re-issue the
+            // interrupt.
+            if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
+                // Delay the interrupt.
+                isf->instruction_pointer = emit_delayed_interrupt(
+                    cpu, isf, vector, delay_begin, delay_end);
+
+                kernel_preempt_enable();
+                return INTERRUPT_RETURN;
+
             // We don't need to delay; let the client try to handle the
             // interrupt, or defer to the kernel if the client doesn't handle
             // the interrupt.
-            if(!bb.get_interrupt_delay_range(delay_begin, delay_end)) {
+            } else {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
                 basic_block_state *bb_state(bb.state());
                 instrumentation_policy policy(bb.policy);
@@ -389,34 +393,15 @@ namespace granary {
                 interrupt_handled_state ret(policy.handle_interrupt(
                     cpu, thread, *bb_state, *isf, vector));
 
-#if 0
                 // Try to prevent a GP.
                 if(INTERRUPT_IRET == ret) {
                     disable_nested_task();
                 }
 
-                if(VECTOR_GENERAL_PROTECTION == vector
-                && INTERRUPT_DEFER == ret) {
-                    granary_break_on_interrupt(isf, vector, cpu);
-                }
-#endif
                 kernel_preempt_enable();
                 return ret;
-
-#else
-                kernel_preempt_enable();
-                return INTERRUPT_DEFER;
-#endif
-            } else {
-                // Delay the interrupt.
-                isf->instruction_pointer = emit_delayed_interrupt(
-                    cpu, isf, vector, delay_begin, delay_end);
-
-                kernel_preempt_enable();
-                return INTERRUPT_RETURN;
             }
-#endif
-
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
         }
 
         // Detect an exception within a delayed interrupt handler. This
@@ -430,7 +415,7 @@ namespace granary {
             IF_PERF( perf::visit_recursive_interrupt(); )
             granary_break_on_interrupt(isf, vector, cpu);
             kernel_preempt_enable();
-            //disable_nested_task();
+            disable_nested_task();
             return INTERRUPT_IRET;
         }
 
@@ -442,42 +427,18 @@ namespace granary {
             return INTERRUPT_DEFER;
         }
 
-        static bool check_all(false);
-
-        if(VECTOR_GENERAL_PROTECTION == vector || check_all) {
-            granary_break_on_interrupt(isf, vector, cpu);
-            check_all = true;
-        }
-
         interrupt_handled_state ret(client::handle_kernel_interrupt(
             cpu,
             thread,
             *isf,
             vector));
 
-        if(VECTOR_GENERAL_PROTECTION == vector || check_all) {
-            granary_break_on_interrupt(isf, vector, cpu);
-        }
-
-#if 0
+        // Try to prevent a GP.
         if(INTERRUPT_IRET == ret) {
             disable_nested_task();
         }
-
-        if(VECTOR_GENERAL_PROTECTION == vector
-        && INTERRUPT_DEFER == ret) {
-            granary_break_on_interrupt(isf, vector, cpu);
-        }
-#endif
-
-#if 0
-        if(INTERRUPT_IRET == ret) {
-            disable_nested_task();
-        }
-#endif
 
         kernel_preempt_enable();
-
         return ret;
     }
 

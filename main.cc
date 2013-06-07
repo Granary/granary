@@ -65,6 +65,7 @@ DONT_OPTIMISE void make_direct_call(void) throw() {
     }
 }
 
+
 #include "granary/test.h"
 int main(int argc, const char **argv) throw() {
 
