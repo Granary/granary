@@ -596,5 +596,12 @@ namespace granary {
 #undef MAKE_SEG
 #undef MAKE_REG
 
+#define MAKE_REG(name, upper_name)
+#define MAKE_SEG(name, upper_name) CAT(segment_, name) name;
+    namespace seg {
+#include "granary/x86/registers.h"
+    }
+#undef MAKE_SEG
+#undef MAKE_REG
 }
 

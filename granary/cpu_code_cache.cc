@@ -11,7 +11,7 @@ namespace granary {
 
     enum {
         MAX_SCAN = 8,
-        MIN_DEFAULT_ENTRIES = 1024
+        MIN_DEFAULT_ENTRIES = 8192
     };
 
     /// 64-bit mix function from murmurhash3.
@@ -23,7 +23,6 @@ namespace granary {
       k ^= k >> 33;
       k *= 0xc4ceb9fe1a85ec53ULL;
       k ^= k >> 33;
-
       return k;
     }
 

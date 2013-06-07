@@ -687,7 +687,7 @@ namespace granary {
     /// Segment registers.
 #define MAKE_REG(name, upper_name)
 #define MAKE_SEG(name, upper_name) \
-    struct { \
+    struct CAT(segment_, name) { \
         inline operand operator()(operand op) throw() { \
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             return op;\
@@ -713,7 +713,8 @@ namespace granary {
             op.kind = dynamorio::BASE_DISP_kind; \
             return op; \
         } \
-    } name;
+    }; \
+    extern CAT(segment_, name) name;
 
     namespace seg {
 #   include "granary/x86/registers.h"
