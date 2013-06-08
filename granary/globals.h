@@ -71,7 +71,7 @@
 /// opportunities that involve looking for places where direct control-flow
 /// transfers don't need to be dynamically resolved / hot patched if we have
 /// already seen them.
-#define CONFIG_USE_ONLY_ONE_POLICY 1
+#define CONFIG_USE_ONLY_ONE_POLICY 0
 
 
 /// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch

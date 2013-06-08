@@ -427,6 +427,14 @@ namespace granary {
             return INTERRUPT_DEFER;
         }
 
+        // Handle the interrupt.
+        //
+        // Note: We purposefully don't check for `is_host_address` because that
+        //       might exclude a lot of important things. For example, in the
+        //       case of watchpoints, it is possible that Granary or an
+        //       uninstrumented module will dereference a watched address. In
+        //       these cases, we want to treat such code as if it is kernel
+        //       code.
         interrupt_handled_state ret(client::handle_kernel_interrupt(
             cpu,
             thread,

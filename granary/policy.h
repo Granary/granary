@@ -109,7 +109,7 @@ namespace granary {
         static std::atomic<unsigned> NEXT_POLICY_ID;
 
         enum {
-            NUM_TEMPORARY_PROPERTIES = 2,
+            NUM_TEMPORARY_PROPERTIES = 3,
             NUM_INHERITED_PROERTIES = 2,
             NUM_PROPERTIES = NUM_TEMPORARY_PROPERTIES + NUM_INHERITED_PROERTIES
         };
@@ -132,6 +132,10 @@ namespace granary {
                 /// that it should ignore policy behaviours (e.g. auto-
                 /// instrument host code).
                 bool is_return_target:1;
+
+                /// Should we force this code to be instrumented, regardless of
+                /// if it is the target of a detach point?
+                bool force_attach:1;
 
                 /// Inherited property; this tells us if we should save/restore
                 /// all XMM registers.
@@ -304,6 +308,7 @@ namespace granary {
             policy.as_raw_bits = as_raw_bits;
             policy.u.is_indirect_target = false;
             policy.u.is_return_target = false;
+            policy.u.force_attach = false;
             return policy;
         }
 
@@ -357,6 +362,19 @@ namespace granary {
         /// safe.
         inline bool is_in_xmm_context(void) const throw() {
             return u.is_in_xmm_context;
+        }
+
+
+        /// Set this policy to forcibly attach (or not) to some code.
+        inline void force_attach(bool val=true) throw() {
+            u.force_attach = val;
+        }
+
+
+        /// Check whether or not some code, regardless of if it's a detach
+        /// point, must be instrumented.
+        inline bool can_detach(void) throw() {
+            return !u.force_attach;
         }
 
 

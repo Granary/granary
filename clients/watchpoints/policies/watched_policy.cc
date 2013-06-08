@@ -54,7 +54,8 @@ namespace client { namespace wp {
         if(VECTOR_GENERAL_PROTECTION == vector && !isf.error_code) {
 
             instrumentation_policy policy(START_POLICY);
-            policy.in_host_context();
+            policy.in_host_context(true);
+            policy.force_attach(true);
 
             mangled_address target(isf.instruction_pointer, policy);
 

@@ -335,7 +335,7 @@ namespace granary {
     template <enum function_wrapper_id, enum runtime_context>
     struct is_function_wrapped {
         enum {
-            VALUE = 0
+            VALUE = false
         };
     };
 
@@ -464,10 +464,23 @@ namespace granary {
 
 
     template <
+
+        /// The `DETACH_ID_*` of the function to be wrapped.
         enum function_wrapper_id id,
+
+        /// Should this be considered a wrapper for use when running in
+        /// application code (`RUNNING_AS_APP`) or host code
+        /// (`RUNNING_AS_HOST`).
         enum runtime_context context,
+
+        /// Is this function manually wrapped using a `FUNCTION_WRAPPER` or
+        /// `FUNCTION_WRAPPER_VOID`.
         bool inherit,
+
+        /// Return type of the function to be wrapped.
         typename R,
+
+        /// Argument types of the function to be wrapped.
         typename... Args
     >
     struct wrapped_function_impl;
@@ -477,11 +490,10 @@ namespace granary {
     /// function returns a non-void type.
     template <
         enum function_wrapper_id id,
-        enum runtime_context context,
         typename R,
         typename... Args
     >
-    struct wrapped_function_impl<id, context, false, R, Args...> {
+    struct wrapped_function_impl<id, RUNNING_AS_APP, false, R, Args...> {
     public:
 
         typedef R func_type(Args...);
@@ -528,10 +540,9 @@ namespace granary {
     /// function returns void.
     template <
         enum function_wrapper_id id,
-        enum runtime_context context,
         typename... Args
     >
-    struct wrapped_function_impl<id, context, false, void, Args...> {
+    struct wrapped_function_impl<id, RUNNING_AS_APP, false, void, Args...> {
     public:
 
         typedef void R;
@@ -574,22 +585,24 @@ namespace granary {
     };
 
 
-    /// Represents a "bad" instantiation of the `wrapped_function` template. If
-    /// If this is instantiated, then we will treat the original function as not
-    /// being a detach point because we are in the host context.
+    /// Force host functions called within host-instrumented code to not
+    /// detach unless there is a specific specialisation of this class.
     template <
-        enum function_wrapper_id id
+        enum function_wrapper_id id,
+        typename R,
+        typename... Args
     >
     struct wrapped_function_impl<
         id,
         RUNNING_AS_HOST,
         false,
-        custom_wrapped_function
+        R,
+        Args...
     > {
 
         /// Apply in this case is effectively a nullptr. This is a sort-of hack
         /// that only ends up working because of C-style casts in `wrapper.cc`
-        /// where I can access `::apply`, somet
+        /// where `::apply` is accessed.
         enum : uintptr_t {
             apply = 0
         };
@@ -1315,7 +1328,7 @@ namespace granary {
 
 
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(wrapped_type__, int) throw() { }
+    static inline void kind ## _wrap(wrapped_type__ &, int) throw() { }
 
 
 #define APP RUNNING_AS_APP

@@ -338,32 +338,6 @@ namespace granary {
         /// Return true iff this instruction is a control-transfer
         /// instruction.
         inline bool is_cti(void) throw() {
-#if CONFIG_ENABLE_ASSERTIONS
-            // TODO: curiosity.
-            if(dynamorio::OP_INVALID == instr->opcode
-            || dynamorio::OP_UNDECODED == instr->opcode) {
-
-                app_pc translation(instr->translation);
-                dynamorio::instr_t *sub_instr(instr->prev);
-                for(;
-                    !translation && sub_instr;
-                    sub_instr = sub_instr->prev) {
-
-                    translation = sub_instr->translation;
-                }
-
-                for(sub_instr = instr->next;
-                    !translation && sub_instr;
-                    sub_instr = sub_instr->next) {
-
-                    translation = sub_instr->translation;
-                }
-
-                printf(
-                    "Failed to decode instruction at or near %p.\n",
-                    translation);
-            }
-#endif
             return dynamorio::instr_is_cti(instr);
         }
 

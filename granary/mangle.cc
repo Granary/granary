@@ -1006,7 +1006,7 @@ namespace granary {
 
         // First detach check: try to see if we should detach from our current
         // policy context, before any context conversion can happen.
-        if(!detach_target_pc){
+        if(!detach_target_pc && target_policy.can_detach()){
             detach_target_pc = find_detach_target(
                 target_pc, target_policy.context());
         }

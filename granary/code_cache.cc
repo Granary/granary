@@ -174,7 +174,7 @@ namespace granary {
         }
 
         // Can we detach to a known target?
-        if(!target_addr) {
+        if(!target_addr && policy.can_detach()) {
             target_addr = find_detach_target(app_target_addr, policy.context());
         }
 

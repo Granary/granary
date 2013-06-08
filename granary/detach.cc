@@ -163,6 +163,5 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT(detach)
-    GRANARY_DETACH_POINT(detach)
 }
 
