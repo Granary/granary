@@ -67,6 +67,7 @@ namespace granary {
     static std::atomic<unsigned long> NUM_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
     static std::atomic<unsigned> NUM_RECURSIVE_INTERRUPTS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned long> NUM_DELAYED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
+    static std::atomic<unsigned long> NUM_BAD_MODULE_EXECS(ATOMIC_VAR_INIT(0UL));
 #endif
 
 
@@ -173,6 +174,10 @@ namespace granary {
     unsigned long perf::num_delayed_interrupts(void) throw() {
         return NUM_DELAYED_INTERRUPTS.load();
     }
+
+    void perf::visit_protected_module(void) throw() {
+        NUM_BAD_MODULE_EXECS.fetch_add(1);
+    }
 #endif
 
 
@@ -235,6 +240,8 @@ namespace granary {
             NUM_DELAYED_INTERRUPTS.load());
         printf("Number of recursive interrupts (these are bad): %u\n\n",
             NUM_RECURSIVE_INTERRUPTS.load());
+        printf("Number of interrupts due to insufficient wrapping: %lu\n",
+            NUM_BAD_MODULE_EXECS.load());
 #endif
     }
 }

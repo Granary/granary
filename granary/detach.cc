@@ -138,12 +138,10 @@ namespace granary {
     app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
 
 #if GRANARY_IN_KERNEL
-        app_pc fallback(nullptr);
         if(likely(RUNNING_AS_APP == context)) {
             if(!is_host_address(detach_addr)) {
                 return nullptr;
             }
-            fallback = detach_addr;
         }
 #endif
 
@@ -152,7 +150,7 @@ namespace granary {
             return redirect_addr;
         }
 
-        return IF_USER_ELSE(nullptr, fallback);
+        return nullptr;
     }
 
 

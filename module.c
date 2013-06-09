@@ -129,7 +129,21 @@ void kernel_preempt_enable(void) {
 }
 
 
-struct kernel_module *modules = NULL;
+/// Linked list of Granary-recognized modules.
+static struct kernel_module *modules = NULL;
+
+
+enum {
+    /// Bounds on where kernel module code is placed
+    MODULE_TEXT_START = 0xffffffffa0000000ULL,
+    MODULE_TEXT_END = 0xfffffffffff00000ULL,
+
+    /// Bounds on where non-module kernel code is placed.
+    KERNEL_TEXT_START = 0xffffffff80000000ULL,
+    KERNEL_TEXT_END = MODULE_TEXT_START
+};
+
+
 extern void *(**kernel_malloc_exec)(unsigned long, int);
 extern void *(**kernel_malloc)(unsigned long);
 extern void (**kernel_free)(const void *);
@@ -151,6 +165,41 @@ static unsigned long WRAPPER_END = 0;
 
 static int granary_device_open = 0;
 static int granary_device_initialised = 0;
+
+
+/// Returns true if an address is a kernel address, or native kernel module.
+int is_host_address(uintptr_t addr) {
+    if(KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END) {
+        return 1;
+    } else if(EXEC_START <= addr && addr < EXEC_END) {
+        return 0;
+    } else if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
+        struct kernel_module *mod = modules;
+        for(; mod; mod = mod->next) {
+            if(((uintptr_t) mod->text_begin) <= addr
+            && addr < ((uintptr_t) mod->text_end)) {
+                return mod->is_granary;
+            }
+        }
+    }
+    return 0;
+}
+
+
+/// Returns true iff an address belongs to a Granary-instrumented kernel
+/// module.
+int is_app_address(uintptr_t addr) {
+    if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
+        struct kernel_module *mod = modules;
+        for(; mod; mod = mod->next) {
+            if(((uintptr_t) mod->text_begin) <= addr
+            && addr < ((uintptr_t) mod->text_end)) {
+                return !(mod->is_granary);
+            }
+        }
+    }
+    return 0;
+}
 
 
 static void set_page_perms(

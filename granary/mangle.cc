@@ -1024,10 +1024,13 @@ namespace granary {
         // host code, then figure out if we can do that.
         if(!detach_target_pc
         && !policy.is_in_host_context()
-        && policy.is_host_auto_instrumented()
         && is_host_address(target_pc)) {
-            target_policy.in_host_context(true);
-            am = mangled_address(target_pc, target_policy);
+            if(policy.is_host_auto_instrumented()) {
+                target_policy.in_host_context(true);
+                am = mangled_address(target_pc, target_policy);
+            } else {
+                detach_target_pc = target_pc;
+            }
         }
 
         // Forcibly resolve the target policy to the instruction.

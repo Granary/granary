@@ -131,32 +131,15 @@ namespace granary {
             target_addr = app_target_addr;
         }
 
-        bool force_detach(false);
-#if GRANARY_IN_KERNEL
         // Ensure that we're in the correct policy context. This might cause
-        // some (inherited) property conversion.
-        if(is_host_address(app_target_addr)) {
-            force_detach = !policy.is_in_host_context();
-        }
-
-        // Handles policy conversion.
-        policy.in_host_context(is_host_address(app_target_addr));
-#else
-        // TODO: Assumes that in user space, we cannot figure out *where* the
-        //       true boundaries between host/app code are. As such, we just
-        //       assume that we will eventually return to host code, and
-        //       naturally detach.
-        policy.in_host_context(false);
-
-        // TODO: Later this might be something desirable to turn on. The effect
-        //       of enabling the next line is to make it so that returns detach.
-        //       This would negate the entire usefulness of the IBL-lookup of
-        //       returns, which would mean RETs could be left unmangled.
-        //       Enabling this would require a big change in how Granary is
-        //       attached to user space processes. Otherwise, this policy
-        //       property provides useful semantic information.
-        //force_detach = policy.is_return_target();
-#endif
+        // a policy conversion. We also need to keep track of the auto-
+        // instrument protocol for IBLs, i.e. that if auto-instrumenting is on
+        // then we'll mark the CTI target as being in the host context. If the
+        // mark was wrong (i.e. the IBL targets app code) then that's fine, and
+        // if it targets host code then auto instrument.
+        const bool policy_was_in_host_context(policy.is_in_host_context());
+        policy.in_host_context(
+            IF_USER_ELSE(false, is_host_address(app_target_addr)));
 
         // Figure out the non-policy-mangled target address, and find the base
         // policy (absent any temporary properties).
@@ -176,13 +159,16 @@ namespace granary {
         // Can we detach to a known target?
         if(!target_addr && policy.can_detach()) {
             target_addr = find_detach_target(app_target_addr, policy.context());
-        }
 
-        // Should we apparently detach? This isn't necessarily a true detach
-        // (mostly a user space case), but lets us guarantee certain things
-        // about (semi-)consistently applying the policy propagation rules.
-        if(!target_addr && force_detach) {
-            target_addr = app_target_addr;
+            // Application of the auto-instrument host protocol. If we weren't
+            // auto-instrumenting or already in host code, and now we've
+            // switched to host code, then set the target address so that we
+            // can detach.
+            if(!target_addr
+            && !policy_was_in_host_context
+            && policy.is_in_host_context()) {
+                target_addr = app_target_addr;
+            }
         }
 
         // If we don't have a target yet then translate the target assuming it's

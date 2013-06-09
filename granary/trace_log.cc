@@ -115,15 +115,12 @@ namespace granary {
         // this.
         in = ls.append(lea_(reg::rsp, reg::rsp[-8]));
         in = ls.append(push_(reg::rax));
-#       if GRANARY_IN_KERNEL
-        in = ls.append(mov_imm_(reg::rax, int32_(0)));
-        in = ls.append(lea_(reg::rax, seg::gs(*reg::rax)));
+        in = insert_cti_after(ls, in,
+            unsafe_cast<app_pc>(&IF_USER_ELSE(
+                granary_get_fs_base, granary_get_gs_base)),
+            true, reg::rax,
+            CTI_CALL);
         in = ls.append(mov_st_(reg::rsp[8], reg::rax));
-#       else
-        in = ls.append(mov_imm_(reg::rax, int32_(0)));
-        in = ls.append(lea_(reg::rax, seg::fs(*reg::rax)));
-        in = ls.append(mov_st_(reg::rsp[8], reg::rax));
-#       endif
         in = ls.append(pop_(reg::rax));
 #   endif
 

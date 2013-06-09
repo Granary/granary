@@ -49,12 +49,8 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc) && CAN_WRAP_kmem_cache_alloc
 #   define APP_WRAPPER_FOR_kmem_cache_alloc
     FUNCTION_WRAPPER(APP, kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
-        if(is_valid_address(cache)) {
-            if(is_watched_address(cache)) {
-                cache = unwatched_address(cache);
-            }
-            PRE_OUT_WRAP(cache);
-        }
+        cache = unwatched_address_check(cache);
+        PRE_OUT_WRAP(cache);
 
         void *ptr(kmem_cache_alloc(cache, gfp));
         if(!ptr) {
@@ -77,12 +73,8 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc_trace) && CAN_WRAP_kmem_cache_alloc_trace
 #   define APP_WRAPPER_FOR_kmem_cache_alloc_trace
     FUNCTION_WRAPPER(APP, kmem_cache_alloc_trace, (void *), (struct kmem_cache *cache, gfp_t gfp, size_t size), {
-        if(is_valid_address(cache)) {
-            if(is_watched_address(cache)) {
-                cache = unwatched_address(cache);
-            }
-            PRE_OUT_WRAP(cache);
-        }
+        cache = unwatched_address_check(cache);
+        PRE_OUT_WRAP(cache);
 
         void *ptr(kmem_cache_alloc_trace(cache, gfp, size));
         if(!ptr) {
@@ -105,12 +97,8 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc_node) && CAN_WRAP_kmem_cache_alloc_node
 #   define APP_WRAPPER_FOR_kmem_cache_alloc_node
     FUNCTION_WRAPPER(APP, kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
-        if(is_valid_address(cache)) {
-            if(is_watched_address(cache)) {
-                cache = unwatched_address(cache);
-            }
-            PRE_OUT_WRAP(cache);
-        }
+        cache = unwatched_address_check(cache);
+        PRE_OUT_WRAP(cache);
 
         void *ptr(kmem_cache_alloc_node(cache, gfp, node));
         if(!ptr) {

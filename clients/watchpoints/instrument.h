@@ -390,13 +390,21 @@ namespace client {
             ADDRESS_TAINTED
         };
 
-
+        static long num_watchpoints(0);
+        // > 10
 
         /// Add a watchpoint to an address.
         ///
         /// This tains the address, but does nothing else.
         template <typename T>
         add_watchpoint_status add_watchpoint(T &ptr_) throw() {
+
+            if(++num_watchpoints > 1) {
+                return ADDRESS_NOT_WATCHED;
+            }
+
+            //granary_break_on_fault();
+
             uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             ptr &= DISTINGUISHING_BIT_MASK;

@@ -31,12 +31,16 @@ namespace granary {
             return target_wrapper;
         }
 
-        app_pc target_code_cache(code_cache::find(wrappee, START_POLICY));
-
         instrumentation_policy policy(START_POLICY);
-        if(!is_app_address(wrappee)
-        && is_host_address(wrappee)) {
-            policy.in_host_context();
+        policy.in_host_context(is_host_address(wrappee));
+        app_pc target_code_cache;
+
+        // In order to avoid checks for whether this function is wrapped or
+        // not, we will just pretend that `wrappee` is a code cache target.
+        if(policy.is_in_host_context() && !policy.is_host_auto_instrumented()) {
+            target_code_cache = wrappee;
+        } else {
+            target_code_cache = code_cache::find(wrappee, policy);
         }
 
         // Build the list to jump to that entry. This will put the address of

@@ -1840,9 +1840,15 @@ class CParser(object):
   #   a wrapped version of `base`.
   def _parse_pointers(self, base, toks, i):
     assert base
+    name_attrs = CTypeNameAttributes()
+    has_attrs = False
     while i < len(toks):
       t = toks[i]
       if "*" == t.str:
+        if has_attrs:
+          base = CTypeAttributed(base, name_attrs)
+          has_attrs = False
+          name_attrs = CTypeNameAttributes()
         base = CTypePointer(base)
 
       # qualifiers: const, restrict, volatile
@@ -1863,9 +1869,24 @@ class CParser(object):
         assert not getattr(base, attr_name)
         setattr(base, attr_name, True)
 
+      # compiler-specific attributes (parameterized)
+      elif CToken.EXTENSION == t.kind:
+        extension_toks = []
+        i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)
+        name_attrs.attrs[name_attrs.LEFT].extend(extension_toks)
+        has_attrs = True
+
+      # compiler-specific attributes (non-parameterized)
+      elif CToken.EXTENSION_NO_PARAM == t.kind:
+        name_attrs.attrs[name_attrs.LEFT].append(t)
+        has_attrs = True
+
       else:
         break
       i += 1
+
+    if has_attrs:
+      base = CTypeAttributed(base, name_attrs)
 
     return (i, base)
 

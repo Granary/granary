@@ -46,6 +46,7 @@
 #define __raw_tickets
 
 #define __KERNEL__
+#define __CHECKER__
 
 #include <linux/version.h>
 

@@ -8,7 +8,7 @@ START_FILE
 /// Returns %gs:0.
 DECLARE_FUNC(granary_get_gs_base)
 GLOBAL_LABEL(granary_get_gs_base:)
-    mov %gs:0, %rax;
+    lea %gs:0, %rax;
     ret;
 END_FUNC(granary_get_gs_base)
 
@@ -16,7 +16,7 @@ END_FUNC(granary_get_gs_base)
 /// Returns %fs:0.
 DECLARE_FUNC(granary_get_fs_base)
 GLOBAL_LABEL(granary_get_fs_base:)
-    mov %gs:0, %rax;
+    lea %gs:0, %rax;
     ret;
 END_FUNC(granary_get_fs_base)
 

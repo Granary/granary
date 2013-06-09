@@ -50,6 +50,7 @@ namespace granary {
         static void visit_recursive_interrupt(void) throw();
         static void visit_delayed_interrupt(void) throw();
         static unsigned long num_delayed_interrupts(void) throw();
+        static void visit_protected_module(void) throw();
 #endif
 
         static void report(void) throw();

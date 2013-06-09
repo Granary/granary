@@ -190,7 +190,7 @@ namespace granary {
     ///
     /// Returns the app_pc for the instruction where execution should resume.
     __attribute__((hot))
-    app_pc emit_delayed_interrupt(
+    static app_pc emit_delayed_interrupt(
         cpu_state_handle cpu,
         interrupt_stack_frame *isf,
         interrupt_vector vector,
@@ -329,29 +329,142 @@ namespace granary {
             USED(vector);
             USED(cpu);
         }
+    }
 
 
-        DONT_OPTIMISE void granary_break_on_nested_task(void) {
-            ASM("");
+    /// Handle an interrupt in the code cache. This has two responsibilities:
+    ///
+    ///     1)  Decide if we need to delay the interrupt. If so, then delay the
+    ///         delay the interrupt.
+    ///     2)  Otherwise, defer to the kernel to handle the interrupt.
+    __attribute__((hot))
+    static interrupt_handled_state handle_code_cache_interrupt(
+        cpu_state_handle &cpu,
+        thread_state_handle &thread,
+        interrupt_stack_frame *isf,
+        interrupt_vector vector
+    ) throw() {
+        basic_block bb(isf->instruction_pointer);
+        app_pc delay_begin(nullptr);
+        app_pc delay_end(nullptr);
+
+        // We need to delay. After the delay has occurred, we re-issue the
+        // interrupt.
+        if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
+            // Delay the interrupt.
+            isf->instruction_pointer = emit_delayed_interrupt(
+                cpu, isf, vector, delay_begin, delay_end);
+
+            kernel_preempt_enable();
+            return INTERRUPT_RETURN;
+
+        // We don't need to delay; let the client try to handle the
+        // interrupt, or defer to the kernel if the client doesn't handle
+        // the interrupt.
+        } else {
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+            basic_block_state *bb_state(bb.state());
+            instrumentation_policy policy(bb.policy);
+
+            interrupt_handled_state ret(policy.handle_interrupt(
+                cpu, thread, *bb_state, *isf, vector));
+
+            kernel_preempt_enable();
+            return ret;
+#else
+            kernel_preempt_enable();
+            return INTERRUPT_DEFER;
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
         }
     }
 
 
-    /// Disable the nested task bit of an interrupt if we're doing an IRET.
-    static void disable_nested_task(void) throw() {
-        eflags flags = granary_load_flags();
-        if(flags.nested_task) {
-            granary_break_on_nested_task();
-            flags.nested_task = false;
-            granary_store_flags(flags);
+    /// Handle an interrupt in a gencode region. Here, we just try to detect
+    /// bad cases.
+    __attribute__((hot))
+    static interrupt_handled_state handle_gencode_interrupt(
+        cpu_state_handle &cpu,
+        interrupt_stack_frame *isf,
+        interrupt_vector vector
+    ) throw() {
+        const app_pc pc(isf->instruction_pointer);
+
+        // Detect an exception within a delayed interrupt handler. This
+        // is really bad.
+        //
+        // TODO: if the vector is an exception, then perhaps an okay
+        //       strategy is to force execution to the next instruction.
+        const app_pc delayed_begin(cpu->interrupt_delay_handler);
+        const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
+        if(delayed_begin <= pc && pc < delayed_end) {
+            IF_PERF( perf::visit_recursive_interrupt(); )
+            granary_break_on_interrupt(isf, vector, cpu);
+            kernel_preempt_enable();
+            return INTERRUPT_IRET;
         }
+
+        // Detect if an exception or something else is occurring within our
+        // common interrupt handler. This is really bad.
+        if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
+            granary_break_on_interrupt(isf, vector, cpu);
+            kernel_preempt_enable();
+            return INTERRUPT_DEFER;
+        }
+
+        kernel_preempt_enable();
+        return INTERRUPT_DEFER;
     }
 
 
-    /// Handle an interrupt. Returns true iff the interrupt was handled, or
-    /// false if the interrupt should be handled by the kernel. This also
-    /// decides when an interrupt must be delayed, and invokes the necessary
-    /// functionality to delay the interrupt.
+    /// Handle an interrupt in kernel code (this includes native modules). This
+    /// attempts to discover a few error conditions
+    __attribute__((hot))
+    static interrupt_handled_state handle_kernel_interrupt(
+        cpu_state_handle &cpu,
+        thread_state_handle &thread,
+        interrupt_stack_frame *isf,
+        interrupt_vector vector
+    ) throw() {
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        interrupt_handled_state ret(client::handle_kernel_interrupt(
+            cpu,
+            thread,
+            *isf,
+            vector));
+
+        kernel_preempt_enable();
+        return ret;
+#else
+        kernel_preempt_enable();
+        return INTERRUPT_DEFER;
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+    }
+
+
+    /// Handle an interrupt in page-protected module (app) code. This transfers
+    /// us into the code cache under the default starting policy for the client
+    /// as a recovery mechanism from the fault.
+    __attribute__((hot))
+    static interrupt_handled_state handle_module_interrupt(
+        cpu_state_handle &cpu,
+        thread_state_handle &thread,
+        interrupt_stack_frame *isf
+    ) throw() {
+        granary_break_on_interrupt(isf, VECTOR_PAGE_FAULT, cpu);
+
+        instrumentation_policy policy(START_POLICY);
+        policy.in_host_context(false);
+        policy.force_attach(true);
+
+        mangled_address addr(isf->instruction_pointer, policy);
+        isf->instruction_pointer = code_cache::find(cpu, thread, addr);
+
+        kernel_preempt_enable();
+        return INTERRUPT_IRET;
+    }
+
+
+    /// Handle an interrupt.
     GRANARY_ENTRYPOINT
     __attribute__((hot))
     interrupt_handled_state handle_interrupt(
@@ -367,87 +480,35 @@ namespace granary {
 
         IF_PERF( perf::visit_interrupt(); )
 
+        // In the code cache, defer to a client if necessary, otherwise default
+        // to deferring to the kernel.
         if(is_code_cache_address(pc)) {
-            basic_block bb(pc);
-            app_pc delay_begin(nullptr);
-            app_pc delay_end(nullptr);
+            return handle_code_cache_interrupt(
+                cpu, thread, isf, vector);
 
-            // We need to delay. After the delay has occurred, we re-issue the
-            // interrupt.
-            if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
-                // Delay the interrupt.
-                isf->instruction_pointer = emit_delayed_interrupt(
-                    cpu, isf, vector, delay_begin, delay_end);
+        /// An interrupt in some automatically generated, non-instrumented
+        /// code. These interrupts are either ignored (common), or indicate a
+        /// very serious concern (uncommon).
+        } else if(is_wrapper_address(pc) || is_gencode_address(pc)) {
+            return handle_gencode_interrupt(cpu, isf, vector);
 
-                kernel_preempt_enable();
-                return INTERRUPT_RETURN;
-
-            // We don't need to delay; let the client try to handle the
-            // interrupt, or defer to the kernel if the client doesn't handle
-            // the interrupt.
+        // App addresses should be marked as non-executable, so we should try
+        // to recover. This is an instance where we are likely missing a
+        // wrapper.
+        } else if(is_app_address(pc)) {
+            if(VECTOR_PAGE_FAULT == vector) {
+                IF_PERF( perf::visit_protected_module() );
+                return handle_module_interrupt(cpu, thread, isf);
             } else {
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-                basic_block_state *bb_state(bb.state());
-                instrumentation_policy policy(bb.policy);
-
-                interrupt_handled_state ret(policy.handle_interrupt(
-                    cpu, thread, *bb_state, *isf, vector));
-
-                // Try to prevent a GP.
-                if(INTERRUPT_IRET == ret) {
-                    disable_nested_task();
-                }
-
                 kernel_preempt_enable();
-                return ret;
+                return INTERRUPT_DEFER;
             }
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+
+        // Assume it's an interrupt in a host-address location.
+        } else {
+            return handle_kernel_interrupt(
+                cpu, thread, isf, vector);
         }
-
-        // Detect an exception within a delayed interrupt handler. This
-        // is really bad.
-        //
-        // TODO: if the vector is an exception, then perhaps an okay
-        //       strategy is to force execution to the next instruction.
-        const app_pc delayed_begin(cpu->interrupt_delay_handler);
-        const app_pc delayed_end(delayed_begin + INTERRUPT_DELAY_CODE_SIZE);
-        if(delayed_begin <= pc && pc < delayed_end) {
-            IF_PERF( perf::visit_recursive_interrupt(); )
-            granary_break_on_interrupt(isf, vector, cpu);
-            kernel_preempt_enable();
-            disable_nested_task();
-            return INTERRUPT_IRET;
-        }
-
-        // Detect if an exception or something else is occurring within our
-        // common interrupt handler. This is really bad.
-        if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
-            granary_break_on_interrupt(isf, vector, cpu);
-            kernel_preempt_enable();
-            return INTERRUPT_DEFER;
-        }
-
-        // Handle the interrupt.
-        //
-        // Note: We purposefully don't check for `is_host_address` because that
-        //       might exclude a lot of important things. For example, in the
-        //       case of watchpoints, it is possible that Granary or an
-        //       uninstrumented module will dereference a watched address. In
-        //       these cases, we want to treat such code as if it is kernel
-        //       code.
-        interrupt_handled_state ret(client::handle_kernel_interrupt(
-            cpu,
-            thread,
-            *isf,
-            vector));
-
-        // Try to prevent a GP.
-        if(INTERRUPT_IRET == ret) {
-            disable_nested_task();
-        }
-
-        kernel_preempt_enable();
-        return ret;
     }
 
 

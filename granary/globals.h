@@ -161,13 +161,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 4
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 2
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 4
+#   define CONFIG_MAX_POST_WRAP_DEPTH 2
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 4
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 2
 #endif
 
 
@@ -223,16 +223,6 @@ namespace granary {
         RETURN_ADDRESS_OFFSET = 5,
 
         __end_globals
-    };
-
-    enum {
-
-        /// Bounds on where kernel module code is placed
-        MODULE_TEXT_START = 0xffffffffa0000000ULL,
-        MODULE_TEXT_END = 0xfffffffffff00000ULL,
-
-        KERNEL_TEXT_START = 0xffffffff80000000ULL,
-        KERNEL_TEXT_END = MODULE_TEXT_START
     };
 
 
@@ -339,19 +329,18 @@ namespace granary {
 
 
 #if GRANARY_IN_KERNEL
+
+    extern "C" bool is_host_address(uintptr_t addr) throw();
+    extern "C" bool is_app_address(uintptr_t addr) throw();
+
     template <typename T>
     inline bool is_host_address(T *addr_) throw() {
-        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
-        return KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END;
+        return is_host_address(reinterpret_cast<uintptr_t>(addr_));
     }
 
     template <typename T>
     inline bool is_app_address(T *addr_) throw() {
-        const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
-        if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
-            return !is_code_cache_address(reinterpret_cast<app_pc>(addr));
-        }
-        return false;
+        return is_app_address(reinterpret_cast<uintptr_t>(addr_));
     }
 
 #else
@@ -382,8 +371,8 @@ extern "C" {
     extern granary::eflags granary_load_flags(void);
     extern void granary_store_flags(granary::eflags);
 
-    extern uint64_t granary_get_gs_base(void);
-    extern uint64_t granary_get_fs_base(void);
+    extern uintptr_t granary_get_gs_base(void);
+    extern uintptr_t granary_get_fs_base(void);
 
 #if GRANARY_IN_KERNEL
     extern void kernel_preempt_disable(void);
