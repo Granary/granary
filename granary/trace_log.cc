@@ -95,6 +95,8 @@ namespace granary {
 #endif
     }
 
+    extern "C" void **kernel_get_cpu_state(void *ptr[]);
+
 
 #if CONFIG_TRACE_EXECUTION
     static app_pc trace_logger(void) throw() {
@@ -117,7 +119,7 @@ namespace granary {
         in = ls.append(push_(reg::rax));
         in = insert_cti_after(ls, in,
             unsafe_cast<app_pc>(&IF_USER_ELSE(
-                granary_get_fs_base, granary_get_gs_base)),
+                granary_get_fs_base, kernel_get_cpu_state)),
             true, reg::rax,
             CTI_CALL);
         in = ls.append(mov_st_(reg::rsp[8], reg::rax));

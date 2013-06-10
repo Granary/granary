@@ -26,6 +26,7 @@
         granary::add_detach_target(func, func, granary::context); \
     })
 
+
 #define GRANARY_DETACH_POINT_ERROR(func_name) \
     STATIC_INITIALISE({ \
         granary::app_pc func(granary::unsafe_cast<granary::app_pc>(func_name)); \

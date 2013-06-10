@@ -414,21 +414,332 @@ using namespace client::wp;
 
 
 #if defined(CAN_WRAP___switch_to)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(__switch_to, RUNNING_AS_APP)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(__switch_to, RUNNING_AS_HOST)
+    FUNCTION_WRAPPER_DETACH(APP, __switch_to)
+    FUNCTION_WRAPPER_DETACH(HOST, __switch_to)
 #endif
 
 
 #if defined(CAN_WRAP___schedule)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(__schedule, RUNNING_AS_APP)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(__schedule, RUNNING_AS_HOST)
+    FUNCTION_WRAPPER_DETACH(APP, __schedule)
+    FUNCTION_WRAPPER_DETACH(HOST, __schedule)
 #endif
 
 
 #if defined(CAN_WRAP__cond_resched)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(_cond_resched, RUNNING_AS_APP)
-    GRANARY_DETACH_INSTEAD_OF_WRAP(_cond_resched, RUNNING_AS_HOST)
+    FUNCTION_WRAPPER_DETACH(APP, _cond_resched)
+    FUNCTION_WRAPPER_DETACH(HOST, _cond_resched)
 #endif
 
+
+#if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
+#   ifndef HOST_WRAPPER_FOR___kmalloc
+#       define HOST_WRAPPER_FOR___kmalloc
+        FUNCTION_WRAPPER_DETACH(HOST, __kmalloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kfree) && CAN_WRAP_kfree
+#   ifndef HOST_WRAPPER_FOR_kfree
+#       define HOST_WRAPPER_FOR_kfree
+        FUNCTION_WRAPPER_DETACH(HOST, kfree)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kmem_cache_alloc) && CAN_WRAP_kmem_cache_alloc
+#   ifndef HOST_WRAPPER_FOR_kmem_cache_alloc
+#       define HOST_WRAPPER_FOR_kmem_cache_alloc
+        FUNCTION_WRAPPER_DETACH(HOST, kmem_cache_alloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kmem_cache_alloc_trace) && CAN_WRAP_kmem_cache_alloc_trace
+#   ifndef HOST_WRAPPER_FOR_kmem_cache_alloc_trace
+#       define HOST_WRAPPER_FOR_kmem_cache_alloc_trace
+        FUNCTION_WRAPPER_DETACH(HOST, kmem_cache_alloc_trace)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kmem_cache_alloc_node) && CAN_WRAP_kmem_cache_alloc_node
+#   ifndef HOST_WRAPPER_FOR_kmem_cache_alloc_node
+#       define HOST_WRAPPER_FOR_kmem_cache_alloc_node
+        FUNCTION_WRAPPER_DETACH(HOST, kmem_cache_alloc_node)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kmem_cache_free) && CAN_WRAP_kmem_cache_free
+#   ifndef HOST_WRAPPER_FOR_kmem_cache_free
+#       define HOST_WRAPPER_FOR_kmem_cache_free
+        FUNCTION_WRAPPER_DETACH(HOST, kmem_cache_free)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___alloc_reserved_percpu) && CAN_WRAP___alloc_reserved_percpu
+#   ifndef HOST_WRAPPER_FOR___alloc_reserved_percpu
+#       define HOST_WRAPPER_FOR___alloc_reserved_percpu
+        FUNCTION_WRAPPER_DETACH(HOST, __alloc_reserved_percpu)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___alloc_percpu) && CAN_WRAP___alloc_percpu
+#   ifndef HOST_WRAPPER_FOR___alloc_percpu
+#       define HOST_WRAPPER_FOR___alloc_percpu
+        FUNCTION_WRAPPER_DETACH(HOST, __alloc_percpu)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_percpu) && CAN_WRAP_free_percpu
+#   ifndef HOST_WRAPPER_FOR_free_percpu
+#       define HOST_WRAPPER_FOR_free_percpu
+        FUNCTION_WRAPPER_DETACH(HOST, free_percpu)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___alloc_pages_nodemask) && CAN_WRAP___alloc_pages_nodemask
+#   ifndef HOST_WRAPPER_FOR___alloc_pages_nodemask
+#       define HOST_WRAPPER_FOR___alloc_pages_nodemask
+        FUNCTION_WRAPPER_DETACH(HOST, __alloc_pages_nodemask)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_current) && CAN_WRAP_alloc_pages_current
+#   ifndef HOST_WRAPPER_FOR_alloc_pages_current
+#       define HOST_WRAPPER_FOR_alloc_pages_current
+        FUNCTION_WRAPPER_DETACH(HOST, alloc_pages_current)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_vma) && CAN_WRAP_alloc_pages_vma
+#   ifndef HOST_WRAPPER_FOR_alloc_pages_vma
+#       define HOST_WRAPPER_FOR_alloc_pages_vma
+        FUNCTION_WRAPPER_DETACH(HOST, alloc_pages_vma)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___get_free_pages) && CAN_WRAP___get_free_pages
+#   ifndef HOST_WRAPPER_FOR___get_free_pages
+#       define HOST_WRAPPER_FOR___get_free_pages
+        FUNCTION_WRAPPER_DETACH(HOST, __get_free_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_get_zeroed_page) && CAN_WRAP_get_zeroed_page
+#   ifndef HOST_WRAPPER_FOR_get_zeroed_page
+#       define HOST_WRAPPER_FOR_get_zeroed_page
+        FUNCTION_WRAPPER_DETACH(HOST, get_zeroed_page)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_exact) && CAN_WRAP_alloc_pages_exact
+#   ifndef HOST_WRAPPER_FOR_alloc_pages_exact
+#       define HOST_WRAPPER_FOR_alloc_pages_exact
+        FUNCTION_WRAPPER_DETACH(HOST, alloc_pages_exact)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_pages_exact) && CAN_WRAP_free_pages_exact
+#   ifndef HOST_WRAPPER_FOR_free_pages_exact
+#       define HOST_WRAPPER_FOR_free_pages_exact
+        FUNCTION_WRAPPER_DETACH(HOST, free_pages_exact)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_exact_nid) && CAN_WRAP_alloc_pages_exact_nid
+#   ifndef HOST_WRAPPER_FOR_alloc_pages_exact_nid
+#       define HOST_WRAPPER_FOR_alloc_pages_exact_nid
+        FUNCTION_WRAPPER_DETACH(HOST, alloc_pages_exact_nid)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___free_pages) && CAN_WRAP___free_pages
+#   ifndef HOST_WRAPPER_FOR___free_pages
+#       define HOST_WRAPPER_FOR___free_pages
+        FUNCTION_WRAPPER_DETACH(HOST, __free_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_pages) && CAN_WRAP_free_pages
+#   ifndef HOST_WRAPPER_FOR_free_pages
+#       define HOST_WRAPPER_FOR_free_pages
+        FUNCTION_WRAPPER_DETACH(HOST, free_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_hot_cold_page) && CAN_WRAP_free_hot_cold_page
+#   ifndef HOST_WRAPPER_FOR_free_hot_cold_page
+#       define HOST_WRAPPER_FOR_free_hot_cold_page
+        FUNCTION_WRAPPER_DETACH(HOST, free_hot_cold_page)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_hot_cold_page_list) && CAN_WRAP_free_hot_cold_page_list
+#   ifndef HOST_WRAPPER_FOR_free_hot_cold_page_list
+#       define HOST_WRAPPER_FOR_free_hot_cold_page_list
+        FUNCTION_WRAPPER_DETACH(HOST, free_hot_cold_page_list)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___free_memcg_kmem_pages) && CAN_WRAP___free_memcg_kmem_pages
+#   ifndef HOST_WRAPPER_FOR___free_memcg_kmem_pages
+#       define HOST_WRAPPER_FOR___free_memcg_kmem_pages
+        FUNCTION_WRAPPER_DETACH(HOST, __free_memcg_kmem_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_memcg_kmem_pages) && CAN_WRAP_free_memcg_kmem_pages
+#   ifndef HOST_WRAPPER_FOR_free_memcg_kmem_pages
+#       define HOST_WRAPPER_FOR_free_memcg_kmem_pages
+        FUNCTION_WRAPPER_DETACH(HOST, free_memcg_kmem_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___krealloc) && CAN_WRAP___krealloc
+#   ifndef HOST_WRAPPER_FOR___krealloc
+#       define HOST_WRAPPER_FOR___krealloc
+        FUNCTION_WRAPPER_DETACH(HOST, __krealloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_krealloc) && CAN_WRAP_krealloc
+#   ifndef HOST_WRAPPER_FOR_krealloc
+#       define HOST_WRAPPER_FOR_krealloc
+        FUNCTION_WRAPPER_DETACH(HOST, krealloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_kzfree) && CAN_WRAP_kzfree
+#   ifndef HOST_WRAPPER_FOR_kzfree
+#       define HOST_WRAPPER_FOR_kzfree
+        FUNCTION_WRAPPER_DETACH(HOST, kzfree)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_node) && CAN_WRAP___kmalloc_node
+#   ifndef HOST_WRAPPER_FOR___kmalloc_node
+#       define HOST_WRAPPER_FOR___kmalloc_node
+        FUNCTION_WRAPPER_DETACH(HOST, __kmalloc_node)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_track_caller) && CAN_WRAP___kmalloc_track_caller
+#   ifndef HOST_WRAPPER_FOR___kmalloc_track_caller
+#       define HOST_WRAPPER_FOR___kmalloc_track_caller
+        FUNCTION_WRAPPER_DETACH(HOST, __kmalloc_track_caller)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_node_track_caller) && CAN_WRAP___kmalloc_node_track_caller
+#   ifndef HOST_WRAPPER_FOR___kmalloc_node_track_caller
+#       define HOST_WRAPPER_FOR___kmalloc_node_track_caller
+        FUNCTION_WRAPPER_DETACH(HOST, __kmalloc_node_track_caller)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_dma_pool_alloc) && CAN_WRAP_dma_pool_alloc
+#   ifndef HOST_WRAPPER_FOR_dma_pool_alloc
+#       define HOST_WRAPPER_FOR_dma_pool_alloc
+        FUNCTION_WRAPPER_DETACH(HOST, dma_pool_alloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_dma_pool_free) && CAN_WRAP_dma_pool_free
+#   ifndef HOST_WRAPPER_FOR_dma_pool_free
+#       define HOST_WRAPPER_FOR_dma_pool_free
+        FUNCTION_WRAPPER_DETACH(HOST, dma_pool_free)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_vmemmap_alloc_block) && CAN_WRAP_vmemmap_alloc_block
+#   ifndef HOST_WRAPPER_FOR_vmemmap_alloc_block
+#       define HOST_WRAPPER_FOR_vmemmap_alloc_block
+        FUNCTION_WRAPPER_DETACH(HOST, vmemmap_alloc_block)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_vmemmap_alloc_block_buf) && CAN_WRAP_vmemmap_alloc_block_buf
+#   ifndef HOST_WRAPPER_FOR_vmemmap_alloc_block_buf
+#       define HOST_WRAPPER_FOR_vmemmap_alloc_block_buf
+        FUNCTION_WRAPPER_DETACH(HOST, vmemmap_alloc_block_buf)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_alloc_slab) && CAN_WRAP_mempool_alloc_slab
+#   ifndef HOST_WRAPPER_FOR_mempool_alloc_slab
+#       define HOST_WRAPPER_FOR_mempool_alloc_slab
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_alloc_slab)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_free_slab) && CAN_WRAP_mempool_free_slab
+#   ifndef HOST_WRAPPER_FOR_mempool_free_slab
+#       define HOST_WRAPPER_FOR_mempool_free_slab
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_free_slab)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_kmalloc) && CAN_WRAP_mempool_kmalloc
+#   ifndef HOST_WRAPPER_FOR_mempool_kmalloc
+#       define HOST_WRAPPER_FOR_mempool_kmalloc
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_kmalloc)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_kfree) && CAN_WRAP_mempool_kfree
+#   ifndef HOST_WRAPPER_FOR_mempool_kfree
+#       define HOST_WRAPPER_FOR_mempool_kfree
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_kfree)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_alloc_pages) && CAN_WRAP_mempool_alloc_pages
+#   ifndef HOST_WRAPPER_FOR_mempool_alloc_pages
+#       define HOST_WRAPPER_FOR_mempool_alloc_pages
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_alloc_pages)
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_mempool_free_pages) && CAN_WRAP_mempool_free_pages
+#   ifndef HOST_WRAPPER_FOR_mempool_free_pages
+#       define HOST_WRAPPER_FOR_mempool_free_pages
+        FUNCTION_WRAPPER_DETACH(HOST, mempool_free_pages)
+#   endif
+#endif
 
 #endif /* WRAPPERS_H_ */

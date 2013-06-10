@@ -662,6 +662,7 @@ namespace client { namespace wp {
                 if(can_change) {
                     operand op_replacement(*addr);
                     op_replacement.size = original_op.size;
+                    op_replacement.seg = original_op.seg;
                     const_cast<operand_ref &>(op).replace_with(op_replacement);
                 }
             }
@@ -775,6 +776,9 @@ namespace client { namespace wp {
                 //        need to compute it.
                 if(!op_is_simple_reg || !compute_addr) {
                     double_restore_unwatched_reg = true;
+
+                    // TODO: We might be losing the effictive watched address
+                    //       here; check me!!!
                     ls.insert_before(before, mov_st_(addr, original_addr));
                 }
             }

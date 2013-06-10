@@ -1050,6 +1050,28 @@ namespace granary {
     }
 
 
+#define FUNCTION_WRAPPER_DETACH(context, function_name) \
+    namespace granary { \
+        template <> \
+        struct is_function_wrapped<CAT(DETACH_ID_, function_name), context> { \
+            enum { \
+                VALUE = 1 \
+            }; \
+        }; \
+        template <> \
+        struct wrapped_function_impl< \
+            CAT(DETACH_ID_, function_name), \
+            context, \
+            false, \
+            custom_wrapped_function \
+        > { \
+        public: \
+            enum { \
+                apply = CAT(DETACH_ADDR_, function_name) \
+            }; \
+        }; \
+    }
+
 #define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
