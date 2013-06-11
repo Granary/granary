@@ -28,13 +28,74 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
 #   define APP_WRAPPER_FOR___kmalloc
     FUNCTION_WRAPPER(APP, __kmalloc, (void *), (size_t size, gfp_t gfp), {
-        void *ptr(__kmalloc(size, gfp));
-        if(!ptr) {
-            return ptr;
+        void *ret(__kmalloc(size, gfp));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
         }
-        add_watchpoint(ptr);
-        return ptr;
+        return ret;
     })
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_track_caller) && CAN_WRAP___kmalloc_track_caller
+#   define APP_WRAPPER_FOR___kmalloc_track_caller
+    FUNCTION_WRAPPER(APP, __kmalloc_track_caller, (void *), (size_t size, gfp_t gfp, unsigned long caller), {
+        void *ret(__kmalloc_track_caller(size, gfp, caller));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_node) && CAN_WRAP___kmalloc_node
+#   define APP_WRAPPER_FOR___kmalloc_node
+    FUNCTION_WRAPPER(APP, __kmalloc_node, (void *), (size_t size, gfp_t gfp, int node), {
+        void *ret(__kmalloc_node(size, gfp, node));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#endif
+
+
+#if defined(CAN_WRAP___kmalloc_node_track_caller) && CAN_WRAP___kmalloc_node_track_caller
+#   define APP_WRAPPER_FOR___kmalloc_node_track_caller
+    FUNCTION_WRAPPER(APP, __kmalloc_node_track_caller, (void *), (size_t size, gfp_t gfp, int node, unsigned long caller), {
+        void *ret(__kmalloc_node_track_caller(size, gfp, node, caller));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#endif
+
+
+#if defined(CAN_WRAP___krealloc) && CAN_WRAP___krealloc
+#   ifndef APP_WRAPPER_FOR___krealloc
+#       define APP_WRAPPER_FOR___krealloc
+    FUNCTION_WRAPPER(APP, __krealloc, (void *), (const void * ptr, size_t size, gfp_t gfp), {
+        void *ret(__krealloc(unwatched_address_check(ptr), size, gfp));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_krealloc) && CAN_WRAP_krealloc
+#   ifndef APP_WRAPPER_FOR_krealloc
+#       define APP_WRAPPER_FOR_krealloc
+    FUNCTION_WRAPPER(APP, krealloc, (void *), (const void * ptr, size_t size, gfp_t gfp), {
+        void *ret(krealloc(unwatched_address_check(ptr), size, gfp));
+        add_watchpoint(ret);
+        return ret;
+    })
+#   endif
 #endif
 
 
@@ -42,6 +103,14 @@ namespace client { namespace wp {
 #   define APP_WRAPPER_FOR_kfree
     FUNCTION_WRAPPER_VOID(APP, kfree, (const void *ptr), {
         return kfree(unwatched_address_check(ptr));
+    })
+#endif
+
+
+#if defined(CAN_WRAP_kzfree) && CAN_WRAP_kzfree
+#   define APP_WRAPPER_FOR_kzfree
+    FUNCTION_WRAPPER_VOID(APP, kzfree, (const void *ptr), {
+        return kzfree(unwatched_address_check(ptr));
     })
 #endif
 
@@ -123,6 +192,92 @@ namespace client { namespace wp {
     FUNCTION_WRAPPER(APP, kmem_cache_free, (void), (struct kmem_cache *cache, void *ptr), {
         kmem_cache_free(cache, unwatched_address_check(ptr));
     })
+#endif
+
+
+#if defined(CAN_WRAP___get_free_pages) && CAN_WRAP___get_free_pages
+#   ifndef APP_WRAPPER_FOR___get_free_pages
+#       define APP_WRAPPER_FOR___get_free_pages
+    FUNCTION_WRAPPER(APP, __get_free_pages, (unsigned long), ( gfp_t gfp_mask , unsigned int order ), {
+        unsigned long ret(__get_free_pages(gfp_mask, order));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_get_zeroed_page) && CAN_WRAP_get_zeroed_page
+#   ifndef APP_WRAPPER_FOR_get_zeroed_page
+#       define APP_WRAPPER_FOR_get_zeroed_page
+    FUNCTION_WRAPPER(APP, get_zeroed_page, (unsigned long), ( gfp_t gfp_mask ), {
+        unsigned long ret(get_zeroed_page(gfp_mask));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_exact) && CAN_WRAP_alloc_pages_exact
+#   ifndef APP_WRAPPER_FOR_alloc_pages_exact
+#       define APP_WRAPPER_FOR_alloc_pages_exact
+    FUNCTION_WRAPPER(APP, alloc_pages_exact, (void *), ( size_t size, gfp_t gfp_mask ), {
+        void *ret(alloc_pages_exact(size, gfp_mask));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_pages_exact) && CAN_WRAP_free_pages_exact
+#   ifndef APP_WRAPPER_FOR_free_pages_exact
+#       define APP_WRAPPER_FOR_free_pages_exact
+    FUNCTION_WRAPPER_VOID(APP, free_pages_exact, ( void *virt, size_t size ), {
+        free_pages_exact(unwatched_address_check(virt), size);
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_alloc_pages_exact_nid) && CAN_WRAP_alloc_pages_exact_nid
+#   ifndef APP_WRAPPER_FOR_alloc_pages_exact_nid
+#       define APP_WRAPPER_FOR_alloc_pages_exact_nid
+    FUNCTION_WRAPPER(APP, alloc_pages_exact_nid, (void *), ( int node, size_t size, gfp_t gfp_mask ), {
+        void *ret(alloc_pages_exact_nid(node, size, gfp_mask));
+        if(is_valid_address(ret)) {
+            add_watchpoint(ret);
+        }
+        return ret;
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_pages) && CAN_WRAP_free_pages
+#   ifndef APP_WRAPPER_FOR_free_pages
+#       define APP_WRAPPER_FOR_free_pages
+    FUNCTION_WRAPPER_VOID(APP, free_pages, ( unsigned long addr, unsigned int order ), {
+        free_pages(unwatched_address_check(addr), order);
+    })
+#   endif
+#endif
+
+
+#if defined(CAN_WRAP_free_memcg_kmem_pages) && CAN_WRAP_free_memcg_kmem_pages
+#   ifndef APP_WRAPPER_FOR_free_memcg_kmem_pages
+#       define APP_WRAPPER_FOR_free_memcg_kmem_pages
+    FUNCTION_WRAPPER_VOID(APP, free_memcg_kmem_pages, ( unsigned long addr, unsigned int order ), {
+        free_memcg_kmem_pages(unwatched_address_check(addr), order);
+    })
+#   endif
 #endif
 
 

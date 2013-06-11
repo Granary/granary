@@ -127,18 +127,48 @@ namespace client { namespace wp {
     bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
 
 
+    static std::atomic<bound_descriptor *> NEXT_FREE = ATOMIC_VAR_INIT(nullptr);
+
+
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
     /// appropriately.
     bool bound_descriptor::allocate(
         bound_descriptor *&desc,
-        uintptr_t &counter_index
+        uintptr_t &counter_index,
+        const uintptr_t partial_index
     ) throw() {
-        counter_index = next_counter_index();
-        if(counter_index > MAX_COUNTER_INDEX) {
-            return false;
+
+        // Try to take something off the free list first.
+        bound_descriptor *next(nullptr);
+        do {
+            desc = NEXT_FREE.load();
+            next = nullptr;
+            if(!desc) {
+                break;
+            }
+
+            if(~0U != desc->next_free_index) {
+                next = DESCRIPTORS[desc->next_free_index];
+            }
+
+        } while(NEXT_FREE.compare_exchange_weak(desc, next));
+
+        if(desc) {
+            uintptr_t partial_index_;
+            destructure_combined_index(
+                desc->my_index, counter_index, partial_index_);
+        } else {
+            counter_index = next_counter_index();
+            if(counter_index >= MAX_COUNTER_INDEX) {
+                return false;
+            }
+            desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
+
         }
 
-        desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
+        const uintptr_t index(combined_index(counter_index, partial_index));
+        desc->my_index = index;
+
         return true;
     }
 
@@ -152,17 +182,23 @@ namespace client { namespace wp {
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint16_t>(base);
         desc->upper_bound = static_cast<uint16_t>(base + size);
-        desc->next_free_index = 0;
     }
 
 
-    /// Free a watchpoint descriptor.
+    /// Free a watchpoint descriptor by adding it to a free list.
     void bound_descriptor::free(
         bound_descriptor *desc,
-        uintptr_t index
+        uintptr_t
     ) throw() {
-        (void) desc;
-        (void) index;
+        bound_descriptor *head(nullptr);
+        do {
+            head = NEXT_FREE.load();
+            if(head) {
+                desc->next_free_index = head->my_index;
+            } else {
+                desc->next_free_index = ~0U;
+            }
+        } while(NEXT_FREE.compare_exchange_weak(head, desc));
     }
 
 

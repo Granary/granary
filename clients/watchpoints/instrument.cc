@@ -505,7 +505,9 @@ namespace client { namespace wp {
             in != last && in.is_valid();
             in = in.next()) {
 
-            if(dynamorio::OP_push == in.op_code()) {
+            // TODO: Be more strict.
+            if(dynamorio::OP_push == in.op_code()
+            || dynamorio::OP_call == in.op_code()) {
                 has_push = true;
                 break;
             }

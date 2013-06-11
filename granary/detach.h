@@ -11,12 +11,14 @@
 
 #include "granary/globals.h"
 
+
 #define GRANARY_DETACH_POINT(func_name) \
     STATIC_INITIALISE({ \
         granary::app_pc func(granary::unsafe_cast<granary::app_pc>(func_name)); \
         granary::add_detach_target(func, func, granary::RUNNING_AS_HOST); \
         granary::add_detach_target(func, func, granary::RUNNING_AS_APP); \
     })
+
 
 #define GRANARY_DETACH_INSTEAD_OF_WRAP(func_name, context) \
     STATIC_INITIALISE({ \

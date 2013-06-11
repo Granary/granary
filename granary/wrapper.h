@@ -1118,6 +1118,8 @@ namespace granary {
         public: \
             typedef void R; \
             static void apply arg_list throw() { \
+                IF_KERNEL(auto function_name((decltype(::function_name) *) \
+                    CAT(DETACH_ADDR_, function_name) );) \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \

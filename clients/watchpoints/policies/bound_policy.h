@@ -22,16 +22,27 @@ namespace client {
         /// Specifies the bounds for the watched object.
         struct bound_descriptor {
 
-            /// Most objects won't be more than 16 pages big, so an m16&16
-            /// parameter suffices (as opposed to m32&32). This saves space.
-            uint16_t lower_bound;
-            uint16_t upper_bound;
+            union {
+                struct {
+                    /// Most objects won't be more than 16 pages big, so an
+                    /// m16&16 parameter suffices (as opposed to m32&32).
+                    uint16_t lower_bound;
+                    uint16_t upper_bound;
+                };
 
-            /// Descriptor index of the next-freed object.
-            uint32_t next_free_index;
+                /// Descriptor index of the next-freed object.
+                uint32_t next_free_index;
+            };
+
+            /// Descriptor index of this descriptor within the descriptor table.
+            uint32_t my_index;
 
             /// Allocate a watchpoint descriptor.
-            static bool allocate(bound_descriptor *&, uintptr_t &) throw();
+            static bool allocate(
+                bound_descriptor *&,
+                uintptr_t &,
+                const uintptr_t
+            ) throw();
 
 
             /// Free a watchpoint descriptor.

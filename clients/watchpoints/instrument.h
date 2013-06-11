@@ -38,6 +38,7 @@ namespace client {
 
             /// Number of partial index bits.
             NUM_PARTIAL_INDEX_BITS      = WP_PARTIAL_INDEX_WIDTH,
+            PARTIAL_INDEX_MASK          = (1 << NUM_PARTIAL_INDEX_BITS) - 1,
 
             /// Offset of partial index bits.
             PARTIAL_INDEX_OFFSET        = WP_PARTIAL_INDEX_GRANULARITY,
@@ -230,6 +231,7 @@ namespace client {
         ) throw();
 
 
+#   if !GRANARY_IN_KERNEL
         /// Add in a user space redzone guard if necessary. This looks for a PUSH
         /// instruction anywhere between `first` and `last` and if it finds one then
         /// it guards the entire instrumented block with a redzone shift.
@@ -238,6 +240,7 @@ namespace client {
             granary::instruction first,
             granary::instruction last
         ) throw();
+#   endif /* GRANARY_IN_KERNEL */
 
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
@@ -338,6 +341,20 @@ namespace client {
 #endif /* WP_USE_PARTIAL_INDEX */
 
 
+        /// Return the partial index of an address.
+        template <typename T>
+        inline uintptr_t partial_index_of(T *addr) throw() {
+            return partial_index_of(reinterpret_cast<uintptr_t>(addr));
+        }
+
+
+        /// Return the partial index of an address.
+        template <typename T>
+        inline uintptr_t counter_index_of(T *addr) throw() {
+            return counter_index_of(reinterpret_cast<uintptr_t>(addr));
+        }
+
+
         /// Return the next counter index.
         uintptr_t next_counter_index(void) throw();
 
@@ -355,6 +372,17 @@ namespace client {
 #else
             return counter_index;
 #endif
+        }
+
+
+        /// Destructure a combined index into its counter and partial indexes.
+        inline void destructure_combined_index(
+            const uintptr_t index,
+            uintptr_t &counter_index,
+            uintptr_t &partial_index
+        ) throw() {
+            counter_index = index >> NUM_PARTIAL_INDEX_BITS;
+            partial_index = index & PARTIAL_INDEX_MASK;
         }
 
 
@@ -395,15 +423,34 @@ namespace client {
         ///
         /// This tains the address, but does nothing else.
         template <typename T>
-        add_watchpoint_status add_watchpoint(T &ptr_) throw() {
-            uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+        add_watchpoint_status add_watchpoint(T *&ptr_) throw() {
+            uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             ptr &= DISTINGUISHING_BIT_MASK;
 #else
             ptr |= DISTINGUISHING_BIT_MASK;
 #endif
 
-            ptr_ = granary::unsafe_cast<T>(ptr);
+            ptr_ = reinterpret_cast<T *>(ptr);
+            return ADDRESS_TAINTED;
+        }
+
+
+        /// Add a watchpoint to an address.
+        ///
+        /// This tains the address, but does nothing else.
+        template <typename T>
+        add_watchpoint_status add_watchpoint(T &ptr_) throw() {
+            static_assert(std::is_integral<T>::value,
+                "`add_watchpoint` expects an integral operand.");
+            uintptr_t ptr(static_cast<uintptr_t>(ptr_));
+#if GRANARY_IN_KERNEL
+            ptr &= DISTINGUISHING_BIT_MASK;
+#else
+            ptr |= DISTINGUISHING_BIT_MASK;
+#endif
+
+            ptr_ = static_cast<T>(ptr);
             return ADDRESS_TAINTED;
         }
 
@@ -424,15 +471,22 @@ namespace client {
             }
 
             uintptr_t counter_index(0);
+            uintptr_t partial_index(partial_index_of(ptr_));
             desc_type *desc(nullptr);
 
-            if(!desc_type::allocate(desc, counter_index)) {
+            // Allocate descriptor.
+            if(!desc_type::allocate(desc, counter_index, partial_index)) {
                 return ADDRESS_NOT_WATCHED;
             }
 
+            // Construct the descriptor.
             desc_type::init(desc, init_args...);
-            DESCRIPTORS[counter_index] = desc;
 
+            // Add the descriptor to the table.
+            const uintptr_t index(combined_index(counter_index, partial_index));
+            DESCRIPTORS[index] = desc;
+
+            // Taint the pointer.
             counter_index <<= 1;
             counter_index |= DISTINGUISHING_BIT;
             counter_index <<= DISTINGUISHING_BIT_OFFSET;

@@ -14,6 +14,7 @@
 /// Used to denote entrypoints into Granary.
 #define GRANARY_ENTRYPOINT
 
+
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
 #   if __GNUC__ >= 4 && __GNUC_MINOR__ >= 7
 #       define FORCE_INLINE __attribute__((hot, always_inline)) inline
@@ -26,9 +27,11 @@
 #   define FORCE_INLINE inline
 #endif
 
+
 #ifndef GRANARY
 #   define GRANARY 1
 #endif
+
 
 #ifdef __APPLE__
 #   define IF_APPLE(...) __VA_ARGS__
@@ -38,8 +41,10 @@
 #   define _IF_APPLE(...)
 #endif
 
+
 #define ALIGN_TO(lval, const_align) \
     (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
+
 
 #if GRANARY_IN_KERNEL
 
@@ -70,6 +75,7 @@
 #   define IF_USER_ELSE(x, y) x
 #endif
 
+
 #if CONFIG_ENABLE_IBL_PREDICTION_STUBS
 #   define IF_IBL_PREDICT(...) __VA_ARGS__
 #   define IF_IBL_PREDICT_ELSE(a, b) a
@@ -80,17 +86,20 @@
 #   define _IF_IBL_PREDICT(...)
 #endif
 
+
 #if CONFIG_ENABLE_PERF_COUNTS
 #   define IF_PERF(...) __VA_ARGS__
 #else
 #   define IF_PERF(...)
 #endif
 
+
 #if CONFIG_ENABLE_WRAPPERS
 #   define IF_WRAPPERS(...) __VA_ARGS__
 #else
 #   define IF_WRAPPERS(...)
 #endif
+
 
 #define FAULT (granary_break_on_fault(), granary_fault())
 #define FAULT_IF(...) if(__VA_ARGS__) { FAULT; }
