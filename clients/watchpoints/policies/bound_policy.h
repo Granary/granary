@@ -22,6 +22,10 @@ namespace client {
         /// Specifies the bounds for the watched object.
         struct bound_descriptor {
 
+            enum : uint32_t {
+                FREE_LIST_END = ~static_cast<uint32_t>(0U)
+            };
+
             union {
                 struct {
                     /// Most objects won't be more than 16 pages big, so an
@@ -55,6 +59,15 @@ namespace client {
                 void *base_address,
                 size_t size
             ) throw();
+
+
+            /// Notify the bounds policy that the descriptor can be assigned to
+            /// the index.
+            static void assign(bound_descriptor *desc, uintptr_t index) throw();
+
+
+            /// Get the assigned descriptor for a given index.
+            static bound_descriptor *access(uintptr_t index) throw();
 
         } __attribute__((packed));
 

@@ -663,19 +663,6 @@ namespace granary {
             }
         }
 
-        // Invoke client code instrumentation on the basic block; the client
-        // might return a different instrumentation policy to use. The effect
-        // of this is that if we are in policy P1, and the client returns policy
-        // P2, then we will emit a block to P1's code cache that jumps us into
-        // P2's code cache.
-        instrumentation_policy client_policy(policy.instrument(
-            cpu,
-            thread,
-            *block_storage,
-            ls));
-
-        client_policy.inherit_properties(policy);
-
         // Add in a trailing jump if the last instruction in the basic
         // block if we need to force a connection between this basic block
         // and the next.
@@ -692,6 +679,19 @@ namespace granary {
                 ).set_mangled();
             }
         }
+
+        // Invoke client code instrumentation on the basic block; the client
+        // might return a different instrumentation policy to use. The effect
+        // of this is that if we are in policy P1, and the client returns policy
+        // P2, then we will emit a block to P1's code cache that jumps us into
+        // P2's code cache.
+        instrumentation_policy client_policy(policy.instrument(
+            cpu,
+            thread,
+            *block_storage,
+            ls));
+
+        client_policy.inherit_properties(policy);
 
         // Translate loops and resolve local branches into jmps to instructions.
         // done before mangling, as mangling removes the opportunity to do this

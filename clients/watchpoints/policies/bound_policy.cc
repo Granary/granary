@@ -10,6 +10,16 @@
 
 using namespace granary;
 
+/// Should we add any watchpoints?
+#define ENABLE_WATCHPOINTS 1
+
+/// Should we add in a call to the bounds checker?
+#define ENABLE_INSTRUMENTATION 0
+
+/// Should we try to store descriptors on a free list?
+#define ENABLE_FREE_LIST 1
+
+
 namespace client { namespace wp {
 
 
@@ -124,10 +134,10 @@ namespace client { namespace wp {
 
 
     /// Pointers to the descriptors.
+    ///
+    /// Note: Note `static` so that we can access by the mangled name in
+    ///       x86/bound_policy.asm.
     bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
-
-
-    static std::atomic<bound_descriptor *> NEXT_FREE = ATOMIC_VAR_INIT(nullptr);
 
 
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
@@ -135,39 +145,51 @@ namespace client { namespace wp {
     bool bound_descriptor::allocate(
         bound_descriptor *&desc,
         uintptr_t &counter_index,
-        const uintptr_t partial_index
+        const uintptr_t
     ) throw() {
+        counter_index = 0;
+        desc = nullptr;
 
-        // Try to take something off the free list first.
-        bound_descriptor *next(nullptr);
-        do {
-            desc = NEXT_FREE.load();
-            next = nullptr;
-            if(!desc) {
-                break;
+#if !ENABLE_WATCHPOINTS
+        return false;
+#endif /* ENABLE_WATCHPOINTS */
+#if ENABLE_FREE_LIST
+        IF_KERNEL( eflags flags(granary_disable_interrupts()); )
+        IF_KERNEL( cpu_state_handle state; )
+        IF_USER( thread_state_handle state; )
+
+        bound_descriptor *&free_list(state->free_list);
+        if(free_list) {
+            desc = free_list;
+            if(bound_descriptor::FREE_LIST_END != desc->next_free_index) {
+                free_list = DESCRIPTORS[desc->next_free_index];
+            } else {
+                free_list = nullptr;
             }
+        }
 
-            if(~0U != desc->next_free_index) {
-                next = DESCRIPTORS[desc->next_free_index];
-            }
+        IF_KERNEL( granary_store_flags(flags); )
 
-        } while(NEXT_FREE.compare_exchange_weak(desc, next));
+#endif /* ENABLE_FREE_LIST */
 
+        // We got one from the free list.
+        counter_index = 0;
         if(desc) {
             uintptr_t partial_index_;
             destructure_combined_index(
                 desc->my_index, counter_index, partial_index_);
+
+        // Try to allocate one.
         } else {
             counter_index = next_counter_index();
-            if(counter_index >= MAX_COUNTER_INDEX) {
+            if(counter_index > MAX_COUNTER_INDEX) {
                 return false;
             }
-            desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
 
+            desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
         }
 
-        const uintptr_t index(combined_index(counter_index, partial_index));
-        desc->my_index = index;
+        ASSERT(counter_index <= MAX_COUNTER_INDEX);
 
         return true;
     }
@@ -185,20 +207,66 @@ namespace client { namespace wp {
     }
 
 
+    /// Notify the bounds policy that the descriptor can be assigned to
+    /// the index.
+    void bound_descriptor::assign(
+        bound_descriptor *desc,
+        uintptr_t index
+    ) throw() {
+        desc->my_index = index;
+        DESCRIPTORS[index] = desc;
+    }
+
+
+    /// Get the descriptor of a watchpoint based on its index.
+    bound_descriptor *bound_descriptor::access(
+        uintptr_t index
+    ) throw() {
+        ASSERT(index < MAX_NUM_WATCHPOINTS);
+        return DESCRIPTORS[index];
+    }
+
+
+    extern "C" void break_on_descriptor_index(
+        bound_descriptor *desc,
+        uintptr_t index
+    ) {
+        USED(desc);
+        USED(index);
+    }
+
+
     /// Free a watchpoint descriptor by adding it to a free list.
     void bound_descriptor::free(
         bound_descriptor *desc,
-        uintptr_t
+        uintptr_t index
     ) throw() {
-        bound_descriptor *head(nullptr);
-        do {
-            head = NEXT_FREE.load();
-            if(head) {
-                desc->next_free_index = head->my_index;
-            } else {
-                desc->next_free_index = ~0U;
-            }
-        } while(NEXT_FREE.compare_exchange_weak(head, desc));
+        if(!is_valid_address(desc)) {
+            return;
+        }
+
+        if(index != desc->my_index) {
+            break_on_descriptor_index(desc, index);
+        }
+
+        ASSERT(index == desc->my_index);
+
+#if ENABLE_FREE_LIST
+        IF_KERNEL( eflags flags(granary_disable_interrupts()); )
+        IF_KERNEL( cpu_state_handle state; )
+        IF_USER( thread_state_handle state; )
+
+        bound_descriptor *&free_list(state->free_list);
+
+        if(free_list) {
+            desc->next_free_index = free_list->my_index;
+        } else {
+            desc->next_free_index = bound_descriptor::FREE_LIST_END;
+        }
+        free_list = desc;
+
+        IF_KERNEL( granary_store_flags(flags); )
+#endif /* ENABLE_FREE_LIST */
     }
 
 
@@ -208,6 +276,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+#if ENABLE_INSTRUMENTATION
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
 
@@ -219,6 +288,14 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
+#else
+        UNUSED(ls);
+        UNUSED(tracker);
+        UNUSED(i);
+        UNUSED(BOUNDS_CHECKERS);
+        UNUSED(REG_TO_INDEX);
+        UNUSED(SIZE_TO_INDEX);
+#endif /* ENABLE_INSTRUMENTATION */
     }
 
 
@@ -228,6 +305,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+#if ENABLE_INSTRUMENTATION
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
 
@@ -239,6 +317,11 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
+#else
+        UNUSED(ls);
+        UNUSED(tracker);
+        UNUSED(i);
+#endif /* ENABLE_INSTRUMENTATION */
     }
 
 
@@ -248,6 +331,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+#if ENABLE_INSTRUMENTATION
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
 
@@ -259,6 +343,11 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
+#else
+        UNUSED(ls);
+        UNUSED(tracker);
+        UNUSED(i);
+#endif /* ENABLE_INSTRUMENTATION */
     }
 
 
@@ -268,6 +357,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
+#if ENABLE_INSTRUMENTATION
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
 
@@ -279,6 +369,11 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
+#else
+        UNUSED(ls);
+        UNUSED(tracker);
+        UNUSED(i);
+#endif /* ENABLE_INSTRUMENTATION */
     }
 
 
@@ -308,21 +403,6 @@ namespace client { namespace wp {
         return INTERRUPT_DEFER;
     }
 } /* wp namespace */
-
-
-    /// Handle an interrupt in kernel code. Returns true iff the client handles
-    /// the interrupt.
-    interrupt_handled_state handle_kernel_interrupt(
-        cpu_state_handle &,
-        thread_state_handle &,
-        interrupt_stack_frame &,
-        interrupt_vector vec
-    ) throw() {
-        if(VECTOR_OVERFLOW == vec) {
-            return INTERRUPT_IRET;
-        }
-        return INTERRUPT_DEFER;
-    }
 #else
 } /* wp namespace */
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */

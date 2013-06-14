@@ -9,6 +9,12 @@
 #ifndef CLIENT_STATE_H_
 #define CLIENT_STATE_H_
 
+/// Bounds checking watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_BOUND
+#   include "clients/watchpoints/policies/bound_state.h"
+#endif
+
+
 namespace client {
 
     struct thread_state;
@@ -16,22 +22,28 @@ namespace client {
     struct block_state;
 
 
+#ifndef CLIENT_thread_state
     /// Extensions to Granary's internal thread-local storage.
     struct thread_state {
 
     };
+#endif /* CLIENT_thread_state */
 
 
+#ifndef CLIENT_cpu_state
     /// Extensions to Granary's internal CPU-local storage.
     struct cpu_state {
-#if GRANARY_IN_KERNEL
+#   if GRANARY_IN_KERNEL
 
-#endif
+#   endif
     };
+#endif /* CLIENT_cpu_state */
 
 
+#ifndef CLIENT_basic_block_state
     /// Extensions to Granary's internal basic block-local storage.
     struct basic_block_state { };
+#endif /* CLIENT_basic_block_state */
 
 }
 

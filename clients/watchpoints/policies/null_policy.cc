@@ -39,17 +39,6 @@ namespace client { namespace wp {
         return INTERRUPT_DEFER;
     }
 } /* wp namespace */
-
-    /// Handle an interrupt in kernel code. Returns true iff the client handles
-    /// the interrupt.
-    interrupt_handled_state handle_kernel_interrupt(
-        cpu_state_handle &,
-        thread_state_handle &,
-        interrupt_stack_frame &,
-        interrupt_vector
-    ) throw() {
-        return INTERRUPT_DEFER;
-    }
 #else
 } /* wp namespace */
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */

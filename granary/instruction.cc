@@ -55,6 +55,10 @@ namespace granary {
     /// Copy assignment.
     void instruction::replace_with(instruction that) throw() {
 
+        ASSERT(is_valid_address(instr));
+        ASSERT(is_valid_address(that.instr));
+        ASSERT(that.op_code());
+
         if(that.instr == instr) {
             return;
         }
@@ -69,6 +73,9 @@ namespace granary {
         dynamorio::instr_t *prev_(instr->prev);
         unsigned granary_flags(instr->granary_flags);
         unsigned granary_policy(instr->granary_flags);
+
+        ASSERT(!next_ || is_valid_address(next_));
+        ASSERT(!prev_ || is_valid_address(prev_));
 
         memcpy(instr, that.instr, sizeof *instr);
 
@@ -85,6 +92,7 @@ namespace granary {
         instr->note = note;
         instr->next = next_;
         instr->prev = prev_;
+
         instr->granary_flags = granary_flags;
         instr->granary_policy = granary_policy;
     }
@@ -302,8 +310,10 @@ namespace granary {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *before_item(last_);
 
+        ASSERT(is_valid_address(item));
         ASSERT(!item->prev);
         ASSERT(!item->next);
+        ASSERT(!before_item || is_valid_address(before_item));
 
         last_ = item;
         item->prev = before_item;
@@ -324,8 +334,10 @@ namespace granary {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *after_item(first_);
 
+        ASSERT(is_valid_address(item));
         ASSERT(!item->prev);
         ASSERT(!item->next);
+        ASSERT(!after_item || is_valid_address(after_item));
 
         first_ = item;
         item->next = after_item;
@@ -354,8 +366,13 @@ namespace granary {
 
         dynamorio::instr_t *after_item(after_item_.instr);
         dynamorio::instr_t *item(item_.instr);
+
+        ASSERT(is_valid_address(item));
+        ASSERT(is_valid_address(after_item));
+
         dynamorio::instr_t *before_item(after_item->prev);
 
+        ASSERT(!before_item || is_valid_address(before_item));
         ASSERT(!item->prev);
         ASSERT(!item->next);
 
@@ -379,8 +396,13 @@ namespace granary {
 
         dynamorio::instr_t *before_item(before_item_.instr);
         dynamorio::instr_t *item(item_.instr);
+
+        ASSERT(is_valid_address(item));
+        ASSERT(is_valid_address(before_item));
+
         dynamorio::instr_t *after_item(before_item->next);
 
+        ASSERT(!after_item || is_valid_address(after_item));
         ASSERT(!item->prev);
         ASSERT(!item->next);
 
@@ -399,10 +421,14 @@ namespace granary {
             return;
         }
 
+        ASSERT(is_valid_address(instr));
         ASSERT(0 < length_);
 
         dynamorio::instr_t *prev(instr->prev);
         dynamorio::instr_t *next(instr->next);
+
+        ASSERT(!prev || is_valid_address(prev));
+        ASSERT(!next || is_valid_address(next));
 
         if(prev) {
             prev->next = next;

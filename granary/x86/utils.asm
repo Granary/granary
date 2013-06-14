@@ -16,7 +16,7 @@ END_FUNC(granary_get_gs_base)
 /// Returns %fs:0.
 DECLARE_FUNC(granary_get_fs_base)
 GLOBAL_LABEL(granary_get_fs_base:)
-    movq %gs:0, %rax;
+    movq %fs:0, %rax;
     ret;
 END_FUNC(granary_get_fs_base)
 

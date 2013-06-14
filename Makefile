@@ -193,6 +193,10 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/tests/test_frame_pointer.o
 	GR_OBJS += bin/clients/watchpoints/tests/x86/test_auto_data.o
 	GR_OBJS += bin/clients/watchpoints/tests/test_auto.o
+	
+	ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupts.o
+	endif
 endif
 ifeq ($(GR_CLIENT),watchpoint_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
@@ -200,6 +204,7 @@ ifeq ($(GR_CLIENT),watchpoint_watched)
 	GR_OBJS += bin/clients/watchpoints/policies/watched_policy.o
 	
 	ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupts.o
 		GR_OBJS += bin/clients/watchpoints/policies/kernel/linux/watched_policy.o
 	endif
 endif
@@ -209,7 +214,9 @@ ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_OBJS += bin/clients/watchpoints/policies/bound_policy.o
 	GR_OBJS += bin/clients/watchpoints/policies/x86/bound_policy.o
 	
-	ifeq ($(KERNEL),0)
+	ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupts.o
+	else
 		GR_OBJS += bin/clients/watchpoints/policies/user/posix/bound_policy.o
 	endif
 endif

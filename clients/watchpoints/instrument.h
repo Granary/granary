@@ -53,8 +53,7 @@ namespace client {
 #endif
 
             /// Maximum counter index (inclusive).
-            MAX_COUNTER_INDEX           = (
-                (1ULL << (NUM_HIGH_ORDER_BITS - 1)) - 1),
+            MAX_COUNTER_INDEX           = 0x7FFFU,
 
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.
@@ -103,11 +102,6 @@ namespace client {
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-
-
-        /// The scale of registers that will be used to mask the tainted bits of a
-        /// watched address.
-        extern const granary::register_scale REG_SCALE;
 
 
         /// The memory operand size in bytes.
@@ -219,6 +213,11 @@ namespace client {
             /// set to true.
             void match_userspace_address_deref(void) throw();
 #endif /* GRANARY_IN_KERNEL */
+
+
+            /// Post-process that instrumented instructions. This looks for
+            /// minor peephole optimisation opportunities.
+            void post_process_instructions(granary::instruction_list &ls);
         };
 
 
@@ -255,9 +254,13 @@ namespace client {
         /// Returns true iff an address is watched.
         inline bool is_watched_address(uintptr_t ptr) throw() {
 #if GRANARY_IN_KERNEL
-            return DISTINGUISHING_BIT_MASK == (ptr | DISTINGUISHING_BIT_MASK);
+            enum {
+                MASK_47_48 = (USER_OR_MASK >> 1) | USER_OR_MASK
+            };
+            const uintptr_t masked_ptr(ptr & MASK_47_48);
+            return masked_ptr && MASK_47_48 != masked_ptr;
 #else
-            return DISTINGUISHING_BIT_MASK == (ptr & DISTINGUISHING_BIT_MASK);
+            return ptr && DISTINGUISHING_BIT_MASK == (ptr & DISTINGUISHING_BIT_MASK);
 #endif
         }
         template <typename T>
@@ -285,7 +288,7 @@ namespace client {
 
         /// Returns the unwatched version of an address.
         inline uintptr_t unwatched_address_check(uintptr_t ptr) throw() {
-            if(granary::is_valid_address(ptr) && is_watched_address(ptr)) {
+            if(is_watched_address(ptr)) {
                 return unwatched_address(ptr);
             }
             return ptr;
@@ -366,7 +369,7 @@ namespace client {
         inline uintptr_t
         index_of(T ptr_) throw() {
             const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
-            const uintptr_t counter_index(ptr >> DISTINGUISHING_BIT_OFFSET);
+            const uintptr_t counter_index(ptr >> (DISTINGUISHING_BIT_OFFSET + 1));
 #if WP_USE_PARTIAL_INDEX
             return combined_index(counter_index, partial_index_of(ptr));
 #else
@@ -381,8 +384,13 @@ namespace client {
             uintptr_t &counter_index,
             uintptr_t &partial_index
         ) throw() {
+#if WP_USE_PARTIAL_INDEX
             counter_index = index >> NUM_PARTIAL_INDEX_BITS;
             partial_index = index & PARTIAL_INDEX_MASK;
+#else
+            counter_index = index;
+            partial_index = 0U;
+#endif
         }
 
 
@@ -392,8 +400,8 @@ namespace client {
         template <typename T>
         inline typename descriptor_type<T>::type *
         descriptor_of(T ptr_) throw() {
-            extern typename descriptor_type<T>::type *DESCRIPTORS[];
-            return DESCRIPTORS[index_of(ptr_)];
+            typedef typename descriptor_type<T>::type desc_type;
+            return desc_type::access(index_of(ptr_));
         }
 
 
@@ -405,7 +413,8 @@ namespace client {
         template <typename T>
         void free_descriptor_of(T ptr_) throw() {
             typedef typename descriptor_type<T>::type desc_type;
-            desc_type::free(descriptor_of(ptr_), index_of(ptr_));
+            const uintptr_t index(index_of(ptr_));
+            desc_type::free(desc_type::access(index), index);
         }
 
 
@@ -464,14 +473,15 @@ namespace client {
         add_watchpoint_status
         add_watchpoint(T &ptr_, ConstructorArgs... init_args) throw() {
             typedef typename descriptor_type<T>::type desc_type;
-            extern desc_type *DESCRIPTORS[];
 
-            if(is_watched_address(ptr_)) {
+            uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+
+            if(is_watched_address(ptr)) {
                 return ADDRESS_ALREADY_WATCHED;
             }
 
             uintptr_t counter_index(0);
-            uintptr_t partial_index(partial_index_of(ptr_));
+            uintptr_t partial_index(partial_index_of(ptr));
             desc_type *desc(nullptr);
 
             // Allocate descriptor.
@@ -479,22 +489,27 @@ namespace client {
                 return ADDRESS_NOT_WATCHED;
             }
 
-            // Construct the descriptor.
-            desc_type::init(desc, init_args...);
+            ASSERT(counter_index <= MAX_COUNTER_INDEX);
 
-            // Add the descriptor to the table.
+            // Construct the descriptor and add it to the table.
             const uintptr_t index(combined_index(counter_index, partial_index));
-            DESCRIPTORS[index] = desc;
+            if(desc) {
+                desc_type::init(desc, init_args...);
+                desc_type::assign(desc, index);
+            }
 
             // Taint the pointer.
+            counter_index &= MAX_COUNTER_INDEX;
             counter_index <<= 1;
             counter_index |= DISTINGUISHING_BIT;
             counter_index <<= DISTINGUISHING_BIT_OFFSET;
 
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            ptr &= CLEAR_INDEX_MASK;
+            ptr |= counter_index;
 
-            ptr_ = granary::unsafe_cast<T>(
-                counter_index | (ptr & CLEAR_INDEX_MASK));
+            ASSERT(is_watched_address(ptr));
+
+            ptr_ = granary::unsafe_cast<T>(ptr);
 
             return ADDRESS_WATCHED;
         }
@@ -623,6 +638,10 @@ namespace client {
 
                 IF_USER( wp::guard_redzone(ls, first, last); )
             }
+
+            // Apply any minor peephole optimisations to get rid of redundant
+            // instructions.
+            tracker.post_process_instructions(ls);
 
             return policy_for<self_type>();
         }

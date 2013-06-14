@@ -246,9 +246,21 @@ namespace granary {
         static typename dynamorio::dcontext_t *DCONTEXT;
 
         enum instruction_flag {
-            DONT_MANGLE     = (1 << 0),
-            DELAY_BEGIN     = (1 << 1),
-            DELAY_END       = (1 << 2)
+            /// Mark an instruction as alredy mangled. By default, all
+            /// instructions are subject to mangling.
+            DONT_MANGLE         = (1 << 0),
+
+            /// Begin a delay region. This property is potentially removed and
+            /// back-propagated by the instruction mangler.
+            DELAY_BEGIN         = (1 << 1),
+
+            /// End a delay region. This property is potentially removed and
+            /// forward-propagated by the instruction mangler.
+            DELAY_END           = (1 << 2),
+
+            /// Set iff a label is targeted by a CTI within the current basic
+            /// block.
+            TARGETED_BY_CTI     = (1 << 3)
         };
 
         typename dynamorio::instr_t *instr;

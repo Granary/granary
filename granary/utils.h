@@ -25,6 +25,10 @@ namespace granary {
 
 
     /// Non-integral, non-pointer type to something else.
+    ///
+    /// Note: `__builtin_memcpy` is used instead of `memcpy`, mostly for the
+    ///       sake of kernel code where it sometimes seems that the optimisation
+    ///       of inlining a normal `memcpy` is not done.
     template <
         typename ToT,
         typename FromT,
@@ -38,7 +42,7 @@ namespace granary {
             "Dangerous unsafe cast between two types of different sizes.");
 
         ToT dest;
-        ::memcpy(&dest, &v, sizeof(ToT));
+        __builtin_memcpy(&dest, &v, sizeof(ToT));
         return dest;
     }
 

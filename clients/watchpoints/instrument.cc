@@ -526,6 +526,18 @@ namespace client { namespace wp {
 #endif
 
 
+    /// Post-process that instrumented instructions. This looks for
+    /// minor peephole optimisation opportunities.
+    void watchpoint_tracker::post_process_instructions(instruction_list &ls) {
+        UNUSED(ls);
+        /// TODO: Implement `TARGETED_BY_CTI` in instruction state bits, then
+        ///       look for PUSH X; POP X or PUSH X; untargeted labels; POP X and
+        ///       elide these instructions.
+
+        /// TODO: In user space, collapse adjacent redzone boundaries.
+    }
+
+
     /// Replace/update operands around the memory instruction. This will
     /// update the `labels` field of the `operand_tracker` with labels in
     /// instruction stream so that a `Watcher` can inject its own specific
@@ -658,7 +670,13 @@ namespace client { namespace wp {
             // test, then we need to compute the memory address to be
             // dereferenced.
             if(compute_addr) {
-                ls.insert_before(before, lea_(addr, *op));
+
+                // Compute the address, sans any segment info as that is
+                // ineffectual and likely only unnecessarily increases the
+                // amount of encoding.
+                operand computed_op(*op);
+                memset(&(computed_op.seg), 0, sizeof computed_op.seg);
+                ls.insert_before(before, lea_(addr, computed_op));
 
                 // Replace the operand if possible.
                 if(can_change) {
