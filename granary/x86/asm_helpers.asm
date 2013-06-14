@@ -87,6 +87,12 @@
 #   endif
 #endif
 
+#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
+#   define EXTERN_SYMBOL SYMBOL
+#else
+#   define EXTERN_SYMBOL SHARED_SYMBOL
+#endif
+
 
 /// Gives us a single register that isn't the
 /// one inputted.

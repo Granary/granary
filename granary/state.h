@@ -24,6 +24,7 @@ namespace granary {
 
     struct thread_state;
     struct cpu_state;
+    struct stack_state;
     struct basic_block_state;
     struct basic_block;
     struct cpu_state_handle;
@@ -35,6 +36,12 @@ namespace granary {
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw();
 
+    struct __attribute__((aligned (16), packed)) stack_state {
+        char base[CONFIG_PRIVATE_STACK_SIZE];
+        char top[0];
+    };
+
+    extern "C" char *granary_get_private_stack_top(void);
 
     /// Information maintained by granary about each thread.
     struct thread_state : public client::thread_state { };
@@ -191,6 +198,9 @@ namespace granary {
 
         /// Thread data.
         IF_USER( thread_state thread_data; )
+
+        // Per-CPU private stack
+        IF_KERNEL( stack_state percpu_stack; )
 
 
         /// The code cache allocator for this CPU.

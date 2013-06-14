@@ -200,6 +200,8 @@ GR_OBJS += $(BIN_DIR)/granary/wrapper.o
 GR_OBJS += $(BIN_DIR)/granary/x86/utils.o
 GR_OBJS += $(BIN_DIR)/granary/x86/direct_branch.o
 GR_OBJS += $(BIN_DIR)/granary/x86/attach.o
+GR_OBJS += $(BIN_DIR)/granary/x86/dynamic_wrapper_of.o
+GR_OBJS += $(BIN_DIR)/granary/x86/stack.o
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += $(BIN_DIR)/granary/gen/instruction.o
