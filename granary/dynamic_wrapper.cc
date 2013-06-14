@@ -23,9 +23,11 @@ namespace granary {
         wrappers.construct();
     })
 
+    extern "C" app_pc granary_dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
 
     /// Return the dynamic wrapper address for a wrapper / wrappee.
-    app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw() {
+    // NB: Prefer C-style non-mangled symbols for the assembly portion
+    extern "C" app_pc granary_dynamic_wrapper_of__impl(app_pc wrapper, app_pc wrappee) throw() {
         app_pc target_wrapper(nullptr);
         if(wrappers->load(wrappee, target_wrapper)) {
             return target_wrapper;

@@ -153,6 +153,11 @@
 #   define CONFIG_MEMORY_PAGE_SIZE 4096
 #endif
 
+// Size of per-cpu/thread-local private stack
+#ifndef CONFIG_PRIVATE_STACK_SIZE
+#   define CONFIG_PRIVATE_STACK_SIZE    16384
+#endif
+
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH

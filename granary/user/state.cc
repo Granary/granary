@@ -14,7 +14,12 @@ namespace granary {
 
     /// User space thread-local storage.
     __thread cpu_state *CPU_STATE(nullptr);
+    __thread stack_state STACK_STATE;
 
+    extern "C" char *granary_get_private_stack_top(void)
+    {
+        return (char *) &(STACK_STATE.top);
+    }
 
     thread_state_handle::thread_state_handle(cpu_state_handle cpu_) throw()
         : state(&(cpu_->thread_data))

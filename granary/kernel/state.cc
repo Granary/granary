@@ -28,6 +28,10 @@ namespace granary {
     /// Manually manage our own per-cpu state.
     cpu_state *CPU_STATES[256] = {nullptr};
 
+    extern "C" char *granary_get_private_stack_top(void)
+    {
+        return (char *) &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack);
+    }
 
     namespace detail {
         struct dummy_thread_state : public client::thread_state {

@@ -456,6 +456,8 @@ namespace granary {
     /// Address of the global code cache lookup function.
     static app_pc global_code_cache_find(nullptr);
 
+    /// Address of the granary_get_private_stack_top
+    static app_pc get_private_stack_top(nullptr);
 
     STATIC_INITIALISE_ID(code_cache_functions, {
         cpu_private_code_cache_find = unsafe_cast<app_pc>(
@@ -467,6 +469,9 @@ namespace granary {
 
         global_code_cache_find = unsafe_cast<app_pc>(
             (app_pc (*)(mangled_address)) code_cache::find);
+        
+        get_private_stack_top = unsafe_cast<app_pc>(
+            (char *(*)(void)) granary_get_private_stack_top);
     })
 
 
@@ -553,8 +558,28 @@ namespace granary {
 
         // slow path: do a global code cache lookup
         safe = insert_align_stack_after(ibl, safe);
+
+        // Find the local private stack to use
+        safe = ibl.insert_after(safe, push_(reg::arg1));
+        safe = ibl.insert_after(safe, push_(reg::arg2));
+        safe = insert_cti_after(
+                ibl, safe, get_private_stack_top, true, reg::ret, CTI_CALL);
+        safe = ibl.insert_after(safe, pop_(reg::arg2));
+        safe = ibl.insert_after(safe, pop_(reg::arg1));
+
+        // Switch to new private stack
+        safe = ibl.insert_after(safe, xchg_(reg::rsp, reg::ret));
+
+        // Save old user stack address (twice for 16-byte alignment)
+        safe = ibl.insert_after(safe, push_(reg::ret));
+        safe = ibl.insert_after(safe, push_(reg::ret));
+
         safe = insert_cti_after(
             ibl, safe, global_code_cache_find, true, reg::rax, CTI_CALL);
+
+        // Switch back to old user stack
+        safe = ibl.insert_after(safe, mov_ld_(reg::rsp, *reg::rsp));
+
         safe = insert_restore_old_stack_alignment_after(ibl, safe);
 
         // fast path, and fall-through of slow path: move the returned target
@@ -835,11 +860,23 @@ namespace granary {
         for(;;) {
             instruction in(instruction::decode(&start_pc));
             if(in.is_call()) {
-                ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<int64_t>(
-                    find_and_patch_direct_cti<make_opcode>))));
+                // The first call is to private
+                if (in.is_direct_call()) {
+                    insert_cti_after(
+                        ls, ls.last(), in.cti_target().value.pc,
+                        true, reg::ret,
+                        CTI_CALL);
+                } else {
+                    // The second
+                    ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<int64_t>(
+                            find_and_patch_direct_cti<make_opcode>))));
+                    ls.append(in);
+                }
+            } else {
+                ls.append(in);
             }
 
-            ls.append(in);
+            //ls.append(in);
             if(dynamorio::OP_ret == in.op_code()) {
                 break;
             }

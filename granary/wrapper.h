@@ -872,7 +872,9 @@ namespace granary {
 
     /// Return the dynamic wrapper address for a wrapper / wrappee.
     /// See granary/dynamic_wrapper.cc
-    app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+#   define dynamic_wrapper_of  granary_dynamic_wrapper_of
+    extern "C" app_pc granary_dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+
 
 
     /// Returns True iff we will will/would dynamic wrap this function.
