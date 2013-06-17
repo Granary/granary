@@ -32,17 +32,17 @@
 #define WP_COUNTER_INDEX_WIDTH 16
 
 
-/// Enable if partial indexes should be used.
-#define WP_USE_PARTIAL_INDEX 0
+/// Enable if inherited indexes should be used.
+#define WP_USE_INHERITED_INDEX 0
 
 
-/// Size (in bits) of the partial index. This should be a small, non-negative
+/// Size (in bits) of the inherited index. This should be a small, non-negative
 /// number that complement the counter index with (minus 1), so as to get the
 /// desired space of objects.
-#define WP_PARTIAL_INDEX_WIDTH 5
+#define WP_INHERITED_INDEX_WIDTH 5
 
 
-/// The granularity of the partial index. This depends on the expected size of
+/// The granularity of the inherited index. This depends on the expected size of
 /// watched objects. A lower number implicitly means that objects are expected
 /// to be smaller. A higher number (in the range of 14 or more) says that
 /// objects are expected to be bigger.
@@ -54,31 +54,31 @@
 ///
 /// Note: One approach that deals with the above issues is duplicating a
 ///       descriptor entry across adjacent zones. This is possible because
-///       partial indexes make the descriptor table (if used) more sparse.
-#define WP_PARTIAL_INDEX_GRANULARITY 14
+///       inherited indexes make the descriptor table (if used) more sparse.
+#define WP_INHERITED_INDEX_GRANULARITY 14
 
 
-/// Backup for if the partial index width is set to 0 but the partial indexes
+/// Backup for if the inherited index width is set to 0 but the inherited indexes
 /// are left enabled. Don't change.
-#if !WP_PARTIAL_INDEX_WIDTH
-#   undef WP_USE_PARTIAL_INDEX
-#   define WP_USE_PARTIAL_INDEX 0
+#if !WP_INHERITED_INDEX_WIDTH
+#   undef WP_USE_INHERITED_INDEX
+#   define WP_USE_INHERITED_INDEX 0
 #endif
 
 
-/// Backup for if the partial index is disabled, but the partial index width is
+/// Backup for if the inherited index is disabled, but the inherited index width is
 /// left as non-zero. Don't change.
-#if !WP_USE_PARTIAL_INDEX
-#   undef WP_PARTIAL_INDEX_WIDTH
-#   define WP_PARTIAL_INDEX_WIDTH 0
+#if !WP_USE_INHERITED_INDEX
+#   undef WP_INHERITED_INDEX_WIDTH
+#   define WP_INHERITED_INDEX_WIDTH 0
 #endif
 
 
 /// Feature toggler. Don't change.
-#if WP_USE_PARTIAL_INDEX
-#   define IF_PARTIAL_INDEX(...) __VA_ARGS__
+#if WP_USE_INHERITED_INDEX
+#   define IF_INHERITED_INDEX(...) __VA_ARGS__
 #else
-#   define IF_PARTIAL_INDEX(...)
+#   define IF_INHERITED_INDEX(...)
 #endif
 
 

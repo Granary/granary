@@ -361,7 +361,7 @@ namespace test { namespace md5 {
         if (pms->count[0] < nbits)
         pms->count[1]++;
 
-        /* Process an initial partial block. */
+        /* Process an initial inherited block. */
         if (offset) {
         int copy = (offset + nbytes > 64 ? 64 - offset : nbytes);
 
@@ -377,7 +377,7 @@ namespace test { namespace md5 {
         for (; left >= 64; p += 64, left -= 64)
         md5_process(pms, p);
 
-        /* Process a final partial block. */
+        /* Process a final inherited block. */
         if (left)
         memcpy(pms->buf, p, left);
     }

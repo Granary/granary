@@ -36,20 +36,20 @@ namespace client {
             /// distinguished in kernel space.
             NUM_HIGH_ORDER_BITS         = WP_COUNTER_INDEX_WIDTH,
 
-            /// Number of partial index bits.
-            NUM_PARTIAL_INDEX_BITS      = WP_PARTIAL_INDEX_WIDTH,
-            PARTIAL_INDEX_MASK          = (1 << NUM_PARTIAL_INDEX_BITS) - 1,
+            /// Number of inherited index bits.
+            NUM_INHERITED_INDEX_BITS      = WP_INHERITED_INDEX_WIDTH,
+            INHERITED_INDEX_MASK          = (1 << NUM_INHERITED_INDEX_BITS) - 1,
 
-            /// Offset of partial index bits.
-            PARTIAL_INDEX_OFFSET        = WP_PARTIAL_INDEX_GRANULARITY,
+            /// Offset of inherited index bits.
+            INHERITED_INDEX_OFFSET        = WP_INHERITED_INDEX_GRANULARITY,
 
-            /// Mask for extracting the partial index.
-#if WP_USE_PARTIAL_INDEX
-            PARTIAL_INDEX_MASK          = (
+            /// Mask for extracting the inherited index.
+#if WP_USE_INHERITED_INDEX
+            INHERITED_INDEX_MASK          = (
                 (((~0ULL)
-                    << (NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS))
-                    >> (NUM_BITS_PER_ADDR - NUM_PARTIAL_INDEX_BITS
-                                          - PARTIAL_INDEX_OFFSET))),
+                    << (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS))
+                    >> (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS
+                                          - INHERITED_INDEX_OFFSET))),
 #endif
 
             /// Maximum counter index (inclusive).
@@ -57,9 +57,9 @@ namespace client {
 
             /// Maximum number of watchpoints for the given number of high-order
             /// bits.
-#if WP_USE_PARTIAL_INDEX
+#if WP_USE_INHERITED_INDEX
             MAX_NUM_WATCHPOINTS         = (
-                (MAX_COUNTER_INDEX + 1) * (1 << NUM_PARTIAL_INDEX_BITS)),
+                (MAX_COUNTER_INDEX + 1) * (1 << NUM_INHERITED_INDEX_BITS)),
 #else
             MAX_NUM_WATCHPOINTS         = MAX_COUNTER_INDEX + 1,
 #endif
@@ -301,34 +301,28 @@ namespace client {
         }
 
 
-#if WP_USE_PARTIAL_INDEX
-        /// Return the partial index of an address.
-        inline uintptr_t partial_index_of(uintptr_t ptr) throw() {
-            return (ptr & PARTIAL_INDEX_MASK) >> PARTIAL_INDEX_OFFSET;
+#if WP_USE_INHERITED_INDEX
+        /// Return the inherited index of an address.
+        inline uintptr_t inherited_index_of(uintptr_t ptr) throw() {
+            return (ptr & INHERITED_INDEX_MASK) >> INHERITED_INDEX_OFFSET;
         }
 
 
-        /// Combine a partial index with a counter index.
+        /// Combine a inherited index with a counter index.
         inline uintptr_t combined_index(
             uintptr_t counter_index,
-            uintptr_t partial_index
+            uintptr_t inherited_index
         ) throw() {
-            return (counter_index << NUM_PARTIAL_INDEX_BITS) | partial_index;
-        }
-
-
-        /// Return the counter index component of a combined index.
-        inline uintptr_t counter_index_of(uintptr_t index) throw() {
-            return index >> NUM_PARTIAL_INDEX_BITS;
+            return (counter_index << NUM_INHERITED_INDEX_BITS) | inherited_index;
         }
 #else
-        /// Return the partial index of an address.
-        inline uintptr_t partial_index_of(uintptr_t) throw() {
+        /// Return the inherited index of an address.
+        inline uintptr_t inherited_index_of(uintptr_t) throw() {
             return 0;
         }
 
 
-        /// Combine a partial index with a counter index.
+        /// Combine a inherited index with a counter index.
         inline uintptr_t combined_index(
             uintptr_t counter_index,
             uintptr_t
@@ -336,25 +330,45 @@ namespace client {
             return counter_index;
         }
 
+#endif /* WP_USE_INHERITED_INDEX */
 
         /// Return the counter index component of a combined index.
-        inline uintptr_t counter_index_of(uintptr_t index) throw() {
-            return index;
+        inline uintptr_t counter_index_of(uintptr_t ptr) throw() {
+            return ptr >> (DISTINGUISHING_BIT_OFFSET + 1);
         }
-#endif /* WP_USE_PARTIAL_INDEX */
 
 
-        /// Return the partial index of an address.
+        /// Return the inherited index of an address.
         template <typename T>
-        inline uintptr_t partial_index_of(T *addr) throw() {
-            return partial_index_of(reinterpret_cast<uintptr_t>(addr));
+        inline uintptr_t inherited_index_of(T *addr) throw() {
+            return inherited_index_of(reinterpret_cast<uintptr_t>(addr));
         }
 
 
-        /// Return the partial index of an address.
+        /// Return the inherited index of an address.
         template <typename T>
         inline uintptr_t counter_index_of(T *addr) throw() {
             return counter_index_of(reinterpret_cast<uintptr_t>(addr));
+        }
+
+
+        /// Return the index into the descriptor table for this watched address.
+        ///
+        /// Note: This assumes that the address is watched.
+        inline uintptr_t combined_index_of(uintptr_t ptr) throw() {
+            return combined_index(
+                counter_index_of(ptr),
+                inherited_index_of(ptr)
+            );
+        }
+
+
+        /// Return the index into the descriptor table for this watched address.
+        ///
+        /// Note: This assumes that the address is watched.
+        template <typename T>
+        inline uintptr_t combined_index_of(T *ptr_) throw() {
+            return combined_index_of(granary::unsafe_cast<uintptr_t>(ptr_));
         }
 
 
@@ -362,34 +376,18 @@ namespace client {
         uintptr_t next_counter_index(void) throw();
 
 
-        /// Return the index into the descriptor table for this watched address.
-        ///
-        /// Note: This assumes that the address is watched.
-        template <typename T>
-        inline uintptr_t
-        index_of(T ptr_) throw() {
-            const uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
-            const uintptr_t counter_index(ptr >> (DISTINGUISHING_BIT_OFFSET + 1));
-#if WP_USE_PARTIAL_INDEX
-            return combined_index(counter_index, partial_index_of(ptr));
-#else
-            return counter_index;
-#endif
-        }
-
-
-        /// Destructure a combined index into its counter and partial indexes.
+        /// Destructure a combined index into its counter and inherited indexes.
         inline void destructure_combined_index(
             const uintptr_t index,
             uintptr_t &counter_index,
-            uintptr_t &partial_index
+            uintptr_t &inherited_index
         ) throw() {
-#if WP_USE_PARTIAL_INDEX
-            counter_index = index >> NUM_PARTIAL_INDEX_BITS;
-            partial_index = index & PARTIAL_INDEX_MASK;
+#if WP_USE_INHERITED_INDEX
+            counter_index = index >> NUM_INHERITED_INDEX_BITS;
+            inherited_index = index & INHERITED_INDEX_MASK;
 #else
             counter_index = index;
-            partial_index = 0U;
+            inherited_index = 0U;
 #endif
         }
 
@@ -401,7 +399,7 @@ namespace client {
         inline typename descriptor_type<T>::type *
         descriptor_of(T ptr_) throw() {
             typedef typename descriptor_type<T>::type desc_type;
-            return desc_type::access(index_of(ptr_));
+            return desc_type::access(combined_index_of(ptr_));
         }
 
 
@@ -413,7 +411,7 @@ namespace client {
         template <typename T>
         void free_descriptor_of(T ptr_) throw() {
             typedef typename descriptor_type<T>::type desc_type;
-            const uintptr_t index(index_of(ptr_));
+            const uintptr_t index(combined_index_of(ptr_));
             desc_type::free(desc_type::access(index), index);
         }
 
@@ -432,34 +430,18 @@ namespace client {
         ///
         /// This tains the address, but does nothing else.
         template <typename T>
-        add_watchpoint_status add_watchpoint(T *&ptr_) throw() {
-            uintptr_t ptr(reinterpret_cast<uintptr_t>(ptr_));
-#if GRANARY_IN_KERNEL
-            ptr &= DISTINGUISHING_BIT_MASK;
-#else
-            ptr |= DISTINGUISHING_BIT_MASK;
-#endif
-
-            ptr_ = reinterpret_cast<T *>(ptr);
-            return ADDRESS_TAINTED;
-        }
-
-
-        /// Add a watchpoint to an address.
-        ///
-        /// This tains the address, but does nothing else.
-        template <typename T>
         add_watchpoint_status add_watchpoint(T &ptr_) throw() {
-            static_assert(std::is_integral<T>::value,
-                "`add_watchpoint` expects an integral operand.");
-            uintptr_t ptr(static_cast<uintptr_t>(ptr_));
+            static_assert(
+                std::is_pointer<T>::value || std::is_integral<T>::value,
+                "`add_watchpoint` expects an integral/pointer operand.");
+            uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             ptr &= DISTINGUISHING_BIT_MASK;
 #else
             ptr |= DISTINGUISHING_BIT_MASK;
 #endif
 
-            ptr_ = static_cast<T>(ptr);
+            ptr_ = granary::unsafe_cast<T>(ptr);
             return ADDRESS_TAINTED;
         }
 
@@ -472,6 +454,10 @@ namespace client {
         template <typename T, typename... ConstructorArgs>
         add_watchpoint_status
         add_watchpoint(T &ptr_, ConstructorArgs... init_args) throw() {
+            static_assert(
+                std::is_pointer<T>::value || std::is_integral<T>::value,
+                "`add_watchpoint` expects an integral/pointer operand.");
+
             typedef typename descriptor_type<T>::type desc_type;
 
             uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
@@ -481,18 +467,18 @@ namespace client {
             }
 
             uintptr_t counter_index(0);
-            uintptr_t partial_index(partial_index_of(ptr));
+            uintptr_t inherited_index(inherited_index_of(ptr));
             desc_type *desc(nullptr);
 
             // Allocate descriptor.
-            if(!desc_type::allocate(desc, counter_index, partial_index)) {
+            if(!desc_type::allocate(desc, counter_index, inherited_index)) {
                 return ADDRESS_NOT_WATCHED;
             }
 
             ASSERT(counter_index <= MAX_COUNTER_INDEX);
 
             // Construct the descriptor and add it to the table.
-            const uintptr_t index(combined_index(counter_index, partial_index));
+            const uintptr_t index(combined_index(counter_index, inherited_index));
             if(desc) {
                 desc_type::init(desc, init_args...);
                 desc_type::assign(desc, index);

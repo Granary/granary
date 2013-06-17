@@ -35,7 +35,7 @@
 /* Copyright (c) 2001-2003 Massachusetts Institute of Technology */
 /* Copyright (c) 2001 Hewlett-Packard Company */
 
-/* decode_fast.c -- a partial but fast x86 decoder */
+/* decode_fast.c -- a inherited but fast x86 decoder */
 
 #include "deps/dr/globals.h"
 #include "decode_fast.h"

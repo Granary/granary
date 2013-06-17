@@ -460,7 +460,7 @@ bin/tests/%.o: tests/%.cc
 
 # Granary user space "harness" for testing compilation, etc. This is convenient
 # for coding Granary on non-Linux platforms because it allows for debugging the
-# build process, and partial testing of the code generation process.
+# build process, and inherited testing of the code generation process.
 bin/main.o: main.cc
 	@echo "  CXX [GR] $<"
 	@$(GR_CXX) $(GR_CXX_FLAGS) -c main.cc -o bin/main.$(GR_OUTPUT_FORMAT)

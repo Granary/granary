@@ -68,7 +68,7 @@
 #   endif
 
 /// Auto-generated table of all detachable functions and their wrapper
-/// instantiations. These depend on the partial specialisations from
+/// instantiations. These depend on the inherited specialisations from
 /// user/kernel_wrappers.h.
 namespace granary {
 

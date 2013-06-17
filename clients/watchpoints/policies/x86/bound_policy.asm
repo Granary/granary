@@ -31,14 +31,14 @@ START_FILE
 #define TABLE(reg) SPILL_REG_NOT_RAX(DESC(reg))
 
 
-/// Left shift for partial indexes to get the partial index into the high
+/// Left shift for inherited indexes to get the inherited index into the high
 /// position.
-#define PARTIAL_INDEX_LSH \
-    (64 - (WP_PARTIAL_INDEX_WIDTH + WP_PARTIAL_INDEX_GRANULARITY))
+#define INHERITED_INDEX_LSH \
+    (64 - (WP_INHERITED_INDEX_WIDTH + WP_INHERITED_INDEX_GRANULARITY))
 
 
-/// Right shift for partial indexes to get it into the low position.
-#define PARTIAL_INDEX_RSH (64 - WP_PARTIAL_INDEX_WIDTH)
+/// Right shift for inherited indexes to get it into the low position.
+#define INHERITED_INDEX_RSH (64 - WP_INHERITED_INDEX_WIDTH)
 
 
 /// Right shift for counter indexes to get it into the low position.
@@ -60,47 +60,16 @@ START_FILE
         pushq %TABLE(reg);@N@ .cfi_def_cfa_offset 32 @N@\
         @N@\
         \
-        COMMENT(Save the register so we can restore it later when we need to) \
-        COMMENT(compare its lower order bits against the bounds.) \
-        pushq %reg;@N@ .cfi_def_cfa_offset 40 @N@\
-        @N@\
         \
         COMMENT(Save the watched address into a non-RAX reg before we clobber) \
         COMMENT(RAX for saving the flags.) \
         mov %reg, %DESC(reg);@N@\
-        IF_PARTIAL_INDEX( mov %reg, %TABLE(reg);@N@ )\
+        IF_INHERITED_INDEX( mov %reg, %TABLE(reg);@N@ )\
         @N@\
         \
         COMMENT(Save the flags.) \
         lahf;@N@\
         seto %al;@N@\
-        @N@\
-        \
-        COMMENT(Compute the combined index.) \
-        IF_PARTIAL_INDEX( shl $ PARTIAL_INDEX_LSH, %TABLE(reg);@N@ ) \
-        IF_PARTIAL_INDEX( shr $ PARTIAL_INDEX_RSH, %TABLE(reg);@N@ ) \
-        shr $ COUNTER_INDEX_RSH, %DESC(reg);@N@ \
-        IF_PARTIAL_INDEX( shl $ WP_PARTIAL_INDEX_WIDTH, %DESC(reg);@N@ ) \
-        IF_PARTIAL_INDEX( or %TABLE(reg), %DESC(reg);@N@ ) \
-        @N@\
-        \
-        COMMENT(Get the descriptor pointer from the index.) \
-        lea SYMBOL(_ZN6client2wp11DESCRIPTORSE)(%rip), %TABLE(reg);@N@\
-        lea (%TABLE(reg),%DESC(reg),8), %DESC(reg);@N@\
-        popq %TABLE(reg);@N@ .cfi_def_cfa_offset 32 @N@\
-        movq (%DESC(reg)), %DESC(reg);@N@\
-        @N@\
-        \
-        COMMENT(Compare against the lower bound.) \
-        cmpw (%DESC(reg)), %REG64_TO_REG16(TABLE(reg));@N@\
-        jl .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
-        @N@\
-        \
-        COMMENT(Compare against the upper bound.) \
-        addq $ (size - 1), %TABLE(reg); \
-        cmpw %REG64_TO_REG16(TABLE(reg)), 2(%DESC(reg));@N@\
-        jle .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
-        jmp .CAT(Lbounds_check_passed_, CAT(reg, size));@N@\
         @N@\
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
@@ -138,7 +107,7 @@ START_FILE
         COMMENT(Save the overflowed address and the return address as)\
         COMMENT(arguments for a common overflow handler.)\
         movq %reg, %ARG1; @N@\
-        lea -144(%rsp), %ARG2; @N@\
+        lea 160(%rsp), %ARG2; @N@\
         movq $ size, %ARG3; @N@\
         @N@\
         \

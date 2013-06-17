@@ -663,6 +663,11 @@ namespace granary {
             }
         }
 
+        // Translate loops and resolve local branches into jmps to instructions.
+        // done before mangling, as mangling removes the opportunity to do this
+        // type of transformation.
+        translate_loops(ls);
+
         // Add in a trailing jump if the last instruction in the basic
         // block if we need to force a connection between this basic block
         // and the next.
@@ -692,11 +697,6 @@ namespace granary {
             ls));
 
         client_policy.inherit_properties(policy);
-
-        // Translate loops and resolve local branches into jmps to instructions.
-        // done before mangling, as mangling removes the opportunity to do this
-        // type of transformation.
-        translate_loops(ls);
 
 #if CONFIG_TRACE_EXECUTION
         // Add in logging at the beginning of the basic block so that we can

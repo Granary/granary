@@ -152,7 +152,7 @@ def wrap_typedef(ctype, name):
   O = OUT
 
   # e.g. "typedef struct foo foo;" is somewhat ambiguous (from the perspective
-  # of C++ template partial specialization), so we omit such typedefs.
+  # of C++ template inherited specialization), so we omit such typedefs.
   #if name != ctype.internal_name:
   #  O("TYPEDEF_WRAPPER(", name, ", ", ctype.name, ")")
   #O("")

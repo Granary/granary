@@ -14,10 +14,10 @@ using namespace granary;
 #define ENABLE_WATCHPOINTS 1
 
 /// Should we add in a call to the bounds checker?
-#define ENABLE_INSTRUMENTATION 0
+#define ENABLE_INSTRUMENTATION 1
 
 /// Should we try to store descriptors on a free list?
-#define ENABLE_FREE_LIST 1
+#define ENABLE_FREE_LIST 0
 
 
 namespace client { namespace wp {
@@ -175,9 +175,9 @@ namespace client { namespace wp {
         // We got one from the free list.
         counter_index = 0;
         if(desc) {
-            uintptr_t partial_index_;
+            uintptr_t inherited_index_;
             destructure_combined_index(
-                desc->my_index, counter_index, partial_index_);
+                desc->my_index, counter_index, inherited_index_);
 
         // Try to allocate one.
         } else {
@@ -213,6 +213,7 @@ namespace client { namespace wp {
         bound_descriptor *desc,
         uintptr_t index
     ) throw() {
+        ASSERT(index < MAX_NUM_WATCHPOINTS);
         desc->my_index = index;
         DESCRIPTORS[index] = desc;
     }
@@ -227,15 +228,6 @@ namespace client { namespace wp {
     }
 
 
-    extern "C" void break_on_descriptor_index(
-        bound_descriptor *desc,
-        uintptr_t index
-    ) {
-        USED(desc);
-        USED(index);
-    }
-
-
     /// Free a watchpoint descriptor by adding it to a free list.
     void bound_descriptor::free(
         bound_descriptor *desc,
@@ -243,10 +235,6 @@ namespace client { namespace wp {
     ) throw() {
         if(!is_valid_address(desc)) {
             return;
-        }
-
-        if(index != desc->my_index) {
-            break_on_descriptor_index(desc, index);
         }
 
         ASSERT(index == desc->my_index);
@@ -382,7 +370,7 @@ namespace client { namespace wp {
         app_pc *addr_in_bb,
         unsigned size
     ) throw() {
-        printf("Overflow!\n");
+        printf("Address %p in bb %p\n", watched_addr, *addr_in_bb);
         (void) watched_addr;
         (void) addr_in_bb;
         (void) size;

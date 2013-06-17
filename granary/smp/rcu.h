@@ -470,7 +470,7 @@ namespace granary { namespace smp {
 
 
     /// Represents a simple spinlock for an RCU-protected data structure.
-    /// This can be partially specialised to allow for different data
+    /// This can be inheritedly specialised to allow for different data
     /// structures to use different mutex types.
     template <typename T>
     struct rcu_writer_lock : public spin_lock { };
