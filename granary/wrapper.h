@@ -11,22 +11,21 @@
 #include "granary/globals.h"
 #include "granary/detach.h"
 
-#if CONFIG_ENABLE_WRAPPERS
-
 #define P(...)
 //__VA_ARGS__
 
 namespace granary {
 
 
+#if CONFIG_ENABLE_WRAPPERS
 
-#if GRANARY_IN_KERNEL
+#if     GRANARY_IN_KERNEL
     template <enum function_wrapper_id>
     struct kernel_address;
 
-#   define DETACH(func)
-#   define TYPED_DETACH(func)
-#   define WRAP_FOR_DETACH(func) \
+#       define DETACH(func)
+#       define TYPED_DETACH(func)
+#       define WRAP_FOR_DETACH(func) \
     template <> \
     struct kernel_address< DETACH_ID_ ## func > { \
     public: \
@@ -34,16 +33,16 @@ namespace granary {
             VALUE = DETACH_ADDR_ ## func \
         }; \
     };
-#   if GRANARY_IN_KERNEL
-#       include "granary/gen/kernel_detach.inc"
-#   else
-#       include "granary/gen/user_detach.inc"
+#       if GRANARY_IN_KERNEL
+#           include "granary/gen/kernel_detach.inc"
+#       else
+#           include "granary/gen/user_detach.inc"
+#       endif
+#       undef DETACH
+#       undef TYPED_DETACH
+#       undef WRAP_FOR_DETACH
 #   endif
-#   undef DETACH
-#   undef TYPED_DETACH
-#   undef WRAP_FOR_DETACH
-#endif
-
+#endif /* CONFIG_ENABLE_WRAPPERS */
 
     enum {
         PRE_WRAP_MASK       = (1 << 0),
@@ -330,6 +329,8 @@ namespace granary {
     WRAP_BASIC_TYPE_IMPL(const volatile basic_type *)
 
 
+#if CONFIG_ENABLE_WRAPPERS
+
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
     template <enum function_wrapper_id, enum runtime_context>
@@ -338,6 +339,7 @@ namespace granary {
             VALUE = false
         };
     };
+#endif /* CONFIG_ENABLE_WRAPPERS */
 
 
     /// Wrapping operators.
@@ -448,6 +450,7 @@ namespace granary {
         }
     };
 
+#if CONFIG_ENABLE_WRAPPERS
 
     /// Represents a manual function wrapper.
     struct custom_wrapped_function { };
@@ -647,6 +650,9 @@ namespace granary {
     struct wrapper_of<id, context, R (Args...)>
         : public wrapped_function<id, context, R, Args...>
     {};
+
+
+#endif /* CONFIG_ENABLE_WRAPPERS */
 
 
     /// A pretty ugly hack to pass the target address from gencode into a
@@ -1359,5 +1365,4 @@ namespace granary {
 #define HOST RUNNING_AS_HOST
 
 
-#endif /* CONFIG_ENABLE_WRAPPERS */
 #endif /* granary_WRAPPER_H_ */
