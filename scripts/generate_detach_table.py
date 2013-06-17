@@ -60,7 +60,7 @@ def visit_function(name, ctype):
     return
 
   # we don't want to add detach wrappers to these, but we do want
-  # to detach on them. This is inheritedly doing the work of the dll
+  # to detach on them. This is partially doing the work of the dll
   # detach thing, but also ignoring "hidden" versions of functions
   # that we already have, e.g. logf vs. __logf. 
   if name.startswith("__") and "__libc" not in name:

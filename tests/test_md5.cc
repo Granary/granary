@@ -361,7 +361,7 @@ namespace test { namespace md5 {
         if (pms->count[0] < nbits)
         pms->count[1]++;
 
-        /* Process an initial inherited block. */
+        /* Process an initial partial block. */
         if (offset) {
         int copy = (offset + nbytes > 64 ? 64 - offset : nbytes);
 

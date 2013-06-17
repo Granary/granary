@@ -505,7 +505,7 @@ enum op_size_type {
     OPSZ_6_irex10_short4, /**< Intel 'p': On Intel processors this is 10/6/4 bytes for
                            * segment selector + address.  On AMD processors this is
                            * 6/4 bytes for segment selector + address (rex is ignored). */
-    OPSZ_8_short2, /**< inheritedly resolved 4x8_short2 */
+    OPSZ_8_short2, /**< partially resolved 4x8_short2 */
     OPSZ_8_short4, /**< Intel 'a': pair of 4_short2 (bound) */
     OPSZ_28_short14, /**< FPU operating env variable data size (fldenv, fnstenv) */
     OPSZ_108_short94, /**< FPU state with variable data size (fnsave, frstor) */

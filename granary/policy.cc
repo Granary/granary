@@ -23,7 +23,7 @@ namespace granary {
 
     /// Policy basic block visitor functions for each policy. The code
     /// cache will use this array of function pointers (initialised
-    /// inheritedly at compile time and inheritedly at run time) to determine
+    /// partially at compile time and partially at run time) to determine
     /// which client-code basic block visitor functions should be called.
     instrumentation_policy::basic_block_visitor
     instrumentation_policy::APP_VISITORS[
