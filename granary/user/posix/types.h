@@ -37,6 +37,10 @@ extern void *__libc_realloc(void *, uint64_t);
 extern void __libc_free(void *);
 #endif
 
+// Some standard libraries use C99 specifier within array decl, e.g. `... [ __restrict ]`.
+#define __restrict
+
+
 #include <aio.h>
 //#include <arpa/inet.h>
 #include <assert.h>

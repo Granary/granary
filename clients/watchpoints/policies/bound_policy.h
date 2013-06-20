@@ -22,20 +22,20 @@ namespace client {
         /// Specifies the bounds for the watched object.
         struct bound_descriptor {
 
-            enum : uint32_t {
-                FREE_LIST_END = ~static_cast<uint32_t>(0U)
+            enum : uint64_t {
+                FREE_LIST_END = ~static_cast<uint64_t>(0ULL)
             };
 
             union {
                 struct {
                     /// Most objects won't be more than 16 pages big, so an
                     /// m16&16 parameter suffices (as opposed to m32&32).
-                    uint16_t lower_bound;
-                    uint16_t upper_bound;
+                    uint32_t lower_bound;
+                    uint32_t upper_bound;
                 };
 
                 /// Descriptor index of the next-freed object.
-                uint32_t next_free_index;
+                uint64_t next_free_index;
             };
 
             /// Descriptor index of this descriptor within the descriptor table.
@@ -110,6 +110,10 @@ namespace client {
                 watchpoint_tracker &,
                 unsigned
             ) throw();
+
+            static void init(){
+                granary::printf("bound init policy!!!!!!!!!!!!!!!!!\n");
+            }
 
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT

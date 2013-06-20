@@ -17,7 +17,7 @@ using namespace granary;
 #define ENABLE_INSTRUMENTATION 1
 
 /// Should we try to store descriptors on a free list?
-#define ENABLE_FREE_LIST 0
+#define ENABLE_FREE_LIST 1
 
 
 namespace client { namespace wp {
@@ -202,8 +202,8 @@ namespace client { namespace wp {
         size_t size
     ) throw() {
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
-        desc->lower_bound = static_cast<uint16_t>(base);
-        desc->upper_bound = static_cast<uint16_t>(base + size);
+        desc->lower_bound = static_cast<uint32_t>(base);
+        desc->upper_bound = static_cast<uint32_t>(base + size);
     }
 
 
@@ -305,6 +305,7 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
+        //(void)ls;
 #else
         UNUSED(ls);
         UNUSED(tracker);
@@ -367,10 +368,10 @@ namespace client { namespace wp {
 
     void visit_overflow(
         uintptr_t watched_addr,
-        app_pc *addr_in_bb,
+        app_pc addr_in_bb,
         unsigned size
     ) throw() {
-        printf("Address %p in bb %p\n", watched_addr, *addr_in_bb);
+        printf("Address %p in bb %p\n", watched_addr, addr_in_bb);
         (void) watched_addr;
         (void) addr_in_bb;
         (void) size;

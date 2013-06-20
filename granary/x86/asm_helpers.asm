@@ -164,9 +164,29 @@
 #define REG64_TO_REG16_r14 r14w
 #define REG64_TO_REG16_r15 r15w
 
+#define REG64_TO_REG32_rax eax
+#define REG64_TO_REG32_rcx ecx
+#define REG64_TO_REG32_rdx edx
+#define REG64_TO_REG32_rbx ebx
+#define REG64_TO_REG32_rbp ebp
+#define REG64_TO_REG32_rsi esi
+#define REG64_TO_REG32_rdi edi
+#define REG64_TO_REG32_r8 r8d
+#define REG64_TO_REG32_r9 r9d
+#define REG64_TO_REG32_r10 r10d
+#define REG64_TO_REG32_r11 r11d
+#define REG64_TO_REG32_r12 r12d
+#define REG64_TO_REG32_r13 r13d
+#define REG64_TO_REG32_r14 r14d
+#define REG64_TO_REG32_r15 r15d
+
 #define REG64_TO_REG16__(reg) CAT(REG64_TO_REG16_, reg)
 #define REG64_TO_REG16_(reg) REG64_TO_REG16__(reg)
 #define REG64_TO_REG16(reg) REG64_TO_REG16_(reg)
+
+#define REG64_TO_REG32__(reg) CAT(REG64_TO_REG32_, reg)
+#define REG64_TO_REG32_(reg) REG64_TO_REG32__(reg)
+#define REG64_TO_REG32(reg) REG64_TO_REG32_(reg)
 
 
 /// Useful for documentation
