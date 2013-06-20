@@ -13,6 +13,9 @@ using namespace granary;
 /// Should we add any watchpoints?
 #define ENABLE_WATCHPOINTS 1
 
+/// Should we enable descriptors?
+#define ENABLE_DESCRIPTORS 1
+
 /// Should we add in a call to the bounds checker?
 #define ENABLE_INSTRUMENTATION 1
 
@@ -108,6 +111,7 @@ namespace client { namespace wp {
     };
 
 
+#if ENABLE_DESCRIPTORS
     /// Configuration for bound descriptors.
     struct descriptor_allocator_config {
         enum {
@@ -132,13 +136,17 @@ namespace client { namespace wp {
         DESCRIPTOR_ALLOCATOR.construct();
     })
 
-
     /// Pointers to the descriptors.
     ///
     /// Note: Note `static` so that we can access by the mangled name in
     ///       x86/bound_policy.asm.
     bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
 
+#else
+
+    bound_descriptor *DESCRIPTORS[1] = {nullptr};
+
+#endif /* ENABLE_DESCRIPTORS */
 
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
     /// appropriately.
@@ -153,7 +161,8 @@ namespace client { namespace wp {
 #if !ENABLE_WATCHPOINTS
         return false;
 #endif /* ENABLE_WATCHPOINTS */
-#if ENABLE_FREE_LIST
+
+#if ENABLE_FREE_LIST && ENABLE_DESCRIPTORS
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         IF_KERNEL( cpu_state_handle state; )
         IF_USER( thread_state_handle state; )
@@ -172,6 +181,7 @@ namespace client { namespace wp {
 
 #endif /* ENABLE_FREE_LIST */
 
+#if ENABLE_DESCRIPTORS
         // We got one from the free list.
         counter_index = 0;
         if(desc) {
@@ -190,6 +200,11 @@ namespace client { namespace wp {
         }
 
         ASSERT(counter_index <= MAX_COUNTER_INDEX);
+#else
+        counter_index = 0;
+        UNUSED(DESCRIPTORS);
+
+#endif /* ENABLE_DESCRIPTORS */
 
         return true;
     }
@@ -201,9 +216,15 @@ namespace client { namespace wp {
         void *base_address,
         size_t size
     ) throw() {
+#if ENABLE_DESCRIPTORS
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
+#else
+        UNUSED(desc);
+        UNUSED(base_address);
+        UNUSED(size);
+#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -213,9 +234,14 @@ namespace client { namespace wp {
         bound_descriptor *desc,
         uintptr_t index
     ) throw() {
+#if ENABLE_DESCRIPTORS
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         desc->my_index = index;
         DESCRIPTORS[index] = desc;
+#else
+        UNUSED(desc);
+        UNUSED(index);
+#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -223,8 +249,13 @@ namespace client { namespace wp {
     bound_descriptor *bound_descriptor::access(
         uintptr_t index
     ) throw() {
+#if ENABLE_DESCRIPTORS
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         return DESCRIPTORS[index];
+#else
+        UNUSED(index);
+        return nullptr;
+#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -236,10 +267,10 @@ namespace client { namespace wp {
         if(!is_valid_address(desc)) {
             return;
         }
-
+#if ENABLE_DESCRIPTORS
         ASSERT(index == desc->my_index);
 
-#if ENABLE_FREE_LIST
+#   if ENABLE_FREE_LIST
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         IF_KERNEL( cpu_state_handle state; )
         IF_USER( thread_state_handle state; )
@@ -254,7 +285,10 @@ namespace client { namespace wp {
         free_list = desc;
 
         IF_KERNEL( granary_store_flags(flags); )
-#endif /* ENABLE_FREE_LIST */
+#   endif /* ENABLE_FREE_LIST */
+#else
+        UNUSED(index);
+#endif /* ENABLE_DESCRIPTORS */
     }
 
 

@@ -20,7 +20,7 @@ using namespace client::wp;
         INHERIT_PRE_IN
         PRE_OUT {
             if(is_valid_address(arg)) {
-                arg = unwatched_address(arg);
+                arg = unwatched_address_check(arg);
                 PRE_OUT_WRAP(*arg);
             }
         }
