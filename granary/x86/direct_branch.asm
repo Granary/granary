@@ -22,7 +22,7 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
     PUSHA
 
     // Call the helper that will give us our current private stack address
-    // NB: After call, %REG_XAX is that address
+    // NB: After call, %rax is that address
     call EXTERN_SYMBOL(granary_get_private_stack_top)
 
     mov %rsp, %ARG1
@@ -36,17 +36,17 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
     PUSHA_XMM
 
     // Switch to new private stack
-    xchg %REG_XAX, %REG_XSP
+    xchg %rax, %rsp
 
     // Save old user stack address (twice, to ensure 16 byte alignment)
-    push %REG_XAX
-    push %REG_XAX
+    push %rax
+    push %rax
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
 
     // Switch back to old user stack
-    mov (%REG_XSP), %REG_XSP
+    mov (%rsp), %rsp
 
     POPA_XMM
 
@@ -78,7 +78,7 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     PUSHA
 
     // Call the helper that will give us our current private stack address
-    // NB: After call, %REG_XAX is that address
+    // NB: After call, %rax is that address
     call EXTERN_SYMBOL(granary_get_private_stack_top)
 
     mov %rsp, %ARG1
@@ -96,17 +96,17 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
 #endif
 
     // Switch to new private stack
-    xchg %REG_XAX, %REG_XSP
+    xchg %rax, %rsp
 
     // Save old user stack address (twice, to ensure 16 byte alignment)
-    push %REG_XAX
-    push %REG_XAX
+    push %rax
+    push %rax
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
 
     // Switch back to old user stack
-    mov (%REG_XSP), %REG_XSP
+    mov (%rsp), %rsp
 
 #if !GRANARY_IN_KERNEL
     movaps (%rsp), %xmm1;
