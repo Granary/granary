@@ -8,8 +8,11 @@ START_FILE
 .extern SYMBOL(granary_get_private_stack_top)
 .extern SYMBOL(granary_dynamic_wrapper_of__impl)
 
-DECLARE_FUNC(granary_dynamic_wrapper_of)
-GLOBAL_LABEL(granary_dynamic_wrapper_of:)
+// Original function prototype:
+//      app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+//
+DECLARE_FUNC(_ZN7granary18dynamic_wrapper_ofEPhS0_)
+GLOBAL_LABEL(_ZN7granary18dynamic_wrapper_ofEPhS0_:)
     // The compiler that will call this function has respected the ABI, so we
     // only need to protect registers we explicitly use
 
@@ -38,6 +41,6 @@ GLOBAL_LABEL(granary_dynamic_wrapper_of:)
 
     ret
 
-    END_FUNC(granary_dynamic_wrapper_of)
+    END_FUNC(_ZN7granary18dynamic_wrapper_ofEPhS0_)
 
 END_FILE

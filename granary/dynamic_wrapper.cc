@@ -23,7 +23,11 @@ namespace granary {
         wrappers.construct();
     })
 
-    extern "C" app_pc granary_dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+    /* This function is implemented in x86/dynamic_wrapper.asm, which then
+     * calls `granary_dynamic_wrapper_of__impl` as defined below.
+     *
+     * app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+     */
 
     /// Return the dynamic wrapper address for a wrapper / wrappee.
     // NB: Prefer C-style non-mangled symbols for the assembly portion
