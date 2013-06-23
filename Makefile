@@ -227,6 +227,19 @@ ifeq ($(GR_CLIENT),watchpoint_bound)
 		GR_OBJS += bin/clients/watchpoints/policies/user/posix/signal.o
 	endif
 endif
+ifeq ($(GR_CLIENT),watchpoint_leak)
+        GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
+		GR_OBJS += bin/clients/watchpoints/instrument.o
+		#GR_OBJS += bin/clients/watchpoints/policies/leak_detector/descriptors.o
+		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_enter.o
+		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_exit.o
+		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_continue.o
+
+        ifeq ($(KERNEL),1)
+                GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
+        endif
+endif
+
 
 # C++ ABI-specific stuff
 GR_OBJS += bin/deps/icxxabi/icxxabi.o
@@ -514,6 +527,8 @@ install:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/x86 > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/leak_detector > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/policies/leak_detector/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/user > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/user/posix > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/policies/kernel > /dev/null 2>&1 ||:
