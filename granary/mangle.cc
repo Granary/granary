@@ -992,7 +992,7 @@ namespace granary {
 
         app_pc target_pc(target.value.pc);
         app_pc detach_target_pc(nullptr);
-        mangled_address am(target_pc, target_policy.base_policy());
+        mangled_address am(target_pc, target_policy);
 
         // If we already know the target, then forgo a stub.
         detach_target_pc = cpu->code_cache.find(am.as_address);
@@ -1162,9 +1162,9 @@ namespace granary {
             target_policy = policy;
         }
 
-        // Convert the policy into an IBL policy.
-        instrumentation_policy target_policy_ibl(policy);
-        target_policy_ibl.inherit_properties(policy);
+        // Inherit properties that aren't defined by this CTI, e.g. XMM register
+        // usage.
+        target_policy.inherit_properties(policy);
 
         if(dynamorio::OP_iret == in.op_code()) {
             // TODO?

@@ -65,7 +65,7 @@ set language c++
 # environment setup.
 define dll
   set env LD_PRELOAD=./libgranary.so
-  share ./libgranary.so
+  #share ./libgranary.so
 end
 
 

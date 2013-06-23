@@ -15,6 +15,12 @@
 #endif
 
 
+/// Entry policy.
+#ifdef CLIENT_ENTRY
+#   include "clients/entry_policy.h"
+#endif
+
+
 /// Null policy.
 #ifdef CLIENT_WATCHPOINT_NULL
 #   include "clients/watchpoints/policies/null_policy.h"

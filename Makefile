@@ -178,6 +178,10 @@ ifeq ($(GR_CLIENT),null)
 	GR_CXX_FLAGS += -DCLIENT_NULL
 	GR_OBJS += bin/clients/null_policy.o
 endif
+ifeq ($(GR_CLIENT),entry)
+	GR_CXX_FLAGS += -DCLIENT_ENTRY
+	GR_OBJS += bin/clients/entry_policy.o
+endif
 ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
 	GR_OBJS += bin/clients/watchpoints/instrument.o

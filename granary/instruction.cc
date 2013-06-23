@@ -72,7 +72,7 @@ namespace granary {
         dynamorio::instr_t *next_(instr->next);
         dynamorio::instr_t *prev_(instr->prev);
         unsigned granary_flags(instr->granary_flags);
-        unsigned granary_policy(instr->granary_flags);
+        unsigned granary_policy(instr->granary_policy);
 
         ASSERT(!next_ || is_valid_address(next_));
         ASSERT(!prev_ || is_valid_address(prev_));
