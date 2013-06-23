@@ -8,7 +8,9 @@
 
 #include <cstdio>
 #include <cstdlib>
+
 #include "granary/globals.h"
+#include "granary/test.h"
 
 #define ENABLE_SEGFAULT_HANDLER 1
 
@@ -66,22 +68,29 @@ DONT_OPTIMISE void make_direct_call(void) throw() {
 }
 
 
-#include "granary/test.h"
-int main(int argc, const char **argv) throw() {
+
+
+
+
+int main(int argc, const char **argv, const char **envp) throw() {
 
     using namespace granary;
 
 #if ENABLE_SEGFAULT_HANDLER
     signal(SIGSEGV, segfault_handler);
 #endif
-    (void) argc;
-    (void) argv;
 
     init();
 
 #if CONFIG_RUN_TEST_CASES
     run_tests();
 #endif
+
+    if(argc) {
+        UNUSED(argc);
+        UNUSED(argv);
+        UNUSED(envp);
+    }
 
 #if 0
     basic_block in_bb(code_cache::find(

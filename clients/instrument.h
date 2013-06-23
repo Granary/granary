@@ -39,6 +39,12 @@
 #endif
 
 
+/// Leak detector watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_LEAK
+#   include "clients/watchpoints/policies/bound_policy.h"
+#endif
+
+
 
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY

@@ -13,6 +13,8 @@
 
 #include "granary/globals.h"
 
+extern "C" void exit(int);
+
 using namespace granary;
 
 namespace client { namespace wp {
@@ -23,7 +25,6 @@ namespace client { namespace wp {
         detach();
 
         if(!is_watched_address(info->si_addr)) {
-            extern void exit(int);
             exit(1);
         }
 
