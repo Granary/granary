@@ -354,6 +354,30 @@ namespace granary {
             return insert_after(pos.handle, val);
         }
 
+        void remove(handle_type pos) throw() {
+            item_type *item(pos.handle);
+            if(!item) {
+                return;
+            }
+
+            item_type *prev(item->get_prev());
+            item_type *next(item->get_next());
+
+            if(!next) {
+                last_ = prev;
+            } else {
+                next->get_prev() = prev;
+            }
+
+            if(!prev) {
+                first_ = next;
+            } else {
+                prev->get_next() = next;
+            }
+
+            length_--;
+        }
+
     protected:
 
         /// Adds an element on to the end of the list.
@@ -458,7 +482,6 @@ namespace granary {
             return handle.handle;
         }
 
-        // TODO: add list remove
     };
 }
 

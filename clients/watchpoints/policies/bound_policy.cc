@@ -164,9 +164,7 @@ namespace client { namespace wp {
 
 #if ENABLE_FREE_LIST && ENABLE_DESCRIPTORS
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
-        IF_KERNEL( cpu_state_handle state; )
-        IF_USER( thread_state_handle state; )
-
+        cpu_state_handle state;
         bound_descriptor *&free_list(state->free_list);
         if(free_list) {
             desc = free_list;

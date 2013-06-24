@@ -16,21 +16,12 @@ namespace client {
     }
 
 
-#if GRANARY_IN_KERNEL
-#   define CLIENT_cpu_state
+#define CLIENT_cpu_state
     struct cpu_state {
 
         /// List of free bounds checking objects for this CPU.
         wp::bound_descriptor *free_list;
     };
-#else
-#   define CLIENT_thread_state
-    struct thread_state {
-
-        /// List of free bounds checking objects for this CPU.
-        wp::bound_descriptor *free_list;
-    };
-#endif /* GRANARY_IN_KERNEL */
 
 }
 

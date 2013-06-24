@@ -8,6 +8,8 @@
 #include "granary/globals.h"
 #include "granary/code_cache.h"
 
+#include "clients/init.h"
+
 namespace granary {
 
 
@@ -38,17 +40,21 @@ namespace granary {
     /// Initialise granary.
     void init(void) throw() {
 
-        // run all static initialisers.
+        // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
         for(; init; init = init->next) {
             if(init->exec) {
-                //IF_KERNEL( printf("    Initialising static data...\n"); )
                 init->exec();
             }
         }
 
-        // initialise for kernel or user space.
+        // Initialise for kernel or user space.
         IF_USER_ELSE(init_user(), init_kernel());
+
+#ifdef CLIENT_init
+        // Initialise the client.
+        client::init();
+#endif
     }
 }
 

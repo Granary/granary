@@ -26,15 +26,12 @@ namespace granary {
         process_bbs.append(func);
 
         // traverse instructions and find all used registers.
-        for(unsigned i(0); i < process_bbs.length(); ++i) {
+        while(process_bbs.length()) {
 
-            if(!next.is_valid()) {
-                next = process_bbs.first();
-            } else {
-                next = next.next();
-            }
-
+            next = process_bbs.first();
             app_pc bb(*next);
+            process_bbs.remove(next);
+
             if(seen.contains(bb)) {
                 break;
             }

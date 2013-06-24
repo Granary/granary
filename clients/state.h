@@ -15,6 +15,13 @@
 #endif
 
 
+/// Leak detector policy.
+#ifdef CLIENT_WATCHPOINT_LEAK
+#   include "clients/watchpoints/policies/leak_detector/state.h"
+#endif
+
+
+
 namespace client {
 
     struct thread_state;

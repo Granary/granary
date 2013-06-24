@@ -15,6 +15,12 @@
 #endif
 
 
+/// Leak detector watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_LEAK
+#   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
+#endif
+
+
 /// Bounds checking watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_BOUND
 #   include "clients/watchpoints/policies/kernel/linux/wrappers.h"
