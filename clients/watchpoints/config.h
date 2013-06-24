@@ -87,4 +87,19 @@
 #   error "The counter index width must be 16 for kernel-space compatibility."
 #endif
 
+
+/// Left shift for inherited indexes to get the inherited index into the high
+/// position.
+#define WP_INHERITED_INDEX_LSH \
+    (64 - (WP_INHERITED_INDEX_WIDTH + WP_INHERITED_INDEX_GRANULARITY))
+
+
+/// Right shift for inherited indexes to get it into the low position.
+#define WP_INHERITED_INDEX_RSH (64 - WP_INHERITED_INDEX_WIDTH)
+
+
+/// Right shift for counter indexes to get it into the low position.
+#define WP_COUNTER_INDEX_RSH (64 - (WP_COUNTER_INDEX_WIDTH - 1))
+
+
 #endif /* WATCHPOINT_CONFIG_H_ */

@@ -77,10 +77,14 @@
     ALL_XMM_REGS(POP_XMM_REG, POP_LAST_XMM_REG) \
     lea 256(%rsp), %rsp; \
 
-#ifdef __APPLE__
-#   define SHARED_SYMBOL(x) SYMBOL(x)(%rip)
-#else // Linux
-#   define SHARED_SYMBOL(x) SYMBOL(x)@PLT
+#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
+#   define SHARED_SYMBOL SYMBOL
+#else
+#   ifdef __APPLE__
+#       define SHARED_SYMBOL(x) SYMBOL(x)(%rip)
+#   else // Linux
+#       define SHARED_SYMBOL(x) SYMBOL(x)@PLT
+#   endif
 #endif
 
 
