@@ -41,7 +41,7 @@
 
 /// Leak detector watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_LEAK
-#   include "clients/watchpoints/policies/bound_policy.h"
+#   include "clients/watchpoints/policies/leak_detector/leak_policy.h"
 #endif
 
 

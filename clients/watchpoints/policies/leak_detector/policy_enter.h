@@ -9,10 +9,8 @@
 #define _LEAK_POLICY_ENTER_H_
 
 #include "clients/watchpoints/instrument.h"
-
-#ifndef GRANARY_INIT_POLICY
-#   define GRANARY_INIT_POLICY (client::watchpoint_leak())
-#endif
+#include "clients/watchpoints/policies/leak_detector/policy_exit.h"
+#include "clients/watchpoints/policies/leak_detector/policy_continue.h"
 
 namespace client {
 
@@ -31,23 +29,12 @@ namespace client {
 
             static void init() throw();
 
-            static  void visit_instructions(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls
-            ) throw();
-
-            static void visit_cti(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls,
-                    granary::instruction &in
-            ) throw();
-
             static void visit_read(
                 granary::basic_block_state &,
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
 
             static void visit_write(
@@ -55,7 +42,7 @@ namespace client {
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT
@@ -73,31 +60,20 @@ namespace client {
         /// Host policy for the leak detector.
         struct host_leak_policy_enter {
 
-            static  void visit_instructions(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls
-            ) throw();
-
-            static void visit_cti(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls,
-                    granary::instruction &in
-            ) throw();
-
             static void visit_read(
                 granary::basic_block_state &,
                 granary::instruction_list &,
-                watchpoint_tracker &,
+                client::wp::watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
 
             static void visit_write(
                 granary::basic_block_state &,
                 granary::instruction_list &,
-                watchpoint_tracker &,
+                client::wp::watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
         };
 
@@ -107,12 +83,51 @@ namespace client {
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-    struct watchpoint_leak_policy_enter
+    struct leak_policy_enter
         : public client::watchpoints<
               wp::app_leak_policy_enter,
               wp::host_leak_policy_enter
           >
-    { };
+    {
+        /// Visit app instructions for leak_policy_enter
+        static granary::instrumentation_policy visit_app_instructions(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+
+            granary::printf("inside policy leak_enter\n");
+
+            granary::instruction in(ls.first());
+            for(; in.is_valid(); in = in.next()) {
+                if(in.is_call()) {
+                    in.set_policy(granary::policy_for<leak_policy_continue>());
+                } else if(in.is_jump()) {
+                    in.set_policy(granary::policy_for<leak_policy_exit>());
+                }
+            }
+
+            return client::watchpoints<
+                    wp::app_leak_policy_enter,
+                    wp::host_leak_policy_enter>
+                    ::visit_app_instructions(cpu, thread, bb, ls);
+        }
+
+        /// Visit Host instructions for leak_policy_enter
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            return client::watchpoints<
+                    wp::app_leak_policy_enter,
+                    wp::host_leak_policy_enter>
+                    ::visit_app_instructions(cpu, thread, bb, ls);
+        }
+
+    };
 
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT

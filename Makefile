@@ -231,9 +231,7 @@ ifeq ($(GR_CLIENT),watchpoint_leak)
         GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
 		GR_OBJS += bin/clients/watchpoints/instrument.o
 		#GR_OBJS += bin/clients/watchpoints/policies/leak_detector/descriptors.o
-		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_enter.o
-		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_exit.o
-		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/policy_continue.o
+		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/leak_policy.o
 
         ifeq ($(KERNEL),1)
                 GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o

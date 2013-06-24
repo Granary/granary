@@ -27,25 +27,12 @@ namespace client {
                 AUTO_INSTRUMENT_HOST = false
             };
 
-            static void init() throw();
-
-            static  void visit_instructions(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls
-            ) throw();
-
-            static void visit_cti(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls,
-                    granary::instruction &in
-            ) throw();
-
             static void visit_read(
                 granary::basic_block_state &,
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
 
             static void visit_write(
@@ -53,7 +40,7 @@ namespace client {
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT
@@ -71,31 +58,19 @@ namespace client {
         /// Host policy for the leak detector.
         struct host_leak_policy_continue {
 
-            static  void visit_instructions(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls
-            ) throw();
-
-            static void visit_cti(
-                    granary::basic_block_state &bb,
-                    granary::instruction_list &ls,
-                    granary::instruction &in
-            ) throw();
-
             static void visit_read(
                 granary::basic_block_state &,
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
-
+            ) throw() { }
 
             static void visit_write(
                 granary::basic_block_state &,
                 granary::instruction_list &,
                 watchpoint_tracker &,
                 unsigned
-            ) throw();
+            ) throw() { }
 
         };
 
@@ -105,12 +80,41 @@ namespace client {
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-    struct watchpoint_leak_policy_continue
+    struct leak_policy_continue
         : public client::watchpoints<
               wp::app_leak_policy_continue,
               wp::host_leak_policy_continue
           >
-    { };
+    {
+        /// Visit app instructions for leak_policy_continue
+        static granary::instrumentation_policy visit_app_instructions(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            granary::printf("inside policy leak_continue\n");
+
+            return client::watchpoints<
+                    wp::app_leak_policy_continue,
+                    wp::host_leak_policy_continue>
+                    ::visit_app_instructions(cpu, thread, bb, ls);
+        }
+
+
+        /// Visit host instructions for leak_continue policy
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle &cpu,
+            granary::thread_state_handle &thread,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw() {
+            return client::watchpoints<
+                    wp::app_leak_policy_continue,
+                    wp::host_leak_policy_continue>
+                    ::visit_host_instructions(cpu, thread, bb, ls);
+        }
+    };
 
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT
