@@ -76,11 +76,11 @@ namespace client {
 
     /// Instrument the first entrypoint into instrumented code.
     static void instrument_entry_to_code_cache(
-        granary::instruction_list &ls,
-        granary::instruction in
+        granary::instruction_list &ls
     ) throw() {
         using namespace granary;
 
+        instruction in(ls.first());
         in = ls.insert_before(in, label_());
         in = save_and_restore_registers(entry_func_regs, ls, in);
         in = insert_cti_after(
@@ -115,20 +115,8 @@ namespace client {
         granary::instruction_list &ls
     ) throw() {
         using namespace granary;
-
-        instruction in(ls.first());
-        for(; in.is_valid(); in = in.next()) {
-            if(in.is_call()) {
-                in.set_policy(policy_for<leak_policy_continue>());
-            } else if(in.is_return()) {
-                instrument_exit_code_cache(ls, in);
-            }
-        }
-
-        watchpoint_leak_policy::visit_app_instructions(cpu, thread, bb, ls);
-
-        instrument_entry_to_code_cache(ls, in);
-
+        leak_policy_exit::visit_app_instructions(cpu, thread, bb, ls);
+        instrument_entry_to_code_cache(ls);
         return granary::policy_for<leak_policy_exit>();
     }
 

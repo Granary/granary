@@ -45,13 +45,13 @@ namespace client {
 
     /// Instrument a return to native code.
     static void instrument_return_to_native(
-        granary::instruction_list &ls,
-        granary::instruction in
+        granary::instruction_list &ls
     ) throw() {
         using namespace granary;
         register_manager rm;
         rm.kill_all();
 
+        instruction in(ls.first());
         in = ls.insert_before(in, label_());
         in = save_and_restore_registers(rm, ls, in);
         in = insert_cti_after(
@@ -75,11 +75,12 @@ namespace client {
         for(; in.is_valid(); in = in.next()) {
             if(in.is_call()) {
                 in.set_policy(policy_for<internal_code_policy>());
-                instrument_entry_to_code_cache(ls, in);
             } else if(in.is_return()) {
                 instrument_return_to_native(ls, in);
             }
         }
+
+        instrument_entry_to_code_cache(ls);
 
         return granary::policy_for<entry_code_policy>();
     }
