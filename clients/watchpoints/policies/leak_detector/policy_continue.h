@@ -9,7 +9,8 @@
 #define _LEAK_POLICY_CONTINUE_H_
 
 #include "clients/watchpoints/instrument.h"
-#include "granary/types.h"
+#include "clients/watchpoints/policies/leak_detector/policy_exit.h"
+#include "clients/watchpoints/policies/leak_detector/policy_enter.h"
 
 namespace client {
 
@@ -92,14 +93,22 @@ namespace client {
             granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) throw();/* {
             granary::printf("inside policy leak_continue\n");
+
+            granary::instruction in(ls.first());
+
+            for(; in.is_valid(); in = in.next()) {
+                if(in.is_return()){
+                   // in.set_policy(granary::policy_for<client::leak_policy_exit>());
+                }
+            }
 
             return client::watchpoints<
                     wp::app_leak_policy_continue,
                     wp::host_leak_policy_continue>
                     ::visit_app_instructions(cpu, thread, bb, ls);
-        }
+        }*/
 
 
         /// Visit host instructions for leak_continue policy

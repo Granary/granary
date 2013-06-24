@@ -230,7 +230,7 @@ endif
 ifeq ($(GR_CLIENT),watchpoint_leak)
         GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
 		GR_OBJS += bin/clients/watchpoints/instrument.o
-		#GR_OBJS += bin/clients/watchpoints/policies/leak_detector/descriptors.o
+		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/descriptors.o
 		GR_OBJS += bin/clients/watchpoints/policies/leak_detector/leak_policy.o
 
         ifeq ($(KERNEL),1)

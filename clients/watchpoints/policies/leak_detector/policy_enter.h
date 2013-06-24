@@ -75,8 +75,18 @@ namespace client {
                 unsigned
             ) throw() { }
 
+
         };
 
+        void instrument_entry_to_code_cache(
+            granary::instruction_list &ls,
+            granary::instruction in
+        ) throw();
+
+        void instrument_exit_from_code_cache(
+            granary::instruction_list &ls,
+            granary::instruction in
+        ) throw();
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
     }
@@ -100,11 +110,15 @@ namespace client {
             granary::printf("inside policy leak_enter\n");
 
             granary::instruction in(ls.first());
+            wp::instrument_entry_to_code_cache(ls, in);
+
             for(; in.is_valid(); in = in.next()) {
                 if(in.is_call()) {
                     in.set_policy(granary::policy_for<leak_policy_continue>());
                 } else if(in.is_jump()) {
                     in.set_policy(granary::policy_for<leak_policy_exit>());
+                } else if(in.is_return()){
+                    wp::instrument_exit_from_code_cache(ls, in);
                 }
             }
 

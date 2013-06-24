@@ -11,6 +11,8 @@
 
 #include "clients/watchpoints/instrument.h"
 #include "granary/types.h"
+#include "clients/watchpoints/policies/leak_detector/policy_enter.h"
+#include "clients/watchpoints/policies/leak_detector/policy_continue.h"
 
 namespace client {
 
@@ -94,15 +96,25 @@ namespace client {
             granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) throw();/* {
             granary::printf("inside policy leak_exit\n");
+
+            granary::instruction in(ls.first());
+
+            for(; in.is_valid(); in = in.next()) {
+                if(in.is_call()) {
+                    in.set_policy(granary::policy_for<leak_policy_continue>());
+                } else if(in.is_return()){
+                  //  wp::instrument_exit_from_code_cache(ls, in);
+                }
+            }
 
             return client::watchpoints<
                     wp::app_leak_policy_exit,
                     wp::host_leak_policy_exit>
                     ::visit_app_instructions(cpu, thread, bb, ls);
         }
-
+*/
 
         /// Visit host instructions for leak_policy_exit
         static granary::instrumentation_policy visit_host_instructions(
