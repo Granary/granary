@@ -120,13 +120,15 @@ namespace client {
         for(; in.is_valid(); in = in.next()) {
             if(in.is_call()) {
                 in.set_policy(policy_for<leak_policy_continue>());
-                instrument_entry_to_code_cache(ls, in);
             } else if(in.is_return()) {
                 instrument_exit_code_cache(ls, in);
             }
         }
 
         watchpoint_leak_policy::visit_app_instructions(cpu, thread, bb, ls);
+
+        instrument_entry_to_code_cache(ls, in);
+
         return granary::policy_for<leak_policy_exit>();
     }
 
