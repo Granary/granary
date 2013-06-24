@@ -64,11 +64,19 @@ namespace client { namespace wp {
     /// Specifies the leak_detector for the watched object.
     struct leak_detector_descriptor {
 
+        enum : uint64_t {
+            BASE_ADDRESS_MASK = (~0ULL << 48)
+        };
+
         union {
             struct {
 
-                /// Base address of the allocated object.
-                uintptr_t base_address;
+                /// True iff the watched object was accessed in the last
+                /// epoch.
+                bool accessed_in_last_epoch;
+
+                /// Number of epochs since this object was last accessed.
+                uint8_t num_epochs_since_last_access;
 
                 /// Size in bytes of the allocated object. The limit address of
                 /// the object of `base_address + size`.
@@ -77,10 +85,17 @@ namespace client { namespace wp {
                 /// Unique ID for the kernel type of the object. If we don't
                 /// know the kernel type (assuming there is one) for this object
                 /// then `type_id` will be `UNKNOWN_TYPE_ID`.
+                ///
+                /// If the type is known then we can use the type's size info
+                /// in conjunction with the allocation size to find arrays of
+                /// objects.
                 uint16_t type_id;
 
                 /// State of the object.
                 leak_object_state state;
+
+                /// Low 48 bits of this object's base address.
+                uintptr_t base_address:48;
 
             } __attribute__((packed));
 

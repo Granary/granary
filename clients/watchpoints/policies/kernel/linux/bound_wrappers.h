@@ -9,9 +9,14 @@
 #ifndef BOUND_WRAPPERS_H_
 #define BOUND_WRAPPERS_H_
 
+#ifdef CLIENT_WATCHPOINT_BOUND
+#   include "clients/watchpoints/policies/bound_policy.h"
+#endif
 
-#include "clients/watchpoints/policies/bound_policy.h"
-
+#ifdef CLIENT_WATCHPOINT_LEAK
+#   include "clients/watchpoints/instrument.h"
+#   include "clients/watchpoints/policies/leak_detector/descriptor.h"
+#endif
 
 using namespace client::wp;
 
