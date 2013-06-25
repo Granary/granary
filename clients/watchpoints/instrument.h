@@ -651,6 +651,31 @@ namespace client {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
+#if 0
+            using namespace granary;
+
+            // Force Granary to detach on exiting each basic block.
+            granary::instruction in(ls.first());
+            for(; in.is_valid(); in = in.next()) {
+                if(!in.is_cti()) {
+                    continue;
+                }
+
+                operand target(in.cti_target());
+
+                // Make sure that we wrap things that should be wrapped.
+                if(dynamorio::opnd_is_pc(target)
+                && find_detach_target(target.value.pc, RUNNING_AS_HOST)) {
+                    continue;
+                }
+
+                // Make it so that the current function is instrumented, but not
+                // called functions.
+                if(in.is_call()) {
+                    in.set_mangled();
+                }
+            }
+#endif
             return visit_instructions<HostWatcher>(bb, ls);
         }
 

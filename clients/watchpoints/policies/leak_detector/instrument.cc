@@ -76,6 +76,7 @@ namespace client {
             watchpoint_tracker &tracker,
             unsigned i
         ) throw() {
+#if 0
             using namespace granary;
             const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
             instruction call(insert_cti_after(ls, tracker.labels[i],
@@ -83,6 +84,13 @@ namespace client {
                 false, operand(),
                 CTI_CALL));
             call.set_mangled();
+#else
+            UNUSED(ls);
+            UNUSED(tracker);
+            UNUSED(i);
+            UNUSED(REG_TO_INDEX);
+            UNUSED(DESCRIPTOR_ACCESSORS);
+#endif
         }
 
 
@@ -119,11 +127,6 @@ namespace client {
     /// Addresses of code cache entry/exit functions.
     static granary::app_pc entry_func_addr;
     static granary::app_pc exit_func_addr;
-
-    //callback functions which updates the rootset and
-    static granary::app_pc scan_callback;
-    static granary::app_pc update_rootset_callback;
-
 
     /// Registers used by the code cache entry/exit functions.
     static granary::register_manager entry_func_regs;
