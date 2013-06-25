@@ -12,16 +12,11 @@
 
 #include "clients/watchpoints/config.h"
 
+START_FILE
+
     .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
     .extern SYMBOL(_ZN6client2wp14visit_overflowEmPhj)
 
-#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
-#   define SYM SYMBOL
-#else
-#   define SYM SHARED_SYMBOL
-#endif
-
-START_FILE
 
 /// Watchpoint descriptor.
 #define DESC(reg) SPILL_REG_NOT_RAX(reg)
@@ -29,20 +24,6 @@ START_FILE
 
 /// Table address, as well as temporary for calculating the descriptor index.
 #define TABLE(reg) SPILL_REG_NOT_RAX(DESC(reg))
-
-
-/// Left shift for inherited indexes to get the inherited index into the high
-/// position.
-#define INHERITED_INDEX_LSH \
-    (64 - (WP_INHERITED_INDEX_WIDTH + WP_INHERITED_INDEX_GRANULARITY))
-
-
-/// Right shift for inherited indexes to get it into the low position.
-#define INHERITED_INDEX_RSH (64 - WP_INHERITED_INDEX_WIDTH)
-
-
-/// Right shift for counter indexes to get it into the low position.
-#define COUNTER_INDEX_RSH (64 - (WP_COUNTER_INDEX_WIDTH - 1))
 
 
 /// Define a register-specific and operand-size specific bounds checker.
@@ -66,9 +47,9 @@ START_FILE
         @N@\
         \
         COMMENT(Compute the combined index.) \
-        IF_INHERITED_INDEX( shl $ PARTIAL_INDEX_LSH, %TABLE(reg);@N@ ) \
-        IF_INHERITED_INDEX( shr $ PARTIAL_INDEX_RSH, %TABLE(reg);@N@ ) \
-        shr $ COUNTER_INDEX_RSH, %DESC(reg);@N@ \
+        IF_INHERITED_INDEX( shl $ WP_PARTIAL_INDEX_LSH, %TABLE(reg);@N@ ) \
+        IF_INHERITED_INDEX( shr $ WP_PARTIAL_INDEX_RSH, %TABLE(reg);@N@ ) \
+        shr $ WP_COUNTER_INDEX_RSH, %DESC(reg);@N@ \
         IF_INHERITED_INDEX( shl $ WP_PARTIAL_INDEX_WIDTH, %DESC(reg);@N@ ) \
         IF_INHERITED_INDEX( or %TABLE(reg), %DESC(reg);@N@ ) \
         @N@\
@@ -95,7 +76,7 @@ START_FILE
         \
     .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
         COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        callq SYM(CAT(granary_overflow_handler_, CAT(CAT(size, _), rax))); \
+        callq SHARED_SYMBOL(CAT(granary_overflow_handler_, CAT(CAT(size, _), rax))); \
         @N@\
         \
     .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\

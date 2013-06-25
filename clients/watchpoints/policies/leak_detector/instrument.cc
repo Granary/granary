@@ -9,22 +9,84 @@
 #include "clients/watchpoints/policies/leak_detector/instrument.h"
 
 extern "C" void leak_policy_scanner_init(const unsigned char*, const unsigned char*);
+#define DECLARE_DESCRIPTOR_ACCESSOR(reg) \
+    extern void CAT(granary_access_descriptor_, reg)(void);
+
+
+#define DECLARE_DESCRIPTOR_ACCESSORS(reg, rest) \
+    DECLARE_DESCRIPTOR_ACCESSOR(reg) \
+    rest
+
+
+#define DESCRIPTOR_ACCESSOR_PTR(reg) \
+    &CAT(granary_access_descriptor_, reg)
+
+
+#define DESCRIPTOR_ACCESSOR_PTRS(reg, rest) \
+    DESCRIPTOR_ACCESSOR_PTR(reg), \
+    rest
+
+
+
+extern "C" {
+    ALL_REGS(DECLARE_DESCRIPTOR_ACCESSORS, DECLARE_DESCRIPTOR_ACCESSOR)
+}
+
 
 namespace client {
 
     namespace wp {
 
 
+        /// Register-specific (generated) functions to mark a leak descriptor
+        /// as being accessed.
+        typedef void (*descriptor_accessor_type)(void);
+        static descriptor_accessor_type DESCRIPTOR_ACCESSORS[] = {
+            ALL_REGS(DESCRIPTOR_ACCESSOR_PTRS, DESCRIPTOR_ACCESSOR_PTR)
+        };
+
+
+        /// Register-specific (generated) functions to do bounds checking.
+        static unsigned REG_TO_INDEX[] = {
+            ~0U,    // null
+            0,      // rax
+            1,      // rcx
+            2,      // rdx
+            3,      // rbx
+            ~0U,    // rsp
+            4,      // rbp
+            5,      // rsi
+            6,      // rdi
+            7,      // r8
+            8,      // r9
+            9,      // r10
+            10,     // r11
+            11,     // r12
+            12,     // r13
+            13,     // r14
+            14      // r15
+        };
+
+
+        /// Add instrumentation on every read and write that marks the
+        /// watchpoint descriptor as having been accessed.
         void leak_policy::visit_read(
             granary::basic_block_state &,
-            granary::instruction_list &,
-            watchpoint_tracker &,
-            unsigned
+            granary::instruction_list &ls,
+            watchpoint_tracker &tracker,
+            unsigned i
         ) throw() {
-            // TODO: mark the descriptor as having been accessed.
+            using namespace granary;
+            const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
+            instruction call(insert_cti_after(ls, tracker.labels[i],
+                unsafe_cast<app_pc>(DESCRIPTOR_ACCESSORS[reg_index]),
+                false, operand(),
+                CTI_CALL));
+            call.set_mangled();
         }
 
 
+        /// Mark the descriptor as having been accessed.
         void leak_policy::visit_write(
             granary::basic_block_state &bb,
             granary::instruction_list &ls,
@@ -79,14 +141,6 @@ namespace client {
 
         entry_func_regs = find_used_regs_in_func(entry_func_addr);
         exit_func_regs = find_used_regs_in_func(exit_func_addr);
-
-        scan_callback = unsafe_cast<app_pc>(
-                &wp::leak_policy_scan_callback);
-
-        update_rootset_callback = unsafe_cast<app_pc>(
-                &wp::leak_policy_update_rootset);
-
-        leak_policy_scanner_init(scan_callback, update_rootset_callback);
     }
 
 
