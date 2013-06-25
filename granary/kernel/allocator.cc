@@ -46,8 +46,12 @@ extern "C" {
 
 
     void *granary_heap_alloc(void *, unsigned long long size) {
+#if CONFIG_PRECISE_ALLOCATE
+        granary::detail::global_allocate(size);
+#else
         granary::cpu_state_handle cpu;
         return cpu->transient_allocator.allocate_untyped(16, size);
+#endif
     }
 
 

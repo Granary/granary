@@ -91,17 +91,19 @@ namespace client { namespace wp {
         counter_index = 0;
         desc = nullptr;
 
+        // Try to pull a descriptor off of a CPU-private free list.
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         cpu_state_handle state;
         leak_detector_descriptor *&free_list(state->free_list);
-        if(free_list) {
-            desc = free_list;
+        desc = free_list;
+        if(desc) {
             free_list = desc->next_free;
         }
-
         IF_KERNEL( granary_store_flags(flags); )
 
         counter_index = 0;
+
+        // We got a descriptor from the free list.
         if(desc) {
             uintptr_t inherited_index_;
 
@@ -172,14 +174,26 @@ namespace client { namespace wp {
             return;
         }
 
+        // Zero out the associated memory. Only do this when the descriptor is
+        // freed because that's the point where we know that the memory
+        // shouldn't be re-used.
+        const uintptr_t base_address_(desc->base_address);
+        memset(
+            reinterpret_cast<void *>(
+                base_address_ | leak_detector_descriptor::BASE_ADDRESS_MASK),
+            0,
+            desc->size);
+
+        // Reset the descriptor.
+        memset(desc, 0, sizeof *desc);
+        desc->index = index;
+
+        // Add the descriptor to the free list.
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         cpu_state_handle state;
         leak_detector_descriptor *&free_list(state->free_list);
-
-        desc->index = index;
         desc->next_free = free_list;
         free_list = desc;
-
         IF_KERNEL( granary_store_flags(flags); )
     }
 }}

@@ -22,7 +22,6 @@ int main(void) throw() {
 #endif
 
     IF_PERF( perf::report(); )
-
     return 0;
 }
 

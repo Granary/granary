@@ -769,12 +769,12 @@ namespace granary {
 
         IF_KERNEL( kernel_preempt_disable(); )
 
-        // notify Granary that we're entering!
+        // Notify Granary that we're entering!
         cpu_state_handle cpu;
         thread_state_handle thread;
         granary::enter(cpu, thread);
 
-        // get an address into the target basic block using two stage lookup.
+        // Get an address into the target basic block using two stage lookup.
         app_pc target_pc(
             cpu->code_cache.find(context->target_address.as_address));
 
@@ -782,7 +782,9 @@ namespace granary {
             target_pc = code_cache::find(cpu, thread, context->target_address);
         }
 
-        // determine the address to patch; this decodes the *tail* of the patch
+        ASSERT(is_code_cache_address(context->return_address_into_patch_tail));
+
+        // Determine the address to patch; this decodes the *tail* of the patch
         // code in the basic block and looks for a CTI (assumed jmp) and takes
         // its target to be the instruction that must be patched.
         app_pc patch_address(nullptr);
