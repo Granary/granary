@@ -3,11 +3,12 @@
  * instrument.cc
  *
  *  Created on: 2013-06-24
- *      Author: Peter Goodman
+ *      Author: Peter Goodman, akshayk
  */
 
 #include "clients/watchpoints/policies/leak_detector/instrument.h"
 
+extern "C" void leak_policy_scanner_init(const unsigned char*, const unsigned char*);
 #define DECLARE_DESCRIPTOR_ACCESSOR(reg) \
     extern void CAT(granary_access_descriptor_, reg)(void);
 
@@ -110,12 +111,18 @@ namespace client {
 
         extern void leak_notify_thread_enter_module(void) throw();
         extern void leak_notify_thread_exit_module(void) throw();
+        extern void leak_policy_scan_callback(void) throw();
+        extern void leak_policy_update_rootset(void) throw();
     }
 
 
     /// Addresses of code cache entry/exit functions.
     static granary::app_pc entry_func_addr;
     static granary::app_pc exit_func_addr;
+
+    //callback functions which updates the rootset and
+    static granary::app_pc scan_callback;
+    static granary::app_pc update_rootset_callback;
 
 
     /// Registers used by the code cache entry/exit functions.

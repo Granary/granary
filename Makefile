@@ -57,6 +57,7 @@ GR_TYPE_CC_FLAGS =
 GR_INPUT_TYPES =
 GR_OUTPUT_TYPES =
 GR_OUTPUT_WRAPPERS =
+GR_OUTPUT_SCANNERS =
 
 GR_TYPE_INCLUDE = 
 
@@ -128,6 +129,7 @@ endif
 
 GR_CXX_FLAGS += $(GR_CXX_STD)
 GR_OBJS = 
+GR_MODS =
 
 # DynamoRIO dependencies
 GR_OBJS += bin/deps/dr/dcontext.o
@@ -236,6 +238,7 @@ ifeq ($(GR_CLIENT),watchpoint_leak)
     GR_OBJS += bin/clients/watchpoints/policies/leak_detector/thread.o
     
     ifeq ($(KERNEL),1)
+    	GR_MODS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
     	GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
     endif
 endif
@@ -361,6 +364,7 @@ else
 	GR_OUTPUT_TYPES = granary/gen/kernel_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/kernel_wrappers.h
 	GR_DETACH_FILE = granary/gen/kernel_detach.inc
+	GR_OUTPUT_SCANNERS = clients/gen/kernel_type_scanners.h
 	
 	# kernel-specific test cases
 	GR_OBJS += bin/tests/test_interrupt_delay.o
@@ -378,7 +382,7 @@ else
 	
 	# Module objects
 	obj-m += $(GR_NAME).o
-	$(GR_NAME)-objs = $(GR_OBJS) module.o
+	$(GR_NAME)-objs = $(GR_OBJS) $(GR_MODS) module.o
 	
 	GR_MAKE = make -C $(KERNEL_DIR) M=$(PWD) modules
 	GR_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean
@@ -504,6 +508,10 @@ types:
 wrappers: types
 	@echo "  WRAPPERS [GR] $(GR_OUTPUT_WRAPPERS)"
 	@$(GR_PYTHON) scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
+ifeq ($(GR_CLIENT),watchpoint_leak)
+	@echo "  SCANNERS [GR] $(GR_OUTPUT_SCANNERS)"
+	@$(GR_PYTHON) scripts/generate_scanners.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_SCANNERS)
+endif	
 
 
 # auto-generate the hash table stuff needed for wrappers and detaching
@@ -545,6 +553,7 @@ install:
 	@echo "  [2] Converting DynamoRIO INSTR_CREATE_ and OPND_CREATE_ macros into"
 	@echo "      Granary-compatible instruction-building functions."
 	@-mkdir granary/gen > /dev/null 2>&1 ||:
+	@-mkdir clients/gen > /dev/null 2>&1 ||:
 	@$(GR_PYTHON) scripts/process_instr_create.py
 
 	@echo "  [3] Determining the supported assembly syntax of $(GR_CC)."
