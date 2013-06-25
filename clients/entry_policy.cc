@@ -26,13 +26,13 @@ namespace client {
 
     /// Instrument the first entrypoint into instrumented code.
     static void instrument_entry_to_code_cache(
-        granary::instruction_list &ls,
-        granary::instruction in
+        granary::instruction_list &ls
     ) throw() {
         using namespace granary;
         register_manager rm;
         rm.kill_all();
 
+        instruction in(ls.first());
         in = ls.insert_before(in, label_());
         in = save_and_restore_registers(rm, ls, in);
         in = insert_cti_after(
@@ -45,13 +45,14 @@ namespace client {
 
     /// Instrument a return to native code.
     static void instrument_return_to_native(
-        granary::instruction_list &ls
+        granary::instruction_list &ls,
+        granary::instruction in
     ) throw() {
         using namespace granary;
         register_manager rm;
         rm.kill_all();
 
-        instruction in(ls.first());
+
         in = ls.insert_before(in, label_());
         in = save_and_restore_registers(rm, ls, in);
         in = insert_cti_after(
