@@ -3,10 +3,12 @@
  * instrument.cc
  *
  *  Created on: 2013-06-24
- *      Author: Peter Goodman
+ *      Author: Peter Goodman, akshayk
  */
 
 #include "clients/watchpoints/policies/leak_detector/instrument.h"
+
+extern "C" void leak_policy_scanner_init(const unsigned char*, const unsigned char*);
 
 namespace client {
 
@@ -47,12 +49,18 @@ namespace client {
 
         extern void leak_notify_thread_enter_module(void) throw();
         extern void leak_notify_thread_exit_module(void) throw();
+        extern void leak_policy_scan_callback(void) throw();
+        extern void leak_policy_update_rootset(void) throw();
     }
 
 
     /// Addresses of code cache entry/exit functions.
     static granary::app_pc entry_func_addr;
     static granary::app_pc exit_func_addr;
+
+    //callback functions which updates the rootset and
+    static granary::app_pc scan_callback;
+    static granary::app_pc update_rootset_callback;
 
 
     /// Registers used by the code cache entry/exit functions.
@@ -71,6 +79,14 @@ namespace client {
 
         entry_func_regs = find_used_regs_in_func(entry_func_addr);
         exit_func_regs = find_used_regs_in_func(exit_func_addr);
+
+        scan_callback = unsafe_cast<app_pc>(
+                &wp::leak_policy_scan_callback);
+
+        update_rootset_callback = unsafe_cast<app_pc>(
+                &wp::leak_policy_update_rootset);
+
+        leak_policy_scanner_init(scan_callback, update_rootset_callback);
     }
 
 

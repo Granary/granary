@@ -15,6 +15,17 @@ MUST_WRAP = set([
   "dlsym"
 ])
 
+def is_union_type(ctype):
+  if isinstance(ctype, CTypePointer):
+    return isinstance(ctype.ctype.base_type(), CTypeUnion)
+  return isinstance(ctype, CTypeUnion)
+
+def is_buildin_type(ctype):
+  if isinstance(ctype, CTypeDefinition):
+    return isinstance(ctype.ctype.base_type(), CTypeBuiltIn)
+  if isinstance(ctype, CTypePointer):
+    return isinstance(ctype.ctype.base_type(), CTypeBuiltIn)
+  return isinstance(ctype, CTypeBuiltIn)
 
 def is_function_pointer(ctype):
   if isinstance(ctype, CTypePointer):

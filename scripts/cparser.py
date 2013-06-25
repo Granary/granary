@@ -1084,6 +1084,9 @@ class CSymbolTable(object):
   def vars(self):
     return iter(self._vars.items())
 
+  def types(self):
+    return iter(self._types[CTypeStruct].items())
+
   def has_var(self, name):
     return name in self._vars
 
@@ -2148,6 +2151,9 @@ class CParser(object):
   # scope.
   def vars(self):
     return self.stab.vars()
+
+  def types(self):
+    return self.stab.types()
 
 
   # Get the type of a variable.
