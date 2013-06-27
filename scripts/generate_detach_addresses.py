@@ -9,6 +9,8 @@ import sys
 
 SYMBOLS = set()
 FOUND_SYMBOLS = {}
+ADDRESSES = []
+SYMBOL_TO_ADDRESS_INDEX = {}
 
 if "__main__" == __name__:
   prefix = "#ifndef CAN_WRAP_"
@@ -25,20 +27,30 @@ if "__main__" == __name__:
   # special function that we need!
   SYMBOLS.add("module_alloc_update_bounds")
 
+  
+
   with open("kernel.syms", "r") as lines_:
     for line in lines_:
       line = line.strip(" \r\n\t")
       line = line.replace("\t", " ")
       parts = line.split(" ")
       sym = parts[2]
+      
+      ADDRESSES.append(int(parts[0], base=16))
+
       if sym in SYMBOLS:
         FOUND_SYMBOLS[sym] = parts[0]
+        SYMBOL_TO_ADDRESS_INDEX[sym] = len(ADDRESSES) - 1
 
   with open(sys.argv[1], "w") as f:
     new_lines = []
     for sym, addr in FOUND_SYMBOLS.items():
+      func_index = SYMBOL_TO_ADDRESS_INDEX[sym]
+      func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
+
       new_lines.append("#ifndef DETACH_ADDR_%s\n" % sym)
       new_lines.append("#    define DETACH_ADDR_%s 0x%s\n" % (sym, addr))
+      new_lines.append("#    define DETACH_LENGTH_%s %d\n" % (sym, func_len))
       new_lines.append("#endif\n")
     
     missing = SYMBOLS - set(FOUND_SYMBOLS.keys())

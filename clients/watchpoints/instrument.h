@@ -425,6 +425,7 @@ namespace client {
             ADDRESS_TAINTED
         };
 
+        static unsigned num_watchpoints = 0;
 
         /// Add a watchpoint to an address.
         ///
@@ -434,6 +435,13 @@ namespace client {
             static_assert(
                 std::is_pointer<T>::value || std::is_integral<T>::value,
                 "`add_watchpoint` expects an integral/pointer operand.");
+
+            //if(num_watchpoints++ > 1000) { // worked
+            //if(num_watchpoints++ > 1500) { // didn't work; segfault in touch
+            if(num_watchpoints++ > 1250) { // hung in iozone; with a lockup in set_bh_page
+                return ADDRESS_NOT_WATCHED;
+            }
+
             uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 #if GRANARY_IN_KERNEL
             ptr &= DISTINGUISHING_BIT_MASK;

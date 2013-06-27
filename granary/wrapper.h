@@ -11,6 +11,10 @@
 #include "granary/globals.h"
 #include "granary/detach.h"
 
+#if GRANARY_IN_KERNEL
+#   include "granary/kernel/hotpatch.h"
+#endif
+
 #define P(...)
 //__VA_ARGS__
 
@@ -1078,6 +1082,7 @@ namespace granary {
         }; \
     }
 
+
 #define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         template <> \
@@ -1133,6 +1138,70 @@ namespace granary {
         }; \
     }
 
+#if GRANARY_IN_KERNEL
+
+#define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
+    namespace granary { \
+        template <> \
+        struct CAT(patched_, function_name) { \
+        public: \
+            typedef referenceless<PARAMS return_type>::type R; \
+            static auto function_name((decltype(::function_name) *) \
+                CAT(DETACH_ADDR_, function_name) ); \
+            static R apply arg_list throw() { \
+                int depth__(MAX_PRE_WRAP_DEPTH); \
+                (void) depth__; \
+                wrapper_code \
+            } \
+        }; \
+        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
+            app_pc original_addr(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
+            app_pc new_addr(copy_and_rerelativize_function(\
+                original_addr, \
+                CAT(DETACH_LENGTH_, function_name)));\
+            CAT(patched_, function_name)::function_name = \
+                unsafe_cast<\
+                    decltype(CAT(patched_, function_name)::function_name)\
+                >(new_addr); \
+            redirect_function(\
+                original_addr, \
+                unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
+        });\
+    }
+
+
+#define PATCH_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
+    namespace granary { \
+        template <> \
+        struct CAT(patched_, function_name) { \
+        public: \
+            typedef void R; \
+            static auto function_name((decltype(::function_name) *) \
+                CAT(DETACH_ADDR_, function_name) ); \
+            static R apply arg_list throw() { \
+                int depth__(MAX_PRE_WRAP_DEPTH); \
+                (void) depth__; \
+                wrapper_code \
+            } \
+        }; \
+        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
+            app_pc original_addr(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
+            app_pc new_addr(copy_and_rerelativize_function(\
+                original_addr, \
+                CAT(DETACH_LENGTH_, function_name)));\
+            CAT(patched_, function_name)::function_name = \
+                unsafe_cast<\
+                    decltype(CAT(patched_, function_name)::function_name)\
+                >(new_addr); \
+            redirect_function(\
+                original_addr, \
+                unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
+        });\
+    }
+
+#endif /* GRANARY_IN_KERNEL */
 
 #define WRAP_FUNCTION(lvalue) \
     { \

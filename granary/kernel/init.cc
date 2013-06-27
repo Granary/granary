@@ -6,13 +6,15 @@
  *      Author: pag
  */
 
-#include "granary/init.h"
 #include "granary/globals.h"
 #include "granary/state.h"
 
 
 extern "C" {
     extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+
+    /// Call a function where all CPUs are synchronised.
+    void kernel_run_synchronised(void (*func)(void));
 }
 
 
@@ -36,6 +38,10 @@ namespace granary {
         kernel_run_on_each_cpu(
             unsafe_cast<void (*)(void *)>(init_idt),
             reinterpret_cast<void *>(&idt));
+
+        if(should_init_sync()) {
+            kernel_run_synchronised(&init_sync);
+        }
     }
 
 }

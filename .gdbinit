@@ -28,7 +28,7 @@ set-user-detect
 
 # Kernel setup
 if !$in_user_space
-  file ~/Code/linux-3.8.2/vmlinux
+  file ~/Code/linux-3.9.7/vmlinux
   target remote : 9999
   source ~/Code/Granary/granary.syms
 end

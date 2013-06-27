@@ -148,6 +148,32 @@
 #define STATIC_INITIALISE_ID(id, ...) \
     STATIC_INITIALISE_(CAT(CAT(id, __LINE__), CAT(_, __COUNTER__)), ##__VA_ARGS__)
 
+#if GRANARY_IN_KERNEL
+
+/// Defines a static initialiser that is run when the entire machine is
+/// synchronised (e.g. after/within a Linux kernel `stop_machine`.).
+#   define STATIC_INITIALISE_SYNC(id, ...) \
+        static void CAT(init_func_sync_, id)(void) throw(); \
+        struct CAT(init_class_sync_, id) : public granary::static_init_list { \
+        public: \
+            CAT(init_class_sync_, id)(void) throw() { \
+                IF_USER( granary::detach(); ) \
+                this->exec = CAT(init_func_, id); \
+                granary::static_init_list::append_sync(*this); \
+            } \
+        }; \
+        static CAT(init_class_sync_, id) CAT(init_val_sync_, id); \
+        static __attribute__((noinline)) void CAT(init_func_sync_, id)(void) { \
+            IF_USER( granary::detach(); ) \
+            (void) CAT(init_val_sync_, id); \
+            { \
+                __VA_ARGS__ \
+            } \
+        } \
+        INITIALISE_GLOBAL_VARIABLE(CAT(init_val_sync_, id))
+#endif /* GRANARY_IN_KERNEL */
+
+
 #if !CONFIG_ENABLE_ASSERTIONS
 #   define IF_TEST(...)
 #   define ADD_TEST(func, desc)

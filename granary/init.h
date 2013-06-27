@@ -17,11 +17,14 @@ namespace granary {
         void (*exec)(void);
 
         static void append(static_init_list &) throw();
+        IF_KERNEL( static void append_sync(static_init_list &) throw(); )
     };
 
 
     void init(void) throw();
 
+    IF_KERNEL( bool should_init_sync(void) throw(); )
+    IF_KERNEL( void init_sync(void) throw(); )
 }
 
 #endif /* GR_INIT_H_ */

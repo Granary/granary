@@ -179,7 +179,7 @@ namespace granary {
         struct interrupt_descriptor_table {
             descriptor_t vectors[
                  2 * NUM_INTERRUPT_VECTORS * sizeof(descriptor_t)];
-        } __attribute__((aligned (PAGE_SIZE)));
+        } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE)));
     }
 #endif
 

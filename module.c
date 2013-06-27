@@ -27,6 +27,7 @@
 #include <linux/compiler.h>
 #include <linux/version.h>
 #include <linux/gfp.h>
+#include <linux/stop_machine.h>
 
 #include <asm/page.h>
 #include <asm/cacheflush.h>
@@ -106,6 +107,18 @@ int granary_fault(void) {
 /// Allocate memory for an interrupt descriptor table (IDT).
 void *granary_allocate_idt(void) {
     return (void *) __get_free_page(GFP_ATOMIC);
+}
+
+
+static int do_init_sync(void *func) {
+    ((void (*)(void)) func)();
+    return 0;
+}
+
+
+/// Call a function where all CPUs are synchronised.
+void kernel_run_synchronised(void (*func)(void)) {
+    stop_machine(do_init_sync, (void *) func, NULL);
 }
 
 
