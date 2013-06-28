@@ -89,8 +89,8 @@ namespace client {
         ) throw();
 
 
-        /// Policy for bounds-checking allocated memory in app code.
-        struct app_bound_policy {
+        /// Policy for bounds-checking allocated memory in app and host code.
+        struct bound_policy {
 
             enum {
                 AUTO_INSTRUMENT_HOST = false
@@ -111,10 +111,6 @@ namespace client {
                 unsigned
             ) throw();
 
-            static void init(){
-                granary::printf("bound init policy!!!!!!!!!!!!!!!!!\n");
-            }
-
 
 #   if CONFIG_CLIENT_HANDLE_INTERRUPT
             static granary::interrupt_handled_state handle_interrupt(
@@ -127,33 +123,6 @@ namespace client {
 #   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
         };
 
-
-        /// Policy for bounds-checking allocated memory in host code.
-        struct host_bound_policy {
-
-            static void visit_read(
-                granary::basic_block_state &,
-                granary::instruction_list &,
-                watchpoint_tracker &,
-                unsigned
-            ) throw();
-
-
-            static void visit_write(
-                granary::basic_block_state &,
-                granary::instruction_list &,
-                watchpoint_tracker &,
-                unsigned
-            ) throw();
-
-            static void visit_overflow(
-                uintptr_t watched_addr,
-                granary::app_pc *addr_in_bb,
-                unsigned size
-            ) throw();
-        };
-
-
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
     }
 
@@ -161,8 +130,8 @@ namespace client {
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
     struct watchpoint_bound_policy
         : public client::watchpoints<
-              wp::app_bound_policy,
-              wp::host_bound_policy
+              wp::bound_policy,
+              wp::bound_policy
           >
     { };
 

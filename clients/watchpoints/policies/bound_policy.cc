@@ -111,7 +111,6 @@ namespace client { namespace wp {
     };
 
 
-#if ENABLE_DESCRIPTORS
     /// Configuration for bound descriptors.
     struct descriptor_allocator_config {
         enum {
@@ -142,11 +141,6 @@ namespace client { namespace wp {
     ///       x86/bound_policy.asm.
     bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
 
-#else
-
-    bound_descriptor *DESCRIPTORS[1] = {nullptr};
-
-#endif /* ENABLE_DESCRIPTORS */
 
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
     /// appropriately.
@@ -158,11 +152,6 @@ namespace client { namespace wp {
         counter_index = 0;
         desc = nullptr;
 
-#if !ENABLE_WATCHPOINTS
-        return false;
-#endif /* ENABLE_WATCHPOINTS */
-
-#if ENABLE_FREE_LIST && ENABLE_DESCRIPTORS
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         cpu_state_handle state;
         bound_descriptor *&free_list(state->free_list);
@@ -177,9 +166,6 @@ namespace client { namespace wp {
 
         IF_KERNEL( granary_store_flags(flags); )
 
-#endif /* ENABLE_FREE_LIST */
-
-#if ENABLE_DESCRIPTORS
         // We got one from the free list.
         counter_index = 0;
         if(desc) {
@@ -198,11 +184,6 @@ namespace client { namespace wp {
         }
 
         ASSERT(counter_index <= MAX_COUNTER_INDEX);
-#else
-        counter_index = 0;
-        UNUSED(DESCRIPTORS);
-
-#endif /* ENABLE_DESCRIPTORS */
 
         return true;
     }
@@ -214,15 +195,9 @@ namespace client { namespace wp {
         void *base_address,
         size_t size
     ) throw() {
-#if ENABLE_DESCRIPTORS
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
-#else
-        UNUSED(desc);
-        UNUSED(base_address);
-        UNUSED(size);
-#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -232,14 +207,9 @@ namespace client { namespace wp {
         bound_descriptor *desc,
         uintptr_t index
     ) throw() {
-#if ENABLE_DESCRIPTORS
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         desc->my_index = index;
         DESCRIPTORS[index] = desc;
-#else
-        UNUSED(desc);
-        UNUSED(index);
-#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -247,13 +217,8 @@ namespace client { namespace wp {
     bound_descriptor *bound_descriptor::access(
         uintptr_t index
     ) throw() {
-#if ENABLE_DESCRIPTORS
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         return DESCRIPTORS[index];
-#else
-        UNUSED(index);
-        return nullptr;
-#endif /* ENABLE_DESCRIPTORS */
     }
 
 
@@ -265,10 +230,8 @@ namespace client { namespace wp {
         if(!is_valid_address(desc)) {
             return;
         }
-#if ENABLE_DESCRIPTORS
         ASSERT(index == desc->my_index);
 
-#   if ENABLE_FREE_LIST
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         IF_KERNEL( cpu_state_handle state; )
         IF_USER( thread_state_handle state; )
@@ -283,20 +246,15 @@ namespace client { namespace wp {
         free_list = desc;
 
         IF_KERNEL( granary_store_flags(flags); )
-#   endif /* ENABLE_FREE_LIST */
-#else
-        UNUSED(index);
-#endif /* ENABLE_DESCRIPTORS */
     }
 
 
-    void app_bound_policy::visit_read(
+    void bound_policy::visit_read(
         granary::basic_block_state &,
         instruction_list &ls,
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-#if ENABLE_INSTRUMENTATION
         const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
         const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
 
@@ -308,119 +266,38 @@ namespace client { namespace wp {
             false, operand(),
             CTI_CALL));
         call.set_mangled();
-#else
-        UNUSED(ls);
-        UNUSED(tracker);
-        UNUSED(i);
-        UNUSED(BOUNDS_CHECKERS);
-        UNUSED(REG_TO_INDEX);
-        UNUSED(SIZE_TO_INDEX);
-#endif /* ENABLE_INSTRUMENTATION */
     }
 
 
-    void app_bound_policy::visit_write(
-        granary::basic_block_state &,
+    void bound_policy::visit_write(
+        granary::basic_block_state &bb,
         instruction_list &ls,
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-#if ENABLE_INSTRUMENTATION
-        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
-        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
-
-        ASSERT(reg_index < 16);
-        ASSERT(size_index < 5);
-
-        instruction call(insert_cti_after(ls, tracker.labels[i],
-            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
-            false, operand(),
-            CTI_CALL));
-        call.set_mangled();
-        //(void)ls;
-#else
-        UNUSED(ls);
-        UNUSED(tracker);
-        UNUSED(i);
-#endif /* ENABLE_INSTRUMENTATION */
+        visit_read(bb, ls, tracker, i);
     }
 
 
-    void host_bound_policy::visit_read(
-        granary::basic_block_state &,
-        instruction_list &ls,
-        watchpoint_tracker &tracker,
-        unsigned i
-    ) throw() {
-#if ENABLE_INSTRUMENTATION
-        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
-        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
-
-        ASSERT(reg_index < 16);
-        ASSERT(size_index < 5);
-
-        instruction call(insert_cti_after(ls, tracker.labels[i],
-            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
-            false, operand(),
-            CTI_CALL));
-        call.set_mangled();
-#else
-        UNUSED(ls);
-        UNUSED(tracker);
-        UNUSED(i);
-#endif /* ENABLE_INSTRUMENTATION */
-    }
-
-
-    void host_bound_policy::visit_write(
-        granary::basic_block_state &,
-        instruction_list &ls,
-        watchpoint_tracker &tracker,
-        unsigned i
-    ) throw() {
-#if ENABLE_INSTRUMENTATION
-        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
-        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
-
-        ASSERT(reg_index < 16);
-        ASSERT(size_index < 5);
-
-        instruction call(insert_cti_after(ls, tracker.labels[i],
-            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
-            false, operand(),
-            CTI_CALL));
-        call.set_mangled();
-#else
-        UNUSED(ls);
-        UNUSED(tracker);
-        UNUSED(i);
-#endif /* ENABLE_INSTRUMENTATION */
-    }
-
-
+    /// Visit a buffer overflow. This is invoked by
     void visit_overflow(
         uintptr_t watched_addr,
         app_pc addr_in_bb,
         unsigned size
     ) throw() {
-        printf("Address %p in bb %p\n", watched_addr, addr_in_bb);
-        (void) watched_addr;
-        (void) addr_in_bb;
-        (void) size;
+        printf("Access of size %u to %p in basic block %p overflowed\n",
+            size, watched_addr, addr_in_bb);
     }
 
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-    interrupt_handled_state app_bound_policy::handle_interrupt(
+    interrupt_handled_state bound_policy::handle_interrupt(
         cpu_state_handle &,
         thread_state_handle &,
         granary::basic_block_state &,
         interrupt_stack_frame &,
-        interrupt_vector vec
+        interrupt_vector
     ) throw() {
-        if(VECTOR_OVERFLOW == vec) {
-            return INTERRUPT_IRET;
-        }
         return INTERRUPT_DEFER;
     }
 } /* wp namespace */
