@@ -544,7 +544,7 @@ install:
 	@-mkdir bin/clients/watchpoints/user > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/user/posix > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/kernel > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/kernel/linux > /dev/null 2>&1 ||
+	@-mkdir bin/clients/watchpoints/kernel/linux > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/null/ > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:

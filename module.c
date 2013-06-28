@@ -226,6 +226,21 @@ int is_host_address(uintptr_t addr) {
 }
 
 
+/// Returns the kernel module information for a given app address.
+const struct kernel_module *kernel_get_module(uintptr_t addr) {
+    if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
+        struct kernel_module *mod = modules->next; // ignore Granary
+        for(; mod; mod = mod->next) {
+            if(((uintptr_t) mod->text_begin) <= addr
+            && addr < ((uintptr_t) mod->text_end)) {
+                return mod;
+            }
+        }
+    }
+    return NULL;
+}
+
+
 /// Returns true iff an address belongs to a Granary-instrumented kernel
 /// module.
 int is_app_address(uintptr_t addr) {

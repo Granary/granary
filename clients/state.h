@@ -14,6 +14,11 @@
 #   include "clients/watchpoints/state.h"
 #endif
 
+
+#ifdef CLIENT_CFG
+#   include "clients/cfg/state.h"
+#endif
+
 namespace client {
 
     struct thread_state;
