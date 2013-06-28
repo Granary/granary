@@ -300,7 +300,10 @@ namespace granary {
             && nullptr == op2
             && kind != that.kind
             && nullptr != op
-            && 0 == memcmp(op, that.op, sizeof *op);
+            && op->kind == that.op->kind
+            && op->size == that.op->size
+            && 0 == memcmp(&(op->seg), &(that.op->seg), sizeof op->seg)
+            && 0 == memcmp(&(op->value), &(that.op->value), sizeof op->seg);
     }
 
 

@@ -470,3 +470,36 @@ define p-next-bb-where-reg
     internal-bb-by-reg-cond $__str_reg_name $__str_bin_op $__int_value
   end
 end
+
+
+# p-operand <addr>
+#
+# Pretty-print an operand object.
+define p-operand
+  set language c++
+  set $__op = (opnd_t *) $arg0
+  
+  if $__op->kind == dynamorio::BASE_DISP_kind
+
+  end
+
+  if $__op->kind == dynamorio::REL_ADDR_kind
+
+  end
+
+  if $__op->kind == dynamorio::INSTR_kind
+
+  end
+end
+
+
+# p-instr <addr>
+#
+# Pretty-print an instruction object.
+define p-instr
+  set language c++
+  set $__instr = (instr_t *) $arg0
+  printf "Instruction:\n"
+  p (op_code_type) $__instr->opcode
+  dont-repeat
+end
