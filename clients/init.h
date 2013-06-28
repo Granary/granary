@@ -20,6 +20,12 @@
 #endif
 
 
+#ifdef CLIENT_CFG
+#   define CLIENT_init
+#endif
+
+
+
 #ifdef CLIENT_init
 namespace client {
     void init(void) throw();

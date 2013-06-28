@@ -37,7 +37,7 @@ namespace granary {
         const int new_len(len + ALIGN_TO(len, 16));
 
         app_pc new_addr(global_state::FRAGMENT_ALLOCATOR->
-            allocate<uint8_t>(new_len));
+            allocate_array<uint8_t>(new_len));
 
         memcpy(new_addr, addr, len);
 

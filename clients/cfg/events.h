@@ -14,10 +14,6 @@
 namespace client {
 
 
-    /// Invoked when we return from a function call.
-    void event_return_from_call(granary::basic_block_state *) throw();
-
-
     /// Invoked when we enter into a basic block targeted by a CALL instruction.
     void event_enter_function(granary::basic_block_state *) throw();
 
@@ -36,7 +32,7 @@ namespace client {
 
 
     /// Invoked before we call host code.
-    void event_call_app(granary::basic_block_state *, granary::app_pc) throw();
+    void event_call_host(granary::basic_block_state *, granary::app_pc) throw();
 
 
     /// Invoked when we return from a function call.

@@ -7,6 +7,7 @@
  */
 
 #include "clients/cfg/instrument.h"
+#include "clients/cfg/events.h"
 
 using namespace granary;
 
@@ -24,54 +25,77 @@ namespace client {
 
 
     /// Entry point for the return-from-call event handler.
-    app_pc EVENT_RETURN_FROM_CALL = nullptr;
+    static app_pc EVENT_RETURN_FROM_CALL = nullptr;
 
 
     /// Entry point for the on-enter-bb event handler.
-    app_pc EVENT_ENTER_CALL = nullptr;
+    static app_pc EVENT_ENTER_CALL = nullptr;
 
 
     /// Entry point for the on-enter-bb event handler.
-    app_pc EVENT_ENTER_BASIC_BLOCK = nullptr;
+    static app_pc EVENT_ENTER_BASIC_BLOCK = nullptr;
 
 
     /// Entry point for the on-indirect-call event handler.
-    app_pc EVENT_CALL_INDIRECT = nullptr;
+    static app_pc EVENT_CALL_INDIRECT = nullptr;
 
 
     /// Entry point for the on-app-call event handler.
-    app_pc EVENT_CALL_APP = nullptr;
+    static app_pc EVENT_CALL_APP = nullptr;
 
 
     /// Entry point for the on-host-call event handler.
-    app_pc EVENT_CALL_HOST = nullptr;
+    static app_pc EVENT_CALL_HOST = nullptr;
 
 
+    /// Argument registers.
     static operand ARGS[5];
-
-
-    STATIC_INITIALISE_ID(init_cfg_args, {
-        ARGS[0] = reg::arg1;
-        ARGS[1] = reg::arg2;
-        ARGS[2] = reg::arg3;
-        ARGS[3] = reg::arg4;
-        ARGS[4] = reg::arg5;
-    })
 
 
     /// Generate an entry point function that saves/restores the appropriate
     /// registers.
     template <typename R, typename... Args>
     static app_pc generate_entry_point(R (*func)(Args...)) throw() {
-        register_manager dead_regs(find_used_regs_in_func(
-            unsafe_cast<app_pc>(func)));
+        app_pc func_pc(unsafe_cast<app_pc>(func));
+        register_manager dead_regs(find_used_regs_in_func(func_pc));
 
         for(unsigned i(sizeof...(Args)); i--; ) {
             dead_regs.revive(ARGS[i]);
         }
 
         instruction_list ls;
-        instruction in(ls.append(label_()))
+        instruction in(ls.append(label_()));
+
+        in = save_and_restore_registers(dead_regs, ls, in);
+        in = insert_cti_after(
+            ls, in,
+            func_pc, false, operand(),
+            CTI_CALL);
+        in.set_mangled();
+
+        app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
+            allocate_array<uint8_t>(ls.encoded_size()));
+
+        ls.encode(entry_point_pc);
+
+        return entry_point_pc;
+    }
+
+
+    /// Initialise the control-flow graph client.
+    void init(void) throw() {
+        ARGS[0] = reg::arg1;
+        ARGS[1] = reg::arg2;
+        ARGS[2] = reg::arg3;
+        ARGS[3] = reg::arg4;
+        ARGS[4] = reg::arg5;
+
+        EVENT_ENTER_CALL = generate_entry_point(&event_enter_function);
+        EVENT_ENTER_BASIC_BLOCK = generate_entry_point(&event_enter_basic_block);
+        EVENT_CALL_INDIRECT = generate_entry_point(&event_call_indirect);
+        EVENT_CALL_APP = generate_entry_point(&event_call_app);
+        EVENT_CALL_HOST = generate_entry_point(&event_call_host);
+        EVENT_RETURN_FROM_CALL = generate_entry_point(&event_return_from_call);
     }
 
 
@@ -218,7 +242,17 @@ namespace client {
     }
 
 
-    instrumentation_policy visit_app_instructions(
+    instrumentation_policy cfg_entry_policy::visit_app_instructions(
+        cpu_state_handle &cpu,
+        basic_block_state &bb,
+        instruction_list &ls
+    ) throw() {
+
+        return policy_for<cfg_exit_policy>();
+    }
+
+
+    instrumentation_policy cfg_exit_policy::visit_app_instructions(
         cpu_state_handle &cpu,
         basic_block_state &bb,
         instruction_list &ls
