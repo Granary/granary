@@ -9,18 +9,10 @@
 #ifndef CLIENT_STATE_H_
 #define CLIENT_STATE_H_
 
-/// Bounds checking watchpoint policy.
-#ifdef CLIENT_WATCHPOINT_BOUND
-#   include "clients/watchpoints/policies/bound_state.h"
+#if defined(CLIENT_WATCHPOINT_BOUND) \
+ || defined(CLIENT_WATCHPOINT_LEAK)
+#   include "clients/watchpoints/state.h"
 #endif
-
-
-/// Leak detector policy.
-#ifdef CLIENT_WATCHPOINT_LEAK
-#   include "clients/watchpoints/policies/leak_detector/state.h"
-#endif
-
-
 
 namespace client {
 

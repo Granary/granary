@@ -11,44 +11,44 @@
 
 /// Null policy.
 #ifdef CLIENT_NULL
-#   include "clients/null_policy.h"
+#   include "clients/null/instrument.h"
 #endif
 
 
 /// Entry policy.
 #ifdef CLIENT_ENTRY
-#   include "clients/entry_policy.h"
+#   include "clients/track_entry_exit/instrument.h"
 #endif
 
 
 /// Null policy.
 #ifdef CLIENT_WATCHPOINT_NULL
-#   include "clients/watchpoints/policies/null_policy.h"
+#   include "clients/watchpoints/clients/null/instrument.h"
 #endif
 
 
 /// Null and watched watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_WATCHED
-#   include "clients/watchpoints/policies/watched_policy.h"
+#   include "clients/watchpoints/clients/everything_watched/instrument.h"
 #endif
 
 
 /// Bounds checking watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_BOUND
-#   include "clients/watchpoints/policies/bound_policy.h"
+#   include "clients/watchpoints/clients/bounds_checker/instrument.h"
 #endif
 
 
 /// Leak detector watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_LEAK
-#   include "clients/watchpoints/policies/leak_detector/instrument.h"
+#   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
 
 
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY
-#   include "clients/null_policy.h"
+#   include "clients/null/instrument.h"
 #endif
 
 

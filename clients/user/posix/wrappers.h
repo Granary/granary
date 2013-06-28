@@ -10,17 +10,10 @@
 #define CLIENT_USER_POSIX_WRAPPERS_H_
 
 
-/// Bounds checking watchpoint policy.
-#ifdef CLIENT_WATCHPOINT_BOUND
-#   include "clients/watchpoints/policies/user/posix/bound_wrappers.h"
-#   include "clients/watchpoints/policies/user/posix/wrappers.h"
-#endif
 
-
-/// Bounds checking watchpoint policy.
-#ifdef CLIENT_WATCHPOINT_WATCHED
-#   include "clients/watchpoints/policies/user/posix/watched_wrappers.h"
-#   include "clients/watchpoints/policies/user/posix/wrappers.h"
+#if defined(CLIENT_WATCHPOINT_BOUND) \
+ || defined(CLIENT_WATCHPOINT_WATCHED)
+#   include "clients/watchpoints/kernel/linux/wrappers.h"
 #endif
 
 

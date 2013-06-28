@@ -178,69 +178,73 @@ GR_OBJS += bin/granary/gen/instruction.o
 # Client code dependencies
 ifeq ($(GR_CLIENT),null)
 	GR_CXX_FLAGS += -DCLIENT_NULL
-	GR_OBJS += bin/clients/null_policy.o
+	GR_OBJS += bin/clients/null/instrument.o
 endif
-ifeq ($(GR_CLIENT),entry)
+ifeq ($(GR_CLIENT),track_entry_exit)
 	GR_CXX_FLAGS += -DCLIENT_ENTRY
-	GR_OBJS += bin/clients/entry_policy.o
+	GR_OBJS += bin/clients/track_entry_exit/instrument.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
 	GR_OBJS += bin/clients/watchpoints/instrument.o
-	GR_OBJS += bin/clients/watchpoints/policies/null_policy.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_mov.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_xlat.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_arithmetic.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_string.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_atomic.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_cti.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_push_pop.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_random.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_frame_pointer.o
-	GR_OBJS += bin/clients/watchpoints/tests/x86/test_auto_data.o
-	GR_OBJS += bin/clients/watchpoints/tests/test_auto.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/instrument.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_mov.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_xlat.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_arithmetic.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_string.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_atomic.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_cti.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_push_pop.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_random.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_frame_pointer.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_auto_data.o
+	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_auto.o
 	
 	ifeq ($(KERNEL),1)
-		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 	endif
 endif
-ifeq ($(GR_CLIENT),watchpoint_watched)
+ifeq ($(GR_CLIENT),everything_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
 	GR_OBJS += bin/clients/watchpoints/instrument.o
-	GR_OBJS += bin/clients/watchpoints/policies/watched_policy.o
+	GR_OBJS += bin/clients/watchpoints/clients/everything_watched/instrument.o
 	
 	ifeq ($(KERNEL),1)
-		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
-		GR_OBJS += bin/clients/watchpoints/policies/kernel/linux/watched_policy.o
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
 	else
-		GR_OBJS += bin/clients/watchpoints/policies/user/posix/signal.o
+		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
 	endif
 endif
-ifeq ($(GR_CLIENT),watchpoint_bound)
+ifeq ($(GR_CLIENT),bounds_checker)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/utils.o
-	GR_OBJS += bin/clients/watchpoints/policies/bound_policy.o
-	GR_OBJS += bin/clients/watchpoints/policies/x86/bound_policy.o
+	GR_OBJS += bin/clients/watchpoints/clients/bounds_checker/instrument.o
+	GR_OBJS += bin/clients/watchpoints/clients/bounds_checker/bounds_checkers.o
 	
 	ifeq ($(KERNEL),1)
-		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
 	else
-		GR_OBJS += bin/clients/watchpoints/policies/user/posix/signal.o
+		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
 	endif
 endif
-ifeq ($(GR_CLIENT),watchpoint_leak)
+ifeq ($(GR_CLIENT),leak_detector)
     GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
     GR_OBJS += bin/clients/watchpoints/instrument.o
-    GR_OBJS += bin/clients/watchpoints/policies/x86/leak_policy.o
-    GR_OBJS += bin/clients/watchpoints/policies/leak_detector/instrument.o
-    GR_OBJS += bin/clients/watchpoints/policies/leak_detector/descriptor.o
-    GR_OBJS += bin/clients/watchpoints/policies/leak_detector/thread.o
+    GR_OBJS += bin/clients/watchpoints/clients/leak_detector/access_descriptor.o
+    GR_OBJS += bin/clients/watchpoints/clients/leak_detector/instrument.o
+    GR_OBJS += bin/clients/watchpoints/clients/leak_detector/descriptor.o
+    GR_OBJS += bin/clients/watchpoints/clients/leak_detector/thread.o
     
     ifeq ($(KERNEL),1)
-    	GR_MOD_OBJS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
-    	GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
-    endif
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
+		GR_MOD_OBJS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
+	else
+		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
+	endif
 endif
 
 
@@ -532,17 +536,22 @@ install:
 	@-mkdir bin/granary/gen > /dev/null 2>&1 ||:
 	@-mkdir bin/granary/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/null > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/track_entry_exit > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/cfg > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/x86 > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/leak_detector > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/leak_detector/x86 > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/user > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/user/posix > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/kernel > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/policies/kernel/linux > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/tests > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/tests/x86 > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/user > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/user/posix > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/kernel > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/kernel/linux > /dev/null 2>&1 ||
+	@-mkdir bin/clients/watchpoints/clients/null/ > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/bounds_checker > /dev/null 2>&1 ||:
+	
 	@-mkdir bin/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/deps > /dev/null 2>&1 ||:
 	@-mkdir bin/deps/icxxabi > /dev/null 2>&1 ||:
