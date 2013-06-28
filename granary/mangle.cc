@@ -274,7 +274,7 @@ namespace granary {
             // Make sure all other registers appear live.
             tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
 
-            tail_policy.instrument(cpu, thread, *bb, tail_bb);
+            tail_policy.instrument(cpu, *bb, tail_bb);
             mangle(tail_bb);
         }
 
@@ -771,15 +771,14 @@ namespace granary {
 
         // Notify Granary that we're entering!
         cpu_state_handle cpu;
-        thread_state_handle thread;
-        granary::enter(cpu, thread);
+        granary::enter(cpu);
 
         // Get an address into the target basic block using two stage lookup.
         app_pc target_pc(
             cpu->code_cache.find(context->target_address.as_address));
 
         if(!target_pc) {
-            target_pc = code_cache::find(cpu, thread, context->target_address);
+            target_pc = code_cache::find(cpu, context->target_address);
         }
 
         ASSERT(is_code_cache_address(context->return_address_into_patch_tail));
@@ -1661,12 +1660,10 @@ namespace granary {
     /// Constructor
     instruction_list_mangler::instruction_list_mangler(
         cpu_state_handle &cpu_,
-        thread_state_handle &thread_,
         basic_block_state *bb_,
         instrumentation_policy &policy_
     ) throw()
         : cpu(cpu_)
-        , thread(thread_)
         , bb(bb_)
         , policy(policy_)
         , ls(nullptr)

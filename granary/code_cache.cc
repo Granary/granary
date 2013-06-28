@@ -92,7 +92,6 @@ namespace granary {
     /// the code cache.
     app_pc code_cache::find(
         cpu_state_handle &cpu,
-        thread_state_handle &thread,
         mangled_address addr
     ) throw() {
         IF_PERF( perf::visit_address_lookup(); )
@@ -177,7 +176,7 @@ namespace granary {
         if(!target_addr) {
 
             basic_block bb(basic_block::translate(
-                base_policy, cpu, thread, app_target_addr));
+                base_policy, cpu, app_target_addr));
             target_addr = bb.cache_pc_start;
             created_bb = true;
 
@@ -240,7 +239,7 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(cpu_state_handle &, thread_state_handle &, mangled_address))
+        (app_pc (*)(cpu_state_handle &, mangled_address))
             code_cache::find)
 
 

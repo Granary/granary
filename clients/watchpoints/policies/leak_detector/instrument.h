@@ -66,7 +66,6 @@ namespace client {
     struct leak_policy_enter : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -78,7 +77,6 @@ namespace client {
     struct leak_policy_exit : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -90,7 +88,6 @@ namespace client {
     struct leak_policy_continue : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();

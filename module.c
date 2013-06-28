@@ -69,6 +69,33 @@ void **kernel_get_cpu_state(void *ptr[]) {
 }
 
 
+/// Get access to the per-thread Granary state.
+__attribute__((hot))
+void *kernel_get_thread_state(uint64_t stack_ptr, unsigned aligned_size) {
+
+    enum {
+        STACK_CANARY = 0xABADC0DAEA75BEEFULL
+    };
+
+
+    uint64_t *canary_ptr = NULL;
+    void *state = NULL;
+
+    stack_ptr &= -THREAD_SIZE;
+    stack_ptr += sizeof(struct thread_info) + sizeof(uint64_t);
+    canary_ptr = (uint64_t *) (stack_ptr + aligned_size + sizeof(uint64_t));
+    state = (void *) stack_ptr;
+
+    // Initialise the thread-private state.
+    if(STACK_CANARY != *canary_ptr) {
+        memset(state, 0, aligned_size);
+        *canary_ptr = STACK_CANARY;
+    }
+
+    return state;
+}
+
+
 /// Run a function on each CPU.
 void kernel_run_on_each_cpu(void (*func)(void *), void *thunk) {
     on_each_cpu(func, thunk, 1);

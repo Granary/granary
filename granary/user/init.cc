@@ -6,7 +6,6 @@
  *      Author: pag
  */
 
-#include "granary/init.h"
 #include "granary/globals.h"
 #include "granary/state.h"
 

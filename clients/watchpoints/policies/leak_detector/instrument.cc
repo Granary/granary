@@ -183,12 +183,11 @@ namespace client {
     /// Entry basic block.
     granary::instrumentation_policy leak_policy_enter::visit_app_instructions(
         granary::cpu_state_handle &cpu,
-        granary::thread_state_handle &thread,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
         using namespace granary;
-        leak_policy_exit::visit_app_instructions(cpu, thread, bb, ls);
+        leak_policy_exit::visit_app_instructions(cpu, bb, ls);
         instrument_entry_to_code_cache(ls);
         return granary::policy_for<leak_policy_exit>();
     }
@@ -197,7 +196,6 @@ namespace client {
     /// Basic blocks within the entry function.
     granary::instrumentation_policy leak_policy_exit::visit_app_instructions(
         granary::cpu_state_handle &cpu,
-        granary::thread_state_handle &thread,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
@@ -212,7 +210,7 @@ namespace client {
             }
         }
 
-        watchpoint_leak_policy::visit_app_instructions(cpu, thread, bb, ls);
+        watchpoint_leak_policy::visit_app_instructions(cpu, bb, ls);
         return granary::policy_for<leak_policy_exit>();
     }
 
@@ -220,11 +218,10 @@ namespace client {
     /// Internal code.
     granary::instrumentation_policy leak_policy_continue::visit_app_instructions(
         granary::cpu_state_handle &cpu,
-        granary::thread_state_handle &thread,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
-        watchpoint_leak_policy::visit_app_instructions(cpu, thread, bb, ls);
+        watchpoint_leak_policy::visit_app_instructions(cpu, bb, ls);
         return granary::policy_for<leak_policy_continue>();
     }
 }

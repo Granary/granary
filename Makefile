@@ -129,7 +129,7 @@ endif
 
 GR_CXX_FLAGS += $(GR_CXX_STD)
 GR_OBJS = 
-GR_MODS =
+GR_MOD_OBJS =
 
 # DynamoRIO dependencies
 GR_OBJS += bin/deps/dr/dcontext.o
@@ -219,13 +219,13 @@ endif
 ifeq ($(GR_CLIENT),watchpoint_bound)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
 	GR_OBJS += bin/clients/watchpoints/instrument.o
+	GR_OBJS += bin/clients/watchpoints/utils.o
 	GR_OBJS += bin/clients/watchpoints/policies/bound_policy.o
 	GR_OBJS += bin/clients/watchpoints/policies/x86/bound_policy.o
 	
 	ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
 	else
-		GR_OBJS += bin/clients/watchpoints/policies/user/posix/bound_policy.o
 		GR_OBJS += bin/clients/watchpoints/policies/user/posix/signal.o
 	endif
 endif
@@ -238,7 +238,7 @@ ifeq ($(GR_CLIENT),watchpoint_leak)
     GR_OBJS += bin/clients/watchpoints/policies/leak_detector/thread.o
     
     ifeq ($(KERNEL),1)
-    	GR_MODS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
+    	GR_MOD_OBJS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
     	GR_OBJS += bin/clients/watchpoints/policies/kernel/interrupt.o
     endif
 endif
@@ -382,7 +382,7 @@ else
 	
 	# Module objects
 	obj-m += $(GR_NAME).o
-	$(GR_NAME)-objs = $(GR_OBJS) $(GR_MODS) module.o
+	$(GR_NAME)-objs = $(GR_OBJS) $(GR_MOD_OBJS) module.o
 	
 	GR_MAKE = make -C $(KERNEL_DIR) M=$(PWD) modules
 	GR_CLEAN = make -C $(KERNEL_DIR) M=$(PWD) clean

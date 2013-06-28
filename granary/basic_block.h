@@ -164,7 +164,6 @@ namespace granary {
 
         typedef void (client_instrumenter)(
             cpu_state_handle &cpu,
-            thread_state_handle &thread,
             basic_block_state *bb,
             instruction_list &ls);
 
@@ -173,7 +172,6 @@ namespace granary {
         static basic_block translate(
             instrumentation_policy policy,
             cpu_state_handle &cpu,
-            thread_state_handle &thread,
             app_pc start_pc
         ) throw();
 

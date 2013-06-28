@@ -351,11 +351,9 @@ namespace granary {
         // We need to delay. After the delay has occurred, we re-issue the
         // interrupt.
         if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
-            // Delay the interrupt.
             isf->instruction_pointer = emit_delayed_interrupt(
                 cpu, isf, vector, delay_begin, delay_end);
 
-            kernel_preempt_enable();
             return INTERRUPT_RETURN;
 
         // We don't need to delay; let the client try to handle the
@@ -366,13 +364,10 @@ namespace granary {
             basic_block_state *bb_state(bb.state());
             instrumentation_policy policy(bb.policy);
 
-            interrupt_handled_state ret(policy.handle_interrupt(
-                cpu, thread, *bb_state, *isf, vector));
+            return policy.handle_interrupt(
+                cpu, thread, *bb_state, *isf, vector);
 
-            kernel_preempt_enable();
-            return ret;
 #else
-            kernel_preempt_enable();
             return INTERRUPT_DEFER;
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
         }
@@ -399,7 +394,6 @@ namespace granary {
         if(delayed_begin <= pc && pc < delayed_end) {
             IF_PERF( perf::visit_recursive_interrupt(); )
             granary_break_on_interrupt(isf, vector, cpu);
-            kernel_preempt_enable();
             return INTERRUPT_IRET;
         }
 
@@ -407,11 +401,9 @@ namespace granary {
         // common interrupt handler. This is really bad.
         if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
             granary_break_on_interrupt(isf, vector, cpu);
-            kernel_preempt_enable();
             return INTERRUPT_DEFER;
         }
 
-        kernel_preempt_enable();
         return INTERRUPT_DEFER;
     }
 
@@ -426,16 +418,12 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        interrupt_handled_state ret(client::handle_kernel_interrupt(
+        return client::handle_kernel_interrupt(
             cpu,
             thread,
             *isf,
-            vector));
-
-        kernel_preempt_enable();
-        return ret;
+            vector);
 #else
-        kernel_preempt_enable();
         return INTERRUPT_DEFER;
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
     }
@@ -447,7 +435,6 @@ namespace granary {
     __attribute__((hot))
     static interrupt_handled_state handle_module_interrupt(
         cpu_state_handle &cpu,
-        thread_state_handle &thread,
         interrupt_stack_frame *isf
     ) throw() {
         granary_break_on_interrupt(isf, VECTOR_PAGE_FAULT, cpu);
@@ -457,9 +444,8 @@ namespace granary {
         policy.force_attach(true);
 
         mangled_address addr(isf->instruction_pointer, policy);
-        isf->instruction_pointer = code_cache::find(cpu, thread, addr);
+        isf->instruction_pointer = code_cache::find(cpu, addr);
 
-        kernel_preempt_enable();
         return INTERRUPT_IRET;
     }
 
@@ -474,23 +460,29 @@ namespace granary {
         kernel_preempt_disable();
 
         cpu_state_handle cpu;
-        thread_state_handle thread;
-        granary::enter(cpu, thread);
+        granary::enter(cpu);
+
+        // Make sure that we can resolve thread-local variables from now on.
+        cpu->stack_pointer = reinterpret_cast<uintptr_t>(isf->stack_pointer);
+        thread_state_handle thread(cpu);
+
         app_pc pc(isf->instruction_pointer);
 
         IF_PERF( perf::visit_interrupt(); )
 
+        interrupt_handled_state ret;
+
         // In the code cache, defer to a client if necessary, otherwise default
         // to deferring to the kernel.
         if(is_code_cache_address(pc)) {
-            return handle_code_cache_interrupt(
+            ret = handle_code_cache_interrupt(
                 cpu, thread, isf, vector);
 
         /// An interrupt in some automatically generated, non-instrumented
         /// code. These interrupts are either ignored (common), or indicate a
         /// very serious concern (uncommon).
         } else if(is_wrapper_address(pc) || is_gencode_address(pc)) {
-            return handle_gencode_interrupt(cpu, isf, vector);
+            ret = handle_gencode_interrupt(cpu, isf, vector);
 
         // App addresses should be marked as non-executable, so we should try
         // to recover. This is an instance where we are likely missing a
@@ -498,17 +490,21 @@ namespace granary {
         } else if(is_app_address(pc)) {
             if(VECTOR_PAGE_FAULT == vector) {
                 IF_PERF( perf::visit_protected_module() );
-                return handle_module_interrupt(cpu, thread, isf);
+                ret = handle_module_interrupt(cpu, isf);
             } else {
-                kernel_preempt_enable();
-                return INTERRUPT_DEFER;
+                ret = INTERRUPT_DEFER;
             }
 
         // Assume it's an interrupt in a host-address location.
         } else {
-            return handle_kernel_interrupt(
-                cpu, thread, isf, vector);
+            ret = handle_kernel_interrupt(cpu, thread, isf, vector);
         }
+
+        // Reset the stack pointer for this CPU.
+        cpu->stack_pointer = 0;
+
+        kernel_preempt_enable();
+        return ret;
     }
 
 

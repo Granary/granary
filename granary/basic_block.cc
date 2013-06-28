@@ -547,7 +547,6 @@ namespace granary {
     basic_block basic_block::translate(
         instrumentation_policy policy,
         cpu_state_handle &cpu,
-        thread_state_handle &thread,
         app_pc start_pc
     ) throw() {
 
@@ -692,7 +691,6 @@ namespace granary {
         // P2's code cache.
         instrumentation_policy client_policy(policy.instrument(
             cpu,
-            thread,
             *block_storage,
             ls));
 
@@ -712,7 +710,7 @@ namespace granary {
         // are mangled to transfer control to the (potentially different) client
         // policy.
         instruction_list_mangler mangler(
-            cpu, thread, block_storage, client_policy);
+            cpu, block_storage, client_policy);
         mangler.mangle(ls);
 
         // Re-calculate the size and re-allocate; if our earlier

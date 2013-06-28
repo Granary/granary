@@ -28,10 +28,11 @@ namespace granary {
     struct cpu_state_handle;
     struct thread_state_handle;
     struct instruction_list_mangler;
+    struct interrupt_stack_frame;
 
 
     /// Notify that we're entering granary.
-    void enter(cpu_state_handle &cpu, thread_state_handle &thread) throw();
+    void enter(cpu_state_handle &cpu) throw();
 
 
     /// A handle on thread state. Implemented differently in the kernel and in
@@ -42,8 +43,16 @@ namespace granary {
 
     public:
 
-        __attribute__((hot))
+
+        /// This constructor must be used when on a native stack.
         thread_state_handle(void) throw();
+
+
+        /// This constructor must be used when accessing Granary from within
+        /// Granary's stack.
+        __attribute__((hot))
+        thread_state_handle(cpu_state_handle) throw();
+
 
         FORCE_INLINE
         thread_state *operator->(void) throw() {
@@ -198,6 +207,11 @@ namespace granary {
 
         /// Spilled registers needed for interrupt delaying.
         IF_KERNEL( uint64_t spill[2]; )
+
+
+        /// Some pointer on the native stack. This is for resolving thread-
+        /// private state, even if we're on a different stack.
+        IF_KERNEL( uintptr_t stack_pointer; )
 
 
         /// The code cache allocator for this CPU.

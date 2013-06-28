@@ -66,7 +66,6 @@ namespace client {
     /// Instruction a basic block.
     granary::instrumentation_policy entry_block_policy::visit_app_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &ls
     ) throw() {
@@ -91,7 +90,6 @@ namespace client {
     /// `internal_code_policy` policy.
     granary::instrumentation_policy entry_code_policy::visit_app_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &ls
     ) throw() {
@@ -114,7 +112,6 @@ namespace client {
     /// policy.
     granary::instrumentation_policy internal_code_policy::visit_app_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -125,7 +122,6 @@ namespace client {
     /// Instrument a basic block of host code.
     granary::instrumentation_policy entry_block_policy::visit_host_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -135,7 +131,6 @@ namespace client {
 
     granary::instrumentation_policy entry_code_policy::visit_host_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -145,7 +140,6 @@ namespace client {
 
     granary::instrumentation_policy internal_code_policy::visit_host_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {

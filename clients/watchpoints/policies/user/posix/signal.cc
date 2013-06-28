@@ -36,14 +36,13 @@ namespace client { namespace wp {
         policy.force_attach(true);
 
         cpu_state_handle cpu;
-        thread_state_handle thread;
         ucontext *context = unsafe_cast<ucontext *>(context_);
         app_pc faulted_addr(unsafe_cast<app_pc>(
             context->uc_mcontext.gregs[REG_RIP]));
         mangled_address target(faulted_addr, policy);
 
         context->uc_mcontext.gregs[REG_RIP] = reinterpret_cast<uintptr_t>(
-            code_cache::find(cpu, thread, target));
+            code_cache::find(cpu, target));
     }
 
 

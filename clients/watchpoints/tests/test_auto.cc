@@ -151,8 +151,7 @@ namespace test {
             instrumentation_policy policy = \
                 policy_for<client::watchpoint_null_policy>();
             cpu_state_handle cpu;
-            thread_state_handle thread;
-            policy.instrument(cpu, thread, fake_bb_state, ls);
+            policy.instrument(cpu, fake_bb_state, ls);
         }
 
         // Initialise the desired machine state from the registers. This is
@@ -540,10 +539,9 @@ namespace test {
         app_pc exec_code(global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>(PAGE_SIZE));
         cpu_state_handle cpu;
-        thread_state_handle thread;
 
         for(; pc < end; ) {
-            granary::enter(cpu, thread);
+            granary::enter(cpu);
             test_instruction(instruction::decode(&pc), exec_code);
         }
     }

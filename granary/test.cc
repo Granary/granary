@@ -45,7 +45,6 @@ namespace granary {
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_app_instructions(
         cpu_state_handle &,
-        thread_state_handle &,
         basic_block_state &,
         instruction_list &
     ) throw() {
@@ -56,7 +55,6 @@ namespace granary {
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_host_instructions(
         cpu_state_handle &,
-        thread_state_handle &,
         basic_block_state &,
         instruction_list &
     ) throw() {

@@ -47,11 +47,10 @@ namespace granary {
             IF_KERNEL( kernel_preempt_disable(); )
 
             cpu_state_handle cpu;
-            thread_state_handle thread;
 
-            enter(cpu, thread);
+            enter(cpu);
 
-            app_pc ret(find(cpu, thread, addr));
+            app_pc ret(find(cpu, addr));
 
             IF_KERNEL( kernel_preempt_enable(); )
 
@@ -72,12 +71,10 @@ namespace granary {
             IF_KERNEL( kernel_preempt_disable(); )
 
             cpu_state_handle cpu;
-            thread_state_handle thread;
-
-            enter(cpu, thread);
+            enter(cpu);
 
             mangled_address mangled_addr(addr, policy);
-            app_pc ret(find(cpu, thread, mangled_addr));
+            app_pc ret(find(cpu, mangled_addr));
 
             IF_KERNEL( kernel_preempt_enable(); )
             IF_KERNEL( granary_store_flags(flags); )
@@ -89,7 +86,6 @@ namespace granary {
         __attribute__((hot))
         static app_pc find(
             cpu_state_handle &cpu,
-            thread_state_handle &thread,
             mangled_address addr
         ) throw();
 

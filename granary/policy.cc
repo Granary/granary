@@ -112,7 +112,6 @@ namespace granary {
         /// Instruction a basic block.
         static instrumentation_policy visit_app_instructions(
             cpu_state_handle &,
-            thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw() {
@@ -123,7 +122,6 @@ namespace granary {
         /// Instruction a basic block.
         static instrumentation_policy visit_host_instructions(
             cpu_state_handle &,
-            thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw() {
@@ -149,7 +147,6 @@ namespace granary {
     /// Function called when a policy is missing (i.e. hasn't been initialised).
     instrumentation_policy instrumentation_policy::missing_policy(
         cpu_state_handle &,
-        thread_state_handle &,
         basic_block_state &,
         instruction_list &
     ) throw() {

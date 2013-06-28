@@ -26,6 +26,15 @@ namespace granary {
     }
 
 
+    thread_state_handle::thread_state_handle(cpu_state_handle) throw()
+        : state(THREAD_STATE)
+    {
+        if(!state) {
+            state = THREAD_STATE = new thread_state;
+        }
+    }
+
+
     cpu_state_handle::cpu_state_handle(void) throw()
         : state(CPU_STATE)
     {

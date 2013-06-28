@@ -18,7 +18,7 @@ namespace client {
     /// the interrupt.
     interrupt_handled_state handle_kernel_interrupt(
         cpu_state_handle &cpu,
-        thread_state_handle &thread,
+        thread_state_handle &,
         interrupt_stack_frame &isf,
         interrupt_vector vector
     ) throw() {
@@ -30,7 +30,7 @@ namespace client {
 
             mangled_address target(isf.instruction_pointer, policy);
 
-            isf.instruction_pointer = code_cache::find(cpu, thread, target);
+            isf.instruction_pointer = code_cache::find(cpu, target);
             return INTERRUPT_IRET;
         }
         return INTERRUPT_DEFER;

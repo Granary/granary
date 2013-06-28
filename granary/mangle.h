@@ -31,7 +31,6 @@ namespace granary {
         friend struct code_cache;
 
         cpu_state_handle cpu;
-        thread_state_handle thread;
         basic_block_state *bb;
         const instrumentation_policy policy;
         instruction_list *ls;
@@ -181,7 +180,6 @@ namespace granary {
 
         instruction_list_mangler(
             cpu_state_handle &cpu_,
-            thread_state_handle &thread_,
             basic_block_state *bb_,
             instrumentation_policy &policy_
         ) throw();

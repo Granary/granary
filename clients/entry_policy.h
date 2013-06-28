@@ -29,7 +29,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -38,7 +37,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -71,7 +69,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -80,7 +77,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -113,7 +109,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -122,7 +117,6 @@ namespace client {
         /// Instrument a basic block.
         static granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();

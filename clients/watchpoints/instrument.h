@@ -644,7 +644,6 @@ namespace client {
         /// Visit app instructions (module, user program)
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &,
-            granary::thread_state_handle &,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -655,7 +654,6 @@ namespace client {
         /// Visit host instructions (module, user program)
         static granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle &,
-            granary::thread_state_handle &,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {

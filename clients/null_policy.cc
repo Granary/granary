@@ -13,7 +13,6 @@ namespace client {
     /// Instruction a basic block.
     granary::instrumentation_policy null_policy::visit_app_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -24,7 +23,6 @@ namespace client {
     /// Instruction a basic block.
     granary::instrumentation_policy null_policy::visit_host_instructions(
         granary::cpu_state_handle &,
-        granary::thread_state_handle &,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {

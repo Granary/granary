@@ -52,7 +52,6 @@ namespace granary {
 
         typedef instrumentation_policy (*basic_block_visitor)(
             cpu_state_handle &cpu,
-            thread_state_handle &thread,
             basic_block_state &bb,
             instruction_list &ls
         );
@@ -165,7 +164,6 @@ namespace granary {
         /// invoked if execution somehow enters into an invalid policy.
         static instrumentation_policy missing_policy(
             cpu_state_handle &,
-            thread_state_handle &,
             basic_block_state &,
             instruction_list &
         ) throw();
@@ -193,7 +191,6 @@ namespace granary {
         /// Invoke client code instrumentation.
         inline instrumentation_policy instrument(
             cpu_state_handle &cpu,
-            thread_state_handle &thread,
             basic_block_state &bb,
             instruction_list &ls
         ) const throw() {
@@ -206,10 +203,10 @@ namespace granary {
             }
 
             if(!visitor) {
-                return missing_policy(cpu, thread, bb, ls);
+                return missing_policy(cpu, bb, ls);
             }
 
-            return (visitor)(cpu, thread, bb, ls);
+            return (visitor)(cpu, bb, ls);
         }
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT

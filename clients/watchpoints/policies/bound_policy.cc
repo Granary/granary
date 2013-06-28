@@ -6,21 +6,12 @@
  *      Author: Peter Goodman
  */
 
+
+#include "clients/watchpoints/utils.h"
 #include "clients/watchpoints/policies/bound_policy.h"
 
+
 using namespace granary;
-
-/// Should we add any watchpoints?
-#define ENABLE_WATCHPOINTS 1
-
-/// Should we enable descriptors?
-#define ENABLE_DESCRIPTORS 1
-
-/// Should we add in a call to the bounds checker?
-#define ENABLE_INSTRUMENTATION 1
-
-/// Should we try to store descriptors on a free list?
-#define ENABLE_FREE_LIST 1
 
 
 namespace client { namespace wp {
@@ -67,50 +58,6 @@ namespace client { namespace wp {
     };
 
 
-    /// Register-specific (generated) functions to do bounds checking.
-    static unsigned REG_TO_INDEX[] = {
-        ~0U,    // null
-        0,      // rax
-        1,      // rcx
-        2,      // rdx
-        3,      // rbx
-        ~0U,    // rsp
-        4,      // rbp
-        5,      // rsi
-        6,      // rdi
-        7,      // r8
-        8,      // r9
-        9,      // r10
-        10,     // r11
-        11,     // r12
-        12,     // r13
-        13,     // r14
-        14      // r15
-    };
-
-
-    /// Size to index.
-    static unsigned SIZE_TO_INDEX[] = {
-        ~0U,
-        0,      // 1
-        1,      // 2
-        ~3U,
-        2,      // 4
-        ~5U,
-        ~6U,
-        ~7U,
-        3,      // 8
-        ~8U,
-        ~9U,
-        ~10U,
-        ~11U,
-        ~12U,
-        ~13U,
-        ~14U,
-        4       // 16
-    };
-
-
     /// Configuration for bound descriptors.
     struct descriptor_allocator_config {
         enum {
@@ -134,6 +81,7 @@ namespace client { namespace wp {
     STATIC_INITIALISE({
         DESCRIPTOR_ALLOCATOR.construct();
     })
+
 
     /// Pointers to the descriptors.
     ///
@@ -233,9 +181,7 @@ namespace client { namespace wp {
         ASSERT(index == desc->my_index);
 
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
-        IF_KERNEL( cpu_state_handle state; )
-        IF_USER( thread_state_handle state; )
-
+        cpu_state_handle state;
         bound_descriptor *&free_list(state->free_list);
 
         if(free_list) {
@@ -255,8 +201,8 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-        const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
-        const unsigned size_index(SIZE_TO_INDEX[tracker.sizes[i]]);
+        const unsigned reg_index(register_to_index(tracker.regs[i].value.reg));
+        const unsigned size_index(operand_size_order(tracker.sizes[i]));
 
         ASSERT(reg_index < 16);
         ASSERT(size_index < 5);

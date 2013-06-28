@@ -11,7 +11,15 @@
 #include "granary/state.h"
 
 extern "C" {
+
+
+    /// Get access to the CPU-private state.
     extern granary::cpu_state **kernel_get_cpu_state(granary::cpu_state *[]);
+
+
+    /// Get access to the thread-private state.
+    extern granary::thread_state *kernel_get_thread_state(uintptr_t, unsigned);
+
     extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
 }
 
@@ -48,8 +56,18 @@ namespace granary {
     }
 
 
-    /// Gets a handle to the current thread state.
+    /// This constructor must be used when accessing Granary from within
+    /// Granary's stack.
+    thread_state_handle::thread_state_handle(cpu_state_handle cpu) throw()
+        : state(kernel_get_thread_state(cpu->stack_pointer, sizeof(thread_state)))
+    { }
+
+
+    /// This constructor must be used when on a native stack.
     thread_state_handle::thread_state_handle(void) throw()
-        : state(nullptr)
+        : state(kernel_get_thread_state(
+              reinterpret_cast<uintptr_t>(&state),
+              sizeof(thread_state)
+          ))
     { }
 }
