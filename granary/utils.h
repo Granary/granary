@@ -342,7 +342,7 @@ namespace granary {
     public:
         FORCE_INLINE
         static void apply(T0 &value, Types&... values) throw() {
-            Operator::apply(value);
+            Operator::template apply<T0>(value);
             apply_to_values<Operator, Types...>::apply(values...);
         }
     };
@@ -352,7 +352,7 @@ namespace granary {
     public:
         FORCE_INLINE
         static void apply(T0 &value) throw() {
-            Operator::apply(value);
+            Operator::template apply<T0>(value);
         }
     };
 
