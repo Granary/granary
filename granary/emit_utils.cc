@@ -42,7 +42,18 @@ namespace granary {
                 instruction in;
 
                 in = instruction::decode(&bb);
-                used_regs.kill(in);
+
+                // Only kill those registers killed by the instructions in the
+                // function.
+                register_manager regs_killed_by_in;
+                regs_killed_by_in.visit_dests(in);
+                for(;;) {
+                    dynamorio::reg_id_t dead_reg(regs_killed_by_in.get_zombie());
+                    if(!dead_reg) {
+                        break;
+                    }
+                    used_regs.kill(dead_reg);
+                }
 
                 // done processing this basic block
                 if(dynamorio::OP_ret == in.op_code()) {

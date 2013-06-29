@@ -784,8 +784,11 @@ namespace granary {
         info->policy_bits = policy.encode();
         info->generating_num_bytes = byte_len;
         info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
-        info->rel_state_addr = reinterpret_cast<int64_t>(info) \
-                             - reinterpret_cast<int64_t>(block_storage);
+
+        basic_block_state_address state_addr;
+        state_addr.state_addr = block_storage;
+
+        info->state_addr_low_32 = state_addr.low;
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);

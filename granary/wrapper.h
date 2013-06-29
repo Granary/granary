@@ -138,6 +138,13 @@ namespace granary {
     };
 
 
+    template <typename R, typename... Args>
+    struct referenced<R (*)(Args...)> {
+    public:
+        typedef R (*&type)(Args...);
+    };
+
+
     enum {
         PRE_WRAP_MASK       = (1 << 0),
         POST_WRAP_MASK      = (1 << 1),
