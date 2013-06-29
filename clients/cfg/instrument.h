@@ -40,7 +40,7 @@ namespace client {
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        granary::interrupt_handled_state handle_interrupt(
+        static granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle &,
             granary::thread_state_handle &,
             granary::basic_block_state &bb,
@@ -72,7 +72,7 @@ namespace client {
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        granary::interrupt_handled_state handle_interrupt(
+        static granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle &,
             granary::thread_state_handle &,
             granary::basic_block_state &bb,

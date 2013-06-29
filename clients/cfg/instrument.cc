@@ -215,7 +215,6 @@ namespace client {
 
                 // Direct call.
                 if(dynamorio::opnd_is_pc(target)) {
-
                     if(is_app_address(target.value.pc)) {
                         add_event_call(ls, in, EVENT_CALL_APP, &bb);
                     } else {
