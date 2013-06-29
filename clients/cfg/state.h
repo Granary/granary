@@ -45,16 +45,24 @@ namespace client {
         /// Number of times this basic block was executed.
         unsigned num_executions;
 
+        /// Function ID of this basic block.
+        unsigned function_id;
+
+        /// Basic blocks within the same function that lead to this basic block.
+        basic_block_state *local_sources[3];
+
         /// Is this basic block an entry/exit basic block for a function?
         bool is_function_entry;
         bool is_function_exit;
+        bool is_function_exit_jmp;
     };
 
 
     /// State that is automatically maintained for each thread.
     struct thread_state {
 
-        /// The most recently executed basic block.
+        /// The most recently executed basic block. This is used for
+        /// constructing various intra-procedural control-flow graphs.
         client::basic_block_state *last_executed_basic_block;
     };
 }

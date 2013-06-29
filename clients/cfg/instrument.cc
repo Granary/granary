@@ -233,6 +233,8 @@ namespace client {
             // Returning from a function.
             } else if(in.is_return()) {
 
+                bb.is_function_exit = true;
+
                 in = ls.insert_before(in, label_());
                 add_event_call(ls, in, EVENT_EXIT_FUNCTION, &bb);
 
@@ -263,16 +265,22 @@ namespace client {
     }
 
 
+    static std::atomic<unsigned> FUNCTION_ID = ATOMIC_VAR_INIT(0);
+
+
     granary::instrumentation_policy cfg_entry_policy::visit_app_instructions(
         granary::cpu_state_handle &,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
         instrument_basic_block(bb, ls);
+        bb.is_function_entry = true;
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
         add_event_call(ls, in, EVENT_ENTER_FUNCTION, &bb);
+
+        bb.function_id = FUNCTION_ID.fetch_add(1);
 
         return policy_for<cfg_exit_policy>();
     }
@@ -284,6 +292,7 @@ namespace client {
         granary::instruction_list &ls
     ) throw() {
         instrument_basic_block(bb, ls);
+        bb.is_function_entry = false;
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
