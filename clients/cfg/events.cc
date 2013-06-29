@@ -40,6 +40,30 @@ namespace client {
         // Propagate the function ID.
         bb->function_id = last_bb->function_id;
         bb->num_executions += 1;
+
+        bb->update_lock.acquire();
+        bool updated(false);
+        for(unsigned i(0); i < basic_block_state::NUM_INCOMING_EDGES; ++i) {
+
+            // Already connected this basic block to its predecessor.
+            if(bb->local_incoming[i] == last_bb) {
+                updated = true;
+                break;
+            }
+
+            // Found a slot.
+            if(!bb->local_incoming[i]) {
+                bb->local_incoming[i] = last_bb;
+                updated = true;
+                break;
+            }
+        }
+
+        if(!updated) {
+            granary_break_on_fault();
+        }
+
+        bb->update_lock.release();
     }
 
 

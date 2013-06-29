@@ -13,6 +13,7 @@
 #define CLIENT_thread_state
 
 #include "granary/register.h"
+#include "granary/smp/spin_lock.h"
 
 namespace client {
 
@@ -21,6 +22,10 @@ namespace client {
     /// basic block.
     struct basic_block_state {
     public:
+
+        /// Used to chain all constructed basic blocks together for later
+        /// iterating / dumping.
+        basic_block_state *next;
 
         /// Conservative set of live registers on entry to this basic block.
         granary::register_manager entry_regs;
@@ -48,8 +53,15 @@ namespace client {
         /// Function ID of this basic block.
         unsigned function_id;
 
+        enum {
+            NUM_INCOMING_EDGES = 3
+        };
+
         /// Basic blocks within the same function that lead to this basic block.
-        basic_block_state *local_sources[3];
+        basic_block_state *local_incoming[NUM_INCOMING_EDGES];
+
+        /// Lock that is acquired when updating the graph from this block.
+        granary::smp::atomic_spin_lock update_lock;
 
         /// Is this basic block an entry/exit basic block for a function?
         bool is_function_entry;

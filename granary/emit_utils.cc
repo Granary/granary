@@ -16,6 +16,8 @@ namespace granary {
 
     /// Traverse through the instruction control-flow graph and look for used
     /// registers.
+    ///
+    /// Note: This will recursively follow through direct function calls.
     register_manager find_used_regs_in_func(app_pc func) throw() {
         register_manager used_regs;
         list<app_pc> process_bbs;
