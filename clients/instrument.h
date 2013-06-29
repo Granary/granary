@@ -15,6 +15,12 @@
 #endif
 
 
+/// Control-flow graph building policy.
+#ifdef CLIENT_CFG
+#   include "clients/cfg/instrument.h"
+#endif
+
+
 /// Entry policy.
 #ifdef CLIENT_ENTRY
 #   include "clients/track_entry_exit/instrument.h"

@@ -20,6 +20,7 @@ namespace client {
     /// State that is automatically maintained for each instrumented basic
     /// basic block.
     struct basic_block_state {
+    public:
 
         /// Conservative set of live registers on entry to this basic block.
         granary::register_manager entry_regs;
@@ -33,21 +34,20 @@ namespace client {
         /// Name of the module being instrumented.
         const char *app_name;
 
-
         /// Offset within that module's `.text` section.
         unsigned app_offset_begin;
         unsigned app_offset_end;
-#endif
 
-        /// Is this basic block an entry/exit basic block for a function?
-        bool is_function_entry;
-        bool is_function_exit;
+        /// Number of times this basic block was interrupted.
+        unsigned num_interrupts;
+#endif
 
         /// Number of times this basic block was executed.
         unsigned num_executions;
 
-        /// Number of times this basic block was interrupted.
-        unsigned num_interrupts;
+        /// Is this basic block an entry/exit basic block for a function?
+        bool is_function_entry;
+        bool is_function_exit;
     };
 
 
@@ -55,7 +55,7 @@ namespace client {
     struct thread_state {
 
         /// The most recently executed basic block.
-        granary::basic_block_state *last_executed_basic_block;
+        client::basic_block_state *last_executed_basic_block;
     };
 }
 

@@ -185,7 +185,7 @@ ifeq ($(GR_CLIENT),track_entry_exit)
 	GR_OBJS += bin/clients/track_entry_exit/instrument.o
 endif
 ifeq ($(GR_CLIENT),cfg)
-	GR_CXX_FLAGS += -DCLIENT_NULL
+	GR_CXX_FLAGS += -DCLIENT_CFG
 	GR_OBJS += bin/clients/cfg/instrument.o
 	GR_OBJS += bin/clients/cfg/events.o
 endif

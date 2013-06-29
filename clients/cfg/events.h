@@ -18,6 +18,10 @@ namespace client {
     void event_enter_function(granary::basic_block_state *) throw();
 
 
+    /// Invoked when we enter into a basic block targeted by a CALL instruction.
+    void event_exit_function(granary::basic_block_state *) throw();
+
+
     /// Invoked when we enter into a basic block that is not targeted by a CALL
     /// instruction.
     void event_enter_basic_block(granary::basic_block_state *) throw();

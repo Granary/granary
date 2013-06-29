@@ -18,65 +18,81 @@
 
 namespace client {
 
-
-    /// Initialise the basic block state and add in calls to event handlers.
-    void instrument_basic_block(
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw();
-
-
-    template <typename DerivedPolicy>
-    struct cfg_base_policy : public granary::instrumentation_policy {
+    /// Used to instrument the first basic block of a function.
+    struct cfg_entry_policy : public granary::instrumentation_policy {
     public:
-
 
         enum {
             AUTO_INSTRUMENT_HOST = false
         };
 
-
-        /// Instrument a basic block.
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &,
+            granary::cpu_state_handle &cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
-            using namespace granary;
-            instrument_basic_block(bb, ls);
-            return granary::policy_for<DerivedPolicy>();
-        }
+        ) throw();
 
 
-        /// Instrument a basic block.
         static granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle &,
             granary::basic_block_state &,
             granary::instruction_list &
-        ) throw() {
-            return granary::policy_for<DerivedPolicy>();
-        }
-    };
-
-
-    /// Used to instrument the first basic block of a function.
-    struct cfg_entry_policy : public cfg_base_policy<cfg_entry_policy> {
-        static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls
         ) throw();
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
+            granary::basic_block_state &bb,
+            granary::interrupt_stack_frame &,
+            granary::interrupt_vector
+        ) throw();
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
     };
 
 
     /// Used to instrument all non-entry basic blocks.
-    struct cfg_exit_policy : public cfg_base_policy<cfg_exit_policy> {
+    struct cfg_exit_policy : public granary::instrumentation_policy {
+    public:
+
+        enum {
+            AUTO_INSTRUMENT_HOST = false
+        };
+
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle &cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
+
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle &,
+            granary::basic_block_state &,
+            granary::instruction_list &
+        ) throw();
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle &,
+            granary::thread_state_handle &,
+            granary::basic_block_state &bb,
+            granary::interrupt_stack_frame &,
+            granary::interrupt_vector
+        ) throw();
+#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
     };
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// Handle an interrupt in kernel code. Returns true iff the client handles
+    /// the interrupt.
+    granary::interrupt_handled_state handle_kernel_interrupt(
+        granary::cpu_state_handle &,
+        granary::thread_state_handle &,
+        granary::interrupt_stack_frame &,
+        granary::interrupt_vector
+    ) throw();
+#endif
 }
 
 
