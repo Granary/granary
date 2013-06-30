@@ -34,6 +34,8 @@ namespace client { namespace wp {
             /// with a watchpoint, as opposed to being "dangling".
             bool was_allocated_by_app:1;
 
+            bool is_active:1;
+
         } __attribute__((packed));
 
 
@@ -47,7 +49,7 @@ namespace client { namespace wp {
         ///     `state.set({{was_freed = true}});`
         ///
         /// To set the `was_freed` value.
-        void set(leak_object_state bits_to_set) throw();
+        void set_state(leak_object_state bits_to_set) throw();
 
 
         /// Set one or more of the state values for this object. To use this, do
@@ -56,7 +58,7 @@ namespace client { namespace wp {
         ///     `state.unset({{was_freed = true}});`
         ///
         /// To unset the `was_freed` value.
-        void unset(leak_object_state bits_to_unset) throw();
+        void unset_state(leak_object_state bits_to_unset) throw();
 
     } __attribute__((packed));
 

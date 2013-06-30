@@ -8,7 +8,7 @@
 
 #include "clients/watchpoints/clients/leak_detector/instrument.h"
 
-extern "C" void leak_policy_scanner_init(const unsigned char*, const unsigned char*);
+
 #define DECLARE_DESCRIPTOR_ACCESSOR(reg) \
     extern void CAT(granary_access_descriptor_, reg)(void);
 
@@ -30,6 +30,8 @@ extern "C" void leak_policy_scanner_init(const unsigned char*, const unsigned ch
 
 extern "C" {
     ALL_REGS(DECLARE_DESCRIPTOR_ACCESSORS, DECLARE_DESCRIPTOR_ACCESSOR)
+
+    void leak_policy_scanner_init(granary::app_pc, granary::app_pc);
 }
 
 
@@ -128,6 +130,11 @@ namespace client {
     static granary::app_pc entry_func_addr;
     static granary::app_pc exit_func_addr;
 
+    //callback functions which updates the rootset and
+    static granary::app_pc scan_callback;
+    static granary::app_pc update_rootset_callback;
+
+
     /// Registers used by the code cache entry/exit functions.
     static granary::register_manager entry_func_regs;
     static granary::register_manager exit_func_regs;
@@ -144,6 +151,14 @@ namespace client {
 
         entry_func_regs = find_used_regs_in_func(entry_func_addr);
         exit_func_regs = find_used_regs_in_func(exit_func_addr);
+
+        scan_callback = unsafe_cast<app_pc>(
+                &wp::leak_policy_scan_callback);
+
+        update_rootset_callback = unsafe_cast<app_pc>(
+                &wp::leak_policy_update_rootset);
+
+       	leak_policy_scanner_init(scan_callback, update_rootset_callback);
     }
 
 

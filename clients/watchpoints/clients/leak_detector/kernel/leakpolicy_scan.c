@@ -47,7 +47,7 @@ leakpolicy_scan_thread(void *arg){
        // raw_local_irq_restore(flags);
         preempt_enable();
         set_current_state(TASK_INTERRUPTIBLE);
-        schedule_timeout(10*HZ);
+        schedule_timeout(100*HZ);
     }
 
     set_current_state(TASK_RUNNING);
@@ -76,5 +76,16 @@ leak_policy_scanner_init(const app_pc thread_callback, const app_pc rootset_call
         else
             WARN_ON(1);
     }
+}
+
+
+struct thread_info*
+kernel_current_thread_info(void){
+    return current_thread_info();
+}
+
+struct task_struct*
+kernel_get_current(void){
+    return get_current();
 }
 

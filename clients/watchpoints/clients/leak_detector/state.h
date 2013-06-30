@@ -13,6 +13,7 @@ namespace client {
 
     namespace wp {
         struct leak_detector_descriptor;
+        struct leak_detector_thread_state;
     }
 
 
@@ -23,6 +24,15 @@ namespace client {
         wp::leak_detector_descriptor *free_list;
     };
 
+#   define CLIENT_thread_state
+    /// Extensions to Granary's internal thread-local storage.
+    struct thread_state {
+
+        wp::leak_detector_thread_state *state;
+
+    };
+
 }
+
 
 #endif /* LEAK_DETECTOR_STATE_H_ */

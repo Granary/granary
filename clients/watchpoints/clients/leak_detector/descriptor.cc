@@ -21,7 +21,7 @@ namespace client { namespace wp {
     ///     `state.set({{was_freed = true}});`
     ///
     /// To set the `was_freed` value.
-    void leak_object_state::set(leak_object_state bits_to_set) throw() {
+    void leak_object_state::set_state(leak_object_state bits_to_set) throw() {
         uint8_t old_bits;
         uint8_t new_bits;
         do {
@@ -37,7 +37,7 @@ namespace client { namespace wp {
     ///     `state.unset({{was_freed = true}});`
     ///
     /// To unset the `was_freed` value.
-    void leak_object_state::unset(leak_object_state bits_to_unset) throw() {
+    void leak_object_state::unset_state(leak_object_state bits_to_unset) throw() {
         uint8_t old_bits;
         uint8_t new_bits;
         do {
@@ -90,6 +90,7 @@ namespace client { namespace wp {
     ) throw() {
         counter_index = 0;
         desc = nullptr;
+       // leak_object_state desc_state;
 
         // Try to pull a descriptor off of a CPU-private free list.
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
@@ -123,6 +124,11 @@ namespace client { namespace wp {
         ASSERT(counter_index <= client::wp::MAX_COUNTER_INDEX);
 
         memset(desc, 0, sizeof *desc);
+
+        desc->state.is_active = true;
+
+        //desc_state.is_active = true;
+       // desc->state.set_state(desc_state);
 
         return true;
     }

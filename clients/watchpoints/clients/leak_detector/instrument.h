@@ -51,6 +51,8 @@ namespace client {
             ) throw();
 #endif
         };
+
+      //  bool is_active_watchpoint(void*);
     }
 
 
