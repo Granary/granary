@@ -14,10 +14,14 @@
 using namespace client::wp;
 
 
-/// Bounds checking and leak detector watchpoint policy wrappers.
-#if defined(CLIENT_WATCHPOINT_BOUND) \
- || defined(CLIENT_WATCHPOINT_LEAK)
+/// Bounds checking watchpoint policy wrappers.
+#ifdef CLIENT_WATCHPOINT_BOUND
 #   include "clients/watchpoints/clients/bounds_checker/kernel/linux/wrappers.h"
+#endif
+
+/// Leak detector watchpoint policy wrappers.
+#ifdef CLIENT_WATCHPOINT_LEAK
+#   include "clients/watchpoints/clients/leak_detector/kernel/wrappers.h"
 #endif
 
 

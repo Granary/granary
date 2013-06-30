@@ -30,7 +30,7 @@ def ifdef_name(scoped_name):
         .replace(".", "_")
 
 
-def scan_var(ctype, var_name, O, indent="        "):
+def scan_var(ctype, var_name, O, indent="    "):
   intern_ctype = ctype.base_type()
   if is_buildin_type(intern_ctype):
     O(indent, "SCAN_FUNCTION(", var_name, ");")
@@ -98,14 +98,9 @@ def wrap_struct(ctype):
   O("#ifndef SCANNER_FOR_", ifdef_name(name))
   O("#define SCANNER_FOR_", ifdef_name(name))
   O("TYPE_SCAN_WRAPPER(", name, ", ", "{")
-  O("    SCAN_HEAD{")
-  O("        SCANNER(", name, ");")
-  O("    }")
-  O("    PRE_SCAN {")
-  O("        S(granary::printf( \"",name, "\\n\");)")
-  O("        S(SCAN_OBJECT(arg);)")
+  O("    S(granary::printf( \"",name, "\\n\");)")
+  O("    S(SCAN_OBJECT(arg);)")
   pre_wrap_fields(ctype, O)
-  O("    }")
   O("})")
   O("#endif")
   O("")
@@ -162,15 +157,12 @@ def visit_builtin(ctype):
 
 
 def visit_union(ctype):
-  #print "inside visit union"
   for field_ctype, field_name in ctype.fields():
     visit_type(field_ctype)
 
 
 def visit_struct(ctype):
-  #print "inside visit struct"
   for field_ctype, field_name in ctype.fields():
-    #print field_ctype, field_name
     visit_type(field_ctype)
   
   if ctype.has_name:
@@ -206,7 +198,9 @@ def visit_type(ctype):
 
 
 def visit_type_def(var, ctype):
-	visit_type(ctype)
+  visit_type(ctype)
+  orig_ctype = ctype
+  ctype = orig_ctype.base_type()
 
 
 if "__main__" == __name__:
@@ -219,8 +213,8 @@ if "__main__" == __name__:
     parser.parse(tokens)
 
     OUT("/* Auto-generated scanning functions. */")
-    OUT("#define S(...) ")
+    OUT("#define S(...) __VA_ARGS__ ")
     OUT("")
 
-    for type, ctype in parser.types():
+    for type, ctype in parser.vars():
       	visit_type_def(type, ctype)
