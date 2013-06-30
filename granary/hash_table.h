@@ -312,6 +312,27 @@ namespace granary {
 
             return HASH_ENTRY_SKIPPED != state;
         }
+
+        template <typename... Args>
+        inline void for_each_entry(
+             void (*callback)(K, V, Args&...),
+             Args&... args
+        )throw() {
+            slots_type *slots(table_.entry_slots);
+            const uint32_t num_slots(slots->mask + 1U);
+
+            // traverse each slot entry
+            entry_type *entries(&(slots->entries[0]));
+
+            for(uint32_t i(0); i < num_slots; ++i) {
+                entry_type &entry(entries[i]);
+                if(default_key_ == entry.key) {
+                    continue;
+                }
+
+                callback(entry.key, entry.value, args...);
+            }
+        }
     };
 
 
@@ -684,6 +705,25 @@ namespace granary {
             bool ret(table.store(key, value, update));
             lock.release();
             return ret;
+        }
+
+        inline bool find(
+            K key) throw() {
+            bool flag = false;
+            lock.acquire();
+            flag = table.find(key);
+            lock.release();
+            return flag;
+        }
+
+        template <typename... Args>
+        inline void for_each_entry(
+             void (*callback)(K, V, Args&...),
+             Args&... args
+        )throw() {
+            lock.acquire();
+            table.for_each_entry(callback, args...);
+            lock.release();
         }
     };
 }
