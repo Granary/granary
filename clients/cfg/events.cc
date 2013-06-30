@@ -12,12 +12,13 @@ using namespace granary;
 
 namespace client {
 
+
     /// Invoked when we enter into a basic block targeted by a CALL instruction.
     __attribute__((hot))
     void event_enter_function(basic_block_state *bb) throw() {
         thread_state_handle thread;
         thread->last_executed_basic_block = bb;
-        ++(bb->num_executions);
+        bb->num_executions.fetch_add(1);
     }
 
 
@@ -39,7 +40,7 @@ namespace client {
 
         // Propagate the function ID.
         bb->function_id = last_bb->function_id;
-        bb->num_executions += 1;
+        bb->num_executions.fetch_add(1);
 
         bb->update_lock.acquire();
         bool updated(false);
@@ -58,12 +59,10 @@ namespace client {
                 break;
             }
         }
-
+        bb->update_lock.release();
         if(!updated) {
             granary_break_on_fault();
         }
-
-        bb->update_lock.release();
     }
 
 

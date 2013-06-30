@@ -233,6 +233,27 @@ namespace granary {
         ) throw();
 
 
+        /// Encode the live registers to an integer.
+        ///
+        /// Note: This ignores zombies.
+        inline uint32_t encode(void) throw() {
+            uint32_t regs = live_xmm;
+            regs <<= 16;
+            regs |= live;
+            return regs;
+        }
+
+
+        /// Decode the live registers from an integer.
+        ///
+        /// Note: This ignores zombies.
+        inline void decode(uint32_t bitmask) throw() {
+            undead = 0;
+            undead_xmm = 0;
+            live = bitmask & 0xFF;
+            live_xmm = (bitmask >> 16) & 0xFF;
+        }
+
     private:
 
 

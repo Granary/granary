@@ -21,6 +21,8 @@
 
 #include "granary/kernel/printf.h"
 
+#include "clients/report.h"
+
 #ifdef GRANARY_DONT_INCLUDE_CSTDLIB
 #   undef GRANARY_DONT_INCLUDE_CSTDLIB
 #endif
@@ -108,5 +110,9 @@ extern "C" {
     /// Report on Granary's activities.
     void granary_report(void) {
         IF_PERF( granary::perf::report(); )
+
+#ifdef CLIENT_report
+        client::report();
+#endif
     }
 }

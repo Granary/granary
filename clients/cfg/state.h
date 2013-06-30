@@ -34,8 +34,8 @@ namespace client {
         /// Set of all used registers in this basic block.
         granary::register_manager used_regs;
 
-#if GRANARY_IN_KERNEL
 
+#if GRANARY_IN_KERNEL
         /// Name of the module being instrumented.
         const char *app_name;
 
@@ -44,11 +44,11 @@ namespace client {
         unsigned app_offset_end;
 
         /// Number of times this basic block was interrupted.
-        unsigned num_interrupts;
+        std::atomic<unsigned> num_interrupts;
 #endif
 
         /// Number of times this basic block was executed.
-        unsigned num_executions;
+        std::atomic<unsigned> num_executions;
 
         /// Function ID of this basic block.
         unsigned function_id;
@@ -66,7 +66,6 @@ namespace client {
         /// Is this basic block an entry/exit basic block for a function?
         bool is_function_entry;
         bool is_function_exit;
-        bool is_function_exit_jmp;
     };
 
 

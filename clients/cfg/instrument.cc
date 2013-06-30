@@ -24,6 +24,11 @@ extern "C" {
 namespace client {
 
 
+    /// Used to link together all basic blocks.
+    std::atomic<basic_block_state *> BASIC_BLOCKS = \
+        ATOMIC_VAR_INIT(nullptr);
+
+
     /// Entry point for the return-from-call event handler.
     static app_pc EVENT_RETURN_FROM_CALL = nullptr;
 
@@ -174,6 +179,15 @@ namespace client {
         granary::basic_block_state &bb,
         instruction_list &ls
     ) throw() {
+
+        // Chain the blocks together.
+        basic_block_state *prev(nullptr);
+        basic_block_state *curr(&bb);
+        do {
+            prev = BASIC_BLOCKS.load();
+            curr->next = prev;
+        } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
+
         instruction in(ls.last());
 
         bb.num_executions = 0;
@@ -329,7 +343,7 @@ namespace client {
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {
-        ++(bb.num_interrupts);
+        bb.num_interrupts.fetch_add(1);
         return granary::INTERRUPT_DEFER;
     }
 
@@ -341,7 +355,7 @@ namespace client {
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {
-        ++(bb.num_interrupts);
+        bb.num_interrupts.fetch_add(1);
         return granary::INTERRUPT_DEFER;
     }
 

@@ -188,6 +188,7 @@ ifeq ($(GR_CLIENT),cfg)
 	GR_CXX_FLAGS += -DCLIENT_CFG
 	GR_OBJS += bin/clients/cfg/instrument.o
 	GR_OBJS += bin/clients/cfg/events.o
+	GR_OBJS += bin/clients/cfg/report.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
