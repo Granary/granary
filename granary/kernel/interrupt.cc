@@ -323,7 +323,7 @@ namespace granary {
         DONT_OPTIMISE void granary_break_on_interrupt(
             granary::interrupt_stack_frame *isf,
             interrupt_vector vector,
-            cpu_state_handle &cpu
+            cpu_state_handle cpu
         ) {
             USED(isf);
             USED(vector);
@@ -339,8 +339,8 @@ namespace granary {
     ///     2)  Otherwise, defer to the kernel to handle the interrupt.
     __attribute__((hot))
     static interrupt_handled_state handle_code_cache_interrupt(
-        cpu_state_handle &cpu,
-        thread_state_handle &thread,
+        cpu_state_handle cpu,
+        thread_state_handle thread,
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
@@ -378,7 +378,7 @@ namespace granary {
     /// bad cases.
     __attribute__((hot))
     static interrupt_handled_state handle_gencode_interrupt(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
@@ -412,8 +412,8 @@ namespace granary {
     /// attempts to discover a few error conditions
     __attribute__((hot))
     static interrupt_handled_state handle_kernel_interrupt(
-        cpu_state_handle &cpu,
-        thread_state_handle &thread,
+        cpu_state_handle cpu,
+        thread_state_handle thread,
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
@@ -434,7 +434,7 @@ namespace granary {
     /// as a recovery mechanism from the fault.
     __attribute__((hot))
     static interrupt_handled_state handle_module_interrupt(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         interrupt_stack_frame *isf
     ) throw() {
         granary_break_on_interrupt(isf, VECTOR_PAGE_FAULT, cpu);

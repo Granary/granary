@@ -33,8 +33,8 @@ namespace granary {
             return detail::global_allocate(size);
         }
 
-        static void free(void *val, unsigned) throw() {
-            detail::global_free(val);
+        static void free(void *val, unsigned size) throw() {
+            detail::global_free(val, size);
         }
     };
 

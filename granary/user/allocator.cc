@@ -27,11 +27,13 @@ extern "C" {
         return cpu->transient_allocator.allocate_untyped(16, size);
     }
 
-    void granary_heap_free(void *, void *addr, unsigned long long) {
+    void granary_heap_free(void *, void *addr, unsigned long size) {
 #if CONFIG_PRECISE_ALLOCATE
-        granary::detail::global_free(addr);
+        granary::detail::global_free(addr, size);
+#else
+        UNUSED(addr);
+        UNUSED(size);
 #endif
-        (void) addr;
     }
 
 
@@ -97,13 +99,14 @@ namespace granary { namespace detail {
         return malloc(size);
     }
 
-    void global_free(void *addr) throw() {
+    void global_free(void *addr, unsigned long) throw() {
         free(addr);
     }
 }}
 
-
-#ifdef GRANARY_USE_PIC
+/// TODO: Not sure if these are needed or not in user space anymore, e.g. with
+///       instrumenting a C++ program like clang.
+#if 0 && GRANARY_USE_PIC && !GRANARY_IN_KERNEL
     extern "C" {
         extern void _Znwm(void);
         extern void _Znam(void);
@@ -118,7 +121,6 @@ namespace granary { namespace detail {
     //GRANARY_DETACH_POINT(_ZdaPv) // operator delete[]
 
 #endif
-
 
 /// Add some illegal detach points.
 GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate)

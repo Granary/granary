@@ -116,7 +116,7 @@ endif
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
 	GR_CC_FLAGS += -fdiagnostics-show-option
 	GR_TYPE_CC_FLAGS += -fdiagnostics-show-option
-	GR_CXX_FLAGS += -fdiagnostics-show-option
+	GR_CXX_FLAGS += -fdiagnostics-show-option -fno-check-new
 endif
 
 ifneq (,$(findstring icc,$(GR_CC))) # icc

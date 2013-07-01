@@ -44,7 +44,7 @@ namespace granary {
 
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_app_instructions(
-        cpu_state_handle &,
+        cpu_state_handle,
         basic_block_state &,
         instruction_list &
     ) throw() {
@@ -54,7 +54,7 @@ namespace granary {
 
     /// Instruction a basic block.
     instrumentation_policy test_policy::visit_host_instructions(
-        cpu_state_handle &,
+        cpu_state_handle,
         basic_block_state &,
         instruction_list &
     ) throw() {
@@ -67,8 +67,8 @@ namespace granary {
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
     granary::interrupt_handled_state test_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector

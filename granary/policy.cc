@@ -111,7 +111,7 @@ namespace granary {
 
         /// Instruction a basic block.
         static instrumentation_policy visit_app_instructions(
-            cpu_state_handle &,
+            cpu_state_handle,
             basic_block_state &,
             instruction_list &
         ) throw() {
@@ -121,7 +121,7 @@ namespace granary {
 
         /// Instruction a basic block.
         static instrumentation_policy visit_host_instructions(
-            cpu_state_handle &,
+            cpu_state_handle,
             basic_block_state &,
             instruction_list &
         ) throw() {
@@ -132,8 +132,8 @@ namespace granary {
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
         static granary::interrupt_handled_state handle_interrupt(
-            granary::cpu_state_handle &,
-            granary::thread_state_handle &,
+            granary::cpu_state_handle,
+            granary::thread_state_handle,
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
@@ -146,7 +146,7 @@ namespace granary {
 
     /// Function called when a policy is missing (i.e. hasn't been initialised).
     instrumentation_policy instrumentation_policy::missing_policy(
-        cpu_state_handle &,
+        cpu_state_handle,
         basic_block_state &,
         instruction_list &
     ) throw() {
@@ -160,8 +160,8 @@ namespace granary {
     /// A dummy interrupt visitor. This will be invoked if execution
     /// somehow enters into an invalid policy and is interrupted.
     interrupt_handled_state instrumentation_policy::missing_interrupt(
-        cpu_state_handle &,
-        thread_state_handle &,
+        cpu_state_handle,
+        thread_state_handle,
         basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector

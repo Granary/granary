@@ -23,7 +23,7 @@ extern "C" {
 /// known allocators.
 
 void *granary_heap_alloc(void *, unsigned long long);
-void granary_heap_free(void *, void *, unsigned long long);
+void granary_heap_free(void *, void *, unsigned long);
 void *granary_heap_alloc_temp_instr(void);
 
 #ifdef __cplusplus
@@ -48,36 +48,25 @@ namespace granary {
 
 
         /// Free some globally allocated memory.
-        void global_free(void *addr) throw();
+        void global_free(void *addr, unsigned long) throw();
     }
 
+
+    template <typename T>
+    T *allocate_memory(const unsigned num=1) throw() {
+        const unsigned size(sizeof(T) * num);
+        T *addr(reinterpret_cast<T *>(detail::global_allocate(size)));
+        memset(addr, 0, size);
+        return addr;
+    }
+
+    template <typename T>
+    void free_memory(T *addr, const unsigned num=1) throw() {
+        const unsigned size(sizeof(T) * num);
+        detail::global_free(addr, size);
+    }
 }
 
-
-/// Overload operator new for global heap allocation.
-inline void *operator new(size_t size) throw() {
-    return memset(granary::detail::global_allocate(size), 0, size);
-}
-
-
-/// Overload operator new for global heap allocation.
-inline void *operator new[](size_t size) throw() {
-    return memset(granary::detail::global_allocate(size), 0, size);
-}
-
-
-/// Overload operator delete for global heap freeing.
-inline void operator delete(void *addr) throw() {
-    granary::detail::global_free(addr);
-}
-
-
-/// Overload operator delete for global heap freeing.
-inline void operator delete[](void *addr) throw() {
-    granary::detail::global_free(addr);
-}
-
-#endif
-
+#endif /* __cplusplus */
 
 #endif /* Granary_HEAP_H_ */

@@ -29,10 +29,6 @@ namespace client {
         ATOMIC_VAR_INIT(nullptr);
 
 
-    /// Entry point for the return-from-call event handler.
-    static app_pc EVENT_RETURN_FROM_CALL = nullptr;
-
-
     /// Entry point for the on-enter-function event handler.
     static app_pc EVENT_ENTER_FUNCTION = nullptr;
 
@@ -45,16 +41,8 @@ namespace client {
     static app_pc EVENT_ENTER_BASIC_BLOCK = nullptr;
 
 
-    /// Entry point for the on-indirect-call event handler.
-    static app_pc EVENT_CALL_INDIRECT = nullptr;
-
-
-    /// Entry point for the on-app-call event handler.
-    static app_pc EVENT_CALL_APP = nullptr;
-
-
-    /// Entry point for the on-host-call event handler.
-    static app_pc EVENT_CALL_HOST = nullptr;
+    /// Unique IDs for basic blocks.
+    static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(0);
 
 
     /// Argument registers.
@@ -105,10 +93,6 @@ namespace client {
         EVENT_ENTER_FUNCTION = generate_entry_point(&event_enter_function);
         EVENT_EXIT_FUNCTION = generate_entry_point(&event_exit_function);
         EVENT_ENTER_BASIC_BLOCK = generate_entry_point(&event_enter_basic_block);
-        EVENT_CALL_INDIRECT = generate_entry_point(&event_call_indirect);
-        EVENT_CALL_APP = generate_entry_point(&event_call_app);
-        EVENT_CALL_HOST = generate_entry_point(&event_call_host);
-        EVENT_RETURN_FROM_CALL = generate_entry_point(&event_return_from_call);
     }
 
 
@@ -189,12 +173,14 @@ namespace client {
         } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
 
         instruction in(ls.last());
+        register_manager used_regs;
+        register_manager entry_regs;
 
         bb.num_executions = 0;
         IF_KERNEL( bb.num_interrupts = 0; )
 
-        bb.used_regs.kill_all();
-        bb.entry_regs.kill_all();
+        used_regs.kill_all();
+        entry_regs.kill_all();
 
         IF_KERNEL( app_pc start_pc(nullptr); )
         IF_KERNEL( app_pc end_pc(nullptr); )
@@ -204,8 +190,8 @@ namespace client {
             prev_in = in.prev();
 
             // Track the registers.
-            bb.used_regs.revive(in);
-            bb.entry_regs.visit(in);
+            used_regs.revive(in);
+            entry_regs.visit(in);
 
 #if GRANARY_IN_KERNEL
             // Track the translation so that we can find the offset.
@@ -220,29 +206,10 @@ namespace client {
             // Call, switch into a the entry basic block policy.
             if(in.is_call()) {
 
-                in.set_policy(policy_for<cfg_entry_policy>());
-
-                instruction call_in(in);
-                operand target(in.cti_target());
-
-                in = ls.insert_before(call_in, label_());
-
-                // Direct call.
-                if(dynamorio::opnd_is_pc(target)) {
-                    if(is_app_address(target.value.pc)) {
-                        add_event_call(ls, in, EVENT_CALL_APP, &bb);
-                    } else {
-                        add_event_call(
-                            ls, in, EVENT_CALL_HOST, &bb, target.value.pc);
-                    }
-
-                // Indirect call.
-                } else {
-                    add_event_call(ls, in, EVENT_CALL_INDIRECT, &bb);
-                }
-
-                in = ls.insert_after(call_in, label_());
-                add_event_call(ls, in, EVENT_RETURN_FROM_CALL, &bb);
+                instrumentation_policy target_policy =
+                    policy_for<cfg_entry_policy>();
+                target_policy.force_attach(true);
+                in.set_policy(target_policy);
 
             // Returning from a function.
             } else if(in.is_return()) {
@@ -254,9 +221,16 @@ namespace client {
 
             // Non-call CTI.
             } else if(in.is_cti()) {
-                in.set_policy(policy_for<cfg_exit_policy>());
+                instrumentation_policy target_policy =
+                    policy_for<cfg_exit_policy>();
+                target_policy.force_attach(true);
+                in.set_policy(target_policy);
             }
         }
+
+        bb.block_id = BASIC_BLOCK_ID.fetch_add(1);
+        bb.used_regs = used_regs.encode();
+        bb.entry_regs = entry_regs.encode();
 
 #if GRANARY_IN_KERNEL
         // Record the name and relative offset of the code within the
@@ -267,11 +241,13 @@ namespace client {
             const uintptr_t app_begin(
                 reinterpret_cast<uintptr_t>(module->text_begin));
 
-            bb.app_offset_begin = reinterpret_cast<uintptr_t>(start_pc) \
-                                - app_begin;
+            const uintptr_t start_pc_uint(
+                reinterpret_cast<uintptr_t>(start_pc));
 
-            bb.app_offset_end = reinterpret_cast<uintptr_t>(end_pc) \
-                              - app_begin;
+            bb.app_offset_begin = start_pc_uint - app_begin;
+
+            bb.num_bytes_in_block = reinterpret_cast<uintptr_t>(end_pc) \
+                                  - start_pc_uint;
 
             bb.app_name = module->name;
         }
@@ -279,34 +255,50 @@ namespace client {
     }
 
 
-    static std::atomic<unsigned> FUNCTION_ID = ATOMIC_VAR_INIT(0);
-
-
     granary::instrumentation_policy cfg_entry_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
         instrument_basic_block(bb, ls);
         bb.is_function_entry = true;
+        bb.is_app_code = true;
+        bb.function_id = bb.block_id;
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
         add_event_call(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
-        bb.function_id = FUNCTION_ID.fetch_add(1);
-
         return policy_for<cfg_exit_policy>();
     }
 
 
+    granary::instrumentation_policy cfg_entry_policy::visit_host_instructions(
+        granary::cpu_state_handle,
+        granary::basic_block_state &bb,
+        granary::instruction_list &ls
+    ) throw() {
+        instrument_basic_block(bb, ls);
+        bb.is_function_entry = true;
+        bb.is_app_code = false;
+        bb.function_id = bb.block_id;
+
+        // Add an event handler that executes before the basic block executes.
+        instruction in(ls.insert_before(ls.first(), label_()));
+        add_event_call(ls, in, EVENT_ENTER_FUNCTION, &bb);
+
+        return granary::policy_for<cfg_exit_policy>();
+    }
+
+
     granary::instrumentation_policy cfg_exit_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
         instrument_basic_block(bb, ls);
         bb.is_function_entry = false;
+        bb.is_app_code = true;
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
@@ -316,20 +308,19 @@ namespace client {
     }
 
 
-    granary::instrumentation_policy cfg_entry_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
-        granary::basic_block_state &,
-        granary::instruction_list &
-    ) throw() {
-        return granary::policy_for<cfg_entry_policy>();
-    }
-
-
     granary::instrumentation_policy cfg_exit_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
-        granary::basic_block_state &,
-        granary::instruction_list &
+        granary::cpu_state_handle,
+        granary::basic_block_state &bb,
+        granary::instruction_list &ls
     ) throw() {
+        instrument_basic_block(bb, ls);
+        bb.is_function_entry = false;
+        bb.is_app_code = false;
+
+        // Add an event handler that executes before the basic block executes.
+        instruction in(ls.insert_before(ls.first(), label_()));
+        add_event_call(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
+
         return granary::policy_for<cfg_exit_policy>();
     }
 
@@ -337,8 +328,8 @@ namespace client {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
 
     granary::interrupt_handled_state cfg_entry_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &bb,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -349,8 +340,8 @@ namespace client {
 
 
     granary::interrupt_handled_state cfg_exit_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &bb,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -363,8 +354,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {

@@ -12,7 +12,7 @@ namespace granary {
 
 
     /// Notify that we're entering granary.
-    void enter(cpu_state_handle &cpu) throw() {
+    void enter(cpu_state_handle cpu) throw() {
         cpu->transient_allocator.free_all();
         cpu->instruction_allocator.free_all();
     }

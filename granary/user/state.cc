@@ -21,7 +21,7 @@ namespace granary {
         : state(THREAD_STATE)
     {
         if(!state) {
-            state = THREAD_STATE = new thread_state;
+            state = THREAD_STATE = allocate_memory<thread_state>();
         }
     }
 
@@ -30,7 +30,7 @@ namespace granary {
         : state(THREAD_STATE)
     {
         if(!state) {
-            state = THREAD_STATE = new thread_state;
+            state = THREAD_STATE = allocate_memory<thread_state>();
         }
     }
 
@@ -39,7 +39,7 @@ namespace granary {
         : state(CPU_STATE)
     {
         if(!state) {
-            state = CPU_STATE = new cpu_state;
+            state = CPU_STATE = allocate_memory<cpu_state>();
         }
     }
 

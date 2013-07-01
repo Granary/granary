@@ -12,7 +12,7 @@ namespace client {
 
     /// Instruction a basic block.
     granary::instrumentation_policy null_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -22,7 +22,7 @@ namespace client {
 
     /// Instruction a basic block.
     granary::instrumentation_policy null_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -35,8 +35,8 @@ namespace client {
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
     granary::interrupt_handled_state null_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -48,8 +48,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {

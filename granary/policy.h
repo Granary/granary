@@ -10,13 +10,12 @@
 #define GRANARY_POLICY_H_
 
 #include "granary/globals.h"
+#include "granary/state_handle.h"
 
 namespace granary {
 
 
     /// Forward declarations.
-    struct cpu_state_handle;
-    struct thread_state_handle;
     struct basic_block;
     struct basic_block_state;
     struct instruction_list;
@@ -51,7 +50,7 @@ namespace granary {
 
 
         typedef instrumentation_policy (*basic_block_visitor)(
-            cpu_state_handle &cpu,
+            cpu_state_handle cpu,
             basic_block_state &bb,
             instruction_list &ls
         );
@@ -68,8 +67,8 @@ namespace granary {
 
         /// Type of a client-specific interrupt handler.
         typedef interrupt_handled_state (*interrupt_visitor)(
-            cpu_state_handle &cpu,
-            thread_state_handle &thread,
+            cpu_state_handle cpu,
+            thread_state_handle thread,
             basic_block_state &bb,
             interrupt_stack_frame &isf,
             interrupt_vector vector
@@ -83,8 +82,8 @@ namespace granary {
         /// Dummy interrupt handler. This will be invoked if execution
         /// somehow enters into an invalid policy and is interrupted.
         static interrupt_handled_state missing_interrupt(
-            cpu_state_handle &,
-            thread_state_handle &,
+            cpu_state_handle,
+            thread_state_handle,
             basic_block_state &,
             interrupt_stack_frame &,
             interrupt_vector
@@ -163,7 +162,7 @@ namespace granary {
         /// A dummy basic block visitor that faults if invoked. This will be
         /// invoked if execution somehow enters into an invalid policy.
         static instrumentation_policy missing_policy(
-            cpu_state_handle &,
+            cpu_state_handle,
             basic_block_state &,
             instruction_list &
         ) throw();
@@ -190,7 +189,7 @@ namespace granary {
 
         /// Invoke client code instrumentation.
         inline instrumentation_policy instrument(
-            cpu_state_handle &cpu,
+            cpu_state_handle cpu,
             basic_block_state &bb,
             instruction_list &ls
         ) const throw() {
@@ -212,8 +211,8 @@ namespace granary {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Invoke client code interrupt handler.
         inline interrupt_handled_state handle_interrupt(
-            cpu_state_handle &cpu,
-            thread_state_handle &thread,
+            cpu_state_handle cpu,
+            thread_state_handle thread,
             basic_block_state &bb,
             interrupt_stack_frame &isf,
             interrupt_vector vector

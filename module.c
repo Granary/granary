@@ -77,19 +77,28 @@ void *kernel_get_thread_state(uint64_t stack_ptr, unsigned aligned_size) {
         STACK_CANARY = 0xABADC0DAEA75BEEFULL
     };
 
-
-    uint64_t *canary_ptr = NULL;
+    uint64_t *canary_ptr_bottom = NULL;
+    uint64_t *canary_ptr_top = NULL;
     void *state = NULL;
 
     stack_ptr &= -THREAD_SIZE;
-    stack_ptr += sizeof(struct thread_info) + sizeof(uint64_t);
-    canary_ptr = (uint64_t *) (stack_ptr + aligned_size + sizeof(uint64_t));
+    stack_ptr += sizeof(struct thread_info);
+
+    canary_ptr_bottom = (uint64_t *) stack_ptr;
+    stack_ptr += sizeof(uint64_t);
     state = (void *) stack_ptr;
+    stack_ptr += aligned_size;
+    canary_ptr_top = (uint64_t *) stack_ptr;
 
     // Initialise the thread-private state.
-    if(STACK_CANARY != *canary_ptr) {
+    if(STACK_CANARY != *canary_ptr_bottom) {
         memset(state, 0, aligned_size);
-        *canary_ptr = STACK_CANARY;
+        *canary_ptr_bottom = STACK_CANARY;
+        *canary_ptr_top = STACK_CANARY;
+
+    // Try to detect corruption.
+    } else {
+        BUG_ON(STACK_CANARY != *canary_ptr_top);
     }
 
     return state;
@@ -184,9 +193,15 @@ enum {
 };
 
 
-extern void *(**kernel_malloc_exec)(unsigned long, int);
-extern void *(**kernel_malloc)(unsigned long);
-extern void (**kernel_free)(const void *);
+static struct kernel_module KERNEL_MODULE = {
+    .is_granary = 0,
+    .is_instrumented = 0,
+    .address = NULL,
+    .text_begin = (void *) KERNEL_TEXT_START,
+    .text_end = (void *) KERNEL_TEXT_END,
+    .name = "linux"
+};
+
 
 static unsigned long EXEC_START = 0;
 static unsigned long EXEC_END = 0;
@@ -195,16 +210,16 @@ static unsigned long EXEC_END = 0;
 /// Layout of the executable region:
 ///
 ///  EXEC_START                GEN_CODE_START   WRAPPER_START       EXEC_END
-///      |--------------->              <--------------|----------------|
-///                CODE_CACHE_END                                WRAPPER_END
+///      |--------------->              <--------------|-------->      |
+///                CODE_CACHE_END                          WRAPPER_END
 ///
 static unsigned long CODE_CACHE_END = 0;
 static unsigned long GEN_CODE_START = 0;
 static unsigned long WRAPPER_START = 0;
 static unsigned long WRAPPER_END = 0;
 
-static int granary_device_open = 0;
-static int granary_device_initialised = 0;
+static int DEVICE_IS_OPEN = 0;
+static int DEVICE_IS_INITIALISED = 0;
 
 
 /// Returns true if an address is a kernel address, or native kernel module.
@@ -229,13 +244,15 @@ int is_host_address(uintptr_t addr) {
 /// Returns the kernel module information for a given app address.
 const struct kernel_module *kernel_get_module(uintptr_t addr) {
     if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
-        struct kernel_module *mod = modules->next; // ignore Granary
-        for(; mod; mod = mod->next) {
+        struct kernel_module *mod;
+        for(mod = modules; mod; mod = mod->next) {
             if(((uintptr_t) mod->text_begin) <= addr
             && addr < ((uintptr_t) mod->text_end)) {
                 return mod;
             }
         }
+    } else if(KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END) {
+        return &KERNEL_MODULE;
     }
     return NULL;
 }
@@ -356,7 +373,7 @@ static struct kernel_module *find_interal_module(void *vmod) {
 
     module->next = NULL;
     module->name = mod->name;
-    module->is_instrumented = granary_device_initialised;
+    module->is_instrumented = DEVICE_IS_INITIALISED;
 
     if(!is_granary) {
         module_set_exec_perms(module);
@@ -404,8 +421,8 @@ static int module_load_notifier(
 
 
 /// Callback structure used by Linux for module state change events.
-static struct notifier_block notifier_block = {
-    .notifier_call = module_load_notifier,
+static struct notifier_block NOTIFIER_BLOCK = {
+    .notifier_call = &module_load_notifier,
     .next = NULL,
     .priority = -1,
 };
@@ -454,7 +471,7 @@ enum executable_memory_kind {
 };
 
 /// Allocate some executable memory
-static void *allocate_executable(unsigned long size, int where) {
+void *kernel_alloc_executable(unsigned long size, int where) {
     unsigned long mem = 0;
     switch(where) {
 
@@ -509,26 +526,16 @@ int is_gencode_address(unsigned long addr) {
 }
 
 
-/// Allocate some non-executable memory
-static void *allocate(unsigned long size) {
-    void *ret = kmalloc(size, preempt_count() ? GFP_ATOMIC : GFP_KERNEL);
-    if(!ret) {
-        granary_fault();
-    }
-    return ret;
-}
-
-
 /// Open Granary as a device.
 static int device_open(struct inode *inode, struct file *file) {
-    if(granary_device_open) {
+    if(DEVICE_IS_OPEN) {
         return -EBUSY;
     }
 
-    granary_device_open++;
+    DEVICE_IS_OPEN++;
 
-    if(!granary_device_initialised) {
-        granary_device_initialised = 1;
+    if(!DEVICE_IS_INITIALISED) {
+        DEVICE_IS_INITIALISED = 1;
         preallocate_executable();
         granary_initialise();
     } else {
@@ -544,8 +551,8 @@ static int device_open(struct inode *inode, struct file *file) {
 
 /// Close Granary as a device.
 static int device_close(struct inode *inode, struct file *file) {
-    if(granary_device_open) {
-        granary_device_open--;
+    if(DEVICE_IS_OPEN) {
+        DEVICE_IS_OPEN--;
     }
 
     (void) inode;
@@ -595,12 +602,15 @@ struct miscdevice device = {
 };
 
 
+/// C++ operator new and delete variants.
+extern void *_Znwm(void) { return NULL; }
+extern void *_Znam(void) { return NULL; }
+extern void _ZdlPv(void) { }
+extern void _ZdaPv(void) { }
+
+
 /// Initialise Granary.
 static int init_granary(void) {
-
-    *kernel_malloc_exec = allocate_executable;
-    *kernel_malloc = allocate;
-    *kernel_free = kfree;
 
     printk("[granary] Loading Granary...\n");
     printk("[granary] Stack size is %lu\n", THREAD_SIZE);
@@ -611,7 +621,7 @@ static int init_granary(void) {
     printk("[granary] Done running initialisers.\n");
     printk("[granary] Registering module notifier...\n");
 
-    register_module_notifier(&notifier_block);
+    register_module_notifier(&NOTIFIER_BLOCK);
 
     printk("[granary] Registering 'granary' device...\n");
 
@@ -633,7 +643,7 @@ static void exit_granary(void) {
     struct kernel_module *next_mod = NULL;
 
     printk("Unloading Granary... Goodbye!\n");
-    unregister_module_notifier(&notifier_block);
+    unregister_module_notifier(&NOTIFIER_BLOCK);
     misc_register(&device);
 
     // free the memory associated with internal modules
@@ -643,5 +653,7 @@ static void exit_granary(void) {
     }
 }
 
+
 module_init(init_granary);
 module_exit(exit_granary);
+

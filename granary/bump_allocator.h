@@ -128,15 +128,14 @@ namespace granary {
             // allocate a new slab and a new arena for the memory
             } else {
 
-                next_slab = new (detail::global_allocate(sizeof(slab))) slab;
+                next_slab = allocate_memory<slab>();
 
                 if(IS_EXECUTABLE) {
                     next_slab->data_ptr = unsafe_cast<uint8_t *>(
                         detail::global_allocate_executable(
                             SLAB_SIZE, EXEC_WHERE));
                 } else {
-                    next_slab->data_ptr = unsafe_cast<uint8_t *>(
-                        detail::global_allocate(SLAB_SIZE));
+                    next_slab->data_ptr = allocate_memory<uint8_t>(SLAB_SIZE);
                 }
             }
 
@@ -151,13 +150,12 @@ namespace granary {
         /// Allocate a large slab of memory specific to only one allocation
         /// request.
         void allocate_custom_slab(unsigned size) throw() {
-            slab *next_slab(new (detail::global_allocate(sizeof(slab))) slab);
+            slab *next_slab = allocate_memory<slab>();
             if(IS_EXECUTABLE) {
                 next_slab->data_ptr = unsafe_cast<uint8_t *>(
                     detail::global_allocate_executable(size, EXEC_WHERE));
             } else {
-                next_slab->data_ptr = unsafe_cast<uint8_t *>(
-                    detail::global_allocate(size));
+                next_slab->data_ptr = allocate_memory<uint8_t>(SLAB_SIZE);
             }
             next_slab->next = curr;
             curr = next_slab;
@@ -176,7 +174,7 @@ namespace granary {
                     detail::global_allocate_executable(
                         size + ALIGN_TO(size, PAGE_SIZE)));
             } else {
-                ret = unsafe_cast<uint8_t *>(detail::global_allocate(size));
+                ret = allocate_memory<uint8_t>(size);
             }
 
             staged_addr = ret;
@@ -225,17 +223,23 @@ namespace granary {
             for(slab *next(nullptr); list; list = next) {
                 next = list->next;
                 if(list->data_ptr) {
+
+                    unsigned slab_size(list->remaining);
+                    if(list->bump_ptr > list->data_ptr) {
+                        slab_size += (list->bump_ptr - list->data_ptr);
+                    }
+
                     if(IS_EXECUTABLE) {
                         detail::global_free_executable(
-                            list->data_ptr, SLAB_SIZE);
+                            list->data_ptr, slab_size);
                     } else {
-                        detail::global_free(list->data_ptr);
+                        free_memory<uint8_t>(list->data_ptr, slab_size);
                     }
                     list->data_ptr = nullptr;
                     list->bump_ptr = nullptr;
                 }
 
-                detail::global_free(list);
+                free_memory<slab>(list);
             }
         }
 
@@ -276,6 +280,7 @@ namespace granary {
             acquire();
             uint8_t *arena(allocate_bare(align, num_bytes));
             release();
+            ASSERT(is_valid_address(arena));
             memset(arena, 0, num_bytes);
             return arena;
         }

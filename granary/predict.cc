@@ -56,7 +56,7 @@ namespace granary {
     template <typename T>
     __attribute__((hot))
     static T *make_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         const prediction_entry *ibl_fall_through_entry,
         const prediction_table_kind kind,
         const unsigned last_entry_index
@@ -131,7 +131,7 @@ namespace granary {
     /// Create a (scale 1) linear prediction table.
     __attribute__((hot))
     static prediction_table *make_linear_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         const prediction_entry *ibl_entry
     ) throw() {
         linear_prediction_table_ext<PREDICT_LINEAR_1> *table(
@@ -154,7 +154,7 @@ namespace granary {
     /// Decide how to replace an overwrite prediction table.
     __attribute__((hot))
     static void replace_linear_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         prediction_table **table_ptr,
         const app_pc source,
         const app_pc dest,
@@ -228,7 +228,7 @@ namespace granary {
     /// Update a linear prediction table.
     __attribute__((hot))
     static void update_linear_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         prediction_table **table_ptr,
         prediction_table *table_,
         app_pc source,
@@ -309,7 +309,7 @@ namespace granary {
     /// Create a single overwrite entry prediction table.
     __attribute__((hot))
     static prediction_table *make_overwrite_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         const prediction_entry *ibl_entry
     ) throw() {
         overwrite_prediction_table *table(
@@ -322,7 +322,7 @@ namespace granary {
     /// Update an overwrite prediction table.
     __attribute__((hot))
     static void update_overwrite_table(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         prediction_table **table_ptr,
         prediction_table *table_,
         app_pc source,
@@ -395,7 +395,7 @@ namespace granary {
 
     /// Returns the default table for some IBL.
     prediction_table *prediction_table::get_default(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         app_pc ibl
     ) throw() {
         prediction_entry null_entry = {nullptr, ibl};
@@ -424,7 +424,7 @@ namespace granary {
     /// Here we define the policies on how to manage a prediction table.
     void prediction_table::instrument(
         prediction_table **table_ptr,
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         app_pc source,
         app_pc dest
     ) throw() {

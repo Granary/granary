@@ -18,6 +18,34 @@
 namespace client {
 
 
+    /// Forward declaration.
+    struct basic_block_state;
+
+    enum basic_block_edge_kind {
+        BB_EDGE_UNUSED=0,
+        BB_EDGE_INTRA_INCOMING,
+        BB_EDGE_INTRA_OUTGOING,
+        BB_EDGE_INTER_OUTGOING,
+        BB_EDGE_INTER_INCOMING
+    };
+
+    /// An edge in one of the control-flow graphs.
+    struct basic_block_edge {
+
+        /// What kind of edge is this?
+        basic_block_edge_kind kind:3;
+
+        /// Records either the source or the sink basic block id, depending
+        /// on the edge kind.
+        uint16_t block_id:13;
+
+        /// Records either the source or the sink function id, depending on
+        /// the edge kind.
+        uint16_t function_id;
+
+    } __attribute__((packed));
+
+
     /// State that is automatically maintained for each instrumented basic
     /// basic block.
     struct basic_block_state {
@@ -28,53 +56,76 @@ namespace client {
         basic_block_state *next;
 
         /// Conservative set of live registers on entry to this basic block.
-        granary::register_manager entry_regs;
+        uint32_t entry_regs;
 
+        /// Set of all used registers read or written within this basic block.
+        /// This is helpful for later analyses as a bitmask for all
+        uint32_t used_regs;
 
-        /// Set of all used registers in this basic block.
-        granary::register_manager used_regs;
+        /// Number of times this basic block was executed.
+        std::atomic<uint16_t> num_executions;
 
+        struct {
+            /// Unique ID for this basic block.
+            uint16_t block_id:15;
+
+            bool is_app_code:1;
+
+        } __attribute__((packed));
+
+        struct {
+            /// Function ID of this basic block. This will be the basic block id of
+            /// the entry block for this function.
+            ///
+            /// Note: This assumes that the function has a single entry-point.
+            uint16_t function_id:14;
+
+            bool is_function_entry:1;
+            bool is_function_exit:1;
+
+        } __attribute__((packed));
+
+        enum {
+            NUM_EDGE_SLOTS = 4
+        };
+
+        /// Edges within either of the inter- and intra-procedural control-flow
+        /// graph.
+        ///
+        /// Note: Edges are placed where they will fit, e.g. if all of the edge
+        ///       slots in one basic block are full then we will try to fill
+        ///       edge slots in the source basic block.
+        basic_block_edge edges[NUM_EDGE_SLOTS];
+
+        /// Lock that is acquired when updating the edges of any of the graphs.
+        granary::smp::atomic_spin_lock edge_lock;
 
 #if GRANARY_IN_KERNEL
         /// Name of the module being instrumented.
         const char *app_name;
 
         /// Offset within that module's `.text` section.
-        unsigned app_offset_begin;
-        unsigned app_offset_end;
+        uint32_t app_offset_begin;
+        uint16_t num_bytes_in_block;
 
         /// Number of times this basic block was interrupted.
-        std::atomic<unsigned> num_interrupts;
+        std::atomic<uint16_t> num_interrupts;
 #endif
-
-        /// Number of times this basic block was executed.
-        std::atomic<unsigned> num_executions;
-
-        /// Function ID of this basic block.
-        unsigned function_id;
-
-        enum {
-            NUM_INCOMING_EDGES = 3
-        };
-
-        /// Basic blocks within the same function that lead to this basic block.
-        basic_block_state *local_incoming[NUM_INCOMING_EDGES];
-
-        /// Lock that is acquired when updating the graph from this block.
-        granary::smp::atomic_spin_lock update_lock;
-
-        /// Is this basic block an entry/exit basic block for a function?
-        bool is_function_entry;
-        bool is_function_exit;
     };
 
 
     /// State that is automatically maintained for each thread.
     struct thread_state {
 
-        /// The most recently executed basic block. This is used for
-        /// constructing various intra-procedural control-flow graphs.
-        client::basic_block_state *last_executed_basic_block;
+        enum {
+            CALL_STACK_SIZE = 20
+        };
+
+        /// Basic blocks in the call stack.
+        client::basic_block_state *last_executed_basic_block[CALL_STACK_SIZE];
+
+        /// Current position in the call stack.
+        unsigned call_frame_index;
     };
 }
 

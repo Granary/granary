@@ -1659,7 +1659,7 @@ namespace granary {
 
     /// Constructor
     instruction_list_mangler::instruction_list_mangler(
-        cpu_state_handle &cpu_,
+        cpu_state_handle cpu_,
         basic_block_state *bb_,
         instrumentation_policy &policy_
     ) throw()

@@ -11,6 +11,7 @@
 #include "granary/globals.h"
 #include "granary/hash_table.h"
 #include "granary/cpu_code_cache.h"
+#include "granary/state_handle.h"
 
 #include "clients/state.h"
 
@@ -32,33 +33,7 @@ namespace granary {
 
 
     /// Notify that we're entering granary.
-    void enter(cpu_state_handle &cpu) throw();
-
-
-    /// A handle on thread state. Implemented differently in the kernel and in
-    /// user space.
-    struct thread_state_handle {
-    private:
-        thread_state *state;
-
-    public:
-
-
-        /// This constructor must be used when on a native stack.
-        thread_state_handle(void) throw();
-
-
-        /// This constructor must be used when accessing Granary from within
-        /// Granary's stack.
-        __attribute__((hot))
-        thread_state_handle(cpu_state_handle) throw();
-
-
-        FORCE_INLINE
-        thread_state *operator->(void) throw() {
-            return state;
-        }
-    };
+    void enter(cpu_state_handle cpu) throw();
 
 
     /// Information maintained by granary about each thread.
@@ -67,28 +42,6 @@ namespace granary {
 
         friend struct basic_block;
 
-    };
-
-
-    /// Define a CPU state handle; in user space, the cpu state is also thread
-    /// private.
-    struct cpu_state_handle {
-    private:
-
-        cpu_state *state;
-
-    public:
-
-        __attribute__((hot))
-        cpu_state_handle(void) throw();
-
-
-        FORCE_INLINE
-        cpu_state *operator->(void) throw() {
-            return state;
-        }
-
-        IF_KERNEL( static void init(void) throw(); )
     };
 
 

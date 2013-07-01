@@ -66,7 +66,7 @@ namespace client {
 
     /// Instruction a basic block.
     granary::instrumentation_policy entry_block_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &ls
     ) throw() {
@@ -90,7 +90,7 @@ namespace client {
     /// Keeps us in the entry code policy until a CALL brings us to the
     /// `internal_code_policy` policy.
     granary::instrumentation_policy entry_code_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &ls
     ) throw() {
@@ -112,7 +112,7 @@ namespace client {
     /// Keeps us in the internal code policy until a RET brings us to another
     /// policy.
     granary::instrumentation_policy internal_code_policy::visit_app_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -122,7 +122,7 @@ namespace client {
 
     /// Instrument a basic block of host code.
     granary::instrumentation_policy entry_block_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -131,7 +131,7 @@ namespace client {
 
 
     granary::instrumentation_policy entry_code_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -140,7 +140,7 @@ namespace client {
 
 
     granary::instrumentation_policy internal_code_policy::visit_host_instructions(
-        granary::cpu_state_handle &,
+        granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
     ) throw() {
@@ -153,8 +153,8 @@ namespace client {
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
     granary::interrupt_handled_state entry_block_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -164,8 +164,8 @@ namespace client {
 
 
     granary::interrupt_handled_state entry_code_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -175,8 +175,8 @@ namespace client {
 
 
     granary::interrupt_handled_state internal_code_policy::handle_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
@@ -188,8 +188,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {

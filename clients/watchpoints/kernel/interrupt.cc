@@ -17,8 +17,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     interrupt_handled_state handle_kernel_interrupt(
-        cpu_state_handle &cpu,
-        thread_state_handle &,
+        cpu_state_handle cpu,
+        thread_state_handle,
         interrupt_stack_frame &isf,
         interrupt_vector vector
     ) throw() {

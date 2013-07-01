@@ -355,7 +355,7 @@ extern "C" {
 
 extern void *heap_alloc(void *, unsigned long long);
 extern void *granary_heap_alloc_temp_instr(void);
-extern void heap_free(void *, void *, unsigned long long);
+extern void heap_free(void *, void *, unsigned long);
 extern dcontext_t *get_thread_private_dcontext(void);
 
 extern void granary_break_on_fault(void);

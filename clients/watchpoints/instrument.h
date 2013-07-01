@@ -643,7 +643,7 @@ namespace client {
 
         /// Visit app instructions (module, user program)
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &,
+            granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -653,7 +653,7 @@ namespace client {
 
         /// Visit host instructions (module, user program)
         static granary::instrumentation_policy visit_host_instructions(
-            granary::cpu_state_handle &,
+            granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -689,8 +689,8 @@ namespace client {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Defers to the `Watcher` to decide how it will handle the interrupt.
         static granary::interrupt_handled_state handle_interrupt(
-            granary::cpu_state_handle &cpu,
-            granary::thread_state_handle &thread,
+            granary::cpu_state_handle cpu,
+            granary::thread_state_handle thread,
             granary::basic_block_state &bb,
             granary::interrupt_stack_frame &isf,
             granary::interrupt_vector vector

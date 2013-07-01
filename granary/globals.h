@@ -62,11 +62,6 @@
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
 
-/// Use an RCU-protected hash table for the global code cache lookups, or use
-/// a global lock? If 1, then a lock will be used.
-#define CONFIG_LOCK_GLOBAL_CODE_CACHE 1
-
-
 /// Is instrumentation using only one policy? If so, there are some optimisation
 /// opportunities that involve looking for places where direct control-flow
 /// transfers don't need to be dynamically resolved / hot patched if we have

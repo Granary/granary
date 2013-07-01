@@ -13,12 +13,61 @@ using namespace granary;
 namespace client {
 
 
+    /// Add an edge to a basic block.
+    bool add_edge(
+        basic_block_state *bb_with_slots,
+        uint16_t sink_block_id,
+        uint16_t sink_func_id,
+        basic_block_edge_kind kind
+    ) throw() {
+        bool inserted(false);
+        bb_with_slots->edge_lock.acquire();
+        for(unsigned i(0); i < basic_block_state::NUM_EDGE_SLOTS; ++i) {
+
+            basic_block_edge &edge(bb_with_slots->edges[i]);
+
+            // Already connected this basic block to its predecessor.
+            if(sink_block_id == edge.block_id && kind == edge.kind) {
+                inserted = true;
+                break;
+            }
+
+            // Found a slot.
+            if(BB_EDGE_UNUSED == edge.kind) {
+                edge.kind = kind;
+                edge.block_id = sink_block_id;
+                edge.function_id = sink_func_id;
+                inserted = true;
+                break;
+            }
+        }
+        bb_with_slots->edge_lock.release();
+        return inserted;
+    }
+
+
     /// Invoked when we enter into a basic block targeted by a CALL instruction.
     __attribute__((hot))
     void event_enter_function(basic_block_state *bb) throw() {
         thread_state_handle thread;
-        thread->last_executed_basic_block = bb;
+
+        basic_block_state *last_bb(
+            thread->last_executed_basic_block[thread->call_frame_index]);
+
+        thread->last_executed_basic_block[++thread->call_frame_index] = bb;
+
         bb->num_executions.fetch_add(1);
+
+        // Connect us to our caller.
+        if(!last_bb) {
+            return;
+        }
+
+        if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTER_OUTGOING)) {
+            if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTER_INCOMING)) {
+                granary_break_on_fault(); // TODO
+            }
+        }
     }
 
 
@@ -26,7 +75,7 @@ namespace client {
     __attribute__((hot))
     void event_exit_function(basic_block_state *) throw() {
         thread_state_handle thread;
-        thread->last_executed_basic_block = nullptr;
+        --thread->call_frame_index;
     }
 
 
@@ -35,63 +84,26 @@ namespace client {
     __attribute__((hot))
     void event_enter_basic_block(basic_block_state *bb) throw() {
         thread_state_handle thread;
-        basic_block_state *last_bb = thread->last_executed_basic_block;
-        thread->last_executed_basic_block = bb;
 
-        // Propagate the function ID.
+        // Update the call stack info.
+        basic_block_state *&last_bb_(
+            thread->last_executed_basic_block[thread->call_frame_index]);
+        basic_block_state *last_bb(last_bb_);
+        last_bb_ = bb;
+
+        // Update this basic block.
         bb->function_id = last_bb->function_id;
         bb->num_executions.fetch_add(1);
 
-        bb->update_lock.acquire();
-        bool updated(false);
-        for(unsigned i(0); i < basic_block_state::NUM_INCOMING_EDGES; ++i) {
+        if(!last_bb) {
+            return;
+        }
 
-            // Already connected this basic block to its predecessor.
-            if(bb->local_incoming[i] == last_bb) {
-                updated = true;
-                break;
-            }
-
-            // Found a slot.
-            if(!bb->local_incoming[i]) {
-                bb->local_incoming[i] = last_bb;
-                updated = true;
-                break;
+        // Connect us to any other basic blocks.
+        if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTRA_INCOMING)) {
+            if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTRA_OUTGOING)) {
+                granary_break_on_fault(); // TODO
             }
         }
-        bb->update_lock.release();
-        if(!updated) {
-            granary_break_on_fault();
-        }
     }
-
-
-    /// Invoked before we make an indirect call.
-    __attribute__((hot))
-    void event_call_indirect(basic_block_state *) throw() {
-
-    }
-
-
-    /// Invoked before we call app code.
-    __attribute__((hot))
-    void event_call_app(client::basic_block_state *) throw() {
-
-    }
-
-
-    /// Invoked before we call host code.
-    __attribute__((hot))
-    void event_call_host(basic_block_state *, app_pc) throw() {
-
-    }
-
-
-    /// Invoked when we return from a function call.
-    __attribute__((hot))
-    void event_return_from_call(basic_block_state *bb) throw() {
-        thread_state_handle thread;
-        thread->last_executed_basic_block = bb;
-    }
-
 }

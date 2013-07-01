@@ -546,7 +546,7 @@ namespace granary {
     /// Decode and translate a single basic block of application/module code.
     basic_block basic_block::translate(
         instrumentation_policy policy,
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         app_pc start_pc
     ) throw() {
 

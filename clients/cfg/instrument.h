@@ -27,23 +27,23 @@ namespace client {
         };
 
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls
+            granary::cpu_state_handle,
+            granary::basic_block_state &,
+            granary::instruction_list &
         ) throw();
 
 
         static granary::instrumentation_policy visit_host_instructions(
-            granary::cpu_state_handle &,
+            granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         static granary::interrupt_handled_state handle_interrupt(
-            granary::cpu_state_handle &,
-            granary::thread_state_handle &,
-            granary::basic_block_state &bb,
+            granary::cpu_state_handle,
+            granary::thread_state_handle,
+            granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
         ) throw();
@@ -60,22 +60,22 @@ namespace client {
         };
 
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls
+            granary::cpu_state_handle,
+            granary::basic_block_state &,
+            granary::instruction_list &
         ) throw();
 
         static granary::instrumentation_policy visit_host_instructions(
-            granary::cpu_state_handle &,
+            granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         static granary::interrupt_handled_state handle_interrupt(
-            granary::cpu_state_handle &,
-            granary::thread_state_handle &,
-            granary::basic_block_state &bb,
+            granary::cpu_state_handle,
+            granary::thread_state_handle,
+            granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
         ) throw();
@@ -87,8 +87,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw();

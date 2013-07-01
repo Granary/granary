@@ -221,9 +221,10 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-        visit_read(bb, ls, tracker, i);
+        if(!(SOURCE_OPERAND & tracker.ops[i].kind)) {
+            visit_read(bb, ls, tracker, i);
+        }
     }
-
 
     /// Visit a buffer overflow. This is invoked by
     void visit_overflow(
@@ -238,8 +239,8 @@ namespace client { namespace wp {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
     interrupt_handled_state bound_policy::handle_interrupt(
-        cpu_state_handle &,
-        thread_state_handle &,
+        cpu_state_handle,
+        thread_state_handle,
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector

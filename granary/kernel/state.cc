@@ -31,6 +31,24 @@ namespace granary {
     static cpu_state *CPU_STATES[256] = {nullptr};
 
 
+    namespace detail {
+        struct dummy_thread_state : public client::thread_state {
+            uint64_t dummy_val;
+        };
+    }
+
+
+    /// Figure out the size of the CPU state.
+    enum {
+        DUMMY_THREAD_STATE_SIZE = sizeof(detail::dummy_thread_state),
+        ALIGNED_THREAD_STATE_SIZE = sizeof(granary::thread_state)
+                                  + ALIGN_TO(sizeof(granary::thread_state), 8),
+        THREAD_STATE_SIZE = (sizeof(uint64_t) == DUMMY_THREAD_STATE_SIZE)
+                          ? 0
+                          : ALIGNED_THREAD_STATE_SIZE
+    };
+
+
     /// Gets a handle to the current CPU state.
     cpu_state_handle::cpu_state_handle(void) throw()
         : state(*kernel_get_cpu_state(CPU_STATES))
@@ -41,7 +59,7 @@ namespace granary {
     /// table.
     void init_cpu_state(void *) throw() {
         cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
-        *state_ptr = new cpu_state;
+        *state_ptr = allocate_memory<cpu_state>();
 
         cpu_state *state(*state_ptr);
         state->interrupt_delay_handler = reinterpret_cast<app_pc>(
@@ -59,7 +77,7 @@ namespace granary {
     /// This constructor must be used when accessing Granary from within
     /// Granary's stack.
     thread_state_handle::thread_state_handle(cpu_state_handle cpu) throw()
-        : state(kernel_get_thread_state(cpu->stack_pointer, sizeof(thread_state)))
+        : state(kernel_get_thread_state(cpu->stack_pointer, THREAD_STATE_SIZE))
     { }
 
 

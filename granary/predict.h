@@ -122,7 +122,7 @@ namespace granary {
         __attribute__((hot))
         static void instrument(
             prediction_table **table,
-            cpu_state_handle &cpu,
+            cpu_state_handle cpu,
             app_pc source,
             app_pc dest
         ) throw();
@@ -130,7 +130,7 @@ namespace granary {
 
         /// Returns the default table for some IBL.
         static prediction_table *get_default(
-            cpu_state_handle &cpu,
+            cpu_state_handle cpu,
             app_pc ibl
         ) throw();
 

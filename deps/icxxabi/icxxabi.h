@@ -31,6 +31,8 @@ void __cxa_finalize(void *f);
 #endif
 
 /// Register a destructor.
+///
+/// TODO: See the `-fuse-cxa-atexit` GCC compiler flag.
 int __cxa_atexit(void (*f)(void *), void *objptr, void *dso);
 
 __extension__ typedef int __guard __attribute__((mode(__DI__)));

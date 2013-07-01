@@ -98,7 +98,7 @@ namespace granary {
         cpu_private_code_cache_entry *old_entries(entries);
         const uint64_t old_num_entries(bit_mask + 1);
         const uint64_t new_num_entries(old_num_entries << 1);
-        entries = new cpu_private_code_cache_entry[new_num_entries];
+        entries = allocate_memory<cpu_private_code_cache_entry>(new_num_entries);
         bit_mask = new_num_entries - 1;
 
         growing = true;
@@ -108,7 +108,7 @@ namespace granary {
             }
         }
         growing = false;
-        delete old_entries;
+        free_memory(old_entries, old_num_entries);
     }
 
     /// Store a value in the hash table. Returns true iff the entry was
@@ -119,7 +119,8 @@ namespace granary {
         hash_store_policy update
     ) throw() {
         if(!entries) {
-            entries = new cpu_private_code_cache_entry[MIN_DEFAULT_ENTRIES];
+            entries = allocate_memory<cpu_private_code_cache_entry>(
+                MIN_DEFAULT_ENTRIES);
             bit_mask = MIN_DEFAULT_ENTRIES - 1;
         }
 

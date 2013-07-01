@@ -85,7 +85,7 @@ namespace granary {
         /// the code cache.
         __attribute__((hot))
         static app_pc find(
-            cpu_state_handle &cpu,
+            cpu_state_handle cpu,
             mangled_address addr
         ) throw();
 

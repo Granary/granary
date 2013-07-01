@@ -232,6 +232,12 @@ namespace granary {
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+    template <typename T, typename V>
+    size_t sizeof_trailing_vla(unsigned array_size) throw() {
+        return sizeof(T) + (array_size - 1) * sizeof(V);
+    }
+
+
     /// Represents a type where the first type ends with a value
     /// of the second type, and the second type "spills" over to
     /// form a very large array. The assumed use of this type is
@@ -239,7 +245,7 @@ namespace granary {
     /// of type `V`.
     template <typename T, typename V>
     T *new_trailing_vla(unsigned array_size) throw() {
-        const size_t needed_space(sizeof(T) + (array_size - 1) * sizeof(V));
+        const size_t needed_space(sizeof_trailing_vla<T, V>(array_size));
         char *internal(reinterpret_cast<char *>(
             detail::global_allocate(needed_space)));
 
@@ -258,6 +264,13 @@ namespace granary {
         }
 
         return unsafe_cast<T *>(internal);
+    }
+
+
+    /// Frees a trailing VLA.
+    template <typename T, typename V>
+    void free_trailing_vla(T *vla, unsigned array_size) throw() {
+        detail::global_free(vla, sizeof_trailing_vla<T, V>(array_size));
     }
 #endif
 

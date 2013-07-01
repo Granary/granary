@@ -109,8 +109,8 @@ namespace client {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         granary::interrupt_handled_state leak_policy::handle_interrupt(
-            granary::cpu_state_handle &,
-            granary::thread_state_handle &,
+            granary::cpu_state_handle,
+            granary::thread_state_handle,
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
@@ -197,7 +197,7 @@ namespace client {
 
     /// Entry basic block.
     granary::instrumentation_policy leak_policy_enter::visit_app_instructions(
-        granary::cpu_state_handle &cpu,
+        granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
@@ -210,7 +210,7 @@ namespace client {
 
     /// Basic blocks within the entry function.
     granary::instrumentation_policy leak_policy_exit::visit_app_instructions(
-        granary::cpu_state_handle &cpu,
+        granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
@@ -232,7 +232,7 @@ namespace client {
 
     /// Internal code.
     granary::instrumentation_policy leak_policy_continue::visit_app_instructions(
-        granary::cpu_state_handle &cpu,
+        granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {

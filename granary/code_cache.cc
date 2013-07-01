@@ -42,11 +42,7 @@ namespace granary {
 
         /// The globally shared code cache. This maps policy-mangled code
         /// code addresses to translated addresses.
-#if CONFIG_LOCK_GLOBAL_CODE_CACHE
         static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
-#else
-        static static_data<rcu_hash_table<app_pc, app_pc>> CODE_CACHE;
-#endif
     }
 
 
@@ -91,7 +87,7 @@ namespace granary {
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.
     app_pc code_cache::find(
-        cpu_state_handle &cpu,
+        cpu_state_handle cpu,
         mangled_address addr
     ) throw() {
         IF_PERF( perf::visit_address_lookup(); )
@@ -239,7 +235,7 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(cpu_state_handle &, mangled_address))
+        (app_pc (*)(cpu_state_handle, mangled_address))
             code_cache::find)
 
 

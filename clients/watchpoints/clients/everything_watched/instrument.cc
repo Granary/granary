@@ -32,8 +32,8 @@ namespace client { namespace wp {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
     interrupt_handled_state watched_policy::handle_interrupt(
-        cpu_state_handle &,
-        thread_state_handle &,
+        cpu_state_handle,
+        thread_state_handle,
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector

@@ -43,8 +43,8 @@ namespace client {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
             static granary::interrupt_handled_state handle_interrupt(
-                granary::cpu_state_handle &cpu,
-                granary::thread_state_handle &thread,
+                granary::cpu_state_handle cpu,
+                granary::thread_state_handle thread,
                 granary::basic_block_state &bb,
                 granary::interrupt_stack_frame &isf,
                 granary::interrupt_vector vector
@@ -67,7 +67,7 @@ namespace client {
     /// entry points.
     struct leak_policy_enter : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
+            granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -78,7 +78,7 @@ namespace client {
     /// entered app code function.
     struct leak_policy_exit : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
+            granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -89,7 +89,7 @@ namespace client {
     /// an entry block or a potential exit block.
     struct leak_policy_continue : public watchpoint_leak_policy {
         static granary::instrumentation_policy visit_app_instructions(
-            granary::cpu_state_handle &cpu,
+            granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
@@ -100,8 +100,8 @@ namespace client {
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle &,
-        granary::thread_state_handle &,
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw();
