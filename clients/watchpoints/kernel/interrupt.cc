@@ -29,8 +29,12 @@ namespace client {
             policy.force_attach(true);
 
             mangled_address target(isf.instruction_pointer, policy);
+            app_pc translated_target(nullptr);
+            if(!cpu->code_cache.load(target.as_address, translated_target)) {
+                translated_target = code_cache::find(cpu, target);
+            }
 
-            isf.instruction_pointer = code_cache::find(cpu, target);
+            isf.instruction_pointer = translated_target;
             return INTERRUPT_IRET;
         }
         return INTERRUPT_DEFER;
