@@ -22,6 +22,10 @@ namespace client {
     void event_exit_function(basic_block_state *) throw();
 
 
+    /// Invoked immediately after a function call.
+    void event_after_function(basic_block_state *) throw();
+
+
     /// Invoked when we enter into a basic block that is not targeted by a CALL
     /// instruction.
     void event_enter_basic_block(basic_block_state *) throw();

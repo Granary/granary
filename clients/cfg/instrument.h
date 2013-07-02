@@ -23,7 +23,7 @@ namespace client {
     public:
 
         enum {
-            AUTO_INSTRUMENT_HOST = false
+            AUTO_INSTRUMENT_HOST = true
         };
 
         static granary::instrumentation_policy visit_app_instructions(
@@ -56,7 +56,7 @@ namespace client {
     public:
 
         enum {
-            AUTO_INSTRUMENT_HOST = false
+            AUTO_INSTRUMENT_HOST = true
         };
 
         static granary::instrumentation_policy visit_app_instructions(

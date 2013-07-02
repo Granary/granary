@@ -37,6 +37,10 @@ namespace client {
     static app_pc EVENT_EXIT_FUNCTION = nullptr;
 
 
+    /// Exit point for the on-exit-function event handler.
+    static app_pc EVENT_AFTER_FUNCTION = nullptr;
+
+
     /// Entry point for the on-enter-bb event handler.
     static app_pc EVENT_ENTER_BASIC_BLOCK = nullptr;
 
@@ -92,6 +96,7 @@ namespace client {
 
         EVENT_ENTER_FUNCTION = generate_entry_point(&event_enter_function);
         EVENT_EXIT_FUNCTION = generate_entry_point(&event_exit_function);
+        EVENT_AFTER_FUNCTION = generate_entry_point(&event_after_function);
         EVENT_ENTER_BASIC_BLOCK = generate_entry_point(&event_enter_basic_block);
     }
 
@@ -210,12 +215,12 @@ namespace client {
                     policy_for<cfg_entry_policy>();
                 target_policy.force_attach(true);
                 in.set_policy(target_policy);
+                add_event_call(ls, in, EVENT_AFTER_FUNCTION, &bb);
 
             // Returning from a function.
             } else if(in.is_return()) {
 
                 bb.is_function_exit = true;
-
                 in = ls.insert_before(in, label_());
                 add_event_call(ls, in, EVENT_EXIT_FUNCTION, &bb);
 

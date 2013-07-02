@@ -657,7 +657,7 @@ namespace client {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
-#if 0
+#if !WP_TRANSITIVE_INSTRUMENT_HOST
             using namespace granary;
 
             // Force Granary to detach on exiting each basic block.
@@ -669,9 +669,14 @@ namespace client {
 
                 operand target(in.cti_target());
 
+                // Assume that indirect control-flow can go into module
+                // wrappers.
+                if(!dynamorio::opnd_is_pc(target)) {
+                    continue;
+                }
+
                 // Make sure that we wrap things that should be wrapped.
-                if(dynamorio::opnd_is_pc(target)
-                && find_detach_target(target.value.pc, RUNNING_AS_HOST)) {
+                if(find_detach_target(target.value.pc, RUNNING_AS_HOST)) {
                     continue;
                 }
 

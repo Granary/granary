@@ -86,7 +86,7 @@ namespace client {
         } __attribute__((packed));
 
         enum {
-            NUM_EDGE_SLOTS = 4
+            NUM_EDGE_SLOTS = 6
         };
 
         /// Edges within either of the inter- and intra-procedural control-flow
@@ -117,15 +117,10 @@ namespace client {
     /// State that is automatically maintained for each thread.
     struct thread_state {
 
-        enum {
-            CALL_STACK_SIZE = 20
-        };
-
-        /// Basic blocks in the call stack.
-        client::basic_block_state *last_executed_basic_block[CALL_STACK_SIZE];
-
-        /// Current position in the call stack.
-        unsigned call_frame_index;
+        /// Tracking the last inter- and intra-procedural control-flow graph
+        /// blocks.
+        client::basic_block_state *last_inter;
+        client::basic_block_state *last_intra;
     };
 }
 

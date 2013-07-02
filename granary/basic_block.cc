@@ -543,6 +543,14 @@ namespace granary {
     }
 
 
+    /// Try to decode a `RDRAND` instruction.
+    static bool decode_rdrand(instruction in, app_pc pc) throw() {
+        UNUSED(in);
+        UNUSED(pc);
+        return false;
+    }
+
+
     /// Decode and translate a single basic block of application/module code.
     basic_block basic_block::translate(
         instrumentation_policy policy,
@@ -581,11 +589,19 @@ namespace granary {
                 break;
             }
 
+            app_pc decoded_pc(*pc);
             instruction in(instruction::decode(pc));
 
             // TODO: curiosity.
             if(dynamorio::OP_INVALID == in.op_code()
             || dynamorio::OP_UNDECODED == in.op_code()) {
+
+                // TODO: DynamoRIO currently does not support `RDRAND`, so see
+                //       if we can special case it for the time being.
+                if(decode_rdrand(in, decoded_pc)) {
+
+                }
+
 #if CONFIG_ENABLE_ASSERTIONS
                 printf(
                     "Failed to decode instruction at %p in "
@@ -593,6 +609,7 @@ namespace granary {
                     in.pc(), start_pc);
 #endif /* CONFIG_ENABLE_ASSERTIONS */
                 granary_fault();
+                USED(in); // To help with debugging.
                 break;
             }
 

@@ -51,10 +51,8 @@ namespace client {
     void event_enter_function(basic_block_state *bb) throw() {
         thread_state_handle thread;
 
-        basic_block_state *last_bb(
-            thread->last_executed_basic_block[thread->call_frame_index]);
-
-        thread->last_executed_basic_block[++thread->call_frame_index] = bb;
+        basic_block_state *last_bb(thread->last_inter);
+        thread->last_intra = bb;
 
         bb->num_executions.fetch_add(1);
 
@@ -71,11 +69,20 @@ namespace client {
     }
 
 
-    /// Invoked when we enter into a basic block targeted by a CALL instruction.
+    /// Invoked just before a RET instruction.
     __attribute__((hot))
     void event_exit_function(basic_block_state *) throw() {
         thread_state_handle thread;
-        --thread->call_frame_index;
+        thread->last_intra = nullptr;
+        thread->last_inter = nullptr;
+    }
+
+
+    /// Invoked immediately after a function call.
+    void event_after_function(basic_block_state *bb) throw() {
+        thread_state_handle thread;
+        thread->last_inter = bb;
+        thread->last_intra = bb;
     }
 
 
@@ -86,8 +93,7 @@ namespace client {
         thread_state_handle thread;
 
         // Update the call stack info.
-        basic_block_state *&last_bb_(
-            thread->last_executed_basic_block[thread->call_frame_index]);
+        basic_block_state *&last_bb_(thread->last_intra);
         basic_block_state *last_bb(last_bb_);
         last_bb_ = bb;
 

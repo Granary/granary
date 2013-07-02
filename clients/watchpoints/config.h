@@ -10,6 +10,12 @@
 #define WATCHPOINT_CONFIG_H_
 
 
+/// Instrument less host code. This will instrument only basic blocks within
+/// a faulting host function, as well as basic blocks reached through indirect
+/// control-flow instructions.
+#define WP_TRANSITIVE_INSTRUMENT_HOST 1
+
+
 /// Enable if %RBP should be treated as a frame pointer and not as a potential
 /// watched address. The upside of this is that it's likely that more code
 /// (especially leaf functions) will behave correctly. The downside is that
