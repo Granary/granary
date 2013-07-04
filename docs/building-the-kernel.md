@@ -61,6 +61,7 @@ Granary, you likely want to make sure that:
   - Loadable kernel module support is enabled.
   - Virtualization is enabled.
   - `ftrace` (Kernel Hacking > Tracing) is disabled.
+  - `CONFIG_ARCH_RANDOM` is disabled.
   - All (interesting) file systems (except the file system that you're
     using) are selected as loadable kernel modules (M).
 

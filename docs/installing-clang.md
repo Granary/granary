@@ -12,8 +12,8 @@ version of the GCC is essential.
 sudo add-apt-repository ppa:ubuntu-toolchain-r/test
 sudo apt-get update
 sudo apt-get upgrade
-sudo apt-get install gcc-4.7
-sudo apt-get install g++-4.7
+sudo apt-get install gcc-4.8
+sudo apt-get install g++-4.8
 ```
 
 If gcc 4.7 is not the latest version (with g++ support) then get the latest
