@@ -169,12 +169,14 @@ namespace granary {
         // If we don't have a target yet then translate the target assuming it's
         // app or host code.
         bool created_bb(false);
+        basic_block_state *created_bb_state(nullptr);
         if(!target_addr) {
 
             basic_block bb(basic_block::translate(
                 base_policy, cpu, app_target_addr));
             target_addr = bb.cache_pc_start;
             created_bb = true;
+            created_bb_state = bb.state();
 
 #if CONFIG_ENABLE_ASSERTIONS
             // The trick here is that if we've got a particular buggy
@@ -201,12 +203,16 @@ namespace granary {
                 base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
 
             if(!stored_base_addr && created_bb) {
+                client::discard_basic_block(*created_bb_state);
+
                 cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
 
-                // TODO: minor memory leak with basic block state.
-                //       consider switching to a "transactional" allocator.
                 CODE_CACHE->load(base_addr.as_address, target_addr);
+
+            // Commit to the basic block state.
+            } else if(stored_base_addr && created_bb) {
+                client::commit_to_basic_block(*created_bb_state);
             }
         }
 

@@ -163,20 +163,27 @@ namespace client {
     }
 
 
-    /// Initialise the basic block state and add in calls to event handlers.
-    static void instrument_basic_block(
-        granary::basic_block_state &bb,
-        instruction_list &ls
-    ) throw() {
-
-        // Chain the blocks together.
+    /// Chain the basic block into the list of basic blocks.
+    void commit_to_basic_block(basic_block_state &bb) throw() {
         basic_block_state *prev(nullptr);
         basic_block_state *curr(&bb);
         do {
             prev = BASIC_BLOCKS.load();
             curr->next = prev;
         } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
+    }
 
+
+    /// Invoked if/when Granary discards a basic block (e.g. due to a race
+    /// condition when two cores compete to translate the same basic block).
+    void discard_basic_block(basic_block_state &) throw() { }
+
+
+    /// Initialise the basic block state and add in calls to event handlers.
+    static void instrument_basic_block(
+        granary::basic_block_state &bb,
+        instruction_list &ls
+    ) throw() {
         instruction in(ls.last());
         register_manager used_regs;
         register_manager entry_regs;

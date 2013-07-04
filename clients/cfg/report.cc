@@ -125,6 +125,7 @@ namespace client {
         basic_block_state *bb(BASIC_BLOCKS.load());
 
         for(; bb; bb = bb->next) {
+            ASSERT(bb != bb->next);
             serialise_basic_block(bb, &(BUFFER[0]));
             granary::printf(&(BUFFER[0]));
         }

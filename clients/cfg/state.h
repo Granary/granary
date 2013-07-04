@@ -11,6 +11,7 @@
 
 #define CLIENT_basic_block_state
 #define CLIENT_thread_state
+#define CLIENT_commit_to_basic_block_state
 
 #include "granary/register.h"
 #include "granary/smp/spin_lock.h"
@@ -86,7 +87,7 @@ namespace client {
         } __attribute__((packed));
 
         enum {
-            NUM_EDGE_SLOTS = 6
+            NUM_EDGE_SLOTS = 8
         };
 
         /// Edges within either of the inter- and intra-procedural control-flow

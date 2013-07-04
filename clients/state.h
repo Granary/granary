@@ -49,6 +49,29 @@ namespace client {
     struct basic_block_state { };
 #endif /* CLIENT_basic_block_state */
 
+
+#ifndef CLIENT_commit_to_basic_block_state
+#   define GR_GRANARY_DEFINES_COMMIT_TO_BB(...) __VA_ARGS__
+#   define GR_CLIENT_DEFINES_COMMIT_TO_BB(...)
+#else
+#   define GR_GRANARY_DEFINES_COMMIT_TO_BB(...)
+#   define GR_CLIENT_DEFINES_COMMIT_TO_BB(...) __VA_ARGS__
+#endif
+    /// Invoked when Granary commits to putting a basic block into the code
+    /// cache.
+    GR_GRANARY_DEFINES_COMMIT_TO_BB(inline)
+    void commit_to_basic_block(basic_block_state &) throw()
+    GR_GRANARY_DEFINES_COMMIT_TO_BB({})
+    GR_CLIENT_DEFINES_COMMIT_TO_BB(;)
+
+
+    /// Invoked when Granary detects a race condition and discards a basic
+    /// block.
+    GR_GRANARY_DEFINES_COMMIT_TO_BB(inline)
+    void discard_basic_block(basic_block_state &) throw()
+    GR_GRANARY_DEFINES_COMMIT_TO_BB({})
+    GR_CLIENT_DEFINES_COMMIT_TO_BB(;)
+
 }
 
 #endif /* CLIENT_STATE_H_ */
