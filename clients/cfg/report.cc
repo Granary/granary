@@ -9,6 +9,9 @@
 #include "granary/client.h"
 
 
+#define DUMP_META_INFO 0
+
+
 extern "C" {
     extern int sprintf(char *buf, const char *fmt, ...);
 }
@@ -82,19 +85,25 @@ namespace client {
             }
         }
 
+        const char *color(bb->is_app_code ? "" : " color=blue");
+
         // This is a function entry, so print a function node for it as well.
         if(bb->is_function_entry) {
-            const char *color(bb->is_app_code ? "black" : "blue");
-            b += sprintf(&(buffer[b]), "f%u [color=%s];\n",
+            b += sprintf(&(buffer[b]), "f%u [shape=square%s];\n",
             bb->block_id,
             color);
         }
 
-        // Print the basic block node.
-        b += sprintf(&(buffer[b]), "b%u [label=%u]; ",
-            bb->block_id,
-            bb->num_executions.load());
+        const char *shape(bb->is_function_exit ? " shape=doublecircle" : "");
 
+        // Print the basic block node.
+        b += sprintf(&(buffer[b]), "b%u [label=%u%s%s]; ",
+            bb->block_id,
+            bb->num_executions.load(),
+            shape,
+            color);
+
+#if DUMP_META_INFO
         // Meta info.
         b += sprintf(&(buffer[b]),
             "// is_entry=%d is_exit=%d is_app=%d num_execs=%u func_id=%u used_regs=%u entry_regs=%u",
@@ -106,14 +115,15 @@ namespace client {
             bb->used_regs,
             bb->entry_regs);
 
-#if GRANARY_IN_KERNEL
+#   if GRANARY_IN_KERNEL
         // Kernel-specific meta info.
         b += sprintf(&(buffer[b]), " module=%s begin=%u end=%u interrupts=%u",
             bb->app_name,
             bb->app_offset_begin,
             bb->app_offset_begin + bb->num_bytes_in_block,
             bb->num_interrupts.load());
-#endif
+#   endif /* GRANARY_IN_KERNEL */
+#endif /* DUMP_META_INFO */
 
         b += sprintf(&(buffer[b]), "\n");
         return b;
