@@ -1815,9 +1815,9 @@ class CParser(object):
       elif "=" == t.str:
         i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=True)
       else:
-        print
-        print repr(t.str), t.carat.line, t.carat.column, ctype
-        print
+        #print
+        #print repr(t.str), t.carat.line, t.carat.column, ctype
+        #print
         assert False
 
     if call_recursive:
@@ -1878,6 +1878,7 @@ class CParser(object):
         i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)
         name_attrs.attrs[name_attrs.LEFT].extend(extension_toks)
         has_attrs = True
+        continue
 
       # compiler-specific attributes (non-parameterized)
       elif CToken.EXTENSION_NO_PARAM == t.kind:
