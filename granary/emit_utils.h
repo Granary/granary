@@ -150,6 +150,112 @@ namespace granary {
         instruction_list &ls,
         instruction in
     ) throw();
+
+
+    /// Argument registers.
+    extern operand ARGUMENT_REGISTERS[];
+
+
+    /// Contraints on exit points from the code cache.
+    enum register_exit_constaint {
+
+        /// The exit point follows the Itanium C++ ABI.
+        EXIT_REGS_ABI_COMPATIBLE,
+
+        /// The exit point has no constraints, and so all registers might be
+        /// suspected of being clobbered.
+        EXIT_REGS_UNCONSTRAINED
+    };
+
+
+    /// Generate a clean way of exiting the code cache through a CALL that will
+    /// correctly save/restore registers and align the stack.
+    ///
+    /// Note: This will assume that whoever invokes this exit point is
+    ///       responsible for the argument registers.
+    app_pc generate_clean_callable_address_impl(
+        app_pc func_pc,
+        unsigned num_args,
+        register_exit_constaint constraint
+    ) throw();
+    template <typename R, typename... Args>
+    app_pc generate_clean_callable_address(
+        R (*func)(Args...),
+        register_exit_constaint constraint=EXIT_REGS_ABI_COMPATIBLE
+    ) throw() {
+        app_pc func_pc(unsafe_cast<app_pc>(func));
+        return generate_clean_callable_address_impl(
+            func_pc, sizeof...(Args), constraint);
+    }
+
+
+    namespace detail {
+
+        /// Base case for adding instructions that pass arguments to an event
+        /// handler.
+        inline instruction insert_clean_call_arguments_after(
+            instruction_list &, instruction in, unsigned
+        ) throw() {
+            return in;
+        }
+
+
+        /// Inductive step for adding arguments that pass arguments to an event
+        /// handler.
+        template <typename Arg, typename... Args>
+        static instruction insert_clean_call_arguments_after(
+            instruction_list &ls,
+            instruction in,
+            unsigned i,
+            Arg arg,
+            Args... args
+        ) throw() {
+            in = ls.insert_after(in, mov_imm_(
+                ARGUMENT_REGISTERS[i],
+                int64_(reinterpret_cast<uint64_t>(arg))));
+            return insert_clean_call_arguments_after(ls, in, i + 1, args...);
+        }
+
+    }
+
+
+    /// Add a call to an clean-callable function.
+    template <typename... Args>
+    instruction insert_clean_call_after(
+        instruction_list &ls,
+        instruction in,
+        app_pc clean_call_func,
+        Args... args
+    ) throw() {
+        IF_USER( in = ls.insert_after(in,
+            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+
+        // Spill argument registers.
+        for(unsigned i(0); i < sizeof...(Args); ++i) {
+            in = ls.insert_after(in, push_(ARGUMENT_REGISTERS[i]));
+        }
+
+        // Assign input variables (assumed to be integrals) to the argument
+        // registers.
+        in = detail::insert_clean_call_arguments_after(ls, in, 0, args...);
+
+        // Add a call out to an event handler.
+        in = insert_cti_after(
+            ls, in,
+            clean_call_func, false, operand(),
+            CTI_CALL);
+        in.set_mangled();
+
+        // Pop any pushed argument registers.
+        for(unsigned i(sizeof...(Args)); i--; ) {
+            in = ls.insert_after(in, pop_(ARGUMENT_REGISTERS[i]));
+        }
+
+        IF_USER( in = ls.insert_after(in,
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+
+        return in;
+    }
 }
 
 

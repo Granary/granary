@@ -49,117 +49,16 @@ namespace client {
     static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(0);
 
 
-    /// Argument registers.
-    static operand ARGS[5];
-
-
-    /// Generate an entry point function that saves/restores the appropriate
-    /// registers.
-    template <typename R, typename... Args>
-    static app_pc generate_entry_point(R (*func)(Args...)) throw() {
-        app_pc func_pc(unsafe_cast<app_pc>(func));
-        register_manager dead_regs(find_used_regs_in_func(func_pc));
-
-        for(unsigned i(sizeof...(Args)); i--; ) {
-            dead_regs.revive(ARGS[i]);
-        }
-
-        instruction_list ls;
-        instruction in(ls.append(label_()));
-
-        in = save_and_restore_registers(dead_regs, ls, in);
-        in = insert_align_stack_after(ls, in);
-        in = insert_cti_after(
-            ls, in,
-            func_pc, false, operand(),
-            CTI_CALL);
-        in.set_mangled();
-        in = insert_restore_old_stack_alignment_after(ls, in);
-        ls.append(ret_());
-
-        app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
-            allocate_array<uint8_t>(ls.encoded_size()));
-
-        ls.encode(entry_point_pc);
-
-        return entry_point_pc;
-    }
-
-
     /// Initialise the control-flow graph client.
     void init(void) throw() {
-        ARGS[0] = reg::arg1;
-        ARGS[1] = reg::arg2;
-        ARGS[2] = reg::arg3;
-        ARGS[3] = reg::arg4;
-        ARGS[4] = reg::arg5;
-
-        EVENT_ENTER_FUNCTION = generate_entry_point(&event_enter_function);
-        EVENT_EXIT_FUNCTION = generate_entry_point(&event_exit_function);
-        EVENT_AFTER_FUNCTION = generate_entry_point(&event_after_function);
-        EVENT_ENTER_BASIC_BLOCK = generate_entry_point(&event_enter_basic_block);
-    }
-
-
-    /// Base case for adding instructions that pass arguments to an event
-    /// handler.
-    static instruction add_event_args(
-        instruction_list &, instruction in, unsigned
-    ) throw() {
-        return in;
-    }
-
-
-    /// Inductive step for adding arguments that pass arguments to an event
-    /// handler.
-    template <typename Arg, typename... Args>
-    static instruction add_event_args(
-        instruction_list &ls,
-        instruction in,
-        unsigned i, Arg arg,
-        Args... args
-    ) throw() {
-        in = ls.insert_after(in, mov_imm_(
-            ARGS[i],
-            int64_(reinterpret_cast<uint64_t>(arg))));
-        return add_event_args(ls, in, i + 1, args...);
-    }
-
-
-    /// Add a call to an event handler that passes in the basic block state.
-    template <typename... Args>
-    void add_event_call(
-        instruction_list &ls,
-        instruction in,
-        app_pc event_handler,
-        Args... args
-    ) throw() {
-        IF_USER( in = ls.insert_after(in,
-            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
-
-        // Spill argument registers.
-        for(unsigned i(0); i < sizeof...(Args); ++i) {
-            in = ls.insert_after(in, push_(ARGS[i]));
-        }
-
-        // Assign input variables (assumed to be integrals) to the argument
-        // registers.
-        in = add_event_args(ls, in, 0, args...);
-
-        // Add a call out to an event handler.
-        in = insert_cti_after(
-            ls, in,
-            event_handler, false, operand(),
-            CTI_CALL);
-        in.set_mangled();
-
-        // Pop any pushed argument registers.
-        for(unsigned i(sizeof...(Args)); i--; ) {
-            in = ls.insert_after(in, pop_(ARGS[i]));
-        }
-
-        IF_USER( in = ls.insert_after(in,
-            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+        EVENT_ENTER_FUNCTION = generate_clean_callable_address(
+            &event_enter_function);
+        EVENT_EXIT_FUNCTION = generate_clean_callable_address(
+            &event_exit_function);
+        EVENT_AFTER_FUNCTION = generate_clean_callable_address(
+            &event_after_function);
+        EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
+            &event_enter_basic_block);
     }
 
 
@@ -222,14 +121,14 @@ namespace client {
                     policy_for<cfg_entry_policy>();
                 target_policy.force_attach(true);
                 in.set_policy(target_policy);
-                add_event_call(ls, in, EVENT_AFTER_FUNCTION, &bb);
+                insert_clean_call_after(ls, in, EVENT_AFTER_FUNCTION, &bb);
 
             // Returning from a function.
             } else if(in.is_return()) {
 
                 bb.is_function_exit = true;
                 in = ls.insert_before(in, label_());
-                add_event_call(ls, in, EVENT_EXIT_FUNCTION, &bb);
+                insert_clean_call_after(ls, in, EVENT_EXIT_FUNCTION, &bb);
 
             // Non-call CTI.
             } else if(in.is_cti()) {
@@ -279,7 +178,7 @@ namespace client {
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
-        add_event_call(ls, in, EVENT_ENTER_FUNCTION, &bb);
+        insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
         return policy_for<cfg_exit_policy>();
     }
@@ -297,7 +196,7 @@ namespace client {
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
-        add_event_call(ls, in, EVENT_ENTER_FUNCTION, &bb);
+        insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
         return granary::policy_for<cfg_exit_policy>();
     }
@@ -314,7 +213,7 @@ namespace client {
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
-        add_event_call(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
+        insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
 
         return policy_for<cfg_exit_policy>();
     }
@@ -331,7 +230,7 @@ namespace client {
 
         // Add an event handler that executes before the basic block executes.
         instruction in(ls.insert_before(ls.first(), label_()));
-        add_event_call(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
+        insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
 
         return granary::policy_for<cfg_exit_policy>();
     }

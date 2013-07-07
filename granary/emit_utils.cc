@@ -318,5 +318,68 @@ namespace granary {
         in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
         return in;
     }
+
+
+    /// Argument registers.
+    operand ARGUMENT_REGISTERS[5];
+
+
+    STATIC_INITIALISE_ID(argument_registers, {
+        ARGUMENT_REGISTERS[0] = reg::arg1;
+        ARGUMENT_REGISTERS[1] = reg::arg2;
+        ARGUMENT_REGISTERS[2] = reg::arg3;
+        ARGUMENT_REGISTERS[3] = reg::arg4;
+        ARGUMENT_REGISTERS[4] = reg::arg5;
+    });
+
+
+    /// Generate a clean way of exiting the code cache through a CALL that will
+    /// correctly save/restore registers and align the stack.
+    ///
+    /// Note: This will assume that whoever invokes this exit point is
+    ///       responsible for the argument registers.
+    app_pc generate_clean_callable_address_impl(
+        app_pc func_pc,
+        unsigned num_args,
+        register_exit_constaint constraint
+    ) throw() {
+        register_manager dead_regs(find_used_regs_in_func(func_pc));
+
+        // Assume that the caller does not cae
+        for(unsigned i(num_args); i--; ) {
+            dead_regs.revive(ARGUMENT_REGISTERS[i]);
+        }
+
+        // Don't bother saving callee-saved registers if the callee is following
+        // the ABI.
+        if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
+            dead_regs.revive(dynamorio::DR_REG_RBX);
+            dead_regs.revive(dynamorio::DR_REG_RBP);
+            dead_regs.revive(dynamorio::DR_REG_R12);
+            dead_regs.revive(dynamorio::DR_REG_R13);
+            dead_regs.revive(dynamorio::DR_REG_R14);
+            dead_regs.revive(dynamorio::DR_REG_R15);
+        }
+
+        instruction_list ls;
+        instruction in(ls.append(label_()));
+
+        in = save_and_restore_registers(dead_regs, ls, in);
+        in = insert_align_stack_after(ls, in);
+        in = insert_cti_after(
+            ls, in,
+            func_pc, false, operand(),
+            CTI_CALL);
+        in.set_mangled();
+        in = insert_restore_old_stack_alignment_after(ls, in);
+        ls.append(ret_());
+
+        app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
+            allocate_array<uint8_t>(ls.encoded_size()));
+
+        ls.encode(entry_point_pc);
+
+        return entry_point_pc;
+    }
 }
 
