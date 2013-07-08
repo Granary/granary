@@ -24,6 +24,11 @@ extern "C" {
 namespace client {
 
 
+    enum {
+        NUM_START_EDGES = 2
+    };
+
+
     /// Used to link together all basic blocks.
     std::atomic<basic_block_state *> BASIC_BLOCKS = \
         ATOMIC_VAR_INIT(nullptr);
@@ -49,6 +54,17 @@ namespace client {
     static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(0);
 
 
+    enum allocator_kind {
+        MEMORY_ALLOCATOR,
+        MEMORY_DEALLOCATOR,
+        MEMORY_REALLOCATOR
+    };
+
+
+    /// Hashtable mapping memory allocators to de-allocators.
+    static static_data<hash_table<app_pc, allocator_kind>> MEMORY_ALLOCATORS;
+
+
     /// Initialise the control-flow graph client.
     void init(void) throw() {
         EVENT_ENTER_FUNCTION = generate_clean_callable_address(
@@ -59,6 +75,29 @@ namespace client {
             &event_after_function);
         EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
             &event_enter_basic_block);
+
+        MEMORY_ALLOCATORS.construct();
+
+#if GRANARY_IN_KERNEL
+
+#   define CFG_MEMORY_ALLOCATOR(func) \
+        MEMORY_ALLOCATORS->store( \
+            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_ALLOCATOR);
+
+#   define CFG_MEMORY_DEALLOCATOR(func) \
+        MEMORY_ALLOCATORS->store( \
+            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_DEALLOCATOR);
+
+#   define CFG_MEMORY_REALLOCATOR(func) \
+        MEMORY_ALLOCATORS->store( \
+            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_REALLOCATOR);
+
+#   include "clients/cfg/kernel/linux/allocators.h"
+#   undef CFG_MEMORY_ALLOCATOR
+#   undef CFG_MEMORY_DEALLOCATOR
+#   undef CFG_MEMORY_REALLOCATOR
+
+#endif /* GRANARY_IN_KERNEL */
     }
 
 
@@ -70,12 +109,16 @@ namespace client {
             prev = BASIC_BLOCKS.load();
             curr->next = prev;
         } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
+
+
     }
 
 
     /// Invoked if/when Granary discards a basic block (e.g. due to a race
     /// condition when two cores compete to translate the same basic block).
-    void discard_basic_block(basic_block_state &) throw() { }
+    void discard_basic_block(basic_block_state &bb) throw() {
+        free_memory<basic_block_edge>(bb.edges, bb.num_edges);
+    }
 
 
     /// Initialise the basic block state and add in calls to event handlers.
@@ -112,6 +155,19 @@ namespace client {
                     end_pc = start_pc;
                 }
             }
+
+            // Is this a memory allocator?
+            allocator_kind alloc_kind;
+            if(MEMORY_ALLOCATORS->load(start_pc, alloc_kind)) {
+                if(MEMORY_ALLOCATOR == alloc_kind) {
+                    bb.is_allocator = true;
+                } else if(MEMORY_DEALLOCATOR == alloc_kind) {
+                    bb.is_deallocator = true;
+                } else {
+                    bb.is_allocator = true;
+                    bb.is_deallocator = true;
+                }
+            }
 #endif /* GRANARY_IN_KERNEL */
 
             // Call, switch into a the entry basic block policy.
@@ -132,6 +188,14 @@ namespace client {
 
             // Non-call CTI.
             } else if(in.is_cti()) {
+                bb.num_outgoing_jumps += 1;
+
+                // Is this an indirect jump?
+                operand target(in.cti_target());
+                if(!dynamorio::opnd_is_pc(target)) {
+                    bb.has_outgoing_indirect_jmp = true;
+                }
+
                 instrumentation_policy target_policy =
                     policy_for<cfg_exit_policy>();
                 target_policy.force_attach(true);
@@ -163,6 +227,12 @@ namespace client {
             bb.app_name = module->name;
         }
 #endif /* GRANARY_IN_KERNEL */
+
+        // Add the edges here because it's technically possible for a race to
+        // occur where one core will observe the basic block once it's been
+        // added to the code cache, but before it's been committed to.
+        bb.num_edges = NUM_START_EDGES;
+        bb.edges = allocate_memory<basic_block_edge>(NUM_START_EDGES);
     }
 
 

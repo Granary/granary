@@ -13,16 +13,16 @@ using namespace granary;
 namespace client {
 
 
-    /// Add an edge to a basic block.
-    bool add_edge(
+    /// Add an edge to a basic block without locking.
+    __attribute__((hot))
+    static bool add_edge_unlocked(
         basic_block_state *bb_with_slots,
         uint16_t sink_block_id,
         uint16_t sink_func_id,
         basic_block_edge_kind kind
     ) throw() {
         bool inserted(false);
-        bb_with_slots->edge_lock.acquire();
-        for(unsigned i(0); i < basic_block_state::NUM_EDGE_SLOTS; ++i) {
+        for(unsigned i(0); i < bb_with_slots->num_edges; ++i) {
 
             basic_block_edge &edge(bb_with_slots->edges[i]);
 
@@ -41,8 +41,51 @@ namespace client {
                 break;
             }
         }
+        return inserted;
+    }
+
+    /// Add an edge to a basic block.
+    __attribute__((hot))
+    static bool add_edge(
+        basic_block_state *bb_with_slots,
+        uint16_t sink_block_id,
+        uint16_t sink_func_id,
+        basic_block_edge_kind kind
+    ) throw() {
+        bb_with_slots->edge_lock.acquire();
+        bool inserted(add_edge_unlocked(
+            bb_with_slots, sink_block_id, sink_func_id, kind));
         bb_with_slots->edge_lock.release();
         return inserted;
+    }
+
+
+    /// Grow the number of edges.
+    __attribute__((hot))
+    static void grow_and_add_edge(
+        basic_block_state *bb_with_slots,
+        uint16_t sink_block_id,
+        uint16_t sink_func_id,
+        basic_block_edge_kind kind
+    ) throw() {
+        bb_with_slots->edge_lock.acquire();
+        basic_block_edge *old_edges(bb_with_slots->edges);
+        const unsigned old_num_edges(bb_with_slots->num_edges);
+
+
+        bb_with_slots->num_edges *= 2;
+        bb_with_slots->edges = allocate_memory<basic_block_edge>(
+            bb_with_slots->num_edges);
+
+        memcpy(
+            bb_with_slots->edges,
+            old_edges,
+            sizeof(basic_block_edge) * old_num_edges);
+
+        add_edge_unlocked(bb_with_slots, sink_block_id, sink_func_id, kind);
+        bb_with_slots->edge_lock.release();
+
+        free_memory<basic_block_edge>(old_edges, old_num_edges);
     }
 
 
@@ -61,10 +104,16 @@ namespace client {
             return;
         }
 
+        bool added(true);
         if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTER_OUTGOING)) {
             if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTER_INCOMING)) {
-                granary_break_on_fault(); // TODO
+                added = false;
             }
+        }
+
+        if(!added) {
+            grow_and_add_edge(
+                last_bb, bb->block_id, bb->function_id, BB_EDGE_INTER_OUTGOING);
         }
     }
 
@@ -98,18 +147,26 @@ namespace client {
         last_bb_ = bb;
 
         // Update this basic block.
-        bb->function_id = last_bb->function_id;
         bb->num_executions.fetch_add(1);
 
         if(!last_bb) {
             return;
         }
 
+        bb->function_id = last_bb->function_id;
+
         // Connect us to any other basic blocks.
+        bool added(true);
         if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTRA_INCOMING)) {
             if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTRA_OUTGOING)) {
-                granary_break_on_fault(); // TODO
+                added = false;
             }
+        }
+
+        if(!added) {
+            grow_and_add_edge(
+                bb, last_bb->block_id, last_bb->function_id,
+                BB_EDGE_INTRA_INCOMING);
         }
     }
 }

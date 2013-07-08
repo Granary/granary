@@ -43,7 +43,7 @@ b granary_break_on_translate
 
 # Kernel breakpoints
 if !$in_user_space
-  b granary_break_on_interrupt
+  #b granary_break_on_interrupt
   #b granary_break_on_nested_task
   #b granary_break_on_gs_zero
   b panic

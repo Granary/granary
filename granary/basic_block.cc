@@ -755,8 +755,6 @@ namespace granary {
         // to choose different magic values, or make them longer.
         ASSERT(bb_begin.pc() == ret.cache_pc_start);
 
-        //printf("%p -> %p\n", start_pc, bb_begin->pc());
-
         IF_PERF( perf::visit_encoded(ret); )
 
         return ret;
@@ -802,10 +800,13 @@ namespace granary {
         info->generating_num_bytes = byte_len;
         info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
 
+#if GRANARY_IN_KERNEL
         basic_block_state_address state_addr;
         state_addr.state_addr = block_storage;
-
         info->state_addr_low_32 = state_addr.low;
+#else
+        info->state_addr = block_storage;
+#endif
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);

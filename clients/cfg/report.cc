@@ -27,6 +27,15 @@ namespace client {
     static char BUFFER[1024];
 
 
+    enum {
+        MAX_NUM_EDGES = 128
+    };
+
+
+    /// Copy of edges in memory.
+    static basic_block_edge EDGES[MAX_NUM_EDGES];
+
+
     /// Serialise a basic block into a string.
     static int serialise_basic_block(
         basic_block_state *bb,
@@ -34,9 +43,18 @@ namespace client {
     ) throw() {
         int b(0);
 
-        // Incoming edges
-        for(unsigned i(0); i < basic_block_state::NUM_EDGE_SLOTS; ++i) {
-            basic_block_edge edge(bb->edges[i]);
+        // Make a copy of the edges that we want to dump to avoid race
+        // conditions where we see an intermediate state of the edge list, or
+        // where we get a pointer to it which is later freed.
+        bb->edge_lock.acquire();
+        const unsigned num_edges(bb->num_edges);
+        ASSERT(MAX_NUM_EDGES >= num_edges);
+        memcpy(&(EDGES[0]), bb->edges, num_edges * sizeof(basic_block_edge));
+        bb->edge_lock.release();
+
+        // Dump the edges.
+        for(unsigned i(0); i < num_edges; ++i) {
+            basic_block_edge edge(EDGES[i]);
             if(BB_EDGE_UNUSED == edge.kind) {
                 break;
             }
@@ -44,7 +62,7 @@ namespace client {
             uint16_t source[2];
             uint16_t sink[2];
             const char *kind;
-            bool num_edges = 1;
+            bool has_function_edge(false);
 
             // Get the edge sources/sinks, as well as the correct prefix.
             if(BB_EDGE_INTRA_INCOMING == edge.kind) {
@@ -61,14 +79,14 @@ namespace client {
                 source[1] = edge.block_id;
                 sink[0] = bb->block_id;
                 sink[1] = bb->block_id;
-                num_edges = 2;
+                has_function_edge = true;
             } else {
                 kind = "f";
                 source[0] = bb->block_id;
                 source[1] = bb->block_id;
                 sink[0] = edge.block_id;
                 sink[1] = edge.function_id;
-                num_edges = 2;
+                has_function_edge = true;
             }
 
             // Block-to-block, or function-to-function.
@@ -76,7 +94,7 @@ namespace client {
                 kind, source[0], kind, sink[0]);
 
             // Block-to-block-function.
-            if(2 == num_edges) {
+            if(has_function_edge) {
                 b += sprintf(&(buffer[b]), "b%u -> b%u_f%u;\n",
                     source[1], sink[0], sink[1]);
 

@@ -46,9 +46,12 @@ namespace granary {
                 in = instruction::decode(&bb);
 
                 // Only kill those registers killed by the instructions in the
-                // function.
+                // function. This is more aggressive than a normal `visit_dests`
+                // of the instruction in order to be conservative and not get
+                // caught by `visit_dests` accounting for recursive dependencies
+                // between sources and dests.
                 register_manager regs_killed_by_in;
-                regs_killed_by_in.visit_dests(in);
+                regs_killed_by_in.kill_dests(in);
                 for(;;) {
                     dynamorio::reg_id_t dead_reg(regs_killed_by_in.get_zombie());
                     if(!dead_reg) {
@@ -153,7 +156,7 @@ namespace granary {
     /// Save all dead xmm registers within a particular register manager. This
     /// is analogous to `save_and_restore_registers`.
     instruction save_and_restore_xmm_registers(
-        register_manager &regs,
+        register_manager regs,
         instruction_list &ls,
         instruction in,
         xmm_save_constraint is_aligned
@@ -332,54 +335,86 @@ namespace granary {
         ARGUMENT_REGISTERS[4] = reg::arg5;
     });
 
+    namespace detail {
 
-    /// Generate a clean way of exiting the code cache through a CALL that will
-    /// correctly save/restore registers and align the stack.
-    ///
-    /// Note: This will assume that whoever invokes this exit point is
-    ///       responsible for the argument registers.
-    app_pc generate_clean_callable_address_impl(
-        app_pc func_pc,
-        unsigned num_args,
-        register_exit_constaint constraint
-    ) throw() {
-        register_manager dead_regs(find_used_regs_in_func(func_pc));
+        /// Generate a clean way of exiting the code cache through a CALL that
+        /// will correctly save/restore registers and align the stack.
+        ///
+        /// Note: This will assume that whoever invokes this exit point is
+        ///       responsible for the argument registers.
+        app_pc generate_clean_callable_address(
+            app_pc func_pc,
+            unsigned num_args,
+            register_exit_constaint constraint
+        ) throw() {
+            register_manager dead_regs(find_used_regs_in_func(func_pc));
 
-        // Assume that the caller does not cae
-        for(unsigned i(num_args); i--; ) {
-            dead_regs.revive(ARGUMENT_REGISTERS[i]);
+            // Assume that the caller does not cae
+            for(unsigned i(num_args); i--; ) {
+                dead_regs.revive(ARGUMENT_REGISTERS[i]);
+            }
+
+            // Don't bother saving callee-saved registers if the callee is
+            // following the ABI.
+            if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
+
+                // Callee-saved.
+                dead_regs.revive(dynamorio::DR_REG_RBX);
+                dead_regs.revive(dynamorio::DR_REG_RBP);
+                dead_regs.revive(dynamorio::DR_REG_R12);
+                dead_regs.revive(dynamorio::DR_REG_R13);
+                dead_regs.revive(dynamorio::DR_REG_R14);
+                dead_regs.revive(dynamorio::DR_REG_R15);
+
+                // Some of the scratch regs.
+                dead_regs.kill(dynamorio::DR_REG_R8);
+                dead_regs.kill(dynamorio::DR_REG_R9);
+                dead_regs.kill(dynamorio::DR_REG_R10);
+                dead_regs.kill(dynamorio::DR_REG_R11);
+            }
+
+            instruction_list ls;
+            instruction in(ls.append(pushf_()));
+
+            IF_KERNEL( in = ls.append(cli_()); )
+
+            in = save_and_restore_registers(dead_regs, ls, in);
+
+            if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
+                in = insert_align_stack_after(ls, in);
+            }
+
+#if !GRANARY_IN_KERNEL
+            instruction after_xmm(ls.insert_after(in, label_()));
+            in = save_and_restore_xmm_registers(
+                dead_regs, ls, in,
+                (EXIT_REGS_ABI_COMPATIBLE == constraint)
+                    ? XMM_SAVE_ALIGNED
+                    : XMM_SAVE_UNALIGNED
+            );
+#endif
+
+            in = insert_cti_after(
+                ls, in,
+                func_pc, false, operand(),
+                CTI_CALL);
+            in.set_mangled();
+
+            if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
+                in = insert_restore_old_stack_alignment_after(
+                    ls, IF_USER_ELSE(after_xmm, in));
+            }
+
+            ls.append(popf_());
+            ls.append(ret_());
+
+            app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
+                allocate_array<uint8_t>(ls.encoded_size()));
+
+            ls.encode(entry_point_pc);
+
+            return entry_point_pc;
         }
-
-        // Don't bother saving callee-saved registers if the callee is following
-        // the ABI.
-        if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
-            dead_regs.revive(dynamorio::DR_REG_RBX);
-            dead_regs.revive(dynamorio::DR_REG_RBP);
-            dead_regs.revive(dynamorio::DR_REG_R12);
-            dead_regs.revive(dynamorio::DR_REG_R13);
-            dead_regs.revive(dynamorio::DR_REG_R14);
-            dead_regs.revive(dynamorio::DR_REG_R15);
-        }
-
-        instruction_list ls;
-        instruction in(ls.append(label_()));
-
-        in = save_and_restore_registers(dead_regs, ls, in);
-        in = insert_align_stack_after(ls, in);
-        in = insert_cti_after(
-            ls, in,
-            func_pc, false, operand(),
-            CTI_CALL);
-        in.set_mangled();
-        in = insert_restore_old_stack_alignment_after(ls, in);
-        ls.append(ret_());
-
-        app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
-            allocate_array<uint8_t>(ls.encoded_size()));
-
-        ls.encode(entry_point_pc);
-
-        return entry_point_pc;
     }
 }
 

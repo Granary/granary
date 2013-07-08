@@ -94,6 +94,8 @@ namespace granary { namespace detail {
     /// Allocate some data from the heap.
     void *global_allocate(unsigned long size_) throw() {
 
+        ASSERT(0 < size_);
+
         const unsigned long size(allocation_size(size_));
         const unsigned scale(log_base_2(size) - MIN_SCALE);
 

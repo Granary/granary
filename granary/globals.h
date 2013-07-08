@@ -372,6 +372,12 @@ extern "C" {
 #if GRANARY_IN_KERNEL
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
+
+    // This is a pretty evil way of getting around issues like `memcpy` being
+    // substituted by things like `__memcpy_chk`.
+    extern void *__memcpy(void *, const void *, size_t);
+#   define memcpy __memcpy
+
 #endif /* GRANARY_IN_KERNEL */
 
 #if CONFIG_RUN_TEST_CASES

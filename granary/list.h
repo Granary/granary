@@ -216,7 +216,7 @@ namespace granary {
         unsigned length_;
 
         /// allocate a new list item
-        virtual item_type *allocate_(T val) throw() {
+        item_type *allocate_(T val) throw() {
             item_type *ptr(nullptr);
             if(nullptr != cache_) {
                 ptr = cache_;
@@ -230,7 +230,7 @@ namespace granary {
             return ptr;
         }
 
-        inline static item_type *allocate(self_type *this_, T val) throw() {
+        static item_type *allocate(self_type *this_, T val) throw() {
             return this_->allocate_(val);
         }
 
@@ -266,7 +266,7 @@ namespace granary {
 
 
         /// Destroy the list by clearing all items.
-        virtual ~list(void) throw() {
+        ~list(void) throw() {
             clear();
         }
 

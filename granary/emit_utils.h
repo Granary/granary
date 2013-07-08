@@ -87,7 +87,7 @@ namespace granary {
     /// This is useful for saving/restoring only those registers used by a
     /// function.
     instruction save_and_restore_xmm_registers(
-        register_manager &regs,
+        register_manager regs,
         instruction_list &ls,
         instruction in,
         xmm_save_constraint
@@ -168,23 +168,27 @@ namespace granary {
     };
 
 
+    namespace detail {
+        app_pc generate_clean_callable_address(
+            app_pc func_pc,
+            unsigned num_args,
+            register_exit_constaint constraint
+        ) throw();
+    }
+
+
     /// Generate a clean way of exiting the code cache through a CALL that will
     /// correctly save/restore registers and align the stack.
     ///
     /// Note: This will assume that whoever invokes this exit point is
     ///       responsible for the argument registers.
-    app_pc generate_clean_callable_address_impl(
-        app_pc func_pc,
-        unsigned num_args,
-        register_exit_constaint constraint
-    ) throw();
     template <typename R, typename... Args>
     app_pc generate_clean_callable_address(
         R (*func)(Args...),
         register_exit_constaint constraint=EXIT_REGS_ABI_COMPATIBLE
     ) throw() {
         app_pc func_pc(unsafe_cast<app_pc>(func));
-        return generate_clean_callable_address_impl(
+        return detail::generate_clean_callable_address(
             func_pc, sizeof...(Args), constraint);
     }
 

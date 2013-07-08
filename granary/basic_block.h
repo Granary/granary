@@ -65,9 +65,12 @@ namespace granary {
         /// Number of bytes of instructions in the generating basic block.
         uint16_t generating_num_bytes;
 
+#if GRANARY_IN_KERNEL
         /// Low 32 bits of the basic block state address.
         uint32_t state_addr_low_32;
-
+#else
+        basic_block_state *state_addr;
+#endif
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
         /// pc X, then the generating pc is X.
@@ -76,6 +79,7 @@ namespace granary {
     } __attribute__((packed));
 
 
+#if GRANARY_IN_KERNEL
     /// Used for packing/unpacking a basic block state address from a basic
     /// block info address.
     union basic_block_state_address {
@@ -86,6 +90,7 @@ namespace granary {
         basic_block_state *state_addr;
         basic_block_info *info_addr;
     } __attribute__((packed));
+#endif
 
 
     /// Represents a basic block. Basic blocks are not concrete objects in the
@@ -223,10 +228,14 @@ namespace granary {
         /// Return a pointer to the basic block state structure of this basic
         /// block.
         inline basic_block_state *state(void) const throw() {
+#if GRANARY_IN_KERNEL
             basic_block_state_address info_addr;
             info_addr.info_addr = info;
             info_addr.low = info->state_addr_low_32;
             return info_addr.state_addr;
+#else
+            return info->state_addr;
+#endif
         }
     };
 

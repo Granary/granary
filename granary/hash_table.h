@@ -317,9 +317,9 @@ namespace granary {
 
         template <typename... Args>
         inline void for_each_entry(
-             void (*callback)(K, V, Args&...),
-             Args&... args
-        )throw() {
+            void (*callback)(K, V, Args&...),
+            Args&... args
+        ) throw() {
             slots_type *slots(table_.entry_slots);
             const uint32_t num_slots(slots->mask + 1U);
 
@@ -396,19 +396,19 @@ namespace granary {
         }
 
         inline bool find(
-            K key) throw() {
-            bool flag = false;
+            K key
+        ) throw() {
             lock.acquire();
-            flag = table.find(key);
+            bool flag(table.find(key));
             lock.release();
             return flag;
         }
 
         template <typename... Args>
         inline void for_each_entry(
-             void (*callback)(K, V, Args&...),
-             Args&... args
-        )throw() {
+            void (*callback)(K, V, Args&...),
+            Args&... args
+        ) throw() {
             lock.acquire();
             table.for_each_entry(callback, args...);
             lock.release();

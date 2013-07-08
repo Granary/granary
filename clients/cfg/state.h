@@ -66,29 +66,14 @@ namespace client {
         /// Number of times this basic block was executed.
         std::atomic<uint16_t> num_executions;
 
-        struct {
-            /// Unique ID for this basic block.
-            uint16_t block_id:15;
+        /// Unique ID for this basic block.
+        uint16_t block_id;
 
-            bool is_app_code:1;
-
-        } __attribute__((packed));
-
-        struct {
-            /// Function ID of this basic block. This will be the basic block id of
-            /// the entry block for this function.
-            ///
-            /// Note: This assumes that the function has a single entry-point.
-            uint16_t function_id:14;
-
-            bool is_function_entry:1;
-            bool is_function_exit:1;
-
-        } __attribute__((packed));
-
-        enum {
-            NUM_EDGE_SLOTS = 8
-        };
+        /// Function ID of this basic block. This will be the basic block id of
+        /// the entry block for this function.
+        ///
+        /// Note: This assumes that the function has a single entry-point.
+        uint16_t function_id;
 
         /// Edges within either of the inter- and intra-procedural control-flow
         /// graph.
@@ -96,7 +81,48 @@ namespace client {
         /// Note: Edges are placed where they will fit, e.g. if all of the edge
         ///       slots in one basic block are full then we will try to fill
         ///       edge slots in the source basic block.
-        basic_block_edge edges[NUM_EDGE_SLOTS];
+        basic_block_edge *edges;
+
+        struct {
+            /// Number of edges allocated for this basic block.
+            uint16_t num_edges;
+
+            /// Number of outgoing JMPs in this basic block. This is used in a later
+            /// analysis to gage whether or not we've actually gone through all
+            /// control-flow paths out of this basic block.
+            uint8_t num_outgoing_jumps;
+
+            uint64_t:34; // TODO: unused.
+
+            /// Distinguishes app (e.g. module) from host (e.g. kernel) code.
+            bool is_app_code:1;
+
+            /// True iff the instrumented basic block is the entrypoint to a
+            /// memory allocator.
+            bool is_allocator:1;
+
+            /// True iff the instrumented basic block is the entrypoint to a
+            /// memory deallocator.
+            bool is_deallocator:1;
+
+            // Note: If both `is_allocator` and `is_deallocator` are true, then
+            //       this is a memory re-allocator, e.g. `realloc`.
+
+            /// True iff this basic block ends in something like an indirect
+            /// JMP because then we'll (later) assume that not much can be said
+            /// about the liveness of registers in successor basic blocks.
+            bool has_outgoing_indirect_jmp:1;
+
+            /// Is this basic block an entrypoint to a function? This won't
+            /// necessarily be true for all true entrypoints in the sense of
+            /// tail-calls.
+            bool is_function_entry:1;
+
+            /// Does this basic block end in a RET?
+            bool is_function_exit:1;
+
+        } __attribute__((packed));
+
 
         /// Lock that is acquired when updating the edges of any of the graphs.
         granary::smp::atomic_spin_lock edge_lock;
