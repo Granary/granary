@@ -102,28 +102,38 @@ namespace granary { namespace detail {
         ASSERT(scale <= NUM_FREE_LISTS);
         ASSERT(size >= size_);
 
-        if(!FREE_LISTS[scale].head.load()) {
+        for(;;) {
+            if(!FREE_LISTS[scale].head.load()) {
 
-            const unsigned curr_heap_index(HEAP_INDEX.fetch_add(size));
-            const unsigned long next_heap_index(curr_heap_index + size);
+                const unsigned curr_heap_index(HEAP_INDEX.fetch_add(size));
+                const unsigned long next_heap_index(curr_heap_index + size);
 
-            // Try to detect if our chosen heap size is too small.
-            if(next_heap_index > HEAP_SIZE) {
+                // Try to detect if our chosen heap size is too small.
+                if(next_heap_index > HEAP_SIZE) {
 
-                // TODO: Try to split large heap objects if possible.
-                ASSERT(false);
+                    // TODO: Try to split large heap objects if possible.
+                    ASSERT(false);
+                }
+
+                return &(HEAP[curr_heap_index]);
+            } else {
+                free_object *object(nullptr);
+                FREE_LISTS[scale].lock.acquire();
+                object = FREE_LISTS[scale].head.load();
+
+                // Deal with the race condition where two threads/cores try
+                // to allocate objects of the same size from the same free list.
+                if(!object) {
+                    FREE_LISTS[scale].lock.release();
+                    continue;
+                }
+
+                FREE_LISTS[scale].head.store(object->next);
+                FREE_LISTS[scale].lock.release();
+
+                return object;
             }
-
-            return &(HEAP[curr_heap_index]);
-        } else {
-            free_object *object(nullptr);
-            FREE_LISTS[scale].lock.acquire();
-            object = FREE_LISTS[scale].head.load();
-            FREE_LISTS[scale].head.store(object->next);
-            FREE_LISTS[scale].lock.release();
-
-            return object;
-        }
+        };
     }
 
 
