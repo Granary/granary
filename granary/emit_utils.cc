@@ -367,10 +367,10 @@ namespace granary {
                 dead_regs.revive(dynamorio::DR_REG_R15);
 
                 // Some of the scratch regs.
-                /*dead_regs.kill(dynamorio::DR_REG_R8);
+                dead_regs.kill(dynamorio::DR_REG_R8);
                 dead_regs.kill(dynamorio::DR_REG_R9);
                 dead_regs.kill(dynamorio::DR_REG_R10);
-                dead_regs.kill(dynamorio::DR_REG_R11);*/
+                dead_regs.kill(dynamorio::DR_REG_R11);
             }
 
             instruction_list ls;
