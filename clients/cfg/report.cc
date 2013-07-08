@@ -24,7 +24,7 @@ namespace client {
 
 
     /// Buffer used to serialise an individual basic block.
-    static char BUFFER[1024];
+    static char BUFFER[granary::PAGE_SIZE];
 
 
     enum {
