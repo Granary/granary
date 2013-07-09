@@ -12,7 +12,7 @@
 #include "granary/client.h"
 
 #ifndef GRANARY_INIT_POLICY
-#   define GRANARY_INIT_POLICY (client::cfg_entry_policy())
+#   define GRANARY_INIT_POLICY (client::cfg_root_policy())
 #endif
 
 
@@ -48,6 +48,33 @@ namespace client {
             granary::interrupt_vector
         ) throw();
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+    };
+
+
+    /// Roots of the inter-procedural control-flow graph. This is a
+    /// subset of function entrypoints.
+    struct cfg_root_policy : public cfg_entry_policy {
+
+        enum {
+            AUTO_INSTRUMENT_HOST = true
+        };
+
+        static granary::instrumentation_policy visit_app_instructions(
+            granary::cpu_state_handle,
+            granary::basic_block_state &,
+            granary::instruction_list &
+        ) throw();
+
+
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle,
+            granary::basic_block_state &,
+            granary::instruction_list &
+        ) throw();
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+        using cfg_entry_policy::handle_interrupt;
+#endif
     };
 
 

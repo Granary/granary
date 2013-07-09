@@ -109,8 +109,6 @@ namespace client {
             prev = BASIC_BLOCKS.load();
             curr->next = prev;
         } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
-
-
     }
 
 
@@ -269,6 +267,26 @@ namespace client {
         insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
         return granary::policy_for<cfg_exit_policy>();
+    }
+
+
+    granary::instrumentation_policy cfg_root_policy::visit_app_instructions(
+        granary::cpu_state_handle cpu,
+        granary::basic_block_state &bb,
+        granary::instruction_list &ls
+    ) throw() {
+        bb.is_root = true;
+        return cfg_entry_policy::visit_app_instructions(cpu, bb, ls);
+    }
+
+
+    granary::instrumentation_policy cfg_root_policy::visit_host_instructions(
+        granary::cpu_state_handle cpu,
+        granary::basic_block_state &bb,
+        granary::instruction_list &ls
+    ) throw() {
+        bb.is_root = true;
+        return cfg_entry_policy::visit_host_instructions(cpu, bb, ls);
     }
 
 

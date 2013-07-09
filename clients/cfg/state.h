@@ -77,18 +77,32 @@ namespace client {
         /// Note: Edges are placed where they will fit, e.g. if all of the edge
         ///       slots in one basic block are full then we will try to fill
         ///       edge slots in the source basic block.
+        ///
+        /// TODO: Could technically pack four basic block edges into here if
+        ///       we need the space, then turn it into a pointer when more than
+        ///       four are needed.
         basic_block_edge *edges;
 
         struct {
             /// Number of edges allocated for this basic block.
-            uint16_t num_edges;
+            uint8_t num_edges;
 
             /// Number of outgoing JMPs in this basic block. This is used in a later
             /// analysis to gage whether or not we've actually gone through all
             /// control-flow paths out of this basic block.
             uint8_t num_outgoing_jumps;
 
-            uint64_t:34; // TODO: unused.
+#if GRANARY_IN_KERNEL
+            /// Offset within that module's `.text` section.
+            uint32_t app_offset_begin;
+            uint16_t num_bytes_in_block:9;
+#else
+            uint64_t:41; // TODO: unused.
+#endif
+
+            /// Is this the root node in the inter-procedural control-flow
+            /// graph?
+            bool is_root:1;
 
             /// Distinguishes app (e.g. module) from host (e.g. kernel) code.
             bool is_app_code:1;
@@ -127,12 +141,9 @@ namespace client {
         /// Name of the module being instrumented.
         const char *app_name;
 
-        /// Offset within that module's `.text` section.
-        uint32_t app_offset_begin;
-        uint16_t num_bytes_in_block;
-
         /// Number of times this basic block was interrupted.
-        std::atomic<uint16_t> num_interrupts;
+        /// TODO: Can be shorted to uint16_t if we need more meta-info!
+        std::atomic<uint64_t> num_interrupts;
 #endif
     };
 

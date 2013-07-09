@@ -74,7 +74,8 @@ namespace client {
 
         // Meta info.
         b += sprintf(&(buffer[b]),
-            "BB(%d,%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%d",
+            "BB(%d,%d,%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%d",
+            bb->is_root,
             bb->is_function_entry,
             bb->is_function_exit,
             bb->is_app_code,
@@ -90,7 +91,7 @@ namespace client {
 
 #   if GRANARY_IN_KERNEL
         // Kernel-specific meta info.
-        b += sprintf(&(buffer[b]), ",%s,%u,%u,%u",
+        b += sprintf(&(buffer[b]), ",%s,%u,%u,%lu",
             bb->app_name,
             bb->app_offset_begin,
             bb->app_offset_begin + bb->num_bytes_in_block,
@@ -107,7 +108,7 @@ namespace client {
         basic_block_state *bb(BASIC_BLOCKS.load());
 
         const char *format(
-            "BB_FORMAT(is_function_entry,is_function_exit,is_app_code,"
+            "BB_FORMAT(is_root,is_function_entry,is_function_exit,is_app_code,"
             "is_allocator,is_deallocator,num_executions,function_id,block_id,"
             "num_outgoing_jumps,has_outgoing_indirect_jmp"
 #if GRANARY_IN_KERNEL
