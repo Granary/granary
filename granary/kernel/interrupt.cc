@@ -734,15 +734,39 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-        // Call out to the handler
+        // Get ready to switch stacks and call out to the handler
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
         in = insert_align_stack_after(ls, in);
+
+        // Find the local private stack to use
+        in = ls.insert_after(in, push_(reg::arg1));
+        in = ls.insert_after(in, push_(reg::arg2));
+
+        in = insert_cti_after(
+                ls, in, unsafe_cast<app_pc>(granary_get_private_stack_top), 
+                true, reg::ret, CTI_CALL);
+
+        in = ls.insert_after(in, pop_(reg::arg2));
+        in = ls.insert_after(in, pop_(reg::arg1));
+
+        insert_restore_old_stack_alignment_after(ls, in);
+
+        // Switch to new private stack
+        in = ls.insert_after(in, xchg_(reg::rsp, reg::ret));
+
+        // Save old user stack address (twice for 16-byte alignment)
+        in = ls.insert_after(in, push_(reg::ret));
+        in = ls.insert_after(in, push_(reg::ret));
+       
+        // Call handler 
         in = insert_cti_after(
             ls, in, // instruction
             unsafe_cast<app_pc>(handle_interrupt), // target
             true, reg::ret, // clobber reg
             CTI_CALL);
-        insert_restore_old_stack_alignment_after(ls, in);
+
+        // Switch back to old user stack
+        in = ls.insert_after(in, mov_ld_(reg::rsp, *reg::rsp));
 
         // check to see if the interrupt was handled or not
         ls.append(xor_(isf_ptr, isf_ptr));
