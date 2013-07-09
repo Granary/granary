@@ -8,10 +8,6 @@
 
 #include "granary/client.h"
 
-
-#define DUMP_META_INFO 0
-
-
 extern "C" {
     extern int sprintf(char *buf, const char *fmt, ...);
 }
@@ -24,7 +20,7 @@ namespace client {
 
 
     /// Buffer used to serialise an individual basic block.
-    static char BUFFER[granary::PAGE_SIZE];
+    static char BUFFER[granary::PAGE_SIZE * 2];
 
 
     enum {
@@ -59,91 +55,49 @@ namespace client {
                 break;
             }
 
-            uint16_t source[2];
-            uint16_t sink[2];
-            const char *kind;
-            bool has_function_edge(false);
-
             // Get the edge sources/sinks, as well as the correct prefix.
             if(BB_EDGE_INTRA_INCOMING == edge.kind) {
-                kind = "b";
-                source[0] = edge.block_id;
-                sink[0] = bb->block_id;
+                b += sprintf(&(BUFFER[b]),
+                    "INTRA(%d,%d)\n", edge.block_id, bb->block_id);
+
             } else if(BB_EDGE_INTRA_OUTGOING == edge.kind) {
-                kind = "b";
-                source[0] = bb->block_id;
-                sink[0] = edge.block_id;
+                b += sprintf(&(BUFFER[b]),
+                    "INTRA(%d,%d)\n", bb->block_id, edge.block_id);
             } else if(BB_EDGE_INTER_INCOMING == edge.kind) {
-                kind = "f";
-                source[0] = edge.function_id;
-                source[1] = edge.block_id;
-                sink[0] = bb->block_id;
-                sink[1] = bb->block_id;
-                has_function_edge = true;
+                b += sprintf(&(BUFFER[b]),
+                    "INTER(%d,%d)\n", edge.block_id, bb->block_id);
             } else {
-                kind = "f";
-                source[0] = bb->block_id;
-                source[1] = bb->block_id;
-                sink[0] = edge.block_id;
-                sink[1] = edge.function_id;
-                has_function_edge = true;
-            }
-
-            // Block-to-block, or function-to-function.
-            b += sprintf(&(buffer[b]), "%s%u -> %s%u;\n",
-                kind, source[0], kind, sink[0]);
-
-            // Block-to-block-function.
-            if(has_function_edge) {
-                b += sprintf(&(buffer[b]), "b%u -> b%u_f%u;\n",
-                    source[1], sink[0], sink[1]);
-
-                b += sprintf(&(buffer[b]), "b%u_f%u [label=f%u style=dotted];\n",
-                    sink[0], sink[1], sink[1]);
+                b += sprintf(&(BUFFER[b]),
+                    "INTER(%d,%d)\n", bb->block_id, edge.block_id);
             }
         }
 
-        const char *color(bb->is_app_code ? "" : " color=blue");
-
-        // This is a function entry, so print a function node for it as well.
-        if(bb->is_function_entry) {
-            b += sprintf(&(buffer[b]), "f%u [shape=square%s];\n",
-            bb->block_id,
-            color);
-        }
-
-        const char *shape(bb->is_function_exit ? " shape=doublecircle" : "");
-
-        // Print the basic block node.
-        b += sprintf(&(buffer[b]), "b%u [label=%u%s%s]; ",
-            bb->block_id,
-            bb->num_executions.load(),
-            shape,
-            color);
-
-#if DUMP_META_INFO
         // Meta info.
         b += sprintf(&(buffer[b]),
-            "// is_entry=%d is_exit=%d is_app=%d num_execs=%u func_id=%u used_regs=%u entry_regs=%u",
+            "BB(%d,%d,%d,%d,%d,%u,%u,%u,%u,%u,%u,%d",
             bb->is_function_entry,
             bb->is_function_exit,
             bb->is_app_code,
+            bb->is_allocator,
+            bb->is_deallocator,
             bb->num_executions.load(),
             bb->function_id,
+            bb->block_id,
             bb->used_regs,
-            bb->entry_regs);
+            bb->entry_regs,
+            bb->num_outgoing_jumps,
+            bb->has_outgoing_indirect_jmp);
 
 #   if GRANARY_IN_KERNEL
         // Kernel-specific meta info.
-        b += sprintf(&(buffer[b]), " module=%s begin=%u end=%u interrupts=%u",
+        b += sprintf(&(buffer[b]), ",%s,%u,%u,%u",
             bb->app_name,
             bb->app_offset_begin,
             bb->app_offset_begin + bb->num_bytes_in_block,
             bb->num_interrupts.load());
 #   endif /* GRANARY_IN_KERNEL */
-#endif /* DUMP_META_INFO */
 
-        b += sprintf(&(buffer[b]), "\n");
+        b += sprintf(&(buffer[b]), ")\n");
         return b;
     }
 
@@ -152,10 +106,21 @@ namespace client {
     void report(void) throw() {
         basic_block_state *bb(BASIC_BLOCKS.load());
 
+        const char *format(
+            "BB_FORMAT(is_function_entry,is_function_exit,is_app_code,"
+            "is_allocator,is_deallocator,num_executions,function_id,block_id,"
+            "num_outgoing_jumps,has_outgoing_indirect_jmp"
+#if GRANARY_IN_KERNEL
+            ",app_name,app_offset_begin,app_offset_end,num_interrupts"
+#endif /* GRANARY_IN_KERNEL */
+            ")\n"
+        );
+
+        granary::log(format, strlen(format));
         for(; bb; bb = bb->next) {
             ASSERT(bb != bb->next);
-            serialise_basic_block(bb, &(BUFFER[0]));
-            granary::printf(&(BUFFER[0]));
+            int len(serialise_basic_block(bb, &(BUFFER[0])));
+            granary::log(&(BUFFER[0]), len);
         }
     }
 }

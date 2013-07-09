@@ -40,10 +40,6 @@ namespace client {
         /// on the edge kind.
         uint16_t block_id:13;
 
-        /// Records either the source or the sink function id, depending on
-        /// the edge kind.
-        uint16_t function_id;
-
     } __attribute__((packed));
 
 

@@ -372,6 +372,7 @@ extern "C" {
 #if GRANARY_IN_KERNEL
     extern void kernel_preempt_disable(void);
     extern void kernel_preempt_enable(void);
+    extern void kernel_log(const char *, size_t);
 
     // This is a pretty evil way of getting around issues like `memcpy` being
     // substituted by things like `__memcpy_chk`.
@@ -413,6 +414,16 @@ extern "C" {
 #include "granary/perf.h"
 #include "granary/printf.h"
 #include "granary/trace_log.h"
+
+
+namespace granary {
+    /// Log some data from Granary to the external world.
+    inline void log(const char *data, size_t size) throw() {
+        IF_KERNEL(kernel_log(data, size);)
+        IF_USER(printf(data);)
+    }
+}
+
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
 #   include "granary/kernel/interrupt.h"

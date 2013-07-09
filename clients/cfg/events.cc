@@ -18,7 +18,6 @@ namespace client {
     static bool add_edge_unlocked(
         basic_block_state *bb_with_slots,
         uint16_t sink_block_id,
-        uint16_t sink_func_id,
         basic_block_edge_kind kind
     ) throw() {
         bool inserted(false);
@@ -36,7 +35,6 @@ namespace client {
             if(BB_EDGE_UNUSED == edge.kind) {
                 edge.kind = kind;
                 edge.block_id = sink_block_id;
-                edge.function_id = sink_func_id;
                 inserted = true;
                 break;
             }
@@ -49,12 +47,10 @@ namespace client {
     static bool add_edge(
         basic_block_state *bb_with_slots,
         uint16_t sink_block_id,
-        uint16_t sink_func_id,
         basic_block_edge_kind kind
     ) throw() {
         bb_with_slots->edge_lock.acquire();
-        bool inserted(add_edge_unlocked(
-            bb_with_slots, sink_block_id, sink_func_id, kind));
+        bool inserted(add_edge_unlocked(bb_with_slots, sink_block_id, kind));
         bb_with_slots->edge_lock.release();
         return inserted;
     }
@@ -65,13 +61,11 @@ namespace client {
     static void grow_and_add_edge(
         basic_block_state *bb_with_slots,
         uint16_t sink_block_id,
-        uint16_t sink_func_id,
         basic_block_edge_kind kind
     ) throw() {
         bb_with_slots->edge_lock.acquire();
         basic_block_edge *old_edges(bb_with_slots->edges);
         const unsigned old_num_edges(bb_with_slots->num_edges);
-
 
         bb_with_slots->num_edges *= 2;
         bb_with_slots->edges = allocate_memory<basic_block_edge>(
@@ -82,7 +76,7 @@ namespace client {
             old_edges,
             sizeof(basic_block_edge) * old_num_edges);
 
-        add_edge_unlocked(bb_with_slots, sink_block_id, sink_func_id, kind);
+        add_edge_unlocked(bb_with_slots, sink_block_id, kind);
         bb_with_slots->edge_lock.release();
 
         free_memory<basic_block_edge>(old_edges, old_num_edges);
@@ -105,15 +99,14 @@ namespace client {
         }
 
         bool added(true);
-        if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTER_OUTGOING)) {
-            if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTER_INCOMING)) {
+        if(!add_edge(last_bb, bb->block_id, BB_EDGE_INTER_OUTGOING)) {
+            if(!add_edge(bb, last_bb->block_id, BB_EDGE_INTER_INCOMING)) {
                 added = false;
             }
         }
 
         if(!added) {
-            grow_and_add_edge(
-                last_bb, bb->block_id, bb->function_id, BB_EDGE_INTER_OUTGOING);
+            grow_and_add_edge(last_bb, bb->block_id, BB_EDGE_INTER_OUTGOING);
         }
     }
 
@@ -157,16 +150,14 @@ namespace client {
 
         // Connect us to any other basic blocks.
         bool added(true);
-        if(!add_edge(bb, last_bb->block_id, last_bb->function_id, BB_EDGE_INTRA_INCOMING)) {
-            if(!add_edge(last_bb, bb->block_id, bb->function_id, BB_EDGE_INTRA_OUTGOING)) {
+        if(!add_edge(bb, last_bb->block_id, BB_EDGE_INTRA_INCOMING)) {
+            if(!add_edge(last_bb, bb->block_id, BB_EDGE_INTRA_OUTGOING)) {
                 added = false;
             }
         }
 
         if(!added) {
-            grow_and_add_edge(
-                bb, last_bb->block_id, last_bb->function_id,
-                BB_EDGE_INTRA_INCOMING);
+            grow_and_add_edge(bb, last_bb->block_id, BB_EDGE_INTRA_INCOMING);
         }
     }
 }

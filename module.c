@@ -28,6 +28,9 @@
 #include <linux/version.h>
 #include <linux/gfp.h>
 #include <linux/stop_machine.h>
+#include <linux/types.h>
+#include <linux/debugfs.h>
+#include <linux/relay.h>
 
 #include <asm/page.h>
 #include <asm/cacheflush.h>
@@ -60,6 +63,12 @@
 
 /// It's a trap!
 MODULE_LICENSE("GPL");
+
+
+/// Configuration for RelayFS.
+#define SUBBUF_SIZE 262144
+#define N_SUBBUFS 4
+struct rchan *GRANARY_RELAY_CHANNEL = NULL;
 
 
 /// Get access to per-CPU Granary state.
@@ -175,6 +184,14 @@ __attribute__((hot))
 void kernel_preempt_enable(void) {
     barrier();
     dec_preempt_count();
+}
+
+
+/// Log some data to user space through RelayFS.
+void kernel_log(const char *data, size_t size) {
+    if(GRANARY_RELAY_CHANNEL) {
+        relay_write(GRANARY_RELAY_CHANNEL, data, size);
+    }
 }
 
 
@@ -586,7 +603,28 @@ static ssize_t device_read(
 }
 
 
-struct file_operations operations = {
+static struct dentry *create_relay_file_handler(
+    const char *filename,
+    struct dentry *parent,
+    umode_t mode,
+    struct rchan_buf *buf,
+    int *is_global
+) {
+    struct dentry *buf_file;
+    buf_file = debugfs_create_file(filename, mode, parent, buf,
+    &relay_file_operations);
+    *is_global = 1;
+    return buf_file;
+}
+
+
+static int remove_relay_file_handler(struct dentry *dentry) {
+    debugfs_remove(dentry);
+    return 0;
+}
+
+
+static struct file_operations operations = {
     .owner      = THIS_MODULE,
     .open       = device_open,
     .release    = device_close,
@@ -595,18 +633,23 @@ struct file_operations operations = {
 };
 
 
-struct miscdevice device = {
+static struct miscdevice device = {
     .minor      = 0,
     .name       = "granary",
     .fops       = &operations
 };
 
+static struct rchan_callbacks relay_operations = {
+    .create_buf_file = create_relay_file_handler,
+    .remove_buf_file = remove_relay_file_handler
+};
+
 
 /// C++ operator new and delete variants.
-extern void *_Znwm(void) { return NULL; }
-extern void *_Znam(void) { return NULL; }
-extern void _ZdlPv(void) { }
-extern void _ZdaPv(void) { }
+extern void *_Znwm(void) { granary_fault(); return NULL; }
+extern void *_Znam(void) { granary_fault(); return NULL; }
+extern void _ZdlPv(void) { granary_fault(); }
+extern void _ZdaPv(void) { granary_fault(); }
 
 
 /// Initialise Granary.
@@ -629,6 +672,15 @@ static int init_granary(void) {
         printk("[granary] Unable to register 'granary' device.\n");
     } else {
         printk("[granary] Registered 'granary' device.\n");
+    }
+
+    // Initialise a channel with RelayFS.
+    GRANARY_RELAY_CHANNEL = relay_open(
+        "granary", NULL, SUBBUF_SIZE, N_SUBBUFS, &relay_operations, NULL);
+    if (!GRANARY_RELAY_CHANNEL) {
+        printk("[granary] Unable to initialise the `granary` relay channel.\n");
+    } else {
+        printk("[granary] Relay channel initialised.\n");
     }
 
     printk("[granary] Done; waiting for command to initialise Granary.\n");
