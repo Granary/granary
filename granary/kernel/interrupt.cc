@@ -329,6 +329,16 @@ namespace granary {
             USED(vector);
             USED(cpu);
         }
+
+        DONT_OPTIMISE void granary_break_on_nested_interrupt(
+            granary::interrupt_stack_frame *isf,
+            interrupt_vector vector,
+            cpu_state_handle cpu
+        ) {
+            USED(isf);
+            USED(vector);
+            USED(cpu);
+        }
     }
 
 
@@ -464,7 +474,17 @@ namespace granary {
         kernel_preempt_disable();
 
         cpu_state_handle cpu;
-        granary::enter(cpu);
+
+        unsigned prev_num_nested_interrupts(
+            cpu->num_nested_interrupts.fetch_add(1));
+
+        // Avoid nested interrupts clobbering Granary's internal data
+        // structures.
+        if(!prev_num_nested_interrupts) {
+            granary::enter(cpu);
+        } else {
+            granary_break_on_nested_interrupt(isf, vector, cpu);
+        }
 
         // Make sure that we can resolve thread-local variables from now on.
         cpu->stack_pointer = reinterpret_cast<uintptr_t>(isf->stack_pointer);
@@ -506,7 +526,7 @@ namespace granary {
 
         // Reset the stack pointer for this CPU.
         cpu->stack_pointer = 0;
-
+        cpu->num_nested_interrupts.fetch_sub(1);
         kernel_preempt_enable();
         return ret;
     }

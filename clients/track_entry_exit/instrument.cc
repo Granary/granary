@@ -25,20 +25,30 @@ namespace client {
     }
 
 
+    static granary::app_pc EVENT_ENTER_MODULE = nullptr;
+    static granary::app_pc EVENT_EXIT_MODULE = nullptr;
+
+
+    void init(void) throw() {
+        using namespace granary;
+        EVENT_ENTER_MODULE = generate_clean_callable_address(
+            &on_enter_code_cache);
+
+        EVENT_EXIT_MODULE = generate_clean_callable_address(
+            &on_exit_code_cache);
+    }
+
+
     /// Instrument the first entrypoint into instrumented code.
     static void instrument_entry_to_code_cache(
         granary::instruction_list &ls
     ) throw() {
         using namespace granary;
-        register_manager rm;
-        rm.kill_all();
-
         instruction in(ls.first());
         in = ls.insert_before(in, label_());
-        in = save_and_restore_registers(rm, ls, in);
         in = insert_cti_after(
             ls, in,
-            unsafe_cast<app_pc>(on_enter_code_cache), true, reg::rax,
+            EVENT_ENTER_MODULE, false, operand(),
             CTI_CALL);
         in.set_mangled();
     }
@@ -50,15 +60,11 @@ namespace client {
         granary::instruction in
     ) throw() {
         using namespace granary;
-        register_manager rm;
-        rm.kill_all();
-
 
         in = ls.insert_before(in, label_());
-        in = save_and_restore_registers(rm, ls, in);
         in = insert_cti_after(
             ls, in,
-            unsafe_cast<app_pc>(on_exit_code_cache), true, reg::rax,
+            EVENT_EXIT_MODULE, false, operand(),
             CTI_CALL);
         in.set_mangled();
     }

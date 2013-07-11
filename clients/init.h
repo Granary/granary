@@ -25,6 +25,11 @@
 #endif
 
 
+#ifdef CLIENT_ENTRY
+#   define CLIENT_init
+#endif
+
+
 
 #ifdef CLIENT_init
 namespace client {

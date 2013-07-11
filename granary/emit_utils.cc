@@ -44,21 +44,7 @@ namespace granary {
                 instruction in;
 
                 in = instruction::decode(&bb);
-
-                // Only kill those registers killed by the instructions in the
-                // function. This is more aggressive than a normal `visit_dests`
-                // of the instruction in order to be conservative and not get
-                // caught by `visit_dests` accounting for recursive dependencies
-                // between sources and dests.
-                register_manager regs_killed_by_in;
-                regs_killed_by_in.kill_dests(in);
-                for(;;) {
-                    dynamorio::reg_id_t dead_reg(regs_killed_by_in.get_zombie());
-                    if(!dead_reg) {
-                        break;
-                    }
-                    used_regs.kill(dead_reg);
-                }
+                used_regs.kill_dests(in);
 
                 // done processing this basic block
                 if(dynamorio::OP_ret == in.op_code()) {

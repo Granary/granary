@@ -167,6 +167,10 @@ namespace granary {
         IF_KERNEL( uintptr_t stack_pointer; )
 
 
+        /// Number of nested interrupts.
+        IF_KERNEL( std::atomic<unsigned> num_nested_interrupts; )
+
+
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::small_allocator_config>
             small_allocator;

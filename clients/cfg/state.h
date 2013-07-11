@@ -85,20 +85,14 @@ namespace client {
 
         struct {
             /// Number of edges allocated for this basic block.
-            uint8_t num_edges;
+            uint16_t num_edges;
 
             /// Number of outgoing JMPs in this basic block. This is used in a later
             /// analysis to gage whether or not we've actually gone through all
             /// control-flow paths out of this basic block.
             uint8_t num_outgoing_jumps;
 
-#if GRANARY_IN_KERNEL
-            /// Offset within that module's `.text` section.
-            uint32_t app_offset_begin;
-            uint16_t num_bytes_in_block:9;
-#else
             uint64_t:41; // TODO: unused.
-#endif
 
             /// Is this the root node in the inter-procedural control-flow
             /// graph?
@@ -141,9 +135,13 @@ namespace client {
         /// Name of the module being instrumented.
         const char *app_name;
 
+        /// Offset within that module's `.text` section.
+        uint32_t app_offset_begin;
+        uint16_t num_bytes_in_block;
+
         /// Number of times this basic block was interrupted.
         /// TODO: Can be shorted to uint16_t if we need more meta-info!
-        std::atomic<uint64_t> num_interrupts;
+        std::atomic<uint16_t> num_interrupts;
 #endif
     };
 

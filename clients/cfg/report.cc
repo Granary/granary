@@ -91,7 +91,7 @@ namespace client {
 
 #   if GRANARY_IN_KERNEL
         // Kernel-specific meta info.
-        b += sprintf(&(buffer[b]), ",%s,%u,%u,%lu",
+        b += sprintf(&(buffer[b]), ",%s,%u,%u,%u",
             bb->app_name,
             bb->app_offset_begin,
             bb->app_offset_begin + bb->num_bytes_in_block,

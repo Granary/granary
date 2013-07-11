@@ -16,10 +16,10 @@ GR_CLIENT ?= null
 
 # Compilation toolchain
 GR_CPP = cpp
-GR_CC = gcc
-GR_LD = gcc
+GR_CC = gcc-4.8
+GR_LD = gcc-4.8
 GR_LDD = ldd
-GR_CXX = g++-4.7
+GR_CXX = g++-4.8
 GR_CXX_STD = -std=gnu++0x
 GR_PYTHON = python
 
@@ -179,6 +179,10 @@ GR_OBJS += bin/granary/gen/instruction.o
 ifeq ($(GR_CLIENT),null)
 	GR_CXX_FLAGS += -DCLIENT_NULL
 	GR_OBJS += bin/clients/null/instrument.o
+endif
+ifeq ($(GR_CLIENT),null_plus)
+	GR_CXX_FLAGS += -DCLIENT_NULL_PLUS
+	GR_OBJS += bin/clients/null_plus/instrument.o
 endif
 ifeq ($(GR_CLIENT),track_entry_exit)
 	GR_CXX_FLAGS += -DCLIENT_ENTRY
@@ -543,6 +547,7 @@ install:
 	@-mkdir bin/granary/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/null > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/null_plus > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/cfg > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:

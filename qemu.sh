@@ -2,8 +2,8 @@
 
 SMP=2
 MEM=2048
-#NETWORK=e1000 #virtio
-NETWORK=virtio
+NETWORK=e1000
+#NETWORK=virtio
 GRAPHIC= #-nographic
 GRAPHIC_FLAG=0
 

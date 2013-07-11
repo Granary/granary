@@ -15,6 +15,12 @@
 #endif
 
 
+/// Null plus (some kernel space) policy.
+#ifdef CLIENT_NULL_PLUS
+#   include "clients/null_plus/instrument.h"
+#endif
+
+
 /// Control-flow graph building policy.
 #ifdef CLIENT_CFG
 #   include "clients/cfg/instrument.h"
