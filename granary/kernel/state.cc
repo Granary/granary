@@ -86,9 +86,9 @@ namespace granary {
     /// Used to access thread-local data. The dependency on a valid CPU state
     /// handle implies that thread state should only be accessed when interrupts
     /// are disabled (where it's safe to access CPU-private data).
-    thread_state_handle::thread_state_handle(cpu_state_handle cpu) throw()
-        : state(cpu->thread_data.load())
-        , cpu(state ? nullptr : cpu.state)
+    thread_state_handle::thread_state_handle(cpu_state_handle cpu_) throw()
+        : state(cpu_->thread_data.load())
+        , cpu(state ? nullptr : cpu_.state)
     { }
 
 }

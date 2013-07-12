@@ -102,15 +102,15 @@ namespace granary {
     ///
     /// Note: Tricky bits with TLS restore is that it should be re-entrant
     ///       at every instruction.
-    app_pc thread_state::get_restore_stub(app_pc target) throw() {
+    app_pc get_tls_restore_stub(thread_state *state, app_pc target) throw() {
 
         // Set the stub's target, regardless of if we need to generate the
         // stub or not.
-        restore_stub_target = target;
+        state->restore_stub_target = target;
 
         // Already created the stub.
-        if(restore_stub) {
-            return restore_stub;
+        if(state->restore_stub) {
+            return state->restore_stub;
         }
 
         instruction_list ls;
@@ -139,17 +139,22 @@ namespace granary {
 
         // Address of our thread's `thread_state *`.
         ls.append(mov_imm_(
-            reg::rbx, int64_(reinterpret_cast<uintptr_t>(restore_stub))));
+            reg::rbx, int64_(reinterpret_cast<uintptr_t>(state->restore_stub))));
 
         // Store TLS pointer into CPU state.
         ls.append(mov_st_(
             reg::rax[offsetof(cpu_state, thread_data)],
             reg::rbx));
 
+        const unsigned stub_target_offset(
+            reinterpret_cast<uintptr_t>(&(state->restore_stub_target))
+          - reinterpret_cast<uintptr_t>(state));
+
+
         // Get our target address.
         ls.append(mov_ld_(
             reg::rax,
-            reg::rbx[offsetof(thread_state, restore_stub_target)]));
+            reg::rbx[stub_target_offset]));
 
         // Save target as return address of the stub.
         ls.append(mov_st_(reg::rsp[24], reg::rax));
@@ -167,12 +172,12 @@ namespace granary {
 
         unsigned size(ls.encoded_size());
 
-        restore_stub = unsafe_cast<app_pc>(global_state::FRAGMENT_ALLOCATOR->\
-            allocate_untyped(16, size));
+        state->restore_stub = unsafe_cast<app_pc>(
+            global_state::FRAGMENT_ALLOCATOR->allocate_untyped(16, size));
 
-        ls.encode(restore_stub);
+        ls.encode(state->restore_stub);
 
-        return restore_stub;
+        return state->restore_stub;
     }
 
 
@@ -634,8 +639,8 @@ namespace granary {
         // different CPU.
         if(INTERRUPT_DEFER == ret) {
             if(restore_thread_state) {
-                isf->instruction_pointer = restore_thread_state->\
-                    get_restore_stub(isf->instruction_pointer);
+                isf->instruction_pointer = get_tls_restore_stub(
+                    restore_thread_state, isf->instruction_pointer);
             }
 
         // We're returning to the same CPU, so leave things as-is.

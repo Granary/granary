@@ -30,7 +30,6 @@ namespace granary {
     struct thread_state_handle;
     struct instruction_list_mangler;
     struct interrupt_stack_frame;
-    struct tls_restore_stub;
 
 
     /// Notify that we're entering granary.
@@ -39,17 +38,10 @@ namespace granary {
 
     /// Information maintained by granary about each thread.
     struct thread_state : public client::thread_state {
-    private:
-
-        friend struct basic_block;
-
-        IF_KERNEL( friend struct tls_restore_stub; )
-        IF_KERNEL( app_pc restore_stub; )
-        IF_KERNEL( app_pc restore_stub_target; )
-
     public:
 
-        IF_KERNEL( app_pc get_restore_stub(app_pc at_target) throw(); )
+        IF_KERNEL( app_pc restore_stub; )
+        IF_KERNEL( app_pc restore_stub_target; )
     };
 
 
