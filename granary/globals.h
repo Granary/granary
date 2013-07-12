@@ -419,6 +419,7 @@ extern "C" {
 namespace granary {
     /// Log some data from Granary to the external world.
     inline void log(const char *data, size_t size) throw() {
+        USED(size);
         IF_KERNEL(kernel_log(data, size);)
         IF_USER(printf(data);)
     }
