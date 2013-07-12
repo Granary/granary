@@ -16,9 +16,9 @@ namespace granary {
     __thread cpu_state *CPU_STATE(nullptr);
     __thread stack_state STACK_STATE;
 
-    extern "C" char *granary_get_private_stack_top(void)
+    extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-        return (char *) &(STACK_STATE.top);
+        return &(STACK_STATE).depth;
     }
 
     thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw()

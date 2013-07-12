@@ -13,7 +13,9 @@ namespace granary {
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw() {
-        cpu.free_transient_allocators();
+        if (1 == *granary_get_private_stack_top()) {
+            cpu.free_transient_allocators();
+        }
     }
 
 

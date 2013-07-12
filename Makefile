@@ -197,11 +197,19 @@ GR_OBJS += $(BIN_DIR)/granary/init.o
 GR_OBJS += $(BIN_DIR)/granary/wrapper.o
 
 # Granary (x86) dependencies
+<<<<<<< HEAD
 GR_OBJS += $(BIN_DIR)/granary/x86/utils.o
 GR_OBJS += $(BIN_DIR)/granary/x86/direct_branch.o
 GR_OBJS += $(BIN_DIR)/granary/x86/attach.o
 GR_OBJS += $(BIN_DIR)/granary/x86/dynamic_wrapper_of.o
 GR_OBJS += $(BIN_DIR)/granary/x86/stack.o
+=======
+GR_OBJS += bin/granary/x86/utils.o
+GR_OBJS += bin/granary/x86/direct_branch.o
+GR_OBJS += bin/granary/x86/attach.o
+GR_OBJS += bin/granary/x86/dynamic_wrapper_of.o
+GR_OBJS += bin/granary/x86/stack.o
+>>>>>>> Use nestable private stack entry/exit helpers
 
 # Granary (C++) auto-generated dependencies
 GR_OBJS += $(BIN_DIR)/granary/gen/instruction.o

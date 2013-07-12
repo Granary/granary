@@ -28,9 +28,9 @@ namespace granary {
     /// Manually manage our own per-cpu state.
     cpu_state *CPU_STATES[256] = {nullptr};
 
-    extern "C" char *granary_get_private_stack_top(void)
+    extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-        return (char *) &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack);
+        return &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack).depth;
     }
 
     namespace detail {

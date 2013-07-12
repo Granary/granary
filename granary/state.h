@@ -37,11 +37,16 @@ namespace granary {
     void enter(cpu_state_handle cpu) throw();
 
     struct __attribute__((aligned (16), packed)) stack_state {
-        char base[CONFIG_PRIVATE_STACK_SIZE];
+        char base[CONFIG_PRIVATE_STACK_SIZE - 8];
         char top[0];
+        uint64_t depth;
     };
 
-    extern "C" char *granary_get_private_stack_top(void);
+    extern "C" {
+        uint64_t *granary_get_private_stack_top(void);
+        void granary_enter_private_stack(void);
+        void granary_exit_private_stack(void);
+    }
 
     /// Information maintained by granary about each thread.
     struct thread_state : public client::thread_state { };
