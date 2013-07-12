@@ -456,9 +456,6 @@ namespace granary {
     /// Address of the global code cache lookup function.
     static app_pc global_code_cache_find(nullptr);
 
-    /// Address of the granary_get_private_stack_top
-    static app_pc get_private_stack_top(nullptr);
-
     STATIC_INITIALISE_ID(code_cache_functions, {
         cpu_private_code_cache_find = unsafe_cast<app_pc>(
             (app_pc (*)(
@@ -469,9 +466,6 @@ namespace granary {
 
         global_code_cache_find = unsafe_cast<app_pc>(
             (app_pc (*)(mangled_address)) code_cache::find);
-        
-        get_private_stack_top = unsafe_cast<app_pc>(
-            (char *(*)(void)) granary_get_private_stack_top);
     })
 
 
@@ -560,25 +554,24 @@ namespace granary {
         safe = insert_align_stack_after(ibl, safe);
 
         // Find the local private stack to use
-        safe = ibl.insert_after(safe, push_(reg::arg1));
-        safe = ibl.insert_after(safe, push_(reg::arg2));
         safe = insert_cti_after(
-                ibl, safe, get_private_stack_top, true, reg::ret, CTI_CALL);
-        safe = ibl.insert_after(safe, pop_(reg::arg2));
-        safe = ibl.insert_after(safe, pop_(reg::arg1));
-
-        // Switch to new private stack
-        safe = ibl.insert_after(safe, xchg_(reg::rsp, reg::ret));
-
-        // Save old user stack address (twice for 16-byte alignment)
-        safe = ibl.insert_after(safe, push_(reg::ret));
-        safe = ibl.insert_after(safe, push_(reg::ret));
+                ibl, safe, unsafe_cast<app_pc>(granary_enter_private_stack),
+                true, reg::ret, CTI_CALL);
 
         safe = insert_cti_after(
-            ibl, safe, global_code_cache_find, true, reg::rax, CTI_CALL);
+            ibl, safe, global_code_cache_find,
+            true, reg::ret, CTI_CALL);
 
-        // Switch back to old user stack
-        safe = ibl.insert_after(safe, mov_ld_(reg::rsp, *reg::rsp));
+        // stash the return value before it disappears
+        safe = ibl.insert_after(safe, mov_ld_(reg_target_addr, reg::ret));
+
+        // exit from the private stack again
+        safe = insert_cti_after(
+                ibl, safe, unsafe_cast<app_pc>(granary_exit_private_stack),
+                true, reg::ret, CTI_CALL);
+
+        // restore the return value from the cache find
+        safe = ibl.insert_after(safe, mov_ld_(reg::ret, reg_target_addr));
 
         safe = insert_restore_old_stack_alignment_after(ibl, safe);
 
@@ -860,7 +853,7 @@ namespace granary {
         for(;;) {
             instruction in(instruction::decode(&start_pc));
             if(in.is_call()) {
-                // The first call is to private
+                // The direct calls are to the private stack enter/exit functions
                 if (in.is_direct_call()) {
                     insert_cti_after(
                         ls, ls.last(), in.cti_target().value.pc,

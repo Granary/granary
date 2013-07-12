@@ -6,8 +6,6 @@
 
 START_FILE
 
-.extern SYMBOL(granary_get_private_stack_top)
-
 /// Defines a "template" for direct branches. This template is decoded and re-
 /// encoded so as to generate many different direct branch stubs (one for each
 /// direct jump instruction and policy).
@@ -21,10 +19,6 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
 
     PUSHA
 
-    // Call the helper that will give us our current private stack address
-    // NB: After call, %rax is that address
-    call EXTERN_SYMBOL(granary_get_private_stack_top)
-
     mov %rsp, %ARG1
 
     // ensure 16-byte alignment of the stack; this assumes the stack pointer is
@@ -35,18 +29,12 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
 
     PUSHA_XMM
 
-    // Switch to new private stack
-    xchg %rax, %rsp
-
-    // Save old user stack address (twice, to ensure 16 byte alignment)
-    push %rax
-    push %rax
+    ENTER_PRIVATE_STACK()
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
 
-    // Switch back to old user stack
-    mov (%rsp), %rsp
+    EXIT_PRIVATE_STACK()
 
     POPA_XMM
 
@@ -77,10 +65,6 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
 
     PUSHA
 
-    // Call the helper that will give us our current private stack address
-    // NB: After call, %rax is that address
-    call EXTERN_SYMBOL(granary_get_private_stack_top)
-
     mov %rsp, %ARG1
 
     // ensure 16-byte alignment of the stack; this assumes the stack pointer is
@@ -95,18 +79,12 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     movaps %xmm1, (%rsp);
 #endif
 
-    // Switch to new private stack
-    xchg %rax, %rsp
-
-    // Save old user stack address (twice, to ensure 16 byte alignment)
-    push %rax
-    push %rax
+    ENTER_PRIVATE_STACK()
 
     // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
     callq *%rax
 
-    // Switch back to old user stack
-    mov (%rsp), %rsp
+    EXIT_PRIVATE_STACK()
 
 #if !GRANARY_IN_KERNEL
     movaps (%rsp), %xmm1;

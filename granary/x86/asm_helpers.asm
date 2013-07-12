@@ -203,4 +203,10 @@
 #define COMMENT_HASH #
 #define COMMENT(...) COMMENT_HASH __VA_ARGS__ @N@
 
+.extern SYMBOL(granary_enter_private_stack)
+.extern SYMBOL(granary_exit_private_stack)
+
+#define ENTER_PRIVATE_STACK()       call EXTERN_SYMBOL(granary_enter_private_stack)
+#define EXIT_PRIVATE_STACK()        call EXTERN_SYMBOL(granary_exit_private_stack)
+
 #endif /* Granary_ASM_HELPERS_ASM_ */

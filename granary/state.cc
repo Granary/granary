@@ -13,8 +13,10 @@ namespace granary {
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw() {
-        cpu->transient_allocator.free_all();
-        cpu->instruction_allocator.free_all();
+        if (*granary_get_private_stack_top() == 1) {
+            cpu->transient_allocator.free_all();
+            cpu->instruction_allocator.free_all();
+        }
     }
 
     /// Static initialisation of global fragment allocator
