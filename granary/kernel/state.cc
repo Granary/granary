@@ -17,9 +17,7 @@ extern "C" {
     extern granary::cpu_state **kernel_get_cpu_state(granary::cpu_state *[]);
 
 
-    /// Get access to the thread-private state.
-    extern granary::thread_state *kernel_get_thread_state(uintptr_t, unsigned);
-
+    /// Used to run a function on each CPU.
     extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
 }
 
@@ -28,7 +26,7 @@ namespace granary {
 
 
     /// Manually manage our own per-cpu state.
-    static cpu_state *CPU_STATES[256] = {nullptr};
+    cpu_state *CPU_STATES[256] = {nullptr};
 
 
     namespace detail {
@@ -74,18 +72,23 @@ namespace granary {
     }
 
 
-    /// This constructor must be used when accessing Granary from within
-    /// Granary's stack.
+    /// Allocate the thread state for the first time while on a given CPU.
+    void thread_state_handle::init(void) throw() {
+        state = allocate_memory<thread_state>();
+        thread_state *expected_state(nullptr);
+        if(!cpu->thread_data.compare_exchange_weak(expected_state, state)) {
+            free_memory<thread_state>(state);
+            state = expected_state;
+        }
+    }
+
+
+    /// Used to access thread-local data. The dependency on a valid CPU state
+    /// handle implies that thread state should only be accessed when interrupts
+    /// are disabled (where it's safe to access CPU-private data).
     thread_state_handle::thread_state_handle(cpu_state_handle cpu) throw()
-        : state(kernel_get_thread_state(cpu->stack_pointer, THREAD_STATE_SIZE))
+        : state(cpu->thread_data.load())
+        , cpu(state ? nullptr : cpu.state)
     { }
 
-
-    /// This constructor must be used when on a native stack.
-    thread_state_handle::thread_state_handle(void) throw()
-        : state(kernel_get_thread_state(
-              reinterpret_cast<uintptr_t>(&state),
-              sizeof(thread_state)
-          ))
-    { }
 }

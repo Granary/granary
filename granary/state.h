@@ -30,6 +30,7 @@ namespace granary {
     struct thread_state_handle;
     struct instruction_list_mangler;
     struct interrupt_stack_frame;
+    struct tls_restore_stub;
 
 
     /// Notify that we're entering granary.
@@ -42,6 +43,13 @@ namespace granary {
 
         friend struct basic_block;
 
+        IF_KERNEL( friend struct tls_restore_stub; )
+        IF_KERNEL( app_pc restore_stub; )
+        IF_KERNEL( app_pc restore_stub_target; )
+
+    public:
+
+        IF_KERNEL( app_pc get_restore_stub(app_pc at_target) throw(); )
     };
 
 
@@ -162,13 +170,12 @@ namespace granary {
         IF_KERNEL( uint64_t spill[2]; )
 
 
-        /// Some pointer on the native stack. This is for resolving thread-
-        /// private state, even if we're on a different stack.
-        IF_KERNEL( uintptr_t stack_pointer; )
-
-
         /// Number of nested interrupts.
         IF_KERNEL( std::atomic<unsigned> num_nested_interrupts; )
+
+
+        /// Thread-private state.
+        IF_USER_ELSE(thread_state, std::atomic<thread_state *>) thread_data;
 
 
         /// The code cache allocator for this CPU.

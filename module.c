@@ -78,6 +78,7 @@ void **kernel_get_cpu_state(void *ptr[]) {
 }
 
 
+#if 0
 /// Get access to the per-thread Granary state.
 __attribute__((hot))
 void *kernel_get_thread_state(uint64_t stack_ptr, unsigned aligned_size) {
@@ -112,6 +113,7 @@ void *kernel_get_thread_state(uint64_t stack_ptr, unsigned aligned_size) {
 
     return state;
 }
+#endif
 
 
 /// Run a function on each CPU.

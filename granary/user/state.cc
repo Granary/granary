@@ -13,26 +13,12 @@
 namespace granary {
 
     /// User space thread-local storage.
-    __thread thread_state *THREAD_STATE(nullptr);
     __thread cpu_state *CPU_STATE(nullptr);
 
 
-    thread_state_handle::thread_state_handle(void) throw()
-        : state(THREAD_STATE)
-    {
-        if(!state) {
-            state = THREAD_STATE = allocate_memory<thread_state>();
-        }
-    }
-
-
-    thread_state_handle::thread_state_handle(cpu_state_handle) throw()
-        : state(THREAD_STATE)
-    {
-        if(!state) {
-            state = THREAD_STATE = allocate_memory<thread_state>();
-        }
-    }
+    thread_state_handle::thread_state_handle(cpu_state_handle cpu) throw()
+        : state(&(cpu->thread_data))
+    { }
 
 
     cpu_state_handle::cpu_state_handle(void) throw()

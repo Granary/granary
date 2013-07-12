@@ -106,7 +106,7 @@ namespace granary {
 
         /// Accessing some byte offset from the operand (assuming it points to
         /// some memory)
-        operand_base_disp operator[](int64_t num_bytes) const throw();
+        operand_base_disp operator[](int num_bytes) const throw();
 
         operand_base_disp operator+(operand index) const throw();
 
@@ -715,7 +715,7 @@ namespace granary {
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             return op; \
         } \
-        inline operand operator[](unsigned offset) throw() { \
+        inline operand operator[](int offset) throw() { \
             operand op; \
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             op.seg.disp = dynamorio::DR_ ## upper_name ; \

@@ -93,6 +93,89 @@ namespace granary {
     })
 
 
+    /// CPU States array for each processor.
+    extern cpu_state *CPU_STATES[];
+
+
+    /// Emit code to restore thread-local data onto the CPU executing an
+    /// interrupt's return address instruction.
+    ///
+    /// Note: Tricky bits with TLS restore is that it should be re-entrant
+    ///       at every instruction.
+    app_pc thread_state::get_restore_stub(app_pc target) throw() {
+
+        // Set the stub's target, regardless of if we need to generate the
+        // stub or not.
+        restore_stub_target = target;
+
+        // Already created the stub.
+        if(restore_stub) {
+            return restore_stub;
+        }
+
+        instruction_list ls;
+        ls.append(lea_(reg::rsp, reg::rsp[-8])); // (1)
+        ls.append(pushf_()); // (2)
+        ls.append(cli_()); // (3)
+
+        // It's okay to be interrupted before (1), (2), or (3) because we'll
+        // assume that the `thread_data` pointer of the CPU-private state
+        // is NULL.
+
+        // After this point, we assume no NMIs / exceptions.
+
+        ls.append(push_(reg::rax));
+        ls.append(push_(reg::rbx));
+
+        // TODO: Linux-specific use of `smp_processor_id.`
+        ls.append(mov_ld_(reg::eax, seg::gs[0]));
+        ls.append(movzx_(reg::rax, reg::ax));
+
+        ls.append(mov_imm_(
+            reg::rbx, int64_(reinterpret_cast<uintptr_t>(&(CPU_STATES[0])))));
+
+        // RAX now has the address of our CPU's `cpu_state *`.
+        ls.append(mov_ld_(reg::rax, reg::rbx + reg::rax * 8));
+
+        // Address of our thread's `thread_state *`.
+        ls.append(mov_imm_(
+            reg::rbx, int64_(reinterpret_cast<uintptr_t>(restore_stub))));
+
+        // Store TLS pointer into CPU state.
+        ls.append(mov_st_(
+            reg::rax[offsetof(cpu_state, thread_data)],
+            reg::rbx));
+
+        // Get our target address.
+        ls.append(mov_ld_(
+            reg::rax,
+            reg::rbx[offsetof(thread_state, restore_stub_target)]));
+
+        // Save target as return address of the stub.
+        ls.append(mov_st_(reg::rsp[24], reg::rax));
+
+        ls.append(pop_(reg::rbx));
+        ls.append(pop_(reg::rax));
+        ls.append(popf_());
+
+        // If we're interrupted here, then we've already restored the
+        // thread-local data, and we will go through the process all over
+        // again; however, this is fine because the interrupt won't clobber
+        // the stack, and the eventual target address is safely located on the
+        // stack.
+        ls.append(ret_());
+
+        unsigned size(ls.encoded_size());
+
+        restore_stub = unsafe_cast<app_pc>(global_state::FRAGMENT_ALLOCATOR->\
+            allocate_untyped(16, size));
+
+        ls.encode(restore_stub);
+
+        return restore_stub;
+    }
+
+
     /// Mangle a delayed instruction.
     ///
     /// We make several basic assumptions:
@@ -330,7 +413,8 @@ namespace granary {
             USED(cpu);
         }
 
-        DONT_OPTIMISE void granary_break_on_nested_interrupt(
+
+        DONT_OPTIMISE void granary_break_on_bad_interrupt(
             granary::interrupt_stack_frame *isf,
             interrupt_vector vector,
             cpu_state_handle cpu
@@ -338,6 +422,19 @@ namespace granary {
             USED(isf);
             USED(vector);
             USED(cpu);
+        }
+
+
+        DONT_OPTIMISE void granary_break_on_nested_interrupt(
+            granary::interrupt_stack_frame *isf,
+            interrupt_vector vector,
+            cpu_state_handle cpu,
+            unsigned prev_num_nested_interrupts
+        ) {
+            USED(isf);
+            USED(vector);
+            USED(cpu);
+            USED(prev_num_nested_interrupts);
         }
     }
 
@@ -474,8 +571,16 @@ namespace granary {
         kernel_preempt_disable();
 
         cpu_state_handle cpu;
+        thread_state_handle thread(cpu);
 
-        unsigned prev_num_nested_interrupts(
+        // Used to determine the TLS data that we might need to restore when
+        // we've handled this interrupt. Stored "locally" so that if an
+        // interrupt handler is interrupted then eventually we'll distinguish
+        // TLS data in threads and TLS data in interrupt handlers.
+        thread_state *restore_thread_state(cpu->thread_data);
+        cpu->thread_data = nullptr;
+
+        const unsigned prev_num_nested_interrupts(
             cpu->num_nested_interrupts.fetch_add(1));
 
         // Avoid nested interrupts clobbering Granary's internal data
@@ -483,12 +588,9 @@ namespace granary {
         if(!prev_num_nested_interrupts) {
             granary::enter(cpu);
         } else {
-            granary_break_on_nested_interrupt(isf, vector, cpu);
+            granary_break_on_nested_interrupt(
+                isf, vector, cpu, prev_num_nested_interrupts);
         }
-
-        // Make sure that we can resolve thread-local variables from now on.
-        cpu->stack_pointer = reinterpret_cast<uintptr_t>(isf->stack_pointer);
-        thread_state_handle thread(cpu);
 
         app_pc pc(isf->instruction_pointer);
 
@@ -496,11 +598,15 @@ namespace granary {
 
         interrupt_handled_state ret;
 
+        // An interrupt that we have no idea how to handle.
+        if(!is_valid_address(pc)) {
+            granary_break_on_bad_interrupt(isf, vector, cpu);
+            ret = INTERRUPT_DEFER;
+
         // In the code cache, defer to a client if necessary, otherwise default
         // to deferring to the kernel.
-        if(is_code_cache_address(pc)) {
-            ret = handle_code_cache_interrupt(
-                cpu, thread, isf, vector);
+        } else if(is_code_cache_address(pc)) {
+            ret = handle_code_cache_interrupt(cpu, thread, isf, vector);
 
         /// An interrupt in some automatically generated, non-instrumented
         /// code. These interrupts are either ignored (common), or indicate a
@@ -524,10 +630,23 @@ namespace granary {
             ret = handle_kernel_interrupt(cpu, thread, isf, vector);
         }
 
+        // We're deferring to the kernel, and the thread might resumed on a
+        // different CPU.
+        if(INTERRUPT_DEFER == ret) {
+            if(restore_thread_state) {
+                isf->instruction_pointer = restore_thread_state->\
+                    get_restore_stub(isf->instruction_pointer);
+            }
+
+        // We're returning to the same CPU, so leave things as-is.
+        } else {
+            cpu->thread_data = restore_thread_state;
+        }
+
         // Reset the stack pointer for this CPU.
-        cpu->stack_pointer = 0;
         cpu->num_nested_interrupts.fetch_sub(1);
         kernel_preempt_enable();
+
         return ret;
     }
 
@@ -742,19 +861,10 @@ namespace granary {
                     continue;
                 }
 
-                app_pc target(nullptr);
-
-                if(false //VECTOR_NMI == i
-                || VECTOR_DEBUG == i
-                || VECTOR_BREAKPOINT == i) {
-                    target = native_handler;
-                } else {
-                    target = emit_interrupt_routine(
-                        i,
-                        native_handler,
-                        common_vector_handler);
-                }
-
+                app_pc target(emit_interrupt_routine(
+                    i,
+                    native_handler,
+                    common_vector_handler));
 
                 VECTOR_HANDLER[i] = target;
 

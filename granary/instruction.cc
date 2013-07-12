@@ -195,7 +195,7 @@ namespace granary {
 
     /// Accessing some byte offset from the operand (assuming it points to
     /// some memory).
-    operand_base_disp operand::operator[](int64_t num_bytes) const throw() {
+    operand_base_disp operand::operator[](int num_bytes) const throw() {
         operand_base_disp op;
         op.base = value.reg;
         op.disp = num_bytes;
