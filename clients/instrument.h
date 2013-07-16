@@ -20,6 +20,10 @@
 #   include "clients/null_plus/instrument.h"
 #endif
 
+/// Instruction tracing 
+#ifdef CLIENT_INSTR_TRACE 
+#   include "clients/instr_trace/instrument.h"
+#endif 
 
 /// Control-flow graph building policy.
 #ifdef CLIENT_CFG

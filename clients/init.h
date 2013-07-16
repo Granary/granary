@@ -24,6 +24,9 @@
 #   define CLIENT_init
 #endif
 
+#ifdef CLIENT_INSTR_TRACE
+#   define CLIENT_init
+#endif
 
 #ifdef CLIENT_ENTRY
 #   define CLIENT_init

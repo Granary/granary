@@ -86,7 +86,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes 
 	GR_CXX_STD = -std=c++11
-	
+
 	# explicitly enable/disable address sanitizer
 	ifeq ('0','$(GR_ASAN)')
 		GR_CC_FLAGS += -fno-sanitize=address
@@ -97,7 +97,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 			GR_CXX_FLAGS += -fsanitize=address
 		endif
 	endif
-	
+
 	# enable the newer standard and use it with libc++
 	ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_STD = -std=c++11 -stdlib=libc++
@@ -105,8 +105,7 @@ ifneq (,$(findstring clang,$(GR_CC))) # clang
 
 # Non-Clang; try to make libcxx work if specified.
 else
-	
-	# Enable the newer standard and use it with libc++ by giving a path
+
 	# to its library files.
 	ifeq ('1','$(GR_LIBCXX)')
 		GR_CXX_FLAGS += -I$(shell locate libcxx/include | head -n 1)
@@ -184,6 +183,11 @@ ifeq ($(GR_CLIENT),null_plus)
 	GR_CXX_FLAGS += -DCLIENT_NULL_PLUS
 	GR_OBJS += bin/clients/null_plus/instrument.o
 endif
+ifeq ($(GR_CLIENT),instr_trace)
+	GR_CXX_FLAGS += -DCLIENT_INSTR_TRACE
+	GR_OBJS += bin/clients/instr_trace/instrument.o
+	GR_OBJS += bin/clients/instr_trace/report.o
+endif
 ifeq ($(GR_CLIENT),track_entry_exit)
 	GR_CXX_FLAGS += -DCLIENT_ENTRY
 	GR_OBJS += bin/clients/track_entry_exit/instrument.o
@@ -209,7 +213,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_frame_pointer.o
 	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_auto_data.o
 	GR_OBJS += bin/clients/watchpoints/clients/null/tests/test_auto.o
-	
+
 	ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 	endif
@@ -218,7 +222,7 @@ ifeq ($(GR_CLIENT),everything_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
 	GR_OBJS += bin/clients/watchpoints/instrument.o
 	GR_OBJS += bin/clients/watchpoints/clients/everything_watched/instrument.o
-	
+
 	ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
@@ -232,7 +236,7 @@ ifeq ($(GR_CLIENT),bounds_checker)
 	GR_OBJS += bin/clients/watchpoints/utils.o
 	GR_OBJS += bin/clients/watchpoints/clients/bounds_checker/instrument.o
 	GR_OBJS += bin/clients/watchpoints/clients/bounds_checker/bounds_checkers.o
-	
+
 	ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
@@ -276,13 +280,13 @@ ifeq ($(KERNEL),0)
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
 	GR_DETACH_FILE = granary/gen/user_detach.inc
-	
+
 	# user-specific versions of granary functions
 	GR_OBJS += bin/granary/user/allocator.o
 	GR_OBJS += bin/granary/user/state.o
 	GR_OBJS += bin/granary/user/init.o
 	GR_OBJS += bin/granary/user/printf.o
-	
+
 	ifneq ($(GR_DLL),1)
 		GR_OBJS += bin/main.o
 		GR_ASM_FLAGS += -DGRANARY_USE_PIC=0
@@ -296,7 +300,7 @@ ifeq ($(KERNEL),0)
 		GR_CXX_FLAGS += -fPIC -DGRANARY_USE_PIC=1 -fvisibility=hidden
 		GR_CXX_FLAGS += -fvisibility-inlines-hidden
 		GR_OUTPUT_PREFIX = lib
-		
+
 		ifeq ($(UNAME),Darwin) # Mac OS X
 			GR_OUTPUT_SUFFIX = .dylib
 			GR_LD_PREFIX_FLAGS += -dynamiclib
@@ -318,18 +322,18 @@ ifeq ($(KERNEL),0)
 	ifeq ($(UNAME), Darwin)
 		GR_LD_PREFIX_SPECIFIC = -lpthread
 	endif
-	
+
 	ifeq ($(UNAME), Linux)
 		GR_LD_PREFIX_SPECIFIC = -pthread
 		GR_LD_SUFFIX_SPECIFIC = -lrt -ldl -lcrypt
 	endif
-	
+
 	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_PREFIX_SPECIFIC)
 	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC)
 	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=0
 	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0 -mno-mmx 
 	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0 -mno-mmx 
-	
+
 	GR_MAKE += $(GR_CC) -c bin/deps/dr/x86/x86.S -o bin/deps/dr/x86/x86.o ; 
 	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_LD_PREFIX_FLAGS) $(GR_OBJS)
 	GR_MAKE += $(GR_LD_SUFFIX_FLAGS)
@@ -548,6 +552,7 @@ install:
 	@-mkdir bin/clients > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/null > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/null_plus > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/instr_trace > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/cfg > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints > /dev/null 2>&1 ||:

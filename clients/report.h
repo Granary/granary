@@ -19,7 +19,9 @@
 #   define CLIENT_report
 #endif
 
-
+#ifdef CLIENT_INSTR_TRACE
+#   define CLIENT_report
+#endif
 
 #ifdef CLIENT_report
 namespace client {
