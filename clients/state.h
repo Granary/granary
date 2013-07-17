@@ -19,6 +19,10 @@
 #   include "clients/cfg/state.h"
 #endif
 
+#ifdef CLIENT_INSTR_TRACE
+#   include "clients/instr_trace/state.h"
+#endif
+
 namespace client {
 
     struct thread_state;

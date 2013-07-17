@@ -1,9 +1,15 @@
 #include "clients/instr_trace/instrument.h"
 
+extern "C" {
+#   include "granary/kernel/linux/module.h"
+  extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+}
+
 using namespace granary;
 
 namespace client {
 
+  #define NUM_TRACE_RECORDS 1024
   static app_pc EVENT_TRACE_BB = nullptr;
   static app_pc EVENT_TRACE_LOAD = nullptr;
   static app_pc EVENT_TRACE_STORE = nullptr;
@@ -24,12 +30,24 @@ namespace client {
     num_stores++;
   }
 
+  static void init_cpu_state (int *idx) throw() {
+    cpu_state_handle cpu;
+    cpu->id = (*idx)++;
+    cpu->log = allocate_memory<trace_record>(NUM_TRACE_RECORDS);
+    static_assert(cpu->log != NULL);
+    printf("[instr_trace] Initialized cpu %d\n", cpu->id);
+  }
+  
   void init(void) throw() {
     EVENT_TRACE_BB = generate_clean_callable_address(&trace_bb);
     EVENT_TRACE_LOAD = generate_clean_callable_address(&trace_load);
     EVENT_TRACE_STORE = generate_clean_callable_address(&trace_store);
+    int num_cpus = 0;
+    kernel_run_on_each_cpu(unsafe_cast<void (*) (void *)>(init_cpu_state), 
+			   reinterpret_cast<void *>(&num_cpus));
+    printf("[instr_trace] Finished initializing %d cpus \n", num_cpus);
   }
-
+  
   granary::instrumentation_policy instr_trace_policy::visit_app_instructions
   (
    granary::cpu_state_handle,
