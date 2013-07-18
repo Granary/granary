@@ -10,38 +10,31 @@ using namespace granary;
 namespace client {
 
   #define NUM_TRACE_RECORDS 1024
-  static app_pc EVENT_TRACE_BB = nullptr;
-  static app_pc EVENT_TRACE_LOAD = nullptr;
-  static app_pc EVENT_TRACE_STORE = nullptr;
+  static app_pc EVENT_TRACE_INSTR = nullptr;
 
-  unsigned long num_bbs = 0;
-  unsigned long num_loads = 0;
-  unsigned long num_stores = 0;
+  __attribute__((hot)) void trace_instruction (basic_block_state *) throw() {
+    cpu_state_handle cpu;
+    trace_record *log = &cpu->log[cpu->log_idx % NUM_TRACE_RECORDS];
 
-  __attribute__((hot)) void trace_bb (basic_block_state *) throw() {
-      num_bbs++;
-  }
+    log->opcode = dynamorio::OP_INVALID;
+    log->pc = 0; 
+    log->opnd1 = 0;
+    log->opnd2 = 0;
 
-  __attribute__((hot)) void trace_load (basic_block_state *) throw() {
-    num_loads++;
-  }
-
-  __attribute__((hot)) void trace_store (basic_block_state *) throw() {
-    num_stores++;
+    cpu->stats.num_instrs++;
+    cpu->log_idx++;
   }
 
   static void init_cpu_state (int *idx) throw() {
     cpu_state_handle cpu;
     cpu->id = (*idx)++;
     cpu->log = allocate_memory<trace_record>(NUM_TRACE_RECORDS);
-    static_assert(cpu->log != NULL);
+    ASSERT(cpu->log);
     printf("[instr_trace] Initialized cpu %d\n", cpu->id);
   }
   
   void init(void) throw() {
-    EVENT_TRACE_BB = generate_clean_callable_address(&trace_bb);
-    EVENT_TRACE_LOAD = generate_clean_callable_address(&trace_load);
-    EVENT_TRACE_STORE = generate_clean_callable_address(&trace_store);
+    EVENT_TRACE_INSTR = generate_clean_callable_address(&trace_instruction);
     int num_cpus = 0;
     kernel_run_on_each_cpu(unsafe_cast<void (*) (void *)>(init_cpu_state), 
 			   reinterpret_cast<void *>(&num_cpus));
@@ -51,24 +44,15 @@ namespace client {
   granary::instrumentation_policy instr_trace_policy::visit_app_instructions
   (
    granary::cpu_state_handle,
-   granary::basic_block_state &bb,
+   granary::basic_block_state &,
    granary::instruction_list &ls
    ) throw() {
     using namespace granary;
     
     for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
-      if (dynamorio::OP_mov_ld == in.op_code()) {
-	instruction x(ls.insert_before(in, label_()));
-	insert_clean_call_after(ls, x, EVENT_TRACE_LOAD, &bb);
-      }
-      if (dynamorio::OP_mov_st == in.op_code()) {
-	instruction x(ls.insert_before(in, label_()));
-	insert_clean_call_after(ls, x, EVENT_TRACE_STORE, &bb);
-      }
+      instruction x(ls.insert_before(in, label_()));
+      insert_clean_call_after(ls, x, EVENT_TRACE_INSTR, nullptr);
     }
-
-    instruction in(ls.insert_before (ls.first(), label_()));
-    in = insert_clean_call_after(ls, in, EVENT_TRACE_BB, &bb);
     
     return granary::policy_for<instr_trace_policy>();
   }

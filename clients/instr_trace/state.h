@@ -9,7 +9,8 @@ namespace client {
   struct trace_record {
     app_pc pc;
     unsigned opcode;
-    void *addr;
+    unsigned long opnd1;
+    unsigned long opnd2;
   };
   struct trace_stats {
     unsigned long num_loads;
