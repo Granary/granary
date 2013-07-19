@@ -11,69 +11,78 @@ DECLARE_FUNC(granary_enter_private_stack)
 GLOBAL_LABEL(granary_enter_private_stack:)
     // The compiler that will call this function has respected the ABI, so we
     // only need to protect registers we explicitly use
-    push %ARG1
-    push %ARG2
+    pushq %ARG1
+    pushq %ARG2
 
     // Call the helper that will give us our current private stack address
-    // NB: After call, %REG_XAX is that address
+    // NB: After call, RAX is that address
     call EXTERN_SYMBOL(granary_get_private_stack_top)
 
-    pop %ARG2
-    pop %ARG1
+    popq %ARG2
+    popq %ARG1
 
-    // Increment the depth counter, and finish up if this is not the first time
-    // entering (i.e. we're already on the private stack)
-    incl (%rax)
-    cmp $1, (%rax)
-    jne .enter_end
+    // As of here:
+    // %rax - top of private stack (also address of nesting depth counter)
 
-    // Switch to private stack
-    xchg %rax, %rsp
+    // Compare the top 48-bits of the private stack address %rax and
+    // whichever stack we are currently on %rsp
+    movq %rax, %rbx
+    xorq %rsp, %rbx
+    shrq $16, %rbx
+    test %rbx, %rbx
 
-    // Save the RSP
-    push %rax
+    // High 48-bits were the same, already on private stack!
+    jz .enter_do_not_switch
 
-    // Set the RIP we'll return back to
-    push (%rax)
+.enter_switch_stack:
+    // Get return address of this function call
+    popq %rbx
 
-.enter_end:
+    // Switch stack
+    xchg %rsp, %rax
 
-    ret
+    // As of here:
+    // %rsp - top of private stack (also address of nesting depth counter)
+    // %rax - somewhere on the native stack
+
+    // Save current native stack position
+    // NB: two pushes to ensure 16 byte alignment
+    pushq %rax
+    pushq %rax
+
+    // Tail-cail return
+    jmpq *%rbx
+
+.enter_do_not_switch:
+    // Get return address of this function call
+    popq %rbx
+
+    // As of here (since we are already on the private stack per the test above):
+    // %rsp - somewhere on the private stack
+    // %rax - top of private stack (also address of nesting depth counter)
+
+    // Save current private stack position
+    // NB: two pushes to ensure 16 byte alignment (and make sure they are both
+    // the same %rsp value!)
+    movq %rsp, %rax
+    pushq %rax
+    pushq %rax
+
+    // Tail-cail return
+    jmpq *%rbx
 
     END_FUNC(granary_enter_private_stack)
 
 DECLARE_FUNC(granary_exit_private_stack)
 GLOBAL_LABEL(granary_exit_private_stack:)
-    // The compiler that will call this function has respected the ABI, so we
-    // only need to protect registers we explicitly use
-    push %ARG1
-    push %ARG2
+    // Get return address
+    pop %rbx
 
-    // Call the helper that will give us our current private stack address
-    // NB: After call, %REG_XAX is that address
-    call EXTERN_SYMBOL(granary_get_private_stack_top)
+    // Unconditionally switch stacks
+    pop %rsp
 
-    pop %ARG2
-    pop %ARG1
-
-    decl (%rax)
-    cmp $0, (%rax)
-    jne .exit_end
-
-    // Grab the return RIP from our current stack and stash it at the 2nd to
-    // top entry of the private stack
-    pop -16(%rax)
-
-    // Restore the saved RSP from the 1st entry at the top of the private stack
-    mov -8(%rax), %rsp
-
-    // Set the RIP we'll return to
-    mov -16(%rax), %rax
-    mov %rax, (%rsp)
-
-.exit_end:
-
-    ret
+    // Tail-call return
+    jmpq *%rbx
 
     END_FUNC(granary_exit_private_stack)
 

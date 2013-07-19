@@ -30,7 +30,7 @@ namespace granary {
 
     extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-        return &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack).depth;
+        return (uint64_t *) &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top);
     }
 
     namespace detail {

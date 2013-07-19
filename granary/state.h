@@ -37,9 +37,8 @@ namespace granary {
     void enter(cpu_state_handle cpu) throw();
 
     struct __attribute__((aligned (16), packed)) stack_state {
-        char base[CONFIG_PRIVATE_STACK_SIZE - 8];
-        char top[0];
-        uint64_t depth;
+        char base[CONFIG_PRIVATE_STACK_SIZE];
+        uint64_t top[0];
     };
 
     extern "C" {
