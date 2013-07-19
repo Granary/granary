@@ -214,6 +214,16 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 	endif
 endif
+ifeq ($(GR_CLIENT),watchpoint_stats)
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_STATS 
+	GR_OBJS += bin/clients/watchpoints/instrument.o
+	GR_OBJS += bin/clients/watchpoints/clients/stats/instrument.o
+	GR_OBJS += bin/clients/watchpoints/clients/stats/report.o
+	
+	ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
+	endif
+endif
 ifeq ($(GR_CLIENT),everything_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
 	GR_OBJS += bin/clients/watchpoints/instrument.o
@@ -558,6 +568,7 @@ install:
 	@-mkdir bin/clients/watchpoints/kernel/linux > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/null/ > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/stats/ > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:

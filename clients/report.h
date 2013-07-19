@@ -20,6 +20,10 @@
 #endif
 
 
+#ifdef CLIENT_WATCHPOINT_STATS
+#   define CLIENT_report
+#endif
+
 
 #ifdef CLIENT_report
 namespace client {

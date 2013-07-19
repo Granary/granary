@@ -19,6 +19,7 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/bounds_checker/kernel/linux/wrappers.h"
 #endif
 
+
 /// Leak detector watchpoint policy wrappers.
 #ifdef CLIENT_WATCHPOINT_LEAK
 #   include "clients/watchpoints/clients/leak_detector/kernel/wrappers.h"
@@ -27,6 +28,12 @@ using namespace client::wp;
 
 /// Null policy that taints addresses.
 #ifdef CLIENT_WATCHPOINT_WATCHED
+#   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
+#endif
+
+
+/// Stats tracking policy that taints addresses.
+#ifdef CLIENT_WATCHPOINT_STATS
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
 #endif
 

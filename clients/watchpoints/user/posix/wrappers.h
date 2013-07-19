@@ -15,6 +15,12 @@
 #   include "clients/watchpoints/clients/everything_watched/user/posix/wrappers.h"
 #endif
 
+
+#ifdef CLIENT_WATCHPOINT_STATS
+#   include "clients/watchpoints/clients/everything_watched/user/posix/wrappers.h"
+#endif
+
+
 #ifdef CLIENT_WATCHPOINT_BOUND
 #   include "clients/watchpoints/clients/bounds_checker/user/posix/wrappers.h"
 #endif

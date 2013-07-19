@@ -13,6 +13,7 @@
 
 #include "clients/watchpoints/config.h"
 
+
 namespace client {
 
     namespace wp {

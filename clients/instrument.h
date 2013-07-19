@@ -39,6 +39,12 @@
 #endif
 
 
+/// Stats policy.
+#ifdef CLIENT_WATCHPOINT_STATS
+#   include "clients/watchpoints/clients/stats/instrument.h"
+#endif
+
+
 /// Null and watched watchpoint policy.
 #ifdef CLIENT_WATCHPOINT_WATCHED
 #   include "clients/watchpoints/clients/everything_watched/instrument.h"
