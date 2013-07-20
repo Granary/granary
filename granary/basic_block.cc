@@ -696,7 +696,9 @@ namespace granary {
                 ls.append(mangled(ret_()));
             } else {
                 insert_cti_after(
-                    ls, ls.last(), *pc, false, operand(), CTI_JMP
+                    ls, ls.last(), *pc,
+                    CTI_DONT_STEAL_REGISTER, operand(),
+                    CTI_JMP
                 ).set_mangled();
             }
         }

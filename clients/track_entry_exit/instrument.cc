@@ -48,7 +48,8 @@ namespace client {
         in = ls.insert_before(in, label_());
         in = insert_cti_after(
             ls, in,
-            EVENT_ENTER_MODULE, false, operand(),
+            EVENT_ENTER_MODULE,
+            CTI_DONT_STEAL_REGISTER, operand(),
             CTI_CALL);
         in.set_mangled();
     }
@@ -64,7 +65,8 @@ namespace client {
         in = ls.insert_before(in, label_());
         in = insert_cti_after(
             ls, in,
-            EVENT_EXIT_MODULE, false, operand(),
+            EVENT_EXIT_MODULE,
+            CTI_DONT_STEAL_REGISTER, operand(),
             CTI_CALL);
         in.set_mangled();
     }

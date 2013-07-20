@@ -166,8 +166,8 @@ namespace granary {
         IF_KERNEL( std::atomic<unsigned> num_nested_interrupts; )
 
 
-        /// Thread-private state.
-        IF_USER_ELSE(thread_state, std::atomic<thread_state *>) thread_data;
+        /// Thread data.
+        IF_USER( thread_state thread_data; )
 
 
         /// The code cache allocator for this CPU.

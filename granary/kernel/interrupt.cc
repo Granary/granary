@@ -97,90 +97,6 @@ namespace granary {
     extern cpu_state *CPU_STATES[];
 
 
-    /// Emit code to restore thread-local data onto the CPU executing an
-    /// interrupt's return address instruction.
-    ///
-    /// Note: Tricky bits with TLS restore is that it should be re-entrant
-    ///       at every instruction.
-    app_pc get_tls_restore_stub(thread_state *state, app_pc target) throw() {
-
-        // Set the stub's target, regardless of if we need to generate the
-        // stub or not.
-        state->restore_stub_target = target;
-
-        // Already created the stub.
-        if(state->restore_stub) {
-            return state->restore_stub;
-        }
-
-        instruction_list ls;
-        ls.append(lea_(reg::rsp, reg::rsp[-8])); // (1)
-        ls.append(pushf_()); // (2)
-        ls.append(cli_()); // (3)
-
-        // It's okay to be interrupted before (1), (2), or (3) because we'll
-        // assume that the `thread_data` pointer of the CPU-private state
-        // is NULL.
-
-        // After this point, we assume no NMIs / exceptions.
-
-        ls.append(push_(reg::rax));
-        ls.append(push_(reg::rbx));
-
-        // TODO: Linux-specific use of `smp_processor_id.`
-        ls.append(mov_ld_(reg::eax, seg::gs[0]));
-        ls.append(movzx_(reg::rax, reg::ax));
-
-        ls.append(mov_imm_(
-            reg::rbx, int64_(reinterpret_cast<uintptr_t>(&(CPU_STATES[0])))));
-
-        // RAX now has the address of our CPU's `cpu_state *`.
-        ls.append(mov_ld_(reg::rax, reg::rbx + reg::rax * 8));
-
-        // Address of our thread's `thread_state *`.
-        ls.append(mov_imm_(
-            reg::rbx, int64_(reinterpret_cast<uintptr_t>(state->restore_stub))));
-
-        // Store TLS pointer into CPU state.
-        ls.append(mov_st_(
-            reg::rax[offsetof(cpu_state, thread_data)],
-            reg::rbx));
-
-        const unsigned stub_target_offset(
-            reinterpret_cast<uintptr_t>(&(state->restore_stub_target))
-          - reinterpret_cast<uintptr_t>(state));
-
-
-        // Get our target address.
-        ls.append(mov_ld_(
-            reg::rax,
-            reg::rbx[stub_target_offset]));
-
-        // Save target as return address of the stub.
-        ls.append(mov_st_(reg::rsp[24], reg::rax));
-
-        ls.append(pop_(reg::rbx));
-        ls.append(pop_(reg::rax));
-        ls.append(popf_());
-
-        // If we're interrupted here, then we've already restored the
-        // thread-local data, and we will go through the process all over
-        // again; however, this is fine because the interrupt won't clobber
-        // the stack, and the eventual target address is safely located on the
-        // stack.
-        ls.append(ret_());
-
-        unsigned size(ls.encoded_size());
-
-        state->restore_stub = unsafe_cast<app_pc>(
-            global_state::FRAGMENT_ALLOCATOR->allocate_untyped(16, size));
-
-        ls.encode(state->restore_stub);
-
-        return state->restore_stub;
-    }
-
-
     /// Mangle a delayed instruction.
     ///
     /// We make several basic assumptions:
@@ -578,13 +494,6 @@ namespace granary {
         cpu_state_handle cpu;
         thread_state_handle thread(cpu);
 
-        // Used to determine the TLS data that we might need to restore when
-        // we've handled this interrupt. Stored "locally" so that if an
-        // interrupt handler is interrupted then eventually we'll distinguish
-        // TLS data in threads and TLS data in interrupt handlers.
-        thread_state *restore_thread_state(cpu->thread_data);
-        cpu->thread_data = nullptr;
-
         const unsigned prev_num_nested_interrupts(
             cpu->num_nested_interrupts.fetch_add(1));
 
@@ -633,19 +542,6 @@ namespace granary {
         // Assume it's an interrupt in a host-address location.
         } else {
             ret = handle_kernel_interrupt(cpu, thread, isf, vector);
-        }
-
-        // We're deferring to the kernel, and the thread might resumed on a
-        // different CPU.
-        if(INTERRUPT_DEFER == ret) {
-            if(restore_thread_state) {
-                isf->instruction_pointer = get_tls_restore_stub(
-                    restore_thread_state, isf->instruction_pointer);
-            }
-
-        // We're returning to the same CPU, so leave things as-is.
-        } else {
-            cpu->thread_data = restore_thread_state;
         }
 
         // Reset the stack pointer for this CPU.
@@ -740,7 +636,7 @@ namespace granary {
         in = insert_cti_after(
             ls, in, // instruction
             unsafe_cast<app_pc>(handle_interrupt), // target
-            true, reg::ret, // clobber reg
+            CTI_STEAL_REGISTER, reg::ret, // clobber reg
             CTI_CALL);
         insert_restore_old_stack_alignment_after(ls, in);
 

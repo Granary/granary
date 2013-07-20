@@ -8,8 +8,6 @@
 
 #include "clients/cfg/events.h"
 
-#define CONNECT_BBS 0
-
 using namespace granary;
 
 namespace client {
@@ -88,9 +86,7 @@ namespace client {
     /// Invoked when we enter into a basic block targeted by a CALL instruction.
     __attribute__((hot))
     void event_enter_function(basic_block_state *bb) throw() {
-#if CONNECT_BBS
-        thread_state_handle thread;
-
+        thread_state_handle thread = safe_cpu_access_zone();
         basic_block_state *last_bb(thread->last_inter);
         thread->last_intra = bb;
 
@@ -111,34 +107,23 @@ namespace client {
         if(!added) {
             grow_and_add_edge(last_bb, bb->block_id, BB_EDGE_INTER_OUTGOING);
         }
-#else
-        UNUSED(bb);
-#endif
     }
-
-#define USE_THREAD_PRIVATE 0
 
 
     /// Invoked just before a RET instruction.
     __attribute__((hot))
     void event_exit_function(basic_block_state *) throw() {
-#if USE_THREAD_PRIVATE || CONNECT_BBS
-        thread_state_handle thread;
+        thread_state_handle thread = safe_cpu_access_zone();
         thread->last_intra = nullptr;
         thread->last_inter = nullptr;
-#endif
     }
 
 
     /// Invoked immediately after a function call.
     void event_after_function(basic_block_state *bb) throw() {
-#if USE_THREAD_PRIVATE || CONNECT_BBS
-        thread_state_handle thread;
+        thread_state_handle thread = safe_cpu_access_zone();
         thread->last_inter = bb;
         thread->last_intra = bb;
-#else
-        UNUSED(bb);
-#endif
     }
 
 
@@ -146,8 +131,7 @@ namespace client {
     /// instruction.
     __attribute__((hot))
     void event_enter_basic_block(basic_block_state *bb) throw() {
-#if CONNECT_BBS
-        thread_state_handle thread;
+        thread_state_handle thread = safe_cpu_access_zone();
 
         // Update the call stack info.
         basic_block_state *&last_bb_(thread->last_intra);
@@ -174,8 +158,5 @@ namespace client {
         if(!added) {
             grow_and_add_edge(bb, last_bb->block_id, BB_EDGE_INTRA_INCOMING);
         }
-#else
-        UNUSED(bb);
-#endif
     }
 }

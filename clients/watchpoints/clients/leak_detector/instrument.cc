@@ -83,7 +83,7 @@ namespace client {
             const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
             instruction call(insert_cti_after(ls, tracker.labels[i],
                 unsafe_cast<app_pc>(DESCRIPTOR_ACCESSORS[reg_index]),
-                false, operand(),
+                CTI_DONT_STEAL_REGISTER, operand(),
                 CTI_CALL));
             call.set_mangled();
 #else
@@ -173,7 +173,8 @@ namespace client {
         in = save_and_restore_registers(entry_func_regs, ls, in);
         in = insert_cti_after(
             ls, in,
-            entry_func_addr, true, reg::rax,
+            entry_func_addr,
+            CTI_STEAL_REGISTER, reg::rax,
             CTI_CALL);
         in.set_mangled();
     }
@@ -189,7 +190,8 @@ namespace client {
         in = save_and_restore_registers(exit_func_regs, ls, in);
         in = insert_cti_after(
             ls, in,
-            exit_func_addr, true, reg::rax,
+            exit_func_addr,
+            CTI_STEAL_REGISTER, reg::rax,
             CTI_CALL);
         in.set_mangled();
     }

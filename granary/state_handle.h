@@ -18,6 +18,11 @@ namespace granary {
     struct thread_state_handle;
 
 
+    /// Represents a pseudo-CPU state handle, meant to document that it's safe
+    /// to access CPU state.
+    struct safe_cpu_access_zone { };
+
+
     /// Define a CPU state handle; in user space, the cpu state is also thread
     /// private.
     struct cpu_state_handle {
@@ -39,6 +44,14 @@ namespace granary {
         }
 
         IF_KERNEL( static void init(void) throw(); )
+
+
+        /// Implicit conversion operator for marking a location as safe to
+        /// access CPU state by virtue of us having already accessed CPU-private
+        /// state.
+        inline operator safe_cpu_access_zone(void) const throw() {
+            return safe_cpu_access_zone();
+        }
     };
 
 
@@ -47,29 +60,27 @@ namespace granary {
     struct thread_state_handle {
     private:
 
+        IF_KERNEL( thread_state **state_ptr; )
+        IF_KERNEL( void init(void) throw(); )
+
         thread_state *state;
 
         /// Not allowed to get thread state without CPU state.
         thread_state_handle(void) throw() = delete;
 
-        /// Used to track if this CPU has a thread state associated with it, and
-        /// if not, then we can correctly initialise the thread state on the
-        /// first request (operator->), and update the CPU state accordingly.
-        IF_KERNEL( cpu_state *cpu; )
-        IF_KERNEL( void init(void); )
-
     public:
 
-        /// This constructor must be used when accessing Granary from within
-        /// Granary's stack.
+
+        /// Initialise some thread-private state.
         __attribute__((hot))
-        thread_state_handle(cpu_state_handle) throw();
+        thread_state_handle(safe_cpu_access_zone) throw();
 
 
-        FORCE_INLINE
-        thread_state *operator->(void) throw() {
+        FORCE_INLINE thread_state *operator->(void) throw() {
+
 #if GRANARY_IN_KERNEL
-            if(unlikely(nullptr != cpu)) {
+            // Used to lazily initialise thread state on access.
+            if(unlikely(nullptr != state_ptr)) {
                 init();
             }
 #endif

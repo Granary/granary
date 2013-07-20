@@ -23,10 +23,6 @@ class BasicBlock(object):
     'app_offset_begin',
     'app_offset_end',
     'num_interrupts',
-
-    # Links together blocks in the intra-procedural control-flow graph.
-    'successors',
-    'predecessors'
   )
 
   PARSE_BOOL  = lambda s: bool(int(s))
@@ -56,10 +52,10 @@ class BasicBlock(object):
   FORMAT_PREFIX_LEN = len("BB_FORMAT(")
   BB_PREFIX_LEN = len("BB(")
 
-  # Initialises a new basic block.
+  # Initialises an empty basic block.
   def __init__(self):
-    self.successors = set()
-    self.predecessors = set()
+    for attr in self.PARSER:
+      setattr(self, attr, None)
 
   # Sets the basic block parsing format.
   @classmethod
@@ -79,3 +75,73 @@ class BasicBlock(object):
       setattr(self, attr, cls.PARSER[attr](val))
     return self
 
+
+class ControlFlowGraph(object):
+  """Represents a combined inter- and intra-procedural control-flow graph."""
+
+  # Initialise the combined control-flow graph instance.
+  def __init__(self):
+    self.inter_roots = set()
+    self.intra_roots = set()
+    self.basic_blocks = {}
+
+  # Update the combined CFG with a new basic block.
+  def _accept_bb(self, bb):
+    assert bb
+    assert bb.block_id not in self.basic_blocks
+    self.basic_blocks[bb.block_id] = bb
+
+  # Parse a string containing an edge definition. Update the control-flow graphs
+  # by adding in the edge.
+  def _parse_edge(self, line):
+    pass
+
+  # Parse an iterable of strings into a combined control-flow graph.
+  #
+  # Args:
+  #   lines:            An iterable of lines.
+  def parse(self, lines):
+    pending_edge_lines = []
+    pending_bb_lines = []
+    parsed_format = False
+    for line_ in lines:
+      line = line_.strip(" \r\n\t")
+
+      # Parse the format for basic blocks.
+      if line.startswith("BB_FORMAT"):
+        assert not parsed_format
+        parsed_format = True
+        BasicBlock.parse_format(line)
+
+      # Parse a basic block.
+      elif line.startswith("BB"):
+        if parsed_format:
+          self._accept_bb(BasicBlock.parse(line))
+        else:
+          pending_bb_lines.append(line)
+
+      # Add an edge line for later parsing.
+      elif line.startswith("E"):
+        pending_edge_lines.append(line)
+
+      # Unexpected line.
+      else:
+        print repr(line)
+        assert False
+
+    for line in pending_bb_lines:
+      self._accept_bb(BasicBlock.parse(line))
+
+    for line in pending_edge_lines:
+      self._parse_edge(line)
+
+    del pending_bb_lines
+    del pending_edge_lines
+
+
+# Parse a file given as input.
+if __name__ == "__main__":
+  import sys
+  with open(sys.argv[1]) as lines:
+    cfg = ControlFlowGraph()
+    cfg.parse(lines)

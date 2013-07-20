@@ -78,42 +78,11 @@ void **kernel_get_cpu_state(void *ptr[]) {
 }
 
 
-#if 0
 /// Get access to the per-thread Granary state.
 __attribute__((hot))
-void *kernel_get_thread_state(uint64_t stack_ptr, unsigned aligned_size) {
-
-    enum {
-        STACK_CANARY = 0xABADC0DAEA75BEEFULL
-    };
-
-    uint64_t *canary_ptr_bottom = NULL;
-    uint64_t *canary_ptr_top = NULL;
-    void *state = NULL;
-
-    stack_ptr &= -THREAD_SIZE;
-    stack_ptr += sizeof(struct thread_info);
-
-    canary_ptr_bottom = (uint64_t *) stack_ptr;
-    stack_ptr += sizeof(uint64_t);
-    state = (void *) stack_ptr;
-    stack_ptr += aligned_size;
-    canary_ptr_top = (uint64_t *) stack_ptr;
-
-    // Initialise the thread-private state.
-    if(STACK_CANARY != *canary_ptr_bottom) {
-        memset(state, 0, aligned_size);
-        *canary_ptr_bottom = STACK_CANARY;
-        *canary_ptr_top = STACK_CANARY;
-
-    // Try to detect corruption.
-    } else {
-        BUG_ON(STACK_CANARY != *canary_ptr_top);
-    }
-
-    return state;
+void **kernel_get_thread_state(void) {
+    return &((current)->granary);
 }
-#endif
 
 
 /// Run a function on each CPU.

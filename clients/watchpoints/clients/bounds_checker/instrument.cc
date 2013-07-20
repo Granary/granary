@@ -209,7 +209,7 @@ namespace client { namespace wp {
 
         instruction call(insert_cti_after(ls, tracker.labels[i],
             unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
-            false, operand(),
+            CTI_DONT_STEAL_REGISTER, operand(),
             CTI_CALL));
         call.set_mangled();
     }

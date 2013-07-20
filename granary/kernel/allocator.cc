@@ -37,7 +37,8 @@ namespace granary { namespace detail {
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(unsigned long) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),
-        NUM_FREE_LISTS = 64 - MIN_SCALE
+        NUM_FREE_LISTS = 64 - MIN_SCALE,
+        MAX_ADJUSTED_SCALE = NUM_FREE_LISTS - MIN_SCALE
     };
 
 
@@ -79,6 +80,7 @@ namespace granary { namespace detail {
 
 
     /// Round the size of some data.
+    __attribute__((hot))
     static unsigned long allocation_size(unsigned long size) throw() {
         if(MIN_OBJECT_SIZE > size) {
             return MIN_OBJECT_SIZE;
@@ -91,7 +93,59 @@ namespace granary { namespace detail {
     }
 
 
+    /// Returns true of an address is a head address.
+    __attribute__((hot))
+    inline static bool is_heap_address(void *ptr_) throw() {
+        const uint8_t *ptr(reinterpret_cast<uint8_t *>(ptr_));
+        return ptr >= &(HEAP[0]) && ptr < &(HEAP[HEAP_SIZE]);
+    }
+
+
+    /// Try to split a large heap object into a smaller heap object.
+    __attribute__((hot))
+    static free_object *split_large_object(unsigned scale) throw() {
+        const unsigned next_scale(scale + 1);
+
+        if(next_scale >= MAX_ADJUSTED_SCALE) {
+            return nullptr;
+        }
+
+        // Go to the next largest.
+        FREE_LISTS[next_scale].lock.acquire();
+        free_object *object(nullptr);
+        free_object *next_object(nullptr);
+        object = FREE_LISTS[next_scale].head.load();
+        if(!object) {
+            FREE_LISTS[next_scale].lock.release();
+
+            // Try to recursively split a larger object.
+            object = split_large_object(next_scale);
+            if(!object) {
+                return nullptr;
+            }
+
+            FREE_LISTS[next_scale].lock.acquire();
+            next_object = FREE_LISTS[next_scale].head.load();
+        } else {
+            next_object = object->next;
+        }
+        FREE_LISTS[next_scale].head.store(next_object);
+        FREE_LISTS[next_scale].lock.release();
+
+        const unsigned object_size(allocation_size(
+            1 << (scale + MIN_SCALE)));
+
+        global_free(
+            &(unsafe_cast<uint8_t *>(object)[object_size / 2]),
+            object_size / 2
+        );
+
+        return object;
+    }
+
+
     /// Allocate some data from the heap.
+    __attribute__((hot))
     void *global_allocate(unsigned long size_) throw() {
 
         ASSERT(0 < size_);
@@ -110,9 +164,11 @@ namespace granary { namespace detail {
 
                 // Try to detect if our chosen heap size is too small.
                 if(next_heap_index > HEAP_SIZE) {
-
-                    // TODO: Try to split large heap objects if possible.
-                    ASSERT(false);
+                    free_object *object(split_large_object(scale));
+                    if(!object) {
+                        ASSERT(false);
+                    }
+                    continue;
                 }
 
                 return &(HEAP[curr_heap_index]);
@@ -138,9 +194,10 @@ namespace granary { namespace detail {
 
 
     /// Free some memory back to the heap.
+    __attribute__((hot))
     void global_free(void *addr, unsigned long size_) throw() {
 
-        if(!is_valid_address(addr)) {
+        if(!is_heap_address(addr)) {
             return;
         }
 

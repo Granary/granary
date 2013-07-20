@@ -51,7 +51,9 @@ namespace granary {
         instruction in = ls.append(mov_imm_(
             reg::r10, int64_(reinterpret_cast<uint64_t>(target_code_cache))));
         insert_cti_after(
-            ls, in, wrapper, false, operand(), CTI_JMP);
+            ls, in, wrapper,
+            CTI_DONT_STEAL_REGISTER, operand(),
+            CTI_JMP);
 
         // Encode the wrapper.
         target_wrapper = global_state::WRAPPER_ALLOCATOR-> \

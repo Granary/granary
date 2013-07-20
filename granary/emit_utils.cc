@@ -188,7 +188,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         app_pc target,
-        bool has_clobber_reg,
+        cti_register_steal_constraint steal_constraint,
         operand clobber_reg,
         cti_kind kind
     ) throw() {
@@ -204,25 +204,33 @@ namespace granary {
             cti_ind_ = jmp_ind_;
         }
 
-        // start with a staged allocation that should be close enough
+        // Start with a staged allocation that should be close enough.
         app_pc staged_loc(
             global_state::FRAGMENT_ALLOCATOR->allocate_staged<uint8_t>());
 
-        // add in the indirect call to the find on CPU function
+        // Add in the indirect call to the find on CPU function.
         if(is_far_away(staged_loc, target)) {
 
-            if(has_clobber_reg) {
+            if(CTI_STEAL_REGISTER == steal_constraint) {
+                ASSERT(dynamorio::REG_kind == clobber_reg.kind);
+                ASSERT(dynamorio::DR_REG_NULL != clobber_reg.value.reg);
+                ASSERT(
+                    register_manager::scale(clobber_reg.value.reg, REG_64)
+                 == clobber_reg.value.reg);
+
                 in = ls.insert_after(in,
                     mov_imm_(clobber_reg,
                         int64_(unsafe_cast<int64_t>(target))));
                 in = ls.insert_after(in, cti_ind_(clobber_reg));
             } else {
-                app_pc *slot(global_state::FRAGMENT_ALLOCATOR->allocate<app_pc>());
+                app_pc *slot(global_state::FRAGMENT_ALLOCATOR->\
+                    allocate<app_pc>());
                 *slot = target;
-                in = ls.insert_after(in, cti_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+                in = ls.insert_after(in,
+                    cti_ind_(absmem_(slot, dynamorio::OPSZ_8)));
             }
 
-        // add in a direct, pc relative call.
+        // Add in a direct, pc relative call.
         } else {
             in = ls.insert_after(in, cti_(pc_(target)));
         }
@@ -382,7 +390,8 @@ namespace granary {
 
             in = insert_cti_after(
                 ls, in,
-                func_pc, false, operand(),
+                func_pc,
+                CTI_DONT_STEAL_REGISTER, operand(),
                 CTI_CALL);
             in.set_mangled();
 

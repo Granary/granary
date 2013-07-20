@@ -542,7 +542,9 @@ namespace granary {
 
         // fast path: try to find the address in the CPU-private code cache.
         safe = insert_cti_after(
-            ibl, safe, cpu_private_code_cache_find, true, reg::rax, CTI_CALL);
+            ibl, safe, cpu_private_code_cache_find,
+            CTI_STEAL_REGISTER, reg::rax,
+            CTI_CALL);
         safe = insert_restore_old_stack_alignment_after(ibl, safe);
         safe = ibl.insert_after(safe, pop_(reg_target_addr));
         safe = ibl.insert_after(safe, test_(reg::ret, reg::ret));
@@ -554,7 +556,9 @@ namespace granary {
         // slow path: do a global code cache lookup
         safe = insert_align_stack_after(ibl, safe);
         safe = insert_cti_after(
-            ibl, safe, global_code_cache_find, true, reg::rax, CTI_CALL);
+            ibl, safe, global_code_cache_find,
+            CTI_STEAL_REGISTER, reg::rax,
+            CTI_CALL);
         safe = insert_restore_old_stack_alignment_after(ibl, safe);
 
         // fast path, and fall-through of slow path: move the returned target
@@ -597,7 +601,9 @@ namespace granary {
 
         if(target_pc) {
             insert_cti_after(
-                ibl, ibl.last(), target_pc, false, operand(), CTI_JMP);
+                ibl, ibl.last(), target_pc,
+                CTI_DONT_STEAL_REGISTER, operand(),
+                CTI_JMP);
         }
     }
 

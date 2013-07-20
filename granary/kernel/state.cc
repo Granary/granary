@@ -19,6 +19,10 @@ extern "C" {
 
     /// Used to run a function on each CPU.
     extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+
+
+    /// Used to access thread-private data.
+    extern granary::thread_state **kernel_get_thread_state(void);
 }
 
 
@@ -66,29 +70,31 @@ namespace granary {
     }
 
 
-    /// Initialise the state.
+    /// Initialise the CPU state.
     void cpu_state_handle::init(void) throw() {
         kernel_run_on_each_cpu(init_cpu_state, nullptr);
     }
 
 
-    /// Allocate the thread state for the first time while on a given CPU.
+    /// Initialise the thread state.
     void thread_state_handle::init(void) throw() {
         state = allocate_memory<thread_state>();
-        thread_state *expected_state(nullptr);
-        if(!cpu->thread_data.compare_exchange_weak(expected_state, state)) {
-            free_memory<thread_state>(state);
-            state = expected_state;
-        }
+        *state_ptr = state;
+        state_ptr = nullptr;
     }
 
 
     /// Used to access thread-local data. The dependency on a valid CPU state
     /// handle implies that thread state should only be accessed when interrupts
     /// are disabled (where it's safe to access CPU-private data).
-    thread_state_handle::thread_state_handle(cpu_state_handle cpu_) throw()
-        : state(cpu_->thread_data.load())
-        , cpu(state ? nullptr : cpu_.state)
-    { }
+    thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw()
+        : state_ptr(kernel_get_thread_state())
+        , state(*state_ptr)
+    {
+        state = *state_ptr;
+        if(state) {
+            state_ptr = nullptr;
+        }
+    }
 
 }

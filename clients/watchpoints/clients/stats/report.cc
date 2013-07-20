@@ -16,9 +16,12 @@ using namespace granary;
 
 namespace client {
 
+
+    /// Head of the basic blocks linked list.
     extern std::atomic<granary::basic_block_state *> BASIC_BLOCKS;
 
 
+    /// Report on watchpoints statistics.
     void report(void) throw() {
 
         uint64_t num_bbs(0);

@@ -120,7 +120,7 @@ namespace granary {
         in = insert_cti_after(ls, in,
             unsafe_cast<app_pc>(&IF_USER_ELSE(
                 granary_get_fs_base, kernel_get_cpu_state)),
-            true, reg::rax,
+            CTI_STEAL_REGISTER, reg::rax,
             CTI_CALL);
         in = ls.append(mov_st_(reg::rsp[8], reg::rax));
         in = ls.append(pop_(reg::rax));
@@ -148,7 +148,7 @@ namespace granary {
 
         in = insert_cti_after(ls, in,
             unsafe_cast<app_pc>(trace_log::add_entry),
-            true, reg::ret,
+            CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
         xmm_tail = insert_restore_old_stack_alignment_after(ls, xmm_tail);
@@ -184,10 +184,9 @@ namespace granary {
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
-
         in = insert_cti_after(ls, in,
             trace_logger(),
-            false, operand(),
+            CTI_DONT_STEAL_REGISTER, operand(),
             CTI_CALL);
 
         in.set_mangled();

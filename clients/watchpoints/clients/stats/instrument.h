@@ -53,6 +53,7 @@ namespace client {
         };
     }
 
+
     struct watchpoint_stats_policy
         : public client::watchpoints<wp::stats_policy, wp::stats_policy>
     {
