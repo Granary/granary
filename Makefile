@@ -395,6 +395,7 @@ else
 	
 	# kernel-specific versions of granary functions
 	GR_OBJS += bin/granary/kernel/linux/module.o
+	GR_OBJS += bin/granary/kernel/hotpatch.o
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/interrupt.o
 	GR_OBJS += bin/granary/kernel/allocator.o

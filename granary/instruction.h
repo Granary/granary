@@ -25,6 +25,13 @@ namespace granary {
     struct instruction_list;
 
 
+    /// Instruction decode constraints.
+    enum instruction_decode_constraint {
+        DECODE_WIDEN_CTI,
+        DECODE_DONT_WIDEN_CTI
+    };
+
+
     /// Defines an operand generator for LEA operands
     struct operand_base_disp {
     public:
@@ -519,7 +526,14 @@ namespace granary {
         /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
         /// following byte. The decoded instruction is returned by value. If
         /// the instruction cannot be decoded, then *pc is set to NULL.
-        static instruction decode(app_pc *pc) throw();
+        void decode_update(
+            app_pc *pc,
+            instruction_decode_constraint=DECODE_WIDEN_CTI
+        ) throw();
+        static instruction decode(
+            app_pc *pc,
+            instruction_decode_constraint=DECODE_WIDEN_CTI
+        ) throw();
 
 
         /// Encodes an instruction into a sequence of bytes.

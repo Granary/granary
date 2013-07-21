@@ -589,30 +589,53 @@ namespace granary {
     /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
     /// following byte. The decoded instruction is returned by value. If
     /// the instruction cannot be decoded, then *pc is set to NULL.
-    instruction instruction::decode(app_pc *pc) throw() {
-        instruction self(make_instr());
-        uint8_t *byte_pc(*pc);
-
-#if !GRANARY_IN_KERNEL
-        // Deal with `REPZ RET` in user space with potential GDB breakpoints.
-        if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
-        && X86_RET_SHORT == byte_pc[1]) {
-            ++*pc;
-            ++byte_pc;
+    void instruction::decode_update(
+        app_pc *pc_,
+        instruction_decode_constraint constraint
+    ) throw() {
+        if(!instr) {
+            instr = make_instr();
+        } else {
+            dynamorio::instr_reset(DCONTEXT, instr);
+            dynamorio::instr_set_x86_mode(instr, false);
+            instr->flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
         }
-#endif
 
-        *pc = dynamorio::decode_raw(DCONTEXT, byte_pc, self.instr);
-        dynamorio::decode(DCONTEXT, byte_pc, self.instr);
+        uint8_t *byte_pc(*pc_);
+
+        #if !GRANARY_IN_KERNEL
+                // Deal with `REPZ RET` in user space with potential GDB breakpoints.
+                if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
+                && X86_RET_SHORT == byte_pc[1]) {
+                    ++*pc;
+                    ++byte_pc;
+                }
+        #endif
+
+        *pc_ = dynamorio::decode_raw(DCONTEXT, byte_pc, instr);
+        dynamorio::decode(DCONTEXT, byte_pc, instr);
 
         // keep these associations around
-        self.instr->translation = byte_pc;
-        self.instr->bytes = byte_pc;
+        instr->translation = byte_pc;
+        instr->bytes = byte_pc;
 
-        IF_PERF( perf::visit_decoded(self); )
+        IF_PERF( perf::visit_decoded(*this); )
 
-        self.widen_if_cti();
+        if(DECODE_WIDEN_CTI == constraint) {
+            widen_if_cti();
+        }
+    }
 
+
+    /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
+    /// following byte. The decoded instruction is returned by value. If
+    /// the instruction cannot be decoded, then *pc is set to NULL.
+    instruction instruction::decode(
+        app_pc *pc,
+        instruction_decode_constraint constraint
+    ) throw() {
+        instruction self(make_instr());
+        self.decode_update(pc, constraint);
         return self;
     }
 

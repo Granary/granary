@@ -94,6 +94,109 @@
 #define APP_WRAPPER_FOR_struct_llist_head
 #define APP_WRAPPER_FOR_struct_llist_node
 
+
+/// Disable wrapping of sk buffs as they are used so frequently with network
+/// drivers.
+#define APP_WRAPPER_FOR_struct_sk_buff
+#define APP_WRAPPER_FOR_struct_sk_buff_head
+
+#if 1 == CONFIG_MAX_PRE_WRAP_DEPTH
+#   define IF_WRAP_DEPTH_1(...) __VA_ARGS__
+#else
+#   define IF_WRAP_DEPTH_1(...)
+#endif
+
+/// Custom wrapping for net devices.
+#ifndef APP_WRAPPER_FOR_struct_net_device
+#   define APP_WRAPPER_FOR_struct_net_device
+    struct granary_net_device : public net_device { };
+    TYPE_WRAPPER(struct granary_net_device, {
+        NO_PRE_IN
+        PRE_OUT {
+
+            // Go deep when we register the device.
+            IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
+            RELAX_WRAP_DEPTH; RELAX_WRAP_DEPTH;
+
+            PRE_OUT_WRAP(arg.dsa_ptr);
+            PRE_OUT_WRAP(arg.ip_ptr);
+            PRE_OUT_WRAP(arg.dn_ptr);
+            PRE_OUT_WRAP(arg.ip6_ptr);
+            PRE_OUT_WRAP(arg.ieee80211_ptr);
+            PRE_OUT_WRAP(arg.queues_kset);
+            PRE_OUT_WRAP(arg._rx);
+            WRAP_FUNCTION(arg.rx_handler);
+            PRE_OUT_WRAP(arg.ingress_queue);
+            PRE_OUT_WRAP(arg._tx);
+            PRE_OUT_WRAP(arg.qdisc);
+            PRE_OUT_WRAP(arg.xps_maps);
+            PRE_OUT_WRAP(arg.watchdog_timer);
+            WRAP_FUNCTION(arg.destructor);
+            PRE_OUT_WRAP(arg.npinfo);
+            PRE_OUT_WRAP(arg.nd_net);
+            PRE_OUT_WRAP(arg.dev);
+            PRE_OUT_WRAP(arg.priomap);
+            PRE_OUT_WRAP(arg.phydev);
+            PRE_OUT_WRAP(arg.pm_qos_req);
+        }
+        NO_POST_IN
+        POST_OUT {
+            // Go deep when we register the device.
+            RELAX_WRAP_DEPTH; RELAX_WRAP_DEPTH; RELAX_WRAP_DEPTH;
+
+            PRE_OUT_WRAP(arg.wireless_handlers);
+            PRE_OUT_WRAP(arg.netdev_ops);
+            PRE_OUT_WRAP(arg.ethtool_ops);
+            PRE_OUT_WRAP(arg.header_ops);
+            PRE_OUT_WRAP(arg.rtnl_link_ops);
+            PRE_OUT_WRAP(arg.dcbnl_ops);
+        }
+        NO_RETURN
+    })
+#endif
+
+
+#if defined(CAN_WRAP_netif_napi_add) && CAN_WRAP_netif_napi_add && !defined(APP_WRAPPER_FOR_netif_napi_add)
+#   define APP_WRAPPER_FOR_netif_napi_add
+    FUNCTION_WRAPPER_VOID(APP, netif_napi_add, \
+        (struct granary_net_device *dev, struct napi_struct *napi,
+        int (*poll)(struct napi_struct *, int), int weight \
+    ), {
+        // Double-up on the wrapping of the device (pre & post).
+        PRE_OUT_WRAP(dev);
+        POST_OUT_WRAP(dev);
+
+        WRAP_FUNCTION(poll);
+        PRE_OUT_WRAP(napi);
+        netif_napi_add(dev, napi, poll, weight);
+        POST_OUT_WRAP(napi);
+        POST_OUT_WRAP(dev);
+    })
+#endif
+
+
+#if defined(CAN_WRAP_register_netdev) && CAN_WRAP_register_netdev && !defined(APP_WRAPPER_FOR_register_netdev)
+#   define APP_WRAPPER_FOR_register_netdev
+    FUNCTION_WRAPPER(APP, register_netdev, (int), (struct granary_net_device * dev), {
+        PRE_OUT_WRAP(dev);
+        int ret(register_netdev(dev));
+        POST_OUT_WRAP(dev);
+        return ret;
+    })
+#endif
+
+
+#if defined(CAN_WRAP_register_netdevice) && CAN_WRAP_register_netdevice && !defined(APP_WRAPPER_FOR_register_netdevice)
+#   define APP_WRAPPER_FOR_register_netdevice
+    FUNCTION_WRAPPER(APP, register_netdevice, (int), (struct granary_net_device * dev), {
+        PRE_OUT_WRAP(dev);
+        int ret(register_netdev(dev));
+        POST_OUT_WRAP(dev);
+        return ret;
+    })
+#endif
+
+
 /// Custom wrapping for super blocks.
 #ifndef APP_WRAPPER_FOR_struct_super_block
 #   define APP_WRAPPER_FOR_struct_super_block
@@ -155,9 +258,9 @@
 
 #if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(APP_WRAPPER_FOR_iget_locked)
 #   define APP_WRAPPER_FOR_iget_locked
-    FUNCTION_WRAPPER(APP, iget_locked, (struct inode *), (struct super_block *sb, unsigned long ino), {
-        granary_super_block *sb_((granary_super_block *) sb);
-        PRE_OUT_WRAP(sb_);
+    FUNCTION_WRAPPER(APP, iget_locked, (struct inode *), (struct granary_super_block *sb, unsigned long ino), {
+        IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
+        PRE_OUT_WRAP(sb);
         inode *inode(iget_locked(sb, ino));
         PRE_OUT_WRAP(inode->i_mapping);
         return inode;
@@ -168,6 +271,7 @@
 #if defined(CAN_WRAP_unlock_new_inode) && CAN_WRAP_unlock_new_inode && !defined(APP_WRAPPER_FOR_unlock_new_inode)
 #   define APP_WRAPPER_FOR_unlock_new_inode
     FUNCTION_WRAPPER(APP, unlock_new_inode, (void), (struct inode *inode), {
+        IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
         PRE_OUT_WRAP(inode->i_op);
         PRE_OUT_WRAP(inode->i_fop);
         PRE_OUT_WRAP(inode->i_mapping);
@@ -187,6 +291,7 @@
         void *data ,
         int (*fill_super)(struct super_block *, void *, int)
     ), {
+        IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
         PRE_OUT_WRAP(fs_type);
 
         typedef int (granary_fill_super_t)(granary_super_block *, void *, int);
@@ -197,6 +302,18 @@
         struct dentry *ret(mount_bdev(fs_type, flags, dev_name, data, fill_super));
         RETURN_IN_WRAP(ret);
         return ret;
+    })
+#endif
+
+
+/// Hot-patch the `process_one_work` function to wrap `work_struct`s before
+/// their functions are executed. This is here because there are ways to get
+/// work structs registered through macros/inline functions, thus bypassing
+/// wrapping.
+#if defined(DETACH_ADDR_process_one_work)
+    PATCH_WRAPPER_VOID(process_one_work, (struct worker *worker, struct work_struct *work), {
+        PRE_OUT_WRAP(work);
+        process_one_work(worker, work);
     })
 #endif
 

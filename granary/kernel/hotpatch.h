@@ -19,6 +19,10 @@ namespace granary {
     app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw();
 
 
+    /// Prepare to redirect a function.
+    void prepare_redirect_function(app_pc old_address) throw();
+
+
     /// Hot-patch a function at address `old_address` to JMP to `new_address`.
     void redirect_function(app_pc old_address, app_pc new_address) throw();
 

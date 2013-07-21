@@ -23,6 +23,7 @@ namespace granary {
         list<app_pc> process_bbs;
         list<app_pc>::handle_type next;
         hash_set<app_pc> seen;
+        instruction in;
 
         used_regs.revive_all();
         process_bbs.append(func);
@@ -39,11 +40,9 @@ namespace granary {
             }
 
             seen.add(bb);
-
             for(; bb; ) {
-                instruction in;
 
-                in = instruction::decode(&bb);
+                in.decode_update(&bb);
                 used_regs.kill_dests(in);
 
                 // done processing this basic block

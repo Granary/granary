@@ -10,6 +10,13 @@
 #include "granary/state.h"
 #include "granary/instruction.h"
 
+
+extern "C" {
+    void kernel_make_page_writeable(void *addr);
+    void kernel_make_page_executable(void *addr);
+}
+
+
 namespace granary {
 
 
@@ -41,8 +48,10 @@ namespace granary {
 
         memcpy(new_addr, addr, len);
 
-        for(; pc && len; ) {
-            instruction in(instruction::decode(&pc));
+        instruction in;
+        for(; nullptr != pc && 0 < len; ) {
+
+            in.decode_update(&pc, DECODE_DONT_WIDEN_CTI);
             len -= in.encoded_size();
 
             if(dynamorio::OP_INVALID == in.op_code()
@@ -65,6 +74,7 @@ namespace granary {
                 }
 
                 // Encode the instruction in place at its new location.
+                in.invalidate_raw_bits();
                 in.encode(new_pc);
 
             // Fix up %rip-relative memory addresses.
@@ -83,13 +93,20 @@ namespace granary {
     }
 
 
+    /// Prepare to redirect a function.
+    void prepare_redirect_function(app_pc old_address) throw() {
+        kernel_make_page_writeable(old_address);
+    }
+
+
     /// Hot-patch a kernel function.
     void redirect_function(app_pc old_address, app_pc new_address) throw() {
 
         ASSERT(0 == (reinterpret_cast<uintptr_t>(old_address) % 8));
 
-        uint64_t buff;
-        uint8_t *buff_ptr(&buff);
+
+        uint64_t buff(0);
+        uint8_t *buff_ptr(unsafe_cast<uint8_t *>(&buff));
         instruction in(jmp_(pc_(new_address)));
         in.stage_encode(buff_ptr, old_address);
 

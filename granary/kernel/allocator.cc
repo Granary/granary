@@ -14,6 +14,9 @@
 #include "granary/smp/spin_lock.h"
 
 
+#define ENABLE_SPLITTING 0
+
+
 extern "C" {
     void *kernel_alloc_executable(unsigned long, int);
 }
@@ -33,7 +36,7 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-        HEAP_SIZE = _1_MB * 20,
+        HEAP_SIZE = _1_MB * 30,
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(unsigned long) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),
@@ -101,6 +104,7 @@ namespace granary { namespace detail {
     }
 
 
+#if ENABLE_SPLITTING
     /// Try to split a large heap object into a smaller heap object.
     __attribute__((hot))
     static free_object *split_large_object(unsigned scale) throw() {
@@ -142,6 +146,7 @@ namespace granary { namespace detail {
 
         return object;
     }
+#endif
 
 
     /// Allocate some data from the heap.
@@ -162,6 +167,8 @@ namespace granary { namespace detail {
                 const unsigned curr_heap_index(HEAP_INDEX.fetch_add(size));
                 const unsigned long next_heap_index(curr_heap_index + size);
 
+#if ENABLE_SPLITTING
+
                 // Try to detect if our chosen heap size is too small.
                 if(next_heap_index > HEAP_SIZE) {
                     free_object *object(split_large_object(scale));
@@ -170,6 +177,9 @@ namespace granary { namespace detail {
                     }
                     continue;
                 }
+#else
+                FAULT_IF(next_heap_index >= HEAP_SIZE);
+#endif
 
                 return &(HEAP[curr_heap_index]);
             } else {

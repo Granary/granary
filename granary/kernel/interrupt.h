@@ -69,6 +69,7 @@ namespace granary {
 
         VECTOR_EXCEPTION_END = VECTOR_SECURITY_EXCEPTION,
         VECTOR_INTERRUPT_START = 32,
+        VECTOR_SYSCALL = 0x80, // Linux-specific.
         VECTOR_INTERRUPT_END = 255,
         VECTOR_END = VECTOR_INTERRUPT_END
     };

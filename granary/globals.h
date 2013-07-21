@@ -31,11 +31,37 @@
 #   define GRANARY_USE_PIC 0
 #endif
 
+
+/// Should Granary interpose on any interrupts? If this is disabled then any
+/// faults caused by the kernel invoking unwrapped module code will not be
+/// handled and will likely result in a crash. However, the benefit of disabling
+/// this is that sometimes Granary introduces instability because of how it
+/// handles interrupts. This instability can be resolved by not letting Granary
+/// handle interrupts. Another potential benefit is decreased interrupt
+/// latency because Granary won't add in additional code on each interrupt
+/// invocation.
+#if GRANARY_IN_KERNEL
+#   define CONFIG_HANDLE_INTERRUPTS 1
+#else
+#   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
+#endif
+
+
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
 #else
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
+#endif
+
+
+/// Should we support interrupt delaying? Combined with clients handling
+/// interrupts, this will affect performance because if both are disabled then
+/// Granary will mostly get out of the way
+#if GRANARY_IN_KERNEL
+#   define CONFIG_ENABLE_INTERRUPT_DELAY 1
+#else
+#   define CONFIG_ENABLE_INTERRUPT_DELAY 0 // can't change in user space
 #endif
 
 
@@ -156,13 +182,13 @@
 
 /// The maximum wrapping depth for argument wrappers.
 #ifndef CONFIG_MAX_PRE_WRAP_DEPTH
-#   define CONFIG_MAX_PRE_WRAP_DEPTH 2
+#   define CONFIG_MAX_PRE_WRAP_DEPTH 1
 #endif
 #ifndef CONFIG_MAX_POST_WRAP_DEPTH
-#   define CONFIG_MAX_POST_WRAP_DEPTH 2
+#   define CONFIG_MAX_POST_WRAP_DEPTH 1
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
-#   define CONFIG_MAX_RETURN_WRAP_DEPTH 2
+#   define CONFIG_MAX_RETURN_WRAP_DEPTH 1
 #endif
 
 
@@ -415,6 +441,8 @@ extern "C" {
 #include "granary/printf.h"
 #include "granary/trace_log.h"
 
+#include "granary/kernel/interrupt.h"
+
 
 namespace granary {
     /// Log some data from Granary to the external world.
@@ -424,10 +452,5 @@ namespace granary {
         IF_USER(printf(data);)
     }
 }
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-#   include "granary/kernel/interrupt.h"
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 
 #endif /* granary_GLOBALS_H_ */

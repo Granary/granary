@@ -157,6 +157,15 @@
 #include <linux/ethtool.h>
 #include <linux/if_vlan.h>
 
+#include <net/iw_handler.h>
+#include <uapi/linux/nl80211.h>
+#include <net/cfg80211.h>
+#include <net/if_inet6.h>
+#include <net/dn_dev.h>
+#include <net/dsa.h>
+#include <linux/netpoll.h>
+#include <linux/inetdevice.h>
+
 /* Taken from ext4 */
 #include <linux/types.h>
 #include <linux/blkdev.h>
@@ -234,6 +243,10 @@
 #include <linux/phy.h>
 #include <linux/posix_acl.h>
 /* taken from ext3/ext2*/
+
+/* Manual additions */
+#include <linux/workqueue.h>
+void __init_work(struct work_struct *work, int onstack);
 
 #include <uapi/linux/posix_types.h>
 

@@ -1211,20 +1211,29 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
 
+
 #define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
-        template <> \
+        extern "C" PARAMS return_type function_name arg_list ; \
         struct CAT(patched_, function_name) { \
         public: \
             typedef referenceless<PARAMS return_type>::type R; \
-            static auto function_name((decltype(::function_name) *) \
-                CAT(DETACH_ADDR_, function_name) ); \
+            static R (*function_name) arg_list; \
             static R apply arg_list throw() { \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
             } \
         }; \
+        \
+        CAT(patched_, function_name)::R \
+        (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
+        \
+        STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
+            prepare_redirect_function(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
+        }); \
+        \
         STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
             app_pc original_addr(unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
@@ -1238,24 +1247,32 @@ namespace granary {
             redirect_function(\
                 original_addr, \
                 unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
-        });\
+        }); \
     }
 
 
 #define PATCH_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
     namespace granary { \
-        template <> \
+        extern "C" void function_name arg_list ; \
         struct CAT(patched_, function_name) { \
         public: \
             typedef void R; \
-            static auto function_name((decltype(::function_name) *) \
-                CAT(DETACH_ADDR_, function_name) ); \
+            static R (*function_name) arg_list; \
             static R apply arg_list throw() { \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
             } \
         }; \
+        \
+        CAT(patched_, function_name)::R \
+        (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
+        \
+        STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
+            prepare_redirect_function(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
+        }); \
+        \
         STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
             app_pc original_addr(unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
@@ -1269,7 +1286,7 @@ namespace granary {
             redirect_function(\
                 original_addr, \
                 unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
-        });\
+        }); \
     }
 
 #endif /* GRANARY_IN_KERNEL */

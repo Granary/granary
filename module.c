@@ -310,6 +310,23 @@ void granary_before_module_init(struct kernel_module *module) {
 }
 
 
+/// Mark a page as being readable and writeable.
+void kernel_make_page_writeable(void *addr) {
+    unsigned level = 0;
+    pte_t *pte = lookup_address((unsigned long) addr, &level);
+    if(!(pte->pte & _PAGE_RW)) {
+        pte->pte |= _PAGE_RW;
+    }
+    //set_page_perms(set_memory_rw, addr, (void *) (((uintptr_t) addr) + PAGE_SIZE));
+}
+
+
+/// Mark a page as being executable.
+void kernel_make_page_executable(void *addr) {
+    set_page_perms(set_memory_x, addr, (void *) (((uintptr_t) addr) + PAGE_SIZE));
+}
+
+
 /// C++-implemented function that operates on modules. This is the
 /// bridge from C to C++.
 extern void notify_module_state_change(struct kernel_module *);

@@ -184,6 +184,7 @@ namespace granary {
     }
 
 
+#if CONFIG_ENABLE_INTERRUPT_DELAY
     /// Emit the code needed to reconstruct this interrupt after executing the
     /// code within the delay region. Interrupt delaying works by copying and
     /// re-relativizing all of the code within a interrupt delay region into a
@@ -321,6 +322,7 @@ namespace granary {
 
         return delay_in.pc();
     }
+#endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
 
 
     extern "C" {
@@ -372,33 +374,46 @@ namespace granary {
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
+
+        // We don't need to do anything specific for interrupts.
+#if !CONFIG_ENABLE_INTERRUPT_DELAY && !CONFIG_CLIENT_HANDLE_INTERRUPT
+        return INTERRUPT_DEFER;
+#else
+
+        // We might need to do something specific for interrupts.
         basic_block bb(isf->instruction_pointer);
         app_pc delay_begin(nullptr);
         app_pc delay_end(nullptr);
 
         // We need to delay. After the delay has occurred, we re-issue the
         // interrupt.
+#   if CONFIG_ENABLE_INTERRUPT_DELAY
         if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
             isf->instruction_pointer = emit_delayed_interrupt(
                 cpu, isf, vector, delay_begin, delay_end);
 
             return INTERRUPT_RETURN;
+        }
+#   endif
 
         // We don't need to delay; let the client try to handle the
         // interrupt, or defer to the kernel if the client doesn't handle
         // the interrupt.
-        } else {
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-            basic_block_state *bb_state(bb.state());
-            instrumentation_policy policy(bb.policy);
+#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+        basic_block_state *bb_state(bb.state());
+        instrumentation_policy policy(bb.policy);
 
-            return policy.handle_interrupt(
-                cpu, thread, *bb_state, *isf, vector);
+        return policy.handle_interrupt(
+            cpu, thread, *bb_state, *isf, vector);
 
-#else
-            return INTERRUPT_DEFER;
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
-        }
+#   else
+        return INTERRUPT_DEFER;
+#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_ENABLE_INTERRUPT_DELAY || CONFIG_CLIENT_HANDLE_INTERRUPT */
+        UNUSED(cpu);
+        UNUSED(thread);
+        UNUSED(isf);
+        UNUSED(vector);
     }
 
 
@@ -452,6 +467,10 @@ namespace granary {
             *isf,
             vector);
 #else
+        UNUSED(cpu);
+        UNUSED(thread);
+        UNUSED(isf);
+        UNUSED(vector);
         return INTERRUPT_DEFER;
 #endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
     }
@@ -754,7 +773,7 @@ namespace granary {
             descriptor_t *i_vec(&(idt->vectors[i * 2]));
             descriptor_t *n_vec(&(native.base[i * 2]));
 
-            // update the gate
+            // Update the gate.
             if(GATE_DESCRIPTOR == get_descriptor_kind(i_vec)) {
                 app_pc native_handler(get_gate_target_offset(&(n_vec->gate)));
 
@@ -762,13 +781,22 @@ namespace granary {
                     continue;
                 }
 
-                app_pc target(emit_interrupt_routine(
-                    i,
-                    native_handler,
-                    common_vector_handler));
+                // Ignore user space system call handlers.
+                app_pc target(native_handler);
+
+                // If clients aren't handling interrupts
+#if !CONFIG_CLIENT_HANDLE_INTERRUPT && !CONFIG_ENABLE_INTERRUPT_DELAY
+                if(VECTOR_PAGE_FAULT == i) {
+#else
+                if(VECTOR_SYSCALL != i) {
+#endif
+                    target = emit_interrupt_routine(
+                        i,
+                        native_handler,
+                        common_vector_handler);
+                }
 
                 VECTOR_HANDLER[i] = target;
-
                 set_gate_target_offset(
                     &(i_vec->gate),
                     target);

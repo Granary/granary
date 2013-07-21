@@ -26,8 +26,7 @@ if "__main__" == __name__:
   
   # special function that we need!
   SYMBOLS.add("module_alloc_update_bounds")
-
-  
+  SYMBOLS.add("process_one_work")
 
   with open("kernel.syms", "r") as lines_:
     for line in lines_:

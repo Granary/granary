@@ -22,7 +22,7 @@ namespace granary {
 
     /// Replace the interrupt descriptor tables.
     static void init_idt(system_table_register_t *idt) throw() {
-#if 0
+#if !CONFIG_HANDLE_INTERRUPTS
         UNUSED(idt);
 #else
         set_idtr(idt);

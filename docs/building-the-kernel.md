@@ -46,7 +46,20 @@ In `include/asm/page_64_types.h`, modify the following:
 #define IRQ_STACK_ORDER 3 /* new */
 ```
 
-## Step 3: Configure and build the kernel
+## Step 3: Add in support for TLS
+
+Open up `include/linux/sched.h` and find the definition of `struct task_struct`. At
+the bottom of the definition of `struct task_struct`, add in the following additional
+field:
+
+```c
+struct task_struct {
+    ...
+    void *granary;
+}
+```
+
+## Step 4: Configure and build the kernel
 
 First, copy your current kernel configuration, as that makes life
 easier.
@@ -62,6 +75,8 @@ Granary, you likely want to make sure that:
   - Virtualization is enabled.
   - `ftrace` (Kernel Hacking > Tracing) is disabled.
   - `CONFIG_ARCH_RANDOM` is disabled.
+  - `CONFIG_INTEL_TXT` is disabled.
+  - `CONFIG_SECURITY` is disabled.
   - All (interesting) file systems (except the file system that you're
     using) are selected as loadable kernel modules (M).
 
@@ -81,7 +96,7 @@ make -j 8
 
 If in doubt, consult the [Kernel Newbies](http://kernelnewbies.org/KernelBuild) website.
 
-## Step 4: Create a Debian kernel package
+## Step 5: Create a Debian kernel package
 
 Run the following command in the Terminal.
 
@@ -89,7 +104,7 @@ Run the following command in the Terminal.
 sudo fakeroot make-kpkg --initrd --append-to-version=granary kernel_image kernel_headers
 ```
 
-## Step 5: Install the kernel
+## Step 6: Install the kernel
 
 ```basemake
 sudo dpkg -i ../linux-headers-3.8.2granary_3.8.2granary-10.00.Custom_amd64.deb

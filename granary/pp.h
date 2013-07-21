@@ -158,7 +158,7 @@
         public: \
             CAT(init_class_sync_, id)(void) throw() { \
                 IF_USER( granary::detach(); ) \
-                this->exec = CAT(init_func_, id); \
+                this->exec = CAT(init_func_sync_, id); \
                 granary::static_init_list::append_sync(*this); \
             } \
         }; \

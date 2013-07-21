@@ -8,7 +8,9 @@
 
 #include "clients/instrument.h"
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if !CONFIG_CLIENT_HANDLE_INTERRUPT
+#   error "The watchpoints system requires `CONFIG_CLIENT_HANDLE_INTERRUPT`."
+#endif
 
 using namespace granary;
 
@@ -41,4 +43,3 @@ namespace client {
     }
 }
 
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
