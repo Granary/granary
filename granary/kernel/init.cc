@@ -11,7 +11,10 @@
 
 
 extern "C" {
-    extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+
+    /// Run a function on each CPU.
+    void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+
 
     /// Call a function where all CPUs are synchronised.
     void kernel_run_synchronised(void (*func)(void));
@@ -35,6 +38,7 @@ namespace granary {
 
         cpu_state_handle::init();
         system_table_register_t idt(create_idt());
+
         kernel_run_on_each_cpu(
             unsafe_cast<void (*)(void *)>(init_idt),
             reinterpret_cast<void *>(&idt));

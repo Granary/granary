@@ -311,13 +311,16 @@ void granary_before_module_init(struct kernel_module *module) {
 
 
 /// Mark a page as being readable and writeable.
-void kernel_make_page_writeable(void *addr) {
+void kernel_make_memory_writeable(void *addr) {
     unsigned level = 0;
     pte_t *pte = lookup_address((unsigned long) addr, &level);
-    if(!(pte->pte & _PAGE_RW)) {
-        pte->pte |= _PAGE_RW;
-    }
-    //set_page_perms(set_memory_rw, addr, (void *) (((uintptr_t) addr) + PAGE_SIZE));
+    pte->pte |= _PAGE_RW;
+}
+
+
+/// Mark a page as being only readable.
+void kernel_make_page_read_only(void *addr) {
+    set_page_perms(set_memory_ro, addr, (void *) (((uintptr_t) addr) + 1));
 }
 
 

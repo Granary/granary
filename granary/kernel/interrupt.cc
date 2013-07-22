@@ -20,6 +20,10 @@
 extern "C" {
 
 
+    /// Mark a page as being only readable.
+    void kernel_make_page_read_only(void *addr);
+
+
     extern granary::cpu_state *get_percpu_state(void *);
 
 
@@ -802,6 +806,8 @@ namespace granary {
                     target);
             }
         }
+
+        kernel_make_page_read_only(idt);
 
         instrumented.base = &(idt->vectors[0]);
         instrumented.limit = native.limit;

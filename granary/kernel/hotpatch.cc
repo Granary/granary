@@ -12,8 +12,7 @@
 
 
 extern "C" {
-    void kernel_make_page_writeable(void *addr);
-    void kernel_make_page_executable(void *addr);
+    void kernel_make_memory_writeable(void *addr);
 }
 
 
@@ -95,7 +94,7 @@ namespace granary {
 
     /// Prepare to redirect a function.
     void prepare_redirect_function(app_pc old_address) throw() {
-        kernel_make_page_writeable(old_address);
+        kernel_make_memory_writeable(old_address);
     }
 
 
