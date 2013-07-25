@@ -167,7 +167,7 @@ void kernel_log(const char *data, size_t size) {
 
 
 /// Linked list of Granary-recognized modules.
-static struct kernel_module *modules = NULL;
+static struct kernel_module *LOADED_MODULES = NULL;
 
 
 enum {
@@ -217,10 +217,10 @@ int is_host_address(uintptr_t addr) {
     } else if(EXEC_START <= addr && addr < EXEC_END) {
         return 0;
     } else if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
-        struct kernel_module *mod = modules;
+        struct kernel_module *mod = LOADED_MODULES;
         for(; mod; mod = mod->next) {
             if(((uintptr_t) mod->text_begin) <= addr
-            && addr < ((uintptr_t) mod->text_end)) {
+            && addr < ((uintptr_t) mod->max_text_end)) {
                 return mod->is_granary;
             }
         }
@@ -231,18 +231,19 @@ int is_host_address(uintptr_t addr) {
 
 /// Returns the kernel module information for a given app address.
 const struct kernel_module *kernel_get_module(uintptr_t addr) {
+    struct kernel_module *found_mod = NULL;
     if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
         struct kernel_module *mod;
-        for(mod = modules; mod; mod = mod->next) {
+        for(mod = LOADED_MODULES; mod; mod = mod->next) {
             if(((uintptr_t) mod->text_begin) <= addr
-            && addr < ((uintptr_t) mod->text_end)) {
-                return mod;
+            && addr < ((uintptr_t) mod->max_text_end)) {
+                found_mod = mod;
             }
         }
     } else if(KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END) {
         return &KERNEL_MODULE;
     }
-    return NULL;
+    return found_mod;
 }
 
 
@@ -250,10 +251,10 @@ const struct kernel_module *kernel_get_module(uintptr_t addr) {
 /// module.
 int is_app_address(uintptr_t addr) {
     if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
-        struct kernel_module *mod = modules;
+        struct kernel_module *mod = LOADED_MODULES;
         for(; mod; mod = mod->next) {
             if(((uintptr_t) mod->text_begin) <= addr
-            && addr < ((uintptr_t) mod->text_end)) {
+            && addr < ((uintptr_t) mod->max_text_end)) {
                 return !(mod->is_granary);
             }
         }
@@ -336,11 +337,11 @@ extern void notify_module_state_change(struct kernel_module *);
 
 
 /// Find the Granary-representation for an internal module.
-static struct kernel_module *find_interal_module(void *vmod) {
+static struct kernel_module *find_internal_module(void *vmod) {
 
-    struct kernel_module *module = modules;
-    struct kernel_module **next_link = &modules;
-    const int is_granary = NULL == modules;
+    struct kernel_module *module = LOADED_MODULES;
+    struct kernel_module **next_link = &LOADED_MODULES;
+    const int is_granary = NULL == LOADED_MODULES;
     struct module *mod = (struct module *) vmod;
 
     for(; NULL != module; module = module->next) {
@@ -379,6 +380,11 @@ static struct kernel_module *find_interal_module(void *vmod) {
     module->ro_init_end =
         module->ro_init_begin + (mod->init_ro_size - mod->init_text_size);
 
+    module->max_text_end = module->text_end;
+    if(module->ro_text_end > module->text_end) {
+        module->max_text_end = module->ro_text_end;
+    }
+
     module->next = NULL;
     module->name = mod->name;
     module->is_instrumented = DEVICE_IS_INITIALISED;
@@ -406,7 +412,7 @@ static int module_load_notifier(
         vmod, mod->module_core);
     printk("[granary] Module's name is: %s.\n", mod->name);
 
-    internal_mod = find_interal_module(vmod);
+    internal_mod = find_internal_module(vmod);
 
     if(!internal_mod || !(internal_mod->is_instrumented)) {
         printk("[granary] Ignoring module state change.\n");
@@ -682,7 +688,7 @@ static int init_granary(void) {
 
 /// Remove Granary.
 static void exit_granary(void) {
-    struct kernel_module *mod = modules;
+    struct kernel_module *mod = LOADED_MODULES;
     struct kernel_module *next_mod = NULL;
 
     printk("Unloading Granary... Goodbye!\n");

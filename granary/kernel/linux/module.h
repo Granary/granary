@@ -37,6 +37,8 @@ struct kernel_module {
     void *ro_init_begin;
     void *ro_init_end;
 
+    void *max_text_end;
+
     /// The name.
     const char *name;
 

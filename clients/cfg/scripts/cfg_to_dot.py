@@ -17,8 +17,13 @@ FILE_SYMBOL_CACHE = "/tmp/symbol_cache.pickle"
 
 
 # readelf lines have this format:
-#      511: 000000000000ab40   661 FUNC    GLOBAL DEFAULT    2 e1000_phy_get_info
-RE_OFFSET_AND_NAME = re.compile(r"^.* ([0-9a-f]+) .* ([a-zA-Z0-9_]+)\r?\n?$")
+#       511: 000000000000ab40   661 FUNC    GLOBAL DEFAULT    2 e1000_phy_get_info
+RE_ELF_OFFSET_AND_NAME = re.compile(r"^.*: ([0-9a-f]+) .* ([a-zA-Z0-9_]+)\r?\n?$")
+
+
+# kallsyms lines have this format:
+#       000000000000f068 D x86_bios_cpu_apicid
+RE_KALL_OFFSET_AND_NAME = re.compile(r"^([0-9a-f]+) .* ([a-zA-Z0-9_]+)\r?\n?$")
 
 
 # String prefix for kernel addresses.
@@ -34,19 +39,30 @@ def run_command(command):
   return []  
 
 
+def update_symbol_cache_common(cache, name, line, regex):
+  global KERN_ADDR_PREFIX
+  m = regex.match(line)
+  if not m:
+    return
+
+  offset_str = m.group(1)
+  if offset_str.startswith(KERN_ADDR_PREFIX):
+    offset_str = offset_str[KERN_ADDR_PREFIX_LEN:]
+
+  offset, func = int(offset_str, base=16), m.group(2)
+  cache[name, offset] = func
+
+
 # Parse the output of `readelf`.
-def update_symbol_cache(cache, name, lines):
+def update_symbol_cache_elf(cache, name, lines):
   for line in lines:
-    m = RE_OFFSET_AND_NAME.match(line)
-    if not m:
-      continue
+    update_symbol_cache_common(cache, name, line, RE_ELF_OFFSET_AND_NAME)
 
-    offset_str = m.group(1)
-    if offset_str.startswith(KERN_ADDR_PREFIX):
-      offset_str = offset_str[KERN_ADDR_PREFIX_LEN:]
 
-    offset, func = int(offset_str, base=16), m.group(2)
-    cache[name, offset] = func
+# Parse the output of `kallsyms`.
+def update_symbol_cache_kallsyms(cache, lines):
+  for line in lines:
+    update_symbol_cache_common(cache, "linux", line, RE_KALL_OFFSET_AND_NAME)
 
 
 # Print out information about a single basic block.
@@ -62,10 +78,11 @@ def print_bb(bb, seen_bbs, symbols):
   if not bb.is_app_code:
     color = "color=blue"
   if block_ref in symbols:
-    print "[%s label=%s]" % (color, symbols[block_ref]),
+    print "[%s label=\"%s\"]" % (color, symbols[block_ref]),
   elif color:
     print "[%s]" % color,
   print ";"
+
 
 # Print out a DOT digraph of the edges in a CFG.
 def print_cfg(edges, symbols):
@@ -100,7 +117,8 @@ if "__main__" == __name__:
 
         if not cfg_path \
         and ".ko" not in path \
-        and "vmlinux" not in path:
+        and "vmlinux" not in path \
+        and ".syms" not in path:
           cfg_path = path
         else:
           ko_paths.append(path)
@@ -124,14 +142,19 @@ if "__main__" == __name__:
 
   # Update our KO cache with names from the kernel object file.
   for path in ko_paths:
-    if path.endswith(".ko"):
-      tail_cut = -3
-      ko_name = os.path.basename(path)[:tail_cut]
-    else:
-      ko_name = "linux"
 
-    update_symbol_cache(sym_cache, ko_name, run_command(
-        "readelf -s %s | grep ' FUNC '" % path))
+    if path.endswith(".ko"):
+      update_symbol_cache_elf(
+          sym_cache,
+          os.path.basename(path)[:-3],
+          run_command("readelf -s %s | grep ' FUNC '" % path))
+    elif path.endswith("kernel.syms"):
+      update_symbol_cache_kallsyms(sym_cache, open(path))
+    else:
+      update_symbol_cache_elf(
+          sym_cache,
+          "linux",
+          run_command("readelf -s %s | grep ' FUNC '" % path))
 
   # Update the cache with the new symbols.
   if ko_paths:
