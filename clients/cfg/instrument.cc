@@ -67,15 +67,20 @@ namespace client {
 
     /// Initialise the control-flow graph client.
     void init(void) throw() {
+        cpu_state_handle cpu;
+        cpu.free_transient_allocators();
         EVENT_ENTER_FUNCTION = generate_clean_callable_address(
             &event_enter_function);
+        cpu.free_transient_allocators();
         EVENT_EXIT_FUNCTION = generate_clean_callable_address(
             &event_exit_function);
+        cpu.free_transient_allocators();
         EVENT_AFTER_FUNCTION = generate_clean_callable_address(
             &event_after_function);
+        cpu.free_transient_allocators();
         EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
             &event_enter_basic_block);
-
+        cpu.free_transient_allocators();
         MEMORY_ALLOCATORS.construct();
 
 #if GRANARY_IN_KERNEL
@@ -148,9 +153,12 @@ namespace client {
 #if GRANARY_IN_KERNEL
             // Track the translation so that we can find the offset.
             if(in.pc()) {
-                start_pc = in.pc();
-                if(!end_pc) {
-                    end_pc = start_pc;
+                app_pc curr_pc(in.pc());
+                if(curr_pc) {
+                    start_pc = curr_pc;
+                    if(!end_pc) {
+                        end_pc = curr_pc;
+                    }
                 }
             }
 

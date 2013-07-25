@@ -14,7 +14,7 @@
 #include "granary/smp/spin_lock.h"
 
 
-#define ENABLE_SPLITTING 0
+#define ENABLE_SPLITTING 1
 
 
 extern "C" {

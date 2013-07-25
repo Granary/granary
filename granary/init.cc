@@ -90,10 +90,22 @@ namespace granary {
 
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_SYNC_HEAD.next);
+        cpu_state_handle cpu;
+
+        bool executed(false);
         for(; init; init = init->next) {
             if(init->exec) {
+
+                // Free up temporary resources before executing a CPU-specific
+                // Thing.
+                cpu.free_transient_allocators();
                 init->exec();
+                executed = true;
             }
+        }
+
+        if(executed) {
+            cpu.free_transient_allocators();
         }
     }
 #endif /* GRANARY_IN_KERNEL */

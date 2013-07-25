@@ -562,6 +562,7 @@ namespace granary {
         app_pc *pc(&local_pc);
         uint8_t *generated_pc(nullptr);
         instruction_list ls;
+
         bool fall_through_pc(false);
 
         basic_block_state *block_storage(nullptr);
@@ -578,9 +579,14 @@ namespace granary {
         const app_pc detach_app_pc(unsafe_cast<app_pc>(&detach));
         unsigned byte_len(0);
 
+        // Ensure that the start PC of the basic block is always somewhere in
+        // the instruction stream.
+        instruction in(ls.append(label_()));
+        in.set_pc(start_pc);
+
         for(;;) {
 
-            // very big basic block; cut it short and connect it with a tail.
+            // Very big basic block; cut it short and connect it with a tail.
             // we do this test *before* decoding the next instruction because
             // `instruction::decode` modifies `pc`, and `pc` is used to
             // determine the fall-through target.
@@ -590,7 +596,7 @@ namespace granary {
             }
 
             app_pc decoded_pc(*pc);
-            instruction in(instruction::decode(pc));
+            in = instruction::decode(pc);
 
             // TODO: curiosity.
             if(dynamorio::OP_INVALID == in.op_code()

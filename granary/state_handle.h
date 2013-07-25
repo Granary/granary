@@ -52,6 +52,10 @@ namespace granary {
         inline operator safe_cpu_access_zone(void) const throw() {
             return safe_cpu_access_zone();
         }
+
+
+        /// Free up transient CPU state.
+        void free_transient_allocators(void) throw();
     };
 
 

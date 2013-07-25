@@ -19,12 +19,18 @@ namespace client {
     extern std::atomic<basic_block_state *> BASIC_BLOCKS;
 
 
+    enum {
+        BUFFER_SIZE = granary::PAGE_SIZE * 2,
+        BUFFER_FLUSH_THRESHOLD = BUFFER_SIZE - 256
+    };
+
+
     /// Buffer used to serialise an individual basic block.
-    static char BUFFER[granary::PAGE_SIZE * 2];
+    static char BUFFER[BUFFER_SIZE];
 
 
     enum {
-        MAX_NUM_EDGES = 128
+        MAX_NUM_EDGES = 1 << 14
     };
 
 
@@ -70,6 +76,11 @@ namespace client {
                 b += sprintf(&(BUFFER[b]),
                     "INTER(%d,%d)\n", bb->block_id, edge.block_id);
             }
+
+            if(b >= BUFFER_FLUSH_THRESHOLD) {
+                granary::log(&(BUFFER[0]), b);
+                b = 0;
+            }
         }
 
         // Meta info.
@@ -110,7 +121,7 @@ namespace client {
         const char *format(
             "BB_FORMAT(is_root,is_function_entry,is_function_exit,is_app_code,"
             "is_allocator,is_deallocator,num_executions,function_id,block_id,"
-            "num_outgoing_jumps,has_outgoing_indirect_jmp"
+            "used_regs,entry_regs,num_outgoing_jumps,has_outgoing_indirect_jmp"
 #if GRANARY_IN_KERNEL
             ",app_name,app_offset_begin,app_offset_end,num_interrupts"
 #endif /* GRANARY_IN_KERNEL */

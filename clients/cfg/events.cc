@@ -105,7 +105,11 @@ namespace client {
         }
 
         if(!added) {
-            grow_and_add_edge(last_bb, bb->block_id, BB_EDGE_INTER_OUTGOING);
+            if(last_bb->num_edges < bb->num_edges) {
+                grow_and_add_edge(last_bb, bb->block_id, BB_EDGE_INTER_OUTGOING);
+            } else {
+                grow_and_add_edge(bb, last_bb->block_id, BB_EDGE_INTER_INCOMING);
+            }
         }
     }
 
@@ -156,7 +160,11 @@ namespace client {
         }
 
         if(!added) {
-            grow_and_add_edge(bb, last_bb->block_id, BB_EDGE_INTRA_INCOMING);
+            if(bb->num_edges < last_bb->num_edges) {
+                grow_and_add_edge(bb, last_bb->block_id, BB_EDGE_INTRA_INCOMING);
+            } else {
+                grow_and_add_edge(last_bb, bb->block_id, BB_EDGE_INTRA_OUTGOING);
+            }
         }
     }
 }

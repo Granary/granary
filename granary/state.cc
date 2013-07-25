@@ -13,9 +13,16 @@ namespace granary {
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw() {
-        cpu->transient_allocator.free_all();
-        cpu->instruction_allocator.free_all();
+        cpu.free_transient_allocators();
     }
+
+
+    /// Free up transient CPU state.
+    void cpu_state_handle::free_transient_allocators(void) throw() {
+        state->transient_allocator.free_all();
+        state->instruction_allocator.free_all();
+    }
+
 
     /// Static initialisation of global fragment allocator
     static_data<

@@ -3,6 +3,8 @@
 Copyright (C) 2013 Peter Goodman. All rights reserved.
 """
 
+import collections
+
 
 class BasicBlock(object):
   """Represents a basic block within an intra-procedural control-flow graph."""
@@ -23,11 +25,18 @@ class BasicBlock(object):
     'app_offset_begin',
     'app_offset_end',
     'num_interrupts',
+    'used_regs',
+    'entry_regs',
   )
 
   PARSE_BOOL  = lambda s: bool(int(s))
   PARSE_STR   = lambda s: s
-  PARSE_NUM   = lambda s: int(s)
+  PARSE_NUM   = lambda s: int(s, base=10)
+
+  BOOLEAN_OR  = lambda a, b: a or b
+  BITWISE_OR  = lambda a, b: a | b
+  NUM_ADD     = lambda a, b: a + b
+  CHOOSE_FIRST= lambda a, b: a
 
   PARSER = {
     'is_root':                    PARSE_BOOL,
@@ -45,6 +54,28 @@ class BasicBlock(object):
     'app_offset_begin':           PARSE_NUM,
     'app_offset_end':             PARSE_NUM,
     'num_interrupts':             PARSE_NUM,
+    'used_regs':                  PARSE_NUM,
+    'entry_regs':                 PARSE_NUM,
+  }
+
+  COMBINER = {
+    'is_root':                    BOOLEAN_OR,
+    'is_function_entry':          BOOLEAN_OR,
+    'is_function_exit':           BOOLEAN_OR,
+    'is_app_code':                BOOLEAN_OR,
+    'is_allocator':               BOOLEAN_OR,
+    'is_deallocator':             BOOLEAN_OR,
+    'num_executions':             NUM_ADD,
+    'function_id':                CHOOSE_FIRST,
+    'block_id':                   CHOOSE_FIRST,
+    'num_outgoing_jumps':         CHOOSE_FIRST,
+    'has_outgoing_indirect_jmp':  BOOLEAN_OR,
+    'app_name':                   CHOOSE_FIRST,
+    'app_offset_begin':           min,
+    'app_offset_end':             max,
+    'num_interrupts':             NUM_ADD,
+    'used_regs':                  BITWISE_OR,
+    'entry_regs':                 BITWISE_OR,
   }
 
   FORMAT = None
@@ -75,26 +106,80 @@ class BasicBlock(object):
       setattr(self, attr, cls.PARSER[attr](val))
     return self
 
+  # Combine this basic block with another basic block.
+  def combine_with(self, other):
+    for attr, combiner in self.COMBINER.items():
+      setattr(self, attr, combiner(getattr(self, attr), getattr(other, attr)))
+
 
 class ControlFlowGraph(object):
   """Represents a combined inter- and intra-procedural control-flow graph."""
+
+  INTRA_PREFIX_LEN = len("INTRA(")
+  INTER_PREFIX_LEN = len("INTER(")
 
   # Initialise the combined control-flow graph instance.
   def __init__(self):
     self.inter_roots = set()
     self.intra_roots = set()
     self.basic_blocks = {}
+    self.code_blocks = {}
+    self.ordered_calls = collections.defaultdict(list)
+    self.inter_successors = collections.defaultdict(set)
+    self.inter_predecessors = collections.defaultdict(set)
+    self.intra_successors = collections.defaultdict(set)
+    self.intra_predecessors = collections.defaultdict(set)
 
-  # Update the combined CFG with a new basic block.
+  # Update the combined CFG with a new basic block. This also merges identical
+  # basic blocks that were separated by policy information.
   def _accept_bb(self, bb):
     assert bb
     assert bb.block_id not in self.basic_blocks
-    self.basic_blocks[bb.block_id] = bb
+    bb_id = bb.block_id
+    block_id = (bb.app_name, bb.app_offset_begin)
+    if block_id in self.code_blocks:
+      merge_bb = self.code_blocks[block_id]
+      merge_bb.combine_with(bb)
+      bb = merge_bb
+    else:
+      self.code_blocks[block_id] = bb
+    self.basic_blocks[bb_id] = bb
 
   # Parse a string containing an edge definition. Update the control-flow graphs
   # by adding in the edge.
   def _parse_edge(self, line):
-    pass
+    if line.startswith("INTRA"):
+      succ, pred = self.intra_successors, self.intra_predecessors
+      source_id, dest_id = map(int, line[self.INTRA_PREFIX_LEN:-1].split(","))
+      if source_id not in self.basic_blocks \
+      or dest_id not in self.basic_blocks:
+        return # TODO!!
+
+    elif line.startswith("INTER"):
+      succ, pred = self.inter_successors, self.inter_predecessors
+      source_id, dest_id = map(int, line[self.INTER_PREFIX_LEN:-1].split(","))
+      
+      if source_id not in self.basic_blocks \
+      or dest_id not in self.basic_blocks:
+        return  # TODO!!
+
+      # Connect the two graphs, and rename the source block by the block id
+      # that begins the function.
+      source_bb = self.basic_blocks[source_id]
+      self.ordered_calls[source_bb].append(self.basic_blocks[dest_id])
+      source_id = source_bb.function_id
+
+      if source_id not in self.basic_blocks:
+        return  # TODO!!
+
+    else:
+      assert False
+
+    # Connect the graph.
+    source_bb = self.basic_blocks[source_id]
+    dest_bb = self.basic_blocks[dest_id]
+    succ[source_bb].add(dest_bb)
+    pred[dest_bb].add(source_bb)
 
   # Parse an iterable of strings into a combined control-flow graph.
   #
@@ -121,7 +206,7 @@ class ControlFlowGraph(object):
           pending_bb_lines.append(line)
 
       # Add an edge line for later parsing.
-      elif line.startswith("E"):
+      elif line.startswith("INTER") or line.startswith("INTRA"):
         pending_edge_lines.append(line)
 
       # Unexpected line.
