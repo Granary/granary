@@ -38,11 +38,11 @@ namespace client { namespace wp {
 
 #define BOUND_CHECKER_GROUP(reg) \
     { \
-        &CAT(granary_bounds_check_1_, reg), \
-        &CAT(granary_bounds_check_2_, reg), \
-        &CAT(granary_bounds_check_4_, reg), \
-        &CAT(granary_bounds_check_8_, reg), \
-        &CAT(granary_bounds_check_16_, reg) \
+        CAT(granary_bounds_check_1_, reg), \
+        CAT(granary_bounds_check_2_, reg), \
+        CAT(granary_bounds_check_4_, reg), \
+        CAT(granary_bounds_check_8_, reg), \
+        CAT(granary_bounds_check_16_, reg) \
     }
 
 
@@ -53,7 +53,7 @@ namespace client { namespace wp {
 
     /// Register-specific (generated) functions to do bounds checking.
     typedef void (*bounds_checker_type)(void);
-    static bounds_checker_type BOUNDS_CHECKERS[15][5] = {
+    bounds_checker_type BOUNDS_CHECKERS[15][5] = {
         ALL_REGS(BOUND_CHECKER_GROUPS, BOUND_CHECKER_GROUP)
     };
 
@@ -143,6 +143,10 @@ namespace client { namespace wp {
         void *base_address,
         size_t size
     ) throw() {
+        if(!is_valid_address(desc)) {
+            return;
+        }
+
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
@@ -155,6 +159,9 @@ namespace client { namespace wp {
         bound_descriptor *desc,
         uintptr_t index
     ) throw() {
+        if(!is_valid_address(desc)) {
+            return;
+        }
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         desc->my_index = index;
         DESCRIPTORS[index] = desc;
@@ -201,14 +208,20 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         unsigned i
     ) throw() {
-        const unsigned reg_index(register_to_index(tracker.regs[i].value.reg));
-        const unsigned size_index(operand_size_order(tracker.sizes[i]));
+        const unsigned reg_index = register_to_index(tracker.regs[i].value.reg);
+        const unsigned size_index = operand_size_order(tracker.sizes[i]);
+
+        /* Issue #6 : the check avoids the case of memory corruption for tracker
+         *            should be removed once fixed                               */
+        if((size_index & 0xffffffff) == 0xffffffff) {
+            return;
+        }
 
         ASSERT(reg_index < 16);
         ASSERT(size_index < 5);
 
         instruction call(insert_cti_after(ls, tracker.labels[i],
-            unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
+                unsafe_cast<app_pc>(BOUNDS_CHECKERS[reg_index][size_index]),
             CTI_DONT_STEAL_REGISTER, operand(),
             CTI_CALL));
         call.set_mangled();
