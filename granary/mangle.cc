@@ -556,11 +556,11 @@ namespace granary {
         // Find the local private stack to use
         safe = insert_cti_after(
                 ibl, safe, unsafe_cast<app_pc>(granary_enter_private_stack),
-                false, reg::ret, CTI_CALL);
+                false, operand(), CTI_CALL);
 
         safe = insert_cti_after(
             ibl, safe, global_code_cache_find,
-            true, reg::ret, CTI_CALL);
+            true, operand(), CTI_CALL);
 
         // stash the return value before it disappears
         safe = ibl.insert_after(safe, mov_ld_(reg_target_addr, reg::ret));
