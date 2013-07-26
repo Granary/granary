@@ -76,19 +76,21 @@ def print_bb(bb, seen_bbs, symbols):
   print "b%d" % bb.block_id,
   color = ""
   if not bb.is_app_code:
-    color = "color=blue"
+    color = "color=blue "
   if block_ref in symbols:
-    print "[%s label=\"%s\"]" % (color, symbols[block_ref]),
-  elif color:
-    print "[%s]" % color,
+    print "[%slabel=<%s<BR/>%d>]" % (color, symbols[block_ref], bb.num_executions),
+  else:
+    print "[%slabel=\"%d\"]" % (color, bb.num_executions),
   print ";"
 
 
 # Print out a DOT digraph of the edges in a CFG.
-def print_cfg(edges, symbols):
+def print_cfg(edges, apps, symbols):
   seen_bbs = set()
   print "digraph {"
   for bb, out_bbs in edges.items():
+    if bb.app_name not in apps:
+      continue
     print_bb(bb, seen_bbs, symbols)
     for out_bb in out_bbs:
       print_bb(out_bb, seen_bbs, symbols)
@@ -104,15 +106,31 @@ if "__main__" == __name__:
   ko_paths = []
   cfg_path = None
   vmlinux_path = None
+  apps = None
 
   # Parse the arguments.
   for arg in sys.argv[1:]:
-    if "--call_graph" == arg.strip():
+    arg = arg.strip()
+
+    # Generate a call graph? If this is absent then we'll just generate an
+    # intra-procedural control-flow graph.
+    if "--call_graph" == arg:
       call_graph = True
-    elif "--clear_sym_cache" == arg.strip():
+
+    # Clear the symbol cache file? This is needed if the kernel has been
+    # rebuilt.
+    elif "--clear_sym_cache" == arg:
       clear_sym_cache = True
+
+    # Only print basic blocks from specific apps? E.g. `--apps=e1000,ext3`.
+    # Otherwise all apps, including `linux`, will be printed. This is mostly
+    # only useful for intra-procedural CFGs.
+    elif arg.startswith("--apps="):
+      apps = set(arg[len("--apps="):].split(","))
+
+    # Try to interpret the argument as a file name.
     else:
-      path = arg.strip()
+      path = arg
       if os.path.exists(path):
 
         if not cfg_path \
@@ -172,6 +190,12 @@ if "__main__" == __name__:
   else:
     edges = cfg.intra_successors
 
+  # Go get the list of all apps.
+  if None is apps:
+    apps = set()
+    for bb in cfg.basic_blocks.values():
+      apps.add(bb.app_name)
+
   # Print out the chosen CFG.
-  print_cfg(edges, sym_cache)
+  print_cfg(edges, apps, sym_cache)
 

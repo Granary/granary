@@ -125,6 +125,7 @@ class ControlFlowGraph(object):
     self.basic_blocks = {}
     self.code_blocks = {}
     self.ordered_calls = collections.defaultdict(list)
+    self.tail_callers = set()
     self.inter_successors = collections.defaultdict(set)
     self.inter_predecessors = collections.defaultdict(set)
     self.intra_successors = collections.defaultdict(set)
@@ -148,6 +149,7 @@ class ControlFlowGraph(object):
   # Parse a string containing an edge definition. Update the control-flow graphs
   # by adding in the edge.
   def _parse_edge(self, line):
+    is_intra = True
     if line.startswith("INTRA"):
       succ, pred = self.intra_successors, self.intra_predecessors
       source_id, dest_id = map(int, line[self.INTRA_PREFIX_LEN:-1].split(","))
@@ -156,6 +158,7 @@ class ControlFlowGraph(object):
         return # TODO!!
 
     elif line.startswith("INTER"):
+      is_intra = False
       succ, pred = self.inter_successors, self.inter_predecessors
       source_id, dest_id = map(int, line[self.INTER_PREFIX_LEN:-1].split(","))
       
@@ -175,9 +178,16 @@ class ControlFlowGraph(object):
     else:
       assert False
 
-    # Connect the graph.
     source_bb = self.basic_blocks[source_id]
     dest_bb = self.basic_blocks[dest_id]
+
+    # Look for tail-calls.
+    if dest_bb.is_function_entry and is_intra:
+      self.tail_callers.add(source_bb)
+      self.ordered_calls[source_bb].append(dest_bb)
+      succ, pred = self.inter_successors, self.inter_predecessors
+
+    # Connect the graph.
     succ[source_bb].add(dest_bb)
     pred[dest_bb].add(source_bb)
 
