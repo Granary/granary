@@ -603,14 +603,14 @@ namespace granary {
 
         uint8_t *byte_pc(*pc_);
 
-        #if !GRANARY_IN_KERNEL
-                // Deal with `REPZ RET` in user space with potential GDB breakpoints.
-                if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
-                && X86_RET_SHORT == byte_pc[1]) {
-                    ++*pc;
-                    ++byte_pc;
-                }
-        #endif
+#if !GRANARY_IN_KERNEL
+        // Deal with `REPZ RET` in user space with potential GDB breakpoints.
+        if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
+        && X86_RET_SHORT == byte_pc[1]) {
+            ++pc_;
+            ++byte_pc;
+        }
+#endif
 
         *pc_ = dynamorio::decode_raw(DCONTEXT, byte_pc, instr);
         dynamorio::decode(DCONTEXT, byte_pc, instr);
