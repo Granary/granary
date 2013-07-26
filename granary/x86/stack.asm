@@ -22,7 +22,7 @@ GLOBAL_LABEL(granary_enter_private_stack:)
     popq %ARG1
 
     // As of here:
-    // %rax - top of private stack (also address of nesting depth counter)
+    // %rax - top of private stack
 
     // Compare the top 48-bits of the private stack address %rax and
     // whichever stack we are currently on %rsp
@@ -42,7 +42,7 @@ GLOBAL_LABEL(granary_enter_private_stack:)
     xchg %rsp, %rax
 
     // As of here:
-    // %rsp - top of private stack (also address of nesting depth counter)
+    // %rsp - top of private stack
     // %rax - somewhere on the native stack
 
     // Save current native stack position
@@ -59,7 +59,7 @@ GLOBAL_LABEL(granary_enter_private_stack:)
 
     // As of here (since we are already on the private stack per the test above):
     // %rsp - somewhere on the private stack
-    // %rax - top of private stack (also address of nesting depth counter)
+    // %rax - top of private stack
 
     // Save current private stack position
     // NB: two pushes to ensure 16 byte alignment (and make sure they are both
