@@ -1557,7 +1557,6 @@ class CParser(object):
           if isinstance(ctype, CTypeUse) \
           and isinstance(ctype.ctype, CTypeDefinition) \
           and defines_type:
-            assert False
             found_ctype.is_missing = True
             i -= 1
             break

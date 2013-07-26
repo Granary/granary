@@ -105,4 +105,8 @@
 #endif
 
 
+#if defined(CAN_WRAP___alloc_skb) && CAN_WRAP___alloc_skb
+    CFG_MEMORY_DEALLOCATOR(__alloc_skb)
+#endif
+
 #endif /* CLIENT_CFG_ALLOCATORS_H_ */
