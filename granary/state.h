@@ -37,12 +37,7 @@ namespace granary {
 
 
     /// Information maintained by granary about each thread.
-    struct thread_state : public client::thread_state {
-    public:
-
-        IF_KERNEL( app_pc restore_stub; )
-        IF_KERNEL( app_pc restore_stub_target; )
-    };
+    struct thread_state : public client::thread_state { };
 
 
     namespace detail {

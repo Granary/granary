@@ -78,23 +78,34 @@ namespace granary {
 
     /// Initialise the thread state.
     void thread_state_handle::init(void) throw() {
-        state = allocate_memory<thread_state>();
-        *state_ptr = state;
-        state_ptr = nullptr;
+        if(sizeof(thread_state) > sizeof(uintptr_t)) {
+            state = allocate_memory<thread_state>();
+            *state_ptr = state;
+            state_ptr = nullptr;
+        }
     }
 
 
     /// Used to access thread-local data. The dependency on a valid CPU state
     /// handle implies that thread state should only be accessed when interrupts
     /// are disabled (where it's safe to access CPU-private data).
-    thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw()
-        : state_ptr(kernel_get_thread_state())
-        , state(*state_ptr)
-    {
-        state = *state_ptr;
-        if(state) {
+    thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw() {
+
+        // Optimisation if the size of the thread state can fit entirely within
+        // the thread state pointer.
+        if(sizeof(thread_state) <= sizeof(uintptr_t)) {
+            state = unsafe_cast<thread_state *>(kernel_get_thread_state());
             state_ptr = nullptr;
+
+        // Thread state is too big to fit into 8 bytes.
+        } else {
+            state_ptr = kernel_get_thread_state();
+            state = *state_ptr;
+            if(state) {
+                state_ptr = nullptr;
+            }
         }
+
     }
 
 }

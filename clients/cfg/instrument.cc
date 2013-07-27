@@ -253,7 +253,7 @@ namespace client {
         bb.function_id = bb.block_id;
 
         // Add an event handler that executes before the basic block executes.
-        instruction in(ls.insert_before(ls.first(), label_()));
+        instruction in(ls.prepend(label_()));
         insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
         return policy_for<cfg_exit_policy>();
@@ -271,7 +271,7 @@ namespace client {
         bb.function_id = bb.block_id;
 
         // Add an event handler that executes before the basic block executes.
-        instruction in(ls.insert_before(ls.first(), label_()));
+        instruction in(ls.prepend(label_()));
         insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
 
         return granary::policy_for<cfg_exit_policy>();
@@ -308,7 +308,7 @@ namespace client {
         bb.is_app_code = true;
 
         // Add an event handler that executes before the basic block executes.
-        instruction in(ls.insert_before(ls.first(), label_()));
+        instruction in(ls.prepend(label_()));
         insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
 
         return policy_for<cfg_exit_policy>();
@@ -325,7 +325,7 @@ namespace client {
         bb.is_app_code = false;
 
         // Add an event handler that executes before the basic block executes.
-        instruction in(ls.insert_before(ls.first(), label_()));
+        instruction in(ls.prepend(label_()));
         insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
 
         return granary::policy_for<cfg_exit_policy>();

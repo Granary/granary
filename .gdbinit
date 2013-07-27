@@ -78,14 +78,14 @@ end
 define p-module-of
   set language c++
   set $__func_address = (unsigned long) $arg0
-  set $__module = (struct kernel_module *) modules
+  set $__module = (struct kernel_module *) LOADED_MODULES
   set $__module_name = (const char *) 0
   set $__module_begin = 0ull
   set $__module_offset = 0ull
 
   while $__module
     set $__this_module_begin = (unsigned long) $__module->text_begin
-    set $__this_module_end = (unsigned long) $__module->text_end
+    set $__this_module_end = (unsigned long) $__module->max_text_end
     
     if $__func_address >= $__this_module_begin
       if $__func_address < $__this_module_end
@@ -106,6 +106,8 @@ define p-module-of
     printf "Module containing address 0x%lx:\n", $__func_address
     printf "   Module name: %s\n", $__module_name
     printf "   Relative offset in module '.text' section: 0x%lx\n", $__module_offset
+  else
+    print "No Granary-instrumented module contains address 0x%lx\n", $__func_address
   end
 
   dont-repeat
@@ -276,7 +278,7 @@ define p-trace
   set language c++
   set $__i = (int) $arg0
   set $__j = 1
-  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  set $__head = (granary::trace_log_item *) granary::TRACE
   printf "Global code cache lookup trace:\n"
   while $__i > 0 && 0 != $__head
     printf "   [%d] %p\n", $__j, $__head->code_cache_addr
@@ -296,7 +298,7 @@ define get-trace-entry
   set language c++
   set $trace_entry = (granary::trace_log_item *) 0
   set $__i = (int) $arg0
-  set $__head = (granary::trace_log_item *) granary::TRACE._M_b._M_p
+  set $__head = (granary::trace_log_item *) granary::TRACE
   while $__i > 0 && 0 != $__head
     if $__i == 1
       set $trace_entry = $__head

@@ -181,6 +181,11 @@ class ControlFlowGraph(object):
     source_bb = self.basic_blocks[source_id]
     dest_bb = self.basic_blocks[dest_id]
 
+    # Look for bugs, e.g. intra(ret, ret).
+    # TODO: Why do we have these bugs???
+    if source_bb is dest_bb and source_bb.is_function_exit and is_intra:
+      return
+
     # Look for tail-calls.
     if dest_bb.is_function_entry and is_intra:
       self.tail_callers.add(source_bb)

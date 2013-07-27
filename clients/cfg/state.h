@@ -149,10 +149,8 @@ namespace client {
     /// State that is automatically maintained for each thread.
     struct thread_state {
 
-        /// Tracking the last inter- and intra-procedural control-flow graph
-        /// blocks.
-        client::basic_block_state *last_inter;
-        client::basic_block_state *last_intra;
+        /// Tracking the last executed basic block.
+        client::basic_block_state *last_bb;
     };
 }
 

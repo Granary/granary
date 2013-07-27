@@ -87,8 +87,8 @@ namespace client {
     __attribute__((hot))
     void event_enter_function(basic_block_state *bb) throw() {
         thread_state_handle thread = safe_cpu_access_zone();
-        basic_block_state *last_bb(thread->last_inter);
-        thread->last_intra = bb;
+        basic_block_state *last_bb(thread->last_bb);
+        thread->last_bb = bb;
 
         bb->num_executions.fetch_add(1);
 
@@ -118,16 +118,14 @@ namespace client {
     __attribute__((hot))
     void event_exit_function(basic_block_state *) throw() {
         thread_state_handle thread = safe_cpu_access_zone();
-        thread->last_intra = nullptr;
-        thread->last_inter = nullptr;
+        thread->last_bb = nullptr;
     }
 
 
     /// Invoked immediately after a function call.
     void event_after_function(basic_block_state *bb) throw() {
         thread_state_handle thread = safe_cpu_access_zone();
-        thread->last_inter = bb;
-        thread->last_intra = bb;
+        thread->last_bb = bb;
     }
 
 
@@ -138,9 +136,8 @@ namespace client {
         thread_state_handle thread = safe_cpu_access_zone();
 
         // Update the call stack info.
-        basic_block_state *&last_bb_(thread->last_intra);
-        basic_block_state *last_bb(last_bb_);
-        last_bb_ = bb;
+        basic_block_state *last_bb(thread->last_bb);
+        thread->last_bb = bb;
 
         // Update this basic block.
         bb->num_executions.fetch_add(1);

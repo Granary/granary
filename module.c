@@ -187,7 +187,8 @@ static struct kernel_module KERNEL_MODULE = {
     .address = NULL,
     .text_begin = (void *) KERNEL_TEXT_START,
     .text_end = (void *) KERNEL_TEXT_END,
-    .name = "linux"
+    .name = "linux",
+    .next = NULL
 };
 
 

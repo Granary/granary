@@ -18,12 +18,12 @@ FILE_SYMBOL_CACHE = "/tmp/symbol_cache.pickle"
 
 # readelf lines have this format:
 #       511: 000000000000ab40   661 FUNC    GLOBAL DEFAULT    2 e1000_phy_get_info
-RE_ELF_OFFSET_AND_NAME = re.compile(r"^.*: ([0-9a-f]+) .* ([a-zA-Z0-9_]+)\r?\n?$")
+RE_ELF_OFFSET_AND_NAME = re.compile(r"^.*: ([0-9a-f]+) .* ([a-zA-Z0-9_.]+)\r?\n?$")
 
 
 # kallsyms lines have this format:
 #       000000000000f068 D x86_bios_cpu_apicid
-RE_KALL_OFFSET_AND_NAME = re.compile(r"^([0-9a-f]+) .* ([a-zA-Z0-9_]+)\r?\n?$")
+RE_KALL_OFFSET_AND_NAME = re.compile(r"^([0-9a-f]+) .* ([a-zA-Z0-9_.]+)\r?\n?$")
 
 
 # String prefix for kernel addresses.
@@ -74,13 +74,19 @@ def print_bb(bb, seen_bbs, symbols):
   block_ref = (bb.app_name, bb.app_offset_begin)
 
   print "b%d" % bb.block_id,
+  
+  entry_exit = ""
+  if bb.is_root:
+    entry_exit = "shape=rectangle "
+
   color = ""
   if not bb.is_app_code:
     color = "color=blue "
+
   if block_ref in symbols:
-    print "[%slabel=<%s<BR/>%d>]" % (color, symbols[block_ref], bb.num_executions),
+    print "[%s%slabel=<%s<BR/>%s<BR/>%d>]" % (color, entry_exit, symbols[block_ref], bb.app_name, bb.num_executions),
   else:
-    print "[%slabel=\"%d\"]" % (color, bb.num_executions),
+    print "[%s%slabel=<%s<BR/>%s<BR/>%d>]" % (color, entry_exit, hex(bb.app_offset_begin), bb.app_name, bb.num_executions),
   print ";"
 
 
@@ -88,6 +94,7 @@ def print_bb(bb, seen_bbs, symbols):
 def print_cfg(edges, apps, symbols):
   seen_bbs = set()
   print "digraph {"
+  print "layout=dot;"
   for bb, out_bbs in edges.items():
     if bb.app_name not in apps:
       continue
