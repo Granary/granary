@@ -38,11 +38,11 @@ namespace client { namespace wp {
 
 #define BOUND_CHECKER_GROUP(reg) \
     { \
-        CAT(granary_bounds_check_1_, reg), \
-        CAT(granary_bounds_check_2_, reg), \
-        CAT(granary_bounds_check_4_, reg), \
-        CAT(granary_bounds_check_8_, reg), \
-        CAT(granary_bounds_check_16_, reg) \
+        &CAT(granary_bounds_check_1_, reg), \
+        &CAT(granary_bounds_check_2_, reg), \
+        &CAT(granary_bounds_check_4_, reg), \
+        &CAT(granary_bounds_check_8_, reg), \
+        &CAT(granary_bounds_check_16_, reg) \
     }
 
 
@@ -53,7 +53,7 @@ namespace client { namespace wp {
 
     /// Register-specific (generated) functions to do bounds checking.
     typedef void (*bounds_checker_type)(void);
-    bounds_checker_type BOUNDS_CHECKERS[15][5] = {
+    static bounds_checker_type BOUNDS_CHECKERS[15][5] = {
         ALL_REGS(BOUND_CHECKER_GROUPS, BOUND_CHECKER_GROUP)
     };
 
