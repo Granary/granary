@@ -568,6 +568,9 @@ namespace client {
                 || dynamorio::OP_nop_modrm == in.op_code()
                 || dynamorio::OP_leave == in.op_code()
                 || dynamorio::OP_enter == in.op_code()
+                || dynamorio::OP_xsaveopt == in.op_code()
+                || dynamorio::OP_xsave  == in.op_code()
+                || dynamorio::OP_xrstor == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
                     continue;
