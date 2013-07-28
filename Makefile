@@ -404,7 +404,7 @@ else
 	GR_OBJS += bin/granary/x86/init.o
 	
 	# Extra C and assembler flags.
-	ccflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
+	cflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
 	asflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
 	
 	# Module objects
