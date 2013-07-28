@@ -391,7 +391,7 @@ static struct kernel_module *find_internal_module(void *vmod) {
     module->is_instrumented = DEVICE_IS_INITIALISED;
 
     if(!is_granary) {
-        module_set_exec_perms(module);
+       // module_set_exec_perms(module);
     }
 
     // Chain it in and return.
@@ -424,7 +424,7 @@ static int module_load_notifier(
     internal_mod->state = mod_state;
 
     if(mod_state) {
-        module_set_exec_perms(internal_mod);
+       // module_set_exec_perms(internal_mod);
     }
 
     printk("[granary] Notifying Granary of the module...\n");

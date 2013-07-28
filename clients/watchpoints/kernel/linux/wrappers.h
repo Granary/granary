@@ -37,7 +37,7 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
 #endif
 
-
+#if CONFIG_ENABLE_MODULE_WRAPPERS
 #ifndef APP_WRAPPER_FOR_pointer
 #   define APP_WRAPPER_FOR_pointer
     POINTER_WRAPPER({
@@ -764,6 +764,7 @@ using namespace client::wp;
 #       define HOST_WRAPPER_FOR_mempool_free_pages
         FUNCTION_WRAPPER_DETACH(HOST, mempool_free_pages)
 #   endif
+#endif
 #endif
 
 #endif /* WRAPPERS_H_ */

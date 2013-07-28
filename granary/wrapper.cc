@@ -51,8 +51,10 @@
 /// and context to take precedence over auto-generated.
 #   if GRANARY_IN_KERNEL
 #       include "clients/kernel/linux/wrappers.h"
+#if CONFIG_ENABLE_MODULE_WRAPPERS
 #       include "granary/kernel/linux/wrappers.h"
 #       include "granary/gen/kernel_wrappers.h"
+#endif
 #   else
 #       include "clients/user/posix/wrappers.h"
 #       include "granary/user/posix/wrappers.h"
@@ -73,7 +75,7 @@
 namespace granary {
 
     function_wrapper FUNCTION_WRAPPERS[] = {
-
+#if CONFIG_ENABLE_MODULE_WRAPPERS
     // first, generate detach entries for wrappers
 #   define WRAP_FOR_DETACH(func) \
     {   (uintptr_t) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
@@ -91,7 +93,7 @@ namespace granary {
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
 #   undef TYPED_DETACH
-
+#endif
     // now, generate detach entries for dynamic symbols which must be
     // looked up using dlsym.
 #   define WRAP_FOR_DETACH(func)

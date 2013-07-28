@@ -106,6 +106,7 @@
 #   define IF_WRAP_DEPTH_1(...)
 #endif
 
+#if 0
 /// Custom wrapping for net devices.
 #ifndef APP_WRAPPER_FOR_struct_net_device
 #   define APP_WRAPPER_FOR_struct_net_device
@@ -195,7 +196,7 @@
         return ret;
     })
 #endif
-
+#endif
 
 /// Custom wrapping for super blocks.
 #ifndef APP_WRAPPER_FOR_struct_super_block

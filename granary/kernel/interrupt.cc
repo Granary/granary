@@ -558,6 +558,8 @@ namespace granary {
             if(VECTOR_PAGE_FAULT == vector) {
                 IF_PERF( perf::visit_protected_module() );
                 ret = handle_module_interrupt(cpu, isf);
+            } else if(VECTOR_GENERAL_PROTECTION == vector) {
+                ret = handle_kernel_interrupt(cpu, thread, isf, vector);
             } else {
                 ret = INTERRUPT_DEFER;
             }
