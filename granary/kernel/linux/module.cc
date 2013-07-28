@@ -74,10 +74,12 @@ extern "C" {
 
         switch(module->state) {
         case kernel_module::STATE_COMING: {
+#if 0
             *(module->init) = make_init_func(*(module->init), module);
             if(module->exit) {
                 *(module->exit) = dynamic_wrapper_of(*(module->exit));
             }
+#endif
             break;
         }
 
