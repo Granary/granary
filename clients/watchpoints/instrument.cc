@@ -279,15 +279,14 @@ namespace client { namespace wp {
             }
 
             // Not an interesting region.
-            if(2 >= region_length
-            || 4 >= num_memory_ops) {
+            if(2 >= region_length || 4 >= num_memory_ops) {
                 continue;
             }
 
             // Always try to spill two registers.
             dynamorio::reg_id_t spill_reg_1(region_used_regs.get_zombie());
             dynamorio::reg_id_t spill_reg_2(region_used_regs.get_zombie());
-            if(!spill_reg_1 || !spill_reg_2) {
+            if(!spill_reg_2) {
                 continue;
             }
 
