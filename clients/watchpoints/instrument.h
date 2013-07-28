@@ -122,6 +122,10 @@ namespace client {
             /// Current instruction
             granary::instruction in;
 
+            /// True if this instruction reads from or writes to RSP.
+            bool reads_from_rsp;
+            bool writes_to_rsp;
+
             /// Represents the set of instructions that we can legally save and
             /// restore around the instrumented instruction without breaking
             /// things.
@@ -228,6 +232,15 @@ namespace client {
         void find_memory_operand(
             const granary::operand_ref &,
             watchpoint_tracker &
+        ) throw();
+
+
+        /// Do register stealing coalescing by recognising sequences of instructions
+        /// than can benefit from shared spilled registers, and spill/restore
+        /// registers around those regions.
+        void region_register_spiller(
+            watchpoint_tracker &tracker,
+            granary::instruction_list &ls
         ) throw();
 
 
@@ -541,7 +554,17 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
-            for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
+#if WP_ENABLE_DATA_FLOW_STEALING
+            const app_pc bb_start(ls.first().pc());
+#endif /* WP_ENABLE_DATA_FLOW_STEALING */
+#if WP_ENABLE_REGISTER_REGIONS
+            region_register_spiller(tracker, ls);
+#endif /* WP_ENABLE_REGISTER_REGIONS */
+
+            int n(0);
+
+            // Backward pass.
+            for(instruction in(ls.last()); in.is_valid(); ++n, in = prev_in) {
                 prev_in = in.prev();
 
                 memset(&tracker, 0, sizeof tracker);
@@ -570,6 +593,16 @@ namespace client {
                 || dynamorio::OP_enter == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
+
+#if WP_ENABLE_DATA_FLOW_STEALING
+                    // Used to see if we can get better register liveness
+                    // information.
+                    if((0 == n && get_live_registers && in.is_return())
+                    || (1 == n && get_live_registers && in.is_cti())) {
+                        next_live_regs = get_live_registers(bb_start);
+                    }
+#endif
+
                     continue;
                 }
 

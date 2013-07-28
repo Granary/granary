@@ -10,6 +10,16 @@
 #define WATCHPOINT_CONFIG_H_
 
 
+/// Enable register region saving/restoring as a method attempting to improve
+/// register stealing behaviour.
+#define WP_ENABLE_REGISTER_REGIONS 1
+
+
+/// Enable using pre-computed data-flow information from register liveness
+/// analysis (based on the CFG tool) to try to improve register stealing.
+#define WP_ENABLE_DATA_FLOW_STEALING 0
+
+
 /// Instrument less host code. This will instrument only basic blocks within
 /// a faulting host function, as well as basic blocks reached through indirect
 /// control-flow instructions.

@@ -15,7 +15,7 @@ namespace granary {
 
 
     /// Registers that are forced to always be alive.
-    static const uint16_t FORCE_LIVE =
+    const uint16_t register_manager::FORCE_LIVE =
         (1U << (dynamorio::DR_REG_RSP - 1));
 
 
@@ -817,5 +817,18 @@ namespace granary {
         }
         return regs[15 - reg];
     }
+
+
+    /// Returns the set of dead registers at the end of a basic block.
+    /// If we already know about the basic block by having computed the
+    /// (conservative) sets of live registers at the ends of basic blocks
+    /// in advance (e.g. with the CFG tool) then we use that information.
+    ///
+    /// Note: This function is meant to be "ignored" due to weak linking if an
+    ///       auto-generated version exists.
+    /*register_manager WEAK_SYMBOL
+    get_live_registers(const app_pc) throw() {
+        return register_manager();
+    }*/
 }
 

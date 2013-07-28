@@ -35,11 +35,23 @@ namespace client { namespace wp {
         // Ignore non-address kinds.
         const operand ref_to_op(*op);
         if(dynamorio::BASE_DISP_kind != ref_to_op.kind) {
+
+            // Detect if this instruction reads or writes to the stack pointer.
+            if(dynamorio::REG_kind == ref_to_op.kind
+            && dynamorio::DR_REG_RSP == ref_to_op.value.reg) {
+                if(DEST_OPERAND & op.kind) {
+                    tracker.writes_to_rsp = true;
+                }
+
+                if(SOURCE_OPERAND & op.kind) {
+                    tracker.reads_from_rsp = true;
+                }
+            }
             return;
         }
 
-        const dynamorio::reg_id_t base_reg(op->value.base_disp.base_reg);
-        const dynamorio::reg_id_t index_reg(op->value.base_disp.index_reg);
+        const dynamorio::reg_id_t base_reg(ref_to_op.value.base_disp.base_reg);
+        const dynamorio::reg_id_t index_reg(ref_to_op.value.base_disp.index_reg);
         const dynamorio::reg_id_t base_reg_64(
             register_manager::scale(base_reg, REG_64));
         const dynamorio::reg_id_t index_reg_64(
@@ -50,6 +62,7 @@ namespace client { namespace wp {
         // clobbered). Also, treat all stack addresses as unwatched.
         if(dynamorio::DR_REG_RSP == base_reg_64
         || dynamorio::DR_REG_RSP == index_reg_64) {
+            tracker.reads_from_rsp = true;
             return;
         }
 
@@ -204,6 +217,92 @@ namespace client { namespace wp {
         } else {
             restore_carry_flag_before = false;
             restore_carry_flag_after = next_reads_carry_flag;
+        }
+    }
+
+
+    /// Do register stealing coalescing by recognising sequences of instructions
+    /// than can benefit from shared spilled registers, and spill/restore
+    /// registers around those regions.
+    void region_register_spiller(
+        watchpoint_tracker &tracker,
+        instruction_list &ls
+    ) throw() {
+
+        for(instruction in(ls.last()), prev_in; in.is_valid(); in = prev_in) {
+
+            if(in.is_mangled() || in.is_cti()) {
+                prev_in = in.prev();
+                continue;
+            }
+
+            int region_length(0);
+            int num_memory_ops(0);
+
+            // All registers in a region start off dead.
+            register_manager region_used_regs;
+            region_used_regs.kill_all();
+
+            for(prev_in = in;
+                prev_in.is_valid();
+                ++region_length, prev_in = prev_in.prev()) {
+
+                // Boundaries are CTIs and PUSHes / POPs as we want to
+                // introduce PUSH/POPs for our optimisation.
+                if(prev_in.is_cti()
+                || dynamorio::OP_push == prev_in.op_code()
+                || dynamorio::OP_pop == prev_in.op_code()) {
+                    break;
+                }
+
+                region_used_regs.revive(prev_in);
+
+                // Try to find memory operations.
+                memset(&tracker, 0, sizeof tracker);
+                tracker.in = in;
+                prev_in.for_each_operand(wp::find_memory_operand, tracker);
+
+                // Can't allow us to include instructions that read or
+                // modify the stack pointer because then we'll really screw
+                // things up by putting a PUSH before those or a POP after
+                // those.
+                if(tracker.reads_from_rsp || tracker.writes_to_rsp) {
+                    break;
+                }
+
+                num_memory_ops += tracker.num_ops;
+            }
+
+            // No region.
+            if(!region_length && prev_in.is_valid()) {
+                prev_in = in.prev();
+            }
+
+            // Not an interesting region.
+            if(2 >= region_length
+            || 4 >= num_memory_ops) {
+                continue;
+            }
+
+            // Always try to spill two registers.
+            dynamorio::reg_id_t spill_reg_1(region_used_regs.get_zombie());
+            dynamorio::reg_id_t spill_reg_2(region_used_regs.get_zombie());
+            if(!spill_reg_1 || !spill_reg_2) {
+                continue;
+            }
+
+            // Add in the region ending POPs.
+            ls.insert_after(in, mangled(pop_(operand(spill_reg_1))));
+            ls.insert_after(in, mangled(pop_(operand(spill_reg_2))));
+
+            // Add in the region beginning PUSHes.
+            if(prev_in.is_valid()) {
+                ls.insert_after(prev_in, mangled(push_(operand(spill_reg_2))));
+                ls.insert_after(prev_in, mangled(push_(operand(spill_reg_1))));
+            } else {
+                ls.prepend(mangled(push_(operand(spill_reg_2))));
+                ls.prepend(mangled(push_(operand(spill_reg_1))));
+            }
         }
     }
 

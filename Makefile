@@ -267,6 +267,9 @@ ifeq ($(GR_CLIENT),leak_detector)
 	endif
 endif
 
+# Client-generated C++ files.
+GR_CLIENT_GEN_OBJS = $(patsubst clients/%.cc,bin/clients/%.o,$(wildcard clients/gen/*.cc))
+GR_OBJS += $(GR_CLIENT_GEN_OBJS)
 
 # C++ ABI-specific stuff
 GR_OBJS += bin/deps/icxxabi/icxxabi.o
@@ -281,7 +284,6 @@ GR_OBJS += bin/tests/test_indirect_cti.o
 
 # user space
 ifeq ($(KERNEL),0)
-
 	GR_INPUT_TYPES = granary/user/posix/types.h
 	GR_OUTPUT_TYPES = granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = granary/gen/user_wrappers.h
@@ -365,10 +367,6 @@ endef
 
 # kernel space
 else
-
-	# pass the debug / optimisation settings to the kernel's makefile.
-	EXTRA_CFLAGS = $(GR_DEBUG_LEVEL)
-
 	GR_COMMON_KERNEL_FLAGS = -DGRANARY_IN_KERNEL=1 -DGRANARY_USE_PIC=0
 	
 	ifneq (,$(findstring clang,$(GR_CC))) # clang
@@ -404,6 +402,10 @@ else
 
 	# Must be last!!!!
 	GR_OBJS += bin/granary/x86/init.o
+	
+	# Extra C and assembler flags.
+	ccflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
+	asflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
 	
 	# Module objects
 	obj-m += $(GR_NAME).o
@@ -450,13 +452,13 @@ bin/deps/murmurhash/%.o: deps/murmurhash/%.cc
 
 # DynamoRIO rules for C files
 bin/deps/dr/%.o: deps/dr/%.c
-	@echo "  CC [DR] $<"
+	@echo "  CC  [DR] $<"
 	@$(GR_CC) $(GR_CC_FLAGS) -c $< -o bin/deps/dr/$*.$(GR_OUTPUT_FORMAT)
 
 
 # DynamoRIO rules for assembly files
 bin/deps/dr/%.o: deps/dr/%.asm
-	@echo "  AS [DR] $<"
+	@echo "  AS  [DR] $<"
 	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/deps/dr/$*.1.S -x c -std=c99 $<
 	@$(GR_PYTHON) scripts/post_process_asm.py bin/deps/dr/$*.1.S > bin/deps/dr/$*.S
 	@rm bin/deps/dr/$*.1.S
@@ -477,7 +479,7 @@ bin/granary/%.o: granary/%.cc
 
 # Granary rules for assembly files
 bin/granary/x86/%.o: granary/x86/%.asm
-	@echo "  AS [GR] $<"
+	@echo "  AS  [GR] $<"
 	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/granary/x86/$*.1.S -x c -std=c99 $<
 	@$(GR_PYTHON) scripts/post_process_asm.py bin/granary/x86/$*.1.S > bin/granary/x86/$*.S
 	@rm bin/granary/x86/$*.1.S
@@ -493,7 +495,7 @@ bin/clients/%.o :: clients/%.cc
 
 # Granary rules for client assembly files
 bin/clients/%.o :: clients/%.asm
-	@echo "  AS [GR-CLIENT] $<"
+	@echo "  AS  [GR-CLIENT] $<"
 	@$(GR_CC) $(GR_ASM_FLAGS) -E -o bin/clients/$*.1.S -x c -std=c99 $<
 	@$(GR_PYTHON) scripts/post_process_asm.py bin/clients/$*.1.S > bin/clients/$*.S
 	@rm bin/clients/$*.1.S
@@ -557,6 +559,7 @@ install:
 	@-mkdir bin/granary/gen > /dev/null 2>&1 ||:
 	@-mkdir bin/granary/x86 > /dev/null 2>&1 ||:
 	@-mkdir bin/clients > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/gen > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/null > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/null_plus > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/track_entry_exit > /dev/null 2>&1 ||:

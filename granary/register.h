@@ -38,6 +38,9 @@ namespace granary {
     struct register_manager {
     private:
 
+        /// Registers that are forced to always be alive.
+        static const uint16_t FORCE_LIVE;
+
         /// Tracks 64-bit registers.
         uint16_t live;
         uint16_t undead;
@@ -251,6 +254,7 @@ namespace granary {
             undead = 0;
             undead_xmm = 0;
             live = bitmask & 0xFF;
+            live |= FORCE_LIVE;
             live_xmm = (bitmask >> 16) & 0xFF;
         }
 
@@ -348,6 +352,13 @@ namespace granary {
         general_purpose_register &operator[](dynamorio::reg_id_t) throw();
     };
 
+
+    /// Returns the set of dead registers at the end of a basic block.
+    /// If we already know about the basic block by having computed the
+    /// (conservative) sets of live registers at the ends of basic blocks
+    /// in advance (e.g. with the CFG tool) then we use that information.
+    register_manager WEAK_SYMBOL
+    get_live_registers(const app_pc) throw();
 }
 
 
