@@ -559,6 +559,7 @@ namespace granary {
                 IF_PERF( perf::visit_protected_module() );
                 ret = handle_module_interrupt(cpu, isf);
             } else if(VECTOR_GENERAL_PROTECTION == vector) {
+                IF_PERF( perf::visit_gp_interrupt(); )
                 ret = handle_kernel_interrupt(cpu, thread, isf, vector);
             } else {
                 ret = INTERRUPT_DEFER;
@@ -566,6 +567,9 @@ namespace granary {
 
         // Assume it's an interrupt in a host-address location.
         } else {
+            if(VECTOR_GENERAL_PROTECTION == vector) {
+                IF_PERF( perf::visit_gp_interrupt(); )
+            }
             ret = handle_kernel_interrupt(cpu, thread, isf, vector);
         }
 

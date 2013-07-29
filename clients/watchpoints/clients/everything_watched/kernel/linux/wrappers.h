@@ -25,7 +25,7 @@ namespace client { namespace wp {
 }}
 
 #if CONFIG_ENABLE_PATCH_WRAPPERS
-#define MAX_WATCHPOINTS 15
+#define MAX_WATCHPOINTS 200
 unsigned long watchpoint_count = 0;
 
 #ifndef  PATCH_WRAPPER_FOR___kmalloc
@@ -35,7 +35,7 @@ unsigned long watchpoint_count = 0;
 
         void *ret(__kmalloc(size, gfp));
         if((is_app_address(unsafe_cast<granary::app_pc>(addr)))
-                && ((watchpoint_count < MAX_WATCHPOINTS))){
+                /*&& ((watchpoint_count < MAX_WATCHPOINTS))*/){
             granary::printf("inside patch kmalloc : %llx\n", addr);
             if(is_valid_address(ret)) {
                 add_watchpoint(ret);
@@ -69,7 +69,7 @@ unsigned long watchpoint_count = 0;
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
         if((is_app_address(unsafe_cast<granary::app_pc>(addr)))
-                && ((watchpoint_count < MAX_WATCHPOINTS))){
+                /*&& ((watchpoint_count < MAX_WATCHPOINTS))*/){
             granary::printf("inside patch kmem_cache_alloc : %llx\n", addr);
             memset(ptr, 0, cache->object_size);
             add_watchpoint(ptr);

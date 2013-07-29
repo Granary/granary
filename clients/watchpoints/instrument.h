@@ -686,6 +686,9 @@ namespace client {
 
                 // Make it so that the current function is instrumented, but not
                 // called functions.
+              /*  if(in.is_call()) {
+                    in.set_mangled();
+                }*/
                 if(in.is_call()) {
                     in.set_mangled();
                 }
