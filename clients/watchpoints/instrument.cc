@@ -673,6 +673,10 @@ namespace client { namespace wp {
         bool spilled_carry_flag(false);
         dynamorio::reg_id_t carry_flag(this->save_carry_flag(
             ls, before, spilled_carry_flag));
+            
+        if(spilled_carry_flag) {
+            ASSERT(!(tracker.reads_from_rsp || tracker.writes_to_rsp));
+        }
 
         // The register that stores the (potentially) computed memory address.
         dynamorio::reg_id_t addr_reg;
@@ -725,6 +729,8 @@ namespace client { namespace wp {
             // We've got to spill a register to store the computed (potentially)
             // watched address.
             if(!addr_reg) {
+                ASSERT(!(tracker.reads_from_rsp || tracker.writes_to_rsp));
+                
                 addr_reg = spill_regs.get_zombie();
                 addr_reg_was_spilled = true;
                 addr_reg_is_only_op_reg = false;
