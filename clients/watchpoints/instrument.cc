@@ -562,29 +562,23 @@ namespace client { namespace wp {
 
 
 #if GRANARY_IN_KERNEL
-    /// Tries to match a binary pattern of the form:
+    /// Tries to match one of the XCHG instructions that show up in the binary
+    /// pattern associated with user space data accesses. E.g.:
     ///
     ///     data32 xchg %ax, %ax
     ///     <memory instruction>
     ///     data32 xchg %ax, %ax
     ///
     /// If the pattern is matched then `check_bit_47` is set to true.
-    void watchpoint_tracker::match_userspace_address_deref(void) throw() {
+    bool match_user_space_address_boundary(instruction in) throw() {
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
         };
-
-        // Try to determine if this might be an access to a user space
-        // address by pattern matching the binary instructions.
-        if(in.next().is_valid() && in.prev().is_valid()
-        && in.next().pc() && in.prev().pc()
-        && 3 == in.next().encoded_size()
-        && 3 == in.prev().encoded_size()) {
-            const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-            check_bit_47 = (
-                0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
-             && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
-        }
+        const app_pc bytes(in.pc_or_raw_bytes());
+        const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+        return nullptr != bytes
+            && 3 == in.encoded_size()
+            && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3);
     }
 #endif
 
