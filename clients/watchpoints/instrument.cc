@@ -319,12 +319,15 @@ namespace client { namespace wp {
                 continue;
             }
 
-            // Always try to spill two registers.
+            // Always try to get two spill registers, even if we only car about one.
             dynamorio::reg_id_t spill_reg_1(region_used_regs.get_zombie());
             dynamorio::reg_id_t spill_reg_2(region_used_regs.get_zombie());
-            if(reads_carry_flag && !spill_reg_2) {
+            if(!spill_reg_1) {
                 continue;
             }
+            
+            // Make sure that if we want to spill a second register that we can.
+            reads_carry_flag = reads_carry_flag && !!spill_reg_2;
 
             // Add in the region ending POPs.
             ls.insert_after(in, mangled(pop_(operand(spill_reg_1))));
