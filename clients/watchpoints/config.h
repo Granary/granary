@@ -15,11 +15,6 @@
 #define WP_ENABLE_REGISTER_REGIONS 1
 
 
-/// Enable using pre-computed data-flow information from register liveness
-/// analysis (based on the CFG tool) to try to improve register stealing.
-#define WP_ENABLE_DATA_FLOW_STEALING 0
-
-
 /// Instrument less host code. This will instrument only basic blocks within
 /// a faulting host function, as well as basic blocks reached through indirect
 /// control-flow instructions.
@@ -38,7 +33,7 @@
 /// kernel-mode instrumentation and can be a useful debugging aid when trying
 /// to see if an instrumentation error might be caused by the presence of a
 /// user space address.
-#define WP_CHECK_FOR_USER_ADDRESS 1
+#define WP_CHECK_FOR_USER_ADDRESS 0
 
 
 /// Size (in bits) of the counter index. This should either be 16.

@@ -443,6 +443,15 @@ namespace granary {
         }
 
 
+        /// Returns the raw bytes or the PC for the instruction.
+        inline app_pc pc_or_raw_bytes(void) const throw() {
+            if(instr->translation) {
+                return instr->translation;
+            }
+            return instr->bytes;
+        }
+
+
         /// Set the program counter of the instruction.
         inline void set_pc(app_pc pc_) throw() {
             invalidate_raw_bits();

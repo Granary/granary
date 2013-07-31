@@ -229,23 +229,35 @@ namespace client { namespace wp {
         instruction_list &ls
     ) throw() {
 
+        // Live regs throughout the entire instruction list. Used to try to
+        // predict which registers will be live in a region to see if it's
+        // worthwhile to steal registers in a region.
+        register_manager live_regs;
+
         for(instruction in(ls.last()), prev_in; in.is_valid(); in = prev_in) {
 
             if(in.is_mangled() || in.is_cti()) {
+                live_regs.visit(in);
                 prev_in = in.prev();
                 continue;
             }
 
             int region_length(0);
             int num_memory_ops(0);
+            bool missing_dead_reg(false);
+            bool reads_carry_flag(false);
+            bool live_regs_visited(false);
 
-            // All registers in a region start off dead.
+            // Set of all registers used in the region. The remaining dead
+            // registers from this set are used for spilling around the region.
             register_manager region_used_regs;
             region_used_regs.kill_all();
 
             for(prev_in = in;
                 prev_in.is_valid();
                 ++region_length, prev_in = prev_in.prev()) {
+
+                live_regs_visited = false;
 
                 // Boundaries are CTIs and PUSHes / POPs as we want to
                 // introduce PUSH/POPs for our optimisation.
@@ -259,7 +271,7 @@ namespace client { namespace wp {
 
                 // Try to find memory operations.
                 memset(&tracker, 0, sizeof tracker);
-                tracker.in = in;
+                tracker.in = prev_in;
                 prev_in.for_each_operand(wp::find_memory_operand, tracker);
 
                 // Can't allow us to include instructions that read or
@@ -270,7 +282,31 @@ namespace client { namespace wp {
                     break;
                 }
 
+                if(prev_in.is_mangled()) {
+                    live_regs.visit(prev_in);
+                    live_regs_visited = true;
+                    continue;
+                }
+
+                // We only want to spill around a region if at some point in
+                // the region we're missing a dead register to steal.
+                register_manager live_regs_at_prev_in(live_regs);
+                if(!live_regs_at_prev_in.get_zombie()) {
+                    missing_dead_reg = true;
+                }
+
+                // Might be a signal that a second register should be spilled.
+                if(dynamorio::instr_get_eflags(prev_in) & EFLAGS_READ_CF) {
+                    reads_carry_flag = true;
+                }
+
                 num_memory_ops += tracker.num_ops;
+                live_regs.visit(prev_in);
+                live_regs_visited = true;
+            }
+
+            if(!live_regs_visited) {
+                live_regs.visit(prev_in);
             }
 
             // No region.
@@ -279,27 +315,33 @@ namespace client { namespace wp {
             }
 
             // Not an interesting region.
-            if(2 >= region_length || 4 >= num_memory_ops) {
+            if(2 >= region_length || 3 >= num_memory_ops || !missing_dead_reg) {
                 continue;
             }
 
             // Always try to spill two registers.
             dynamorio::reg_id_t spill_reg_1(region_used_regs.get_zombie());
             dynamorio::reg_id_t spill_reg_2(region_used_regs.get_zombie());
-            if(!spill_reg_2) {
+            if(reads_carry_flag && !spill_reg_2) {
                 continue;
             }
 
             // Add in the region ending POPs.
             ls.insert_after(in, mangled(pop_(operand(spill_reg_1))));
-            ls.insert_after(in, mangled(pop_(operand(spill_reg_2))));
+            if(reads_carry_flag) {
+                ls.insert_after(in, mangled(pop_(operand(spill_reg_2))));
+            }
 
             // Add in the region beginning PUSHes.
             if(prev_in.is_valid()) {
-                ls.insert_after(prev_in, mangled(push_(operand(spill_reg_2))));
+                if(reads_carry_flag) {
+                    ls.insert_after(prev_in, mangled(push_(operand(spill_reg_2))));
+                }
                 ls.insert_after(prev_in, mangled(push_(operand(spill_reg_1))));
             } else {
-                ls.prepend(mangled(push_(operand(spill_reg_2))));
+                if(reads_carry_flag) {
+                    ls.prepend(mangled(push_(operand(spill_reg_2))));
+                }
                 ls.prepend(mangled(push_(operand(spill_reg_1))));
             }
         }
@@ -562,29 +604,23 @@ namespace client { namespace wp {
 
 
 #if GRANARY_IN_KERNEL
-    /// Tries to match a binary pattern of the form:
+    /// Tries to match one of the XCHG instructions that show up in the binary
+    /// pattern associated with user space data accesses. E.g.:
     ///
     ///     data32 xchg %ax, %ax
     ///     <memory instruction>
     ///     data32 xchg %ax, %ax
     ///
     /// If the pattern is matched then `check_bit_47` is set to true.
-    void watchpoint_tracker::match_userspace_address_deref(void) throw() {
+    bool match_user_space_address_boundary(instruction in) throw() {
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
         };
-
-        // Try to determine if this might be an access to a user space
-        // address by pattern matching the binary instructions.
-        if(in.next().is_valid() && in.prev().is_valid()
-        && in.next().pc() && in.prev().pc()
-        && 3 == in.next().encoded_size()
-        && 3 == in.prev().encoded_size()) {
-            const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-            check_bit_47 = (
-                0 == memcmp(in.next().pc(), &data32_xchg_ax_ax, 3)
-             && 0 == memcmp(in.prev().pc(), &data32_xchg_ax_ax, 3));
-        }
+        const app_pc bytes(in.pc_or_raw_bytes());
+        const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+        return nullptr != bytes
+            && 3 == in.encoded_size()
+            && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3);
     }
 #endif
 

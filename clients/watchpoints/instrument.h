@@ -207,23 +207,23 @@ namespace client {
             ) throw();
 
 
-#if GRANARY_IN_KERNEL
-            /// Tries to match a binary pattern of the form:
-            ///
-            ///     data32 xchg %ax, %ax
-            ///     <memory instruction>
-            ///     data32 xchg %ax, %ax
-            ///
-            /// If the pattern is matched then `tracker.might_be_user_address` is
-            /// set to true.
-            void match_userspace_address_deref(void) throw();
-#endif /* GRANARY_IN_KERNEL */
-
-
             /// Post-process that instrumented instructions. This looks for
             /// minor peephole optimisation opportunities.
             void post_process_instructions(granary::instruction_list &ls);
         };
+
+
+#if GRANARY_IN_KERNEL
+        /// Tries to match one of the XCHG instructions that show up in the binary
+        /// pattern associated with user space data accesses. E.g.:
+        ///
+        ///     data32 xchg %ax, %ax
+        ///     <memory instruction>
+        ///     data32 xchg %ax, %ax
+        ///
+        /// If the pattern is matched then `check_bit_47` is set to true.
+        bool match_user_space_address_boundary(granary::instruction in) throw();
+#endif /* GRANARY_IN_KERNEL */
 
 
         /// Find memory operands that might need to be checked for watchpoints.
@@ -554,17 +554,16 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
-#if WP_ENABLE_DATA_FLOW_STEALING
-            const app_pc bb_start(ls.first().pc());
-#endif /* WP_ENABLE_DATA_FLOW_STEALING */
 #if WP_ENABLE_REGISTER_REGIONS
             region_register_spiller(tracker, ls);
 #endif /* WP_ENABLE_REGISTER_REGIONS */
 
-            int n(0);
+#if GRANARY_IN_KERNEL && !WP_CHECK_FOR_USER_ADDRESS
+            bool in_user_access_zone(false);
+#endif
 
             // Backward pass.
-            for(instruction in(ls.last()); in.is_valid(); ++n, in = prev_in) {
+            for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
                 prev_in = in.prev();
 
                 memset(&tracker, 0, sizeof tracker);
@@ -593,22 +592,6 @@ namespace client {
                 || dynamorio::OP_enter == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
-
-#if WP_ENABLE_DATA_FLOW_STEALING
-                    // Used to see if we can get better register liveness
-                    // information.
-                    if((0 == n && get_live_registers && in.is_return())
-                    || (1 == n && get_live_registers && in.is_cti())) {
-                        next_live_regs = get_live_registers(bb_start);
-                    }
-#endif
-
-                    continue;
-                }
-
-                // Try to find memory operations.
-                in.for_each_operand(wp::find_memory_operand, tracker);
-                if(!tracker.num_ops) {
                     continue;
                 }
 
@@ -616,9 +599,21 @@ namespace client {
 #   if WP_CHECK_FOR_USER_ADDRESS
                 tracker.check_bit_47 = true;
 #   else
-                tracker.match_userspace_address_deref();
+                if(wp::match_user_space_address_boundary(in)) {
+                    in_user_access_zone = !in_user_access_zone;
+                }
+                tracker.check_bit_47 = in_user_access_zone;
 #   endif /* WP_CHECK_FOR_USER_ADDRESS */
-#else
+#endif
+
+                // Try to find memory operations.
+                in.for_each_operand(wp::find_memory_operand, tracker);
+                if(!tracker.num_ops) {
+                    continue;
+                }
+
+                // Valid for user-space TLS accesses, and kernel-space CPU-
+                // private data accesses.
                 if(1 == tracker.num_ops) {
                     const operand_ref &only_op(tracker.ops[0]);
                     if(dynamorio::DR_SEG_GS == only_op->seg.segment
@@ -627,7 +622,6 @@ namespace client {
                         continue;
                     }
                 }
-#endif /* GRANARY_IN_KERNEL */
 
                 // Before we do any mangling (which might spill registers), go
                 // and figure out what registers can never be spilled.
