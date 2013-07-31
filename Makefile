@@ -261,7 +261,7 @@ ifeq ($(GR_CLIENT),leak_detector)
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
 		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
-		GR_MOD_OBJS += clients/watchpoints/policies/leak_detector/kernel/leakpolicy_scan.o
+		GR_MOD_OBJS += clients/watchpoints/clients/leak_detector/kernel/leakpolicy_scan.o
 	else
 		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
 	endif
