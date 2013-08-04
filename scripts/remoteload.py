@@ -8,23 +8,22 @@ on how to best make use of this.
 Based on load.py by Peter Goodman, revised and simplified by Peter McCormick.
 """
 
-import sys
 import os
+import sys
+import glob
 import argparse
 import subprocess
 
-LOAD_GRANARY = """sudo insmod %s"""
+def get_sections(module):
+    """ Extract all sections for the given module from the current machine """
 
-# get sections
-GET_SECTIONS_FMT = """
-touch /tmp/{module}.sections;
-rm /tmp/{module}.sections;
-for x in $(find /sys/module/{module}/sections -type f); do
-  echo $(basename $x),$(sudo cat $x) >> /tmp/{module}.sections;
-done"""
+    sections_path = "/sys/module/{module}/sections/.*".format(module=module)
+    output_file = "/tmp/{module}.sections".format(module=module)
 
-# get /proc/kallsyms
-GET_SYMBOLS = """sudo cat /proc/kallsyms > %s"""
+    with open(output_file, "wt") as out:
+        for filepath in glob.glob(sections_path):
+            filename = os.path.basename(filepath)
+            out.write("%s,%s\n" % (filename, open(filepath, 'r').read().strip()))
 
 class SshAgent(object):
     def __init__(self, target):
@@ -92,7 +91,16 @@ def main(argv):
             '--module', type=str, default='granary',
             help='Name of the module for which symbols should be fetched.')
 
+    parser.add_argument(
+            '--get_sections', type=str, default=None,
+            help="Extract the sections from a given module on the current machine")
+
     args = parser.parse_args(argv)
+
+    if args.get_sections is not None:
+        module = args.get_sections
+        get_sections(module)
+        return 0
 
     # get the granary .ko
     rel_path = ""
@@ -112,7 +120,7 @@ def main(argv):
 
     if args.symbols:
         # On the target, get the current kernel's symbols
-        agent.run_on_target(GET_SYMBOLS % "/tmp/kernel.syms")
+        agent.run_on_target("""sudo cat /proc/kallsyms > %s""" % "/tmp/kernel.syms")
 
         # Copy the symbols from the target to local
         agent.copy_from_target("/tmp/kernel.syms", local_symbols_file)
@@ -121,10 +129,13 @@ def main(argv):
         # Copy the kernel module binary to the target
         agent.copy_to_target(local_granary_file, "/tmp/granary.ko")
 
+        # Copy this script to the target
+        agent.copy_to_target(sys.argv[0], "/tmp/__granary__remoteload.py")
+
         # Load Granary module & get sections
         cmd = [
-                LOAD_GRANARY % "/tmp/granary.ko",
-                GET_SECTIONS_FMT.format(module=args.module)
+                """sudo insmod %s""" % "/tmp/granary.ko",
+                """python /tmp/__granary__remoteload.py --get_sections={module}""".format(module=args.module),
                 ]
         agent.run_on_target(";".join(cmd))
 
