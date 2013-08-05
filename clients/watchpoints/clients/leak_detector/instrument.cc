@@ -78,7 +78,7 @@ namespace client {
             watchpoint_tracker &tracker,
             unsigned i
         ) throw() {
-#if 0
+#if 1
             using namespace granary;
             const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
             instruction call(insert_cti_after(ls, tracker.labels[i],

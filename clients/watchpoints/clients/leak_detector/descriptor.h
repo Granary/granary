@@ -35,6 +35,7 @@ namespace client { namespace wp {
             bool was_allocated_by_app:1;
 
             bool is_active:1;
+            bool is_reachable:1;
 
         } __attribute__((packed));
 
@@ -70,19 +71,55 @@ namespace client { namespace wp {
             BASE_ADDRESS_MASK = (~0ULL << 48)
         };
 
+        struct {
+            /// True if the watched object was accessed in the last epoch
+            bool accessed_in_last_epoch;
+
+
+
+            /// State of the object.
+            leak_object_state state;
+
+            /// Number of epochs since this object was last accessed.
+            uint8_t num_epochs_since_last_access;
+
+            union {
+                struct {
+
+                    /// Size in bytes of the allocated object. The limit address of
+                     /// the object of `base_address + size`.
+                     uint16_t size;
+
+                    /// Unique ID for the kernel type of the object. If we don't
+                    /// know the kernel type (assuming there is one) for this object
+                    /// then `type_id` will be `UNKNOWN_TYPE_ID`.
+                    ///
+                    /// If the type is known then we can use the type's size info
+                    /// in conjunction with the allocation size to find arrays of
+                    /// objects.
+                    uint16_t type_id;
+
+                    /// Low 48 bits of this object's base address.
+                    uintptr_t base_address:48;
+                };
+
+                struct {
+                    /// The combined index of this descriptor.
+                    uint32_t index;
+
+                    /// Pointer to the next free descriptor.
+                    leak_detector_descriptor *next_free;
+                };
+            };
+
+        };
+
+        /*
         union {
             struct {
 
-                /// True iff the watched object was accessed in the last
-                /// epoch.
-                bool accessed_in_last_epoch;
 
-                /// Number of epochs since this object was last accessed.
-                uint8_t num_epochs_since_last_access;
 
-                /// Size in bytes of the allocated object. The limit address of
-                /// the object of `base_address + size`.
-                uint16_t size;
 
                 /// Unique ID for the kernel type of the object. If we don't
                 /// know the kernel type (assuming there is one) for this object
@@ -111,7 +148,7 @@ namespace client { namespace wp {
                 uintptr_t index;
             };
         };
-
+*/
         /// Allocate a watchpoint descriptor.
         static bool allocate(
             leak_detector_descriptor *&,

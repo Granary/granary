@@ -17,13 +17,18 @@ namespace client {
 
     extern bool is_active_watchpoint(void* addr);
 
+    extern "C" struct task_struct *kernel_get_current(void);
+
+#ifdef ENABLE_DEBUG
+    extern "C" void kernel_handle_fault(struct pt_regs *regs, unsigned long error_code);
+#endif
     }
 }
 
 #include "granary/utils.h"
 #include "clients/watchpoints/instrument.h"
 #include "clients/watchpoints/clients/leak_detector/kernel/scanner.h"
-#include "clients/watchpoints/clients/leak_detector/kernel/allocator_wrappers.h"
+#include "clients/watchpoints/clients/leak_detector/kernel/linux/allocator_wrappers.h"
 //#include "clients/watchpoints/policies/kernel/linux/leak_detector/custom_wrappers.h"
 //#include "clients/gen/wrappers.h"
 
@@ -37,21 +42,22 @@ using namespace granary;
             if(!is_valid_address(arg)) {
                 return;
             }
+#if 0
             client::wp::add_to_scanlist(
                 unsafe_cast<app_pc>(arg),
                 unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-
+#endif
             PRE_OUT_WRAP(*unwatched_address_check(arg));
         }
         PRE_IN {
             if(!is_valid_address(arg)) {
                 return;
             }
-
+#if 0
             client::wp::add_to_scanlist(
                 unsafe_cast<app_pc>(arg),
                 unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-
+#endif
             PRE_IN_WRAP(*unwatched_address_check(arg));
         }
         INHERIT_POST_INOUT
@@ -59,17 +65,21 @@ using namespace granary;
             if(!is_valid_address(arg)){
                 return;
             }
+#if 0
             client::wp::add_to_scanlist(
                 unsafe_cast<app_pc>(arg),
                 unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
+#endif
         }
         RETURN_IN {
             if(!is_valid_address(arg)){
                 return;
             }
+#if 0
             client::wp::add_to_scanlist(
                 unsafe_cast<app_pc>(arg),
                 unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
+#endif
         }
     })
 #endif

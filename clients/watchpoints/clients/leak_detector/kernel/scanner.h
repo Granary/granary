@@ -237,7 +237,7 @@ bool type_scanner_field(T addr) {
 #define SCANNER_FOR_struct_request_sock_ops
 #define SCANNER_FOR_struct_ata_port
 
-
+#if 0
 #define SCAN_OBJECT(arg)    \
     unsigned long size = type_class<decltype(arg)>::get_size();  \
     granary::printf("size : %llx\n", size);    \
@@ -495,4 +495,5 @@ TYPE_SCANNER_BODY(struct task_struct, {
     SCAN_FUNCTION(arg.default_timer_slack_ns);
     SCAN_RECURSIVE(arg.ptrace_bp_refcnt);
 })
+#endif
 #endif /* SCANNER_H_ */

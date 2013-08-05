@@ -242,6 +242,7 @@
 #include <linux/pnp.h>
 #include <linux/phy.h>
 #include <linux/posix_acl.h>
+#include <asm/traps.h>
 /* taken from ext3/ext2*/
 
 /* Manual additions */

@@ -357,6 +357,15 @@ namespace granary {
         bool contains(K key) throw() {
             return table.find(key);
         }
+
+        template <typename... Args>
+        inline void for_each_entry(
+            void (*callback)(K, bool, Args&...),
+            Args&... args
+        ) throw() {
+            table.for_each_entry(callback, args...);
+        }
+
     };
 
 

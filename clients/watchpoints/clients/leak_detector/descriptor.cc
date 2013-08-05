@@ -14,6 +14,7 @@ using namespace granary;
 
 namespace client { namespace wp {
 
+    extern uint8_t execution_state;
 
     /// Set one or more of the state values for this object. To use this, do
     /// something like:
@@ -27,7 +28,7 @@ namespace client { namespace wp {
         do {
             old_bits = as_bits;
             new_bits = old_bits | bits_to_set.as_bits;
-        } while(__sync_bool_compare_and_swap(&as_bits, old_bits, new_bits));
+        } while(!__sync_bool_compare_and_swap(&as_bits, old_bits, new_bits));
     }
 
 
@@ -43,7 +44,7 @@ namespace client { namespace wp {
         do {
             old_bits = as_bits;
             new_bits = old_bits & (~bits_to_unset.as_bits);
-        } while(__sync_bool_compare_and_swap(&as_bits, old_bits, new_bits));
+        } while(!__sync_bool_compare_and_swap(&as_bits, old_bits, new_bits));
     }
 
 
@@ -90,7 +91,7 @@ namespace client { namespace wp {
     ) throw() {
         counter_index = 0;
         desc = nullptr;
-       // leak_object_state desc_state;
+
 
         // Try to pull a descriptor off of a CPU-private free list.
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
@@ -126,9 +127,15 @@ namespace client { namespace wp {
         memset(desc, 0, sizeof *desc);
 
         desc->state.is_active = true;
+        if(!execution_state){
+            uint8_t old_bits;
+            uint8_t new_bits;
+            do {
+                old_bits = execution_state;
+                new_bits = 0x1;
+            } while(!__sync_bool_compare_and_swap(&execution_state, old_bits, new_bits));
+        }
 
-        //desc_state.is_active = true;
-       // desc->state.set_state(desc_state);
 
         return true;
     }
@@ -176,6 +183,8 @@ namespace client { namespace wp {
         leak_detector_descriptor *desc,
         uintptr_t index
     ) throw() {
+        leak_object_state desc_state;
+
         if(!is_valid_address(desc)) {
             return;
         }
@@ -193,6 +202,14 @@ namespace client { namespace wp {
         // Reset the descriptor.
         memset(desc, 0, sizeof *desc);
         desc->index = index;
+
+        desc_state.was_freed = true;
+        desc_state.is_active = false;
+
+        desc->state.set_state(desc_state);
+
+        //desc->state.was_freed = true;
+        //desc->state.is_active = false;
 
         // Add the descriptor to the free list.
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
