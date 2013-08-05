@@ -39,7 +39,6 @@ namespace client {
 
             /// Number of inherited index bits.
             NUM_INHERITED_INDEX_BITS      = WP_INHERITED_INDEX_WIDTH,
-            INHERITED_INDEX_MASK          = (1 << NUM_INHERITED_INDEX_BITS) - 1,
 
             /// Offset of inherited index bits.
             INHERITED_INDEX_OFFSET        = WP_INHERITED_INDEX_GRANULARITY,
@@ -51,6 +50,8 @@ namespace client {
                     << (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS))
                     >> (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS
                                           - INHERITED_INDEX_OFFSET))),
+#else
+            INHERITED_INDEX_MASK          = (1 << NUM_INHERITED_INDEX_BITS) - 1,
 #endif
 
             /// Maximum counter index (inclusive).

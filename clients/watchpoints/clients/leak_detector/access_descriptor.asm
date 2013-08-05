@@ -45,10 +45,10 @@ START_FILE
         @N@\
         \
         COMMENT(Compute the combined index.) \
-        IF_INHERITED_INDEX( shl $ WP_PARTIAL_INDEX_LSH, %TABLE(reg);@N@ ) \
-        IF_INHERITED_INDEX( shr $ WP_PARTIAL_INDEX_RSH, %TABLE(reg);@N@ ) \
+        IF_INHERITED_INDEX( shl $ WP_INHERITED_INDEX_LSH, %TABLE(reg);@N@ ) \
+        IF_INHERITED_INDEX( shr $ WP_INHERITED_INDEX_RSH, %TABLE(reg);@N@ ) \
         shr $ WP_COUNTER_INDEX_RSH, %DESC(reg);@N@ \
-        IF_INHERITED_INDEX( shl $ WP_PARTIAL_INDEX_WIDTH, %DESC(reg);@N@ ) \
+        IF_INHERITED_INDEX( shl $ WP_INHERITED_INDEX_WIDTH, %DESC(reg);@N@ ) \
         IF_INHERITED_INDEX( or %TABLE(reg), %DESC(reg);@N@ ) \
         @N@\
         \
