@@ -62,6 +62,11 @@
 #   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
+/// selective shadow watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_SHADOW
+#   include "clients/watchpoints/clients/shadow_memory/instrument.h"
+#endif
+
 
 
 /// Default to NULL policy if no policy was chosen.

@@ -5,8 +5,8 @@
  *      Author: akshayk, pgoodman
  */
 
-#ifndef WATCHPOINT_BOUND_POLICY_H_
-#define WATCHPOINT_BOUND_POLICY_H_
+#ifndef WATCHPOINT_LEAK_POLICY_H_
+#define WATCHPOINT_LEAK_POLICY_H_
 
 
 #include "clients/watchpoints/instrument.h"
