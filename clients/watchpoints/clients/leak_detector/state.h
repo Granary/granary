@@ -12,8 +12,16 @@
 namespace client {
 
     namespace wp {
+        enum thread_private_state{
+            NONE = 0x0ULL,
+            MODULE_RUNNING,
+            MODULE_EXIT,
+        };
+
         struct leak_detector_descriptor;
-        struct leak_detector_thread_state;
+        struct leak_detector_thread_state {
+            uint64_t local_state;
+        };
     }
 
 
@@ -21,14 +29,14 @@ namespace client {
     struct cpu_state {
 
         /// List of free bounds checking objects for this CPU.
-        wp::leak_detector_descriptor *free_list;
+        client::wp::leak_detector_descriptor *free_list;
     };
 
 #   define CLIENT_thread_state
     /// Extensions to Granary's internal thread-local storage.
     struct thread_state {
 
-        wp::leak_detector_thread_state *state;
+        client::wp::leak_detector_thread_state *state;
 
     };
 

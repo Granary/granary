@@ -8,6 +8,14 @@
 #ifndef _LEAK_POLICY_WRAPPERS_H_
 #define _LEAK_POLICY_WRAPPERS_H_
 
+#include "granary/utils.h"
+#include "granary/client.h"
+#include "clients/watchpoints/config.h"
+#include "clients/watchpoints/instrument.h"
+#include "clients/watchpoints/clients/leak_detector/state.h"
+
+using namespace granary;
+
 namespace client {
     namespace wp {
 
@@ -17,6 +25,8 @@ namespace client {
 
     extern bool is_active_watchpoint(void* addr);
 
+    extern leak_detector_thread_state *get_thread_private_info(void);
+
     extern "C" struct task_struct *kernel_get_current(void);
 
 #ifdef ENABLE_DEBUG
@@ -25,14 +35,10 @@ namespace client {
     }
 }
 
-#include "granary/utils.h"
-#include "clients/watchpoints/instrument.h"
 #include "clients/watchpoints/clients/leak_detector/kernel/scanner.h"
 #include "clients/watchpoints/clients/leak_detector/kernel/linux/allocator_wrappers.h"
-//#include "clients/watchpoints/policies/kernel/linux/leak_detector/custom_wrappers.h"
-//#include "clients/gen/wrappers.h"
+#include "clients/watchpoints/clients/leak_detector/kernel/linux/allocator_patch.h"
 
-using namespace granary;
 
 
 #ifndef APP_WRAPPER_FOR_pointer

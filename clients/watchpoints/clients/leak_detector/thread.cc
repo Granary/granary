@@ -31,10 +31,6 @@ namespace client { namespace wp {
     extern leak_detector_descriptor *DESCRIPTORS[client::wp::MAX_NUM_WATCHPOINTS];
 
     struct leak_detector_thread_info {
-        struct task_struct *tsk;
-        void *stack;
-        uint64_t stack_current_ptr;
-        uint64_t stack_start;
         uint64_t thread_state;
     };
 
@@ -64,33 +60,16 @@ namespace client { namespace wp {
 
 
     bool init_thread_private_slot(void){
-        struct thread_info *info = kernel_current_thread_info();
-        leak_detector_thread_info *my_thread_info = NULL;
-        if(!thread_scan_list->find(info)){
-            my_thread_info = (unsafe_cast<leak_detector_thread_info*>)
-                    (granary::types::__kmalloc(sizeof(leak_detector_thread_info), GFP_ATOMIC));
-
-            my_thread_info->stack = granary::types::__kmalloc(THREAD_SIZE, GFP_ATOMIC);
-            my_thread_info->stack_current_ptr = 0x0ULL;
-            my_thread_info->stack_start = 0x0ULL;
-            thread_scan_list->store(info, my_thread_info);
-        }
         return true;
     }
 
     void set_thread_private_info(void){
-        struct thread_info *info = kernel_current_thread_info();
-        leak_detector_thread_info *my_thread_info =
-                unsafe_cast<leak_detector_thread_info*>((unsafe_cast<unsigned long>(info) + 2));
-        my_thread_info->thread_state = 0x0ULL;
     }
 
-    leak_detector_thread_info *get_thread_private_info(){
-        struct thread_info *info = kernel_current_thread_info();
-        leak_detector_thread_info *private_slot =
-                unsafe_cast<leak_detector_thread_info*>((unsafe_cast<unsigned long>(info) + 2));
-
-        return private_slot;
+    leak_detector_thread_state *get_thread_private_info(void){
+        thread_state_handle thread = safe_cpu_access_zone();
+        leak_detector_thread_state *thread_state(thread->state);
+        return thread_state;
     }
 
     bool add_to_scanlist(granary::app_pc obj1, granary::app_pc obj2){
@@ -126,9 +105,15 @@ namespace client { namespace wp {
     /// Notify the leak detector that this thread's execution has entered the
     /// code cache.
     void leak_notify_thread_enter_module(void) throw() {
-       // struct task_struct *task = kernel_get_current();
-       // init_thread_private_slot();
-        //UNUSED(task);
+        thread_state_handle thread = safe_cpu_access_zone();
+        leak_detector_thread_state *thread_state(thread->state);
+
+        if(!thread_state){
+            granary::printf("ENTER::thread state is not initialised\n");
+            thread_state = unsafe_cast<leak_detector_thread_state*>(__kmalloc(sizeof(leak_detector_thread_state), GFP_ATOMIC));
+            thread_state->local_state = MODULE_RUNNING;
+            thread->state = thread_state;
+        }
 
         //granary::printf("Entering the code cache.\n");
     }
@@ -140,6 +125,15 @@ namespace client { namespace wp {
     /// Note: Entry/exits can be nested in the case of the kernel calling the
     ///       module calling the kernel calling the module.
     void leak_notify_thread_exit_module(void) throw() {
+        thread_state_handle thread = safe_cpu_access_zone();
+
+        leak_detector_thread_state *thread_state(thread->state);
+
+        if(thread_state){
+            thread_state->local_state = MODULE_EXIT;
+        }else {
+            granary::printf("EXIT::thread state is not initialised\n");
+        }
         //granary::printf("Exiting the code cache.\n");
     }
 
@@ -173,6 +167,7 @@ namespace client { namespace wp {
         hash_set<granary::app_pc>&
     ) throw() {
         bool ret;
+#if 0
         uint64_t start = (my_thread_info->stack_current_ptr);
         uint64_t stack_base = my_thread_info->stack_start + THREAD_SIZE;
         while( start < stack_base){
@@ -180,6 +175,8 @@ namespace client { namespace wp {
             ret = is_active_watchpoint((unsafe_cast<void*>)(*stack_ptr));
             start += 8;
         }
+#endif
+        UNUSED(my_thread_info);
         UNUSED(ret);
     }
 
@@ -354,10 +351,14 @@ namespace client { namespace wp {
         struct leak_detector_thread_info *my_thread_info,
         hash_set<granary::app_pc>&
     ) throw() {
+#if 0
         my_thread_info->stack_current_ptr = info->task->thread.sp;
         my_thread_info->stack_start = (unsafe_cast<uint64_t>)(info->task->stack);
         my_thread_info->tsk = info->task;
         memcpy(my_thread_info->stack, info->task->stack, THREAD_SIZE);
+#endif
+        UNUSED(info);
+        UNUSED(my_thread_info);
     }
 
     void leak_policy_update_rootset(void) throw(){
