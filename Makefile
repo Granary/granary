@@ -267,9 +267,13 @@ ifeq ($(GR_CLIENT),leak_detector)
 	endif
 endif
 ifeq ($(GR_CLIENT),shadow_memory)
-    GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_SHADOW
+    GR_CXX_FLAGS += -DCLIENT_SHADOW_MEMORY
     GR_OBJS += bin/clients/watchpoints/instrument.o
+    GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/shadow_update.o
     GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/instrument.o
+    GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/descriptor.o
+    GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/thread.o
+    GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/shadow_report.o
     
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
