@@ -15,6 +15,8 @@ namespace client { namespace wp {
     /// State for a tracked object.
     union shadow_policy_state {
         struct {
+            /// True if the watched object was accessed in the last epoch
+            bool accessed_in_last_epoch;
 
             /// Do we know the type of this object?
             bool type_is_known:1;
@@ -71,12 +73,19 @@ namespace client { namespace wp {
         };
 
         struct {
+            struct {
+                // selective shadow memory for read operation
+                granary::app_pc read_shadow;
 
-            /// State of the object.
-            shadow_policy_state state;
+                // shadow memory for the write operation
+                granary::app_pc write_shadow;
+            }__attribute__((packed));
 
             union {
                 struct {
+
+                    /// State of the object.
+                    shadow_policy_state state;
 
                     /// Size in bytes of the allocated object. The limit address of
                     /// the object of `base_address + size`.
@@ -104,16 +113,7 @@ namespace client { namespace wp {
                 };
             };
 
-            struct {
-
-                // selective shadow memory for read operation
-                granary::app_pc read_shadow;
-
-                // shadow memory for the write operation
-                granary::app_pc write_shadow;
-            }__attribute__((packed));
-
-        };
+        }__attribute__((packed));
 
         /// Allocate a watchpoint descriptor.
         static bool allocate(
@@ -153,6 +153,10 @@ namespace client { namespace wp {
     struct descriptor_type {
         typedef shadow_policy_descriptor type;
     };
+
+#define READ_SHADOW_OFFSET offsetof(shadow_policy_descriptor, read_shadow)
+#define WRITE_SHADOW_OFFSET offsetof(shadow_policy_descriptor, write_shadow)
+
 }}
 
 

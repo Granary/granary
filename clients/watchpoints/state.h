@@ -20,6 +20,8 @@
 #   include "clients/watchpoints/clients/leak_detector/state.h"
 #endif
 
-
+#ifdef CLIENT_SHADOW_MEMORY
+#   include "clients/watchpoints/clients/shadow_memory/state.h"
+#endif
 
 #endif /* WATCHPOINTS_STATE_H_ */

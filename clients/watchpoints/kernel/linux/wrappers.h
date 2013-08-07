@@ -37,6 +37,10 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
 #endif
 
+#ifdef CLIENT_SHADOW_MEMORY
+#   include "clients/watchpoints/clients/shadow_memory/kernel/linux/wrappers.h"
+#endif
+
 
 #ifndef APP_WRAPPER_FOR_pointer
 #   define APP_WRAPPER_FOR_pointer

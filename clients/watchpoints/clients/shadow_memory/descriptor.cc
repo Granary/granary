@@ -5,11 +5,12 @@
  *      Author: akshayk
  */
 
-
+#include "granary/types.h"
 #include "clients/watchpoints/instrument.h"
 #include "clients/watchpoints/clients/shadow_memory/descriptor.h"
 
 using namespace granary;
+using namespace granary::types;
 
 
 namespace client { namespace wp {
@@ -139,6 +140,11 @@ namespace client { namespace wp {
     ) throw() {
         desc->base_address = reinterpret_cast<uintptr_t>(base_address);
         desc->size = size;
+        desc->read_shadow = unsafe_cast<app_pc>(__kmalloc(size/8, 0x20));
+        memset(desc->read_shadow, 0x0, size/8);
+
+        desc->write_shadow = unsafe_cast<app_pc>(__kmalloc(size/8, 0x20));
+        memset(desc->write_shadow, 0x0, size/8);
     }
 
 

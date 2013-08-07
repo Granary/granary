@@ -192,6 +192,78 @@
 #define REG64_TO_REG32_(reg) REG64_TO_REG32__(reg)
 #define REG64_TO_REG32(reg) REG64_TO_REG32_(reg)
 
+#define REG_LIST(...) (__VA_ARGS__)
+#define LIST_NOT_REG_rax REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,r13 )
+#define LIST_NOT_REG_rcx REG_LIST( r14,r9,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_rdx REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_rbx REG_LIST( r14,r9,rcx,rsi,r10,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_rbp REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_rsi REG_LIST( r14,r9,rcx,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_rdi REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rax,r13 )
+#define LIST_NOT_REG_r8 REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_r9 REG_LIST( r14,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_r10 REG_LIST( r14,r9,rcx,rsi,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_r11 REG_LIST( r14,r9,rcx,rsi,r10,rbx,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_r12 REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,rdi,rax,r13 )
+#define LIST_NOT_REG_r13 REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax )
+#define LIST_NOT_REG_r14 REG_LIST( r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r15,r12,rdi,rax,r13 )
+#define LIST_NOT_REG_r15 REG_LIST( r14,r9,rcx,rsi,r10,rbx,r11,r8,rdx,rbp,r12,rdi,rax,r13 )
+#define LIST_ELEMENT_0__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a0
+#define LIST_ELEMENT_0_(...) LIST_ELEMENT_0__( __VA_ARGS__)
+#define LIST_ELEMENT_0(...) LIST_ELEMENT_0_( __VA_ARGS__)
+#define LIST_ELEMENT_1__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a1
+#define LIST_ELEMENT_1_(...) LIST_ELEMENT_1__( __VA_ARGS__)
+#define LIST_ELEMENT_1(...) LIST_ELEMENT_1_( __VA_ARGS__)
+#define LIST_ELEMENT_2__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a2
+#define LIST_ELEMENT_2_(...) LIST_ELEMENT_2__( __VA_ARGS__)
+#define LIST_ELEMENT_2(...) LIST_ELEMENT_2_( __VA_ARGS__)
+#define LIST_ELEMENT_3__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a3
+#define LIST_ELEMENT_3_(...) LIST_ELEMENT_3__( __VA_ARGS__)
+#define LIST_ELEMENT_3(...) LIST_ELEMENT_3_( __VA_ARGS__)
+#define LIST_ELEMENT_4__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a4
+#define LIST_ELEMENT_4_(...) LIST_ELEMENT_4__( __VA_ARGS__)
+#define LIST_ELEMENT_4(...) LIST_ELEMENT_4_( __VA_ARGS__)
+#define LIST_ELEMENT_5__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a5
+#define LIST_ELEMENT_5_(...) LIST_ELEMENT_5__( __VA_ARGS__)
+#define LIST_ELEMENT_5(...) LIST_ELEMENT_5_( __VA_ARGS__)
+#define LIST_ELEMENT_6__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a6
+#define LIST_ELEMENT_6_(...) LIST_ELEMENT_6__( __VA_ARGS__)
+#define LIST_ELEMENT_6(...) LIST_ELEMENT_6_( __VA_ARGS__)
+#define LIST_ELEMENT_7__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a7
+#define LIST_ELEMENT_7_(...) LIST_ELEMENT_7__( __VA_ARGS__)
+#define LIST_ELEMENT_7(...) LIST_ELEMENT_7_( __VA_ARGS__)
+#define LIST_ELEMENT_8__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a8
+#define LIST_ELEMENT_8_(...) LIST_ELEMENT_8__( __VA_ARGS__)
+#define LIST_ELEMENT_8(...) LIST_ELEMENT_8_( __VA_ARGS__)
+#define LIST_ELEMENT_9__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a9
+#define LIST_ELEMENT_9_(...) LIST_ELEMENT_9__( __VA_ARGS__)
+#define LIST_ELEMENT_9(...) LIST_ELEMENT_9_( __VA_ARGS__)
+#define LIST_ELEMENT_10__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a10
+#define LIST_ELEMENT_10_(...) LIST_ELEMENT_10__( __VA_ARGS__)
+#define LIST_ELEMENT_10(...) LIST_ELEMENT_10_( __VA_ARGS__)
+#define LIST_ELEMENT_11__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a11
+#define LIST_ELEMENT_11_(...) LIST_ELEMENT_11__( __VA_ARGS__)
+#define LIST_ELEMENT_11(...) LIST_ELEMENT_11_( __VA_ARGS__)
+#define LIST_ELEMENT_12__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a12
+#define LIST_ELEMENT_12_(...) LIST_ELEMENT_12__( __VA_ARGS__)
+#define LIST_ELEMENT_12(...) LIST_ELEMENT_12_( __VA_ARGS__)
+#define LIST_ELEMENT_13__( a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13 ) a13
+#define LIST_ELEMENT_13_(...) LIST_ELEMENT_13__( __VA_ARGS__)
+#define LIST_ELEMENT_13(...) LIST_ELEMENT_13_( __VA_ARGS__)
+#define NOT_REG_0(not_reg) LIST_ELEMENT_0 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_1(not_reg) LIST_ELEMENT_1 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_2(not_reg) LIST_ELEMENT_2 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_3(not_reg) LIST_ELEMENT_3 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_4(not_reg) LIST_ELEMENT_4 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_5(not_reg) LIST_ELEMENT_5 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_6(not_reg) LIST_ELEMENT_6 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_7(not_reg) LIST_ELEMENT_7 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_8(not_reg) LIST_ELEMENT_8 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_9(not_reg) LIST_ELEMENT_9 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_10(not_reg) LIST_ELEMENT_10 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_11(not_reg) LIST_ELEMENT_11 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_12(not_reg) LIST_ELEMENT_12 CAT(LIST_NOT_REG_, not_reg)
+#define NOT_REG_13(not_reg) LIST_ELEMENT_13 CAT(LIST_NOT_REG_, not_reg)
 
 /// Useful for documentation
 #define COMMENT_HASH #

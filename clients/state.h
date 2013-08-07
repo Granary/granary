@@ -10,7 +10,8 @@
 #define CLIENT_STATE_H_
 
 #if defined(CLIENT_WATCHPOINT_BOUND) \
- || defined(CLIENT_WATCHPOINT_LEAK)
+ || defined(CLIENT_WATCHPOINT_LEAK) \
+ || defined(CLIENT_SHADOW_MEMORY)
 #   include "clients/watchpoints/state.h"
 #endif
 
