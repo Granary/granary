@@ -599,7 +599,12 @@ namespace granary {
         ls.append(pop_(reg::arg2));
         ls.append(pop_(reg::arg1));
         ls.append(pop_(reg::rsp));
-        ls.append(jmp_(pc_(original_routine)));
+
+        app_pc *slot(global_state::FRAGMENT_ALLOCATOR-> \
+                allocate<app_pc>());
+        *slot = original_routine;
+
+        ls.append(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
 
         app_pc routine(reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
