@@ -11,6 +11,10 @@
 #   define LINUX 1
 #endif
 
+#ifndef UNIX
+#	define UNIX 1
+#endif
+
 #ifndef LINUX_KERNEL
 #   define LINUX_KERNEL 1
 #endif

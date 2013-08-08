@@ -309,13 +309,36 @@ opnd_create_immed_float(float i)
     return opnd;
 }
 
+enum {
+    FLOAT_ZERO    = 0x00000000,
+    FLOAT_ONE     = 0x3f800000,
+    FLOAT_LOG2_10 = 0x40549a78,
+    FLOAT_LOG2_E  = 0x3fb8aa3b,
+    FLOAT_PI      = 0x40490fdb,
+    FLOAT_LOG10_2 = 0x3e9a209a,
+    FLOAT_LOGE_2  = 0x3f317218,
+};
+
 opnd_t
-opnd_create_immed_float_zero(void)
+opnd_create_immed_float_for_opcode(uint opcode)
 {
     opnd_t opnd IF_GRANARY(= {0});
+    uint float_value;
     opnd.kind = IMMED_FLOAT_kind;
     /* avoid any fp instrs (xref i#386) */
-    memset(&opnd.value.immed_float, 0, sizeof(opnd.value.immed_float));
+    switch (opcode) {
+    case OP_fldz:    float_value = FLOAT_ZERO;    break;
+    case OP_fld1:    float_value = FLOAT_ONE;     break;
+    case OP_fldl2t:  float_value = FLOAT_LOG2_10; break;
+    case OP_fldl2e:  float_value = FLOAT_LOG2_E;  break;
+    case OP_fldpi:   float_value = FLOAT_PI;      break;
+    case OP_fldlg2:  float_value = FLOAT_LOG10_2; break;
+    case OP_fldln2:  float_value = FLOAT_LOGE_2;  break;
+    case OP_ftst:    float_value = FLOAT_ZERO;    break;
+    default:         float_value = FLOAT_ZERO;
+       CLIENT_ASSERT(false, "invalid float opc");
+    }
+    *(uint*)(&opnd.value.immed_float) = float_value;
     /* currently only used for implicit constants that have no size */
     opnd.size = OPSZ_0;
     return opnd;
@@ -1014,10 +1037,8 @@ bool opnd_same(opnd_t op1, opnd_t op2)
     case IMMED_INTEGER_kind:
         return op1.value.immed_int == op2.value.immed_int;
     case IMMED_FLOAT_kind:
-        /* HACK to avoid generating floating point instrs:
-         * we assume a float is 32 bit just like an int
-         */
-        return op1.value.immed_int == op2.value.immed_int;
+        /* avoid any fp instrs (xref i#386) */
+        return *(int*)(&op1.value.immed_float) == *(int*)(&op2.value.immed_float);
     case PC_kind:
         return op1.value.pc == op2.value.pc;
     case FAR_PC_kind:
@@ -1715,8 +1736,8 @@ instr_create(dcontext_t *dcontext)
         dcontext, sizeof(instr_t) HEAPACCT(ACCT_IR));
 #endif /* GRANARY */
 
-    /* everything initialises to 0, even flags, to indicate
-     * an uninitialised instruction */
+    /* everything initializes to 0, even flags, to indicate
+     * an uninitialized instruction */
     memset((void *)instr, 0, sizeof(instr_t));
     IF_X64(instr_set_x86_mode(instr, !X64_CACHE_MODE_DC(dcontext)));
     return instr;
@@ -2298,24 +2319,23 @@ instr_branch_set_prefix_target(instr_t *instr, bool val)
 }
 #endif /* UNSUPPORTED_API */
 
-/* Returns true iff instr has been marked as a selfmod check failure exit
- */
+/* Returns true iff instr has been marked as a special exit cti */
 bool
-instr_branch_selfmod_exit(instr_t *instr)
+instr_branch_special_exit(instr_t *instr)
 {
-    return ((instr->flags & INSTR_BRANCH_SELFMOD_EXIT) != 0);
+    return TEST(INSTR_BRANCH_SPECIAL_EXIT, instr->flags);
 }
 
-/* If val is true, indicates that instr is a selfmod check failure exit
+/* If val is true, indicates that instr is a special exit cti.
  * If val is false, indicates otherwise
  */
 void
-instr_branch_set_selfmod_exit(instr_t *instr, bool val)
+instr_branch_set_special_exit(instr_t *instr, bool val)
 {
     if (val)
-        instr->flags |= INSTR_BRANCH_SELFMOD_EXIT;
+        instr->flags |= INSTR_BRANCH_SPECIAL_EXIT;
     else
-        instr->flags &= ~INSTR_BRANCH_SELFMOD_EXIT;
+        instr->flags &= ~INSTR_BRANCH_SPECIAL_EXIT;
 }
 
 /* Returns the type of the original indirect branch of an exit
@@ -4018,6 +4038,7 @@ instr_is_cti_loop(instr_t *instr)
  * after instr.
  * Otherwise, the encoding is expected to be found in instr's allocated bits.
  * This routine does NOT decode instr to the opcode level.
+ * The caller should remangle any short-rewrite cti before calling this routine.
  */
 bool
 instr_is_cti_short_rewrite(instr_t *instr, byte *pc)
@@ -4197,14 +4218,19 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     int opc = instr_get_opcode(instr);
 
     switch (opc) {
-    case OP_fxsave:          case OP_fxrstor:
+    case OP_fnclex:          case OP_fninit:
+    case OP_fxsave32:        case OP_fxrstor32:
+    case OP_fxsave64:        case OP_fxrstor64:
     case OP_ldmxcsr:         case OP_stmxcsr:
     case OP_fldenv:          case OP_fldcw:
     case OP_fnstenv:         case OP_fnstcw:
     case OP_frstor:          case OP_fnsave:
-    case OP_fnstsw:          case OP_xsave:
-    case OP_xrstor:          case OP_xsaveopt:
+    case OP_fnstsw:          case OP_xsave32:
+    case OP_xrstor32:        case OP_xsaveopt32:
+    case OP_xsave64:
+    case OP_xrstor64:        case OP_xsaveopt64:
     case OP_vldmxcsr:        case OP_vstmxcsr:
+    case OP_fwait:
     {
         if (type != NULL)
             *type = DR_FP_STATE;
@@ -4329,7 +4355,6 @@ instr_is_floating_ex(instr_t *instr, dr_fp_type_t *type OUT)
     case OP_fcmovu:          case OP_fucompp:
     case OP_fcmovnb:         case OP_fcmovne:
     case OP_fcmovnbe:        case OP_fcmovnu:
-    case OP_fnclex:          case OP_fninit:
     case OP_fucomi:          case OP_fcomi:
     case OP_ffree:           case OP_fucom:
     case OP_fucomp:          case OP_faddp:
@@ -4435,6 +4460,15 @@ instr_is_floating(instr_t *instr)
 }
 
 bool
+instr_saves_float_pc(instr_t *instr)
+{
+    int op = instr_get_opcode(instr);
+    return (op == OP_fnsave || op == OP_fnstenv ||
+            op == OP_fxsave32 || op == OP_xsave32 || op == OP_xsaveopt32 ||
+            op == OP_fxsave64 || op == OP_xsave64 || op == OP_xsaveopt64);
+}
+
+bool
 opcode_is_mmx(int op)
 {
     /* WARNING -- assumes things about order of OP_ constants */
@@ -4446,7 +4480,8 @@ opcode_is_mmx(int op)
             (op >= OP_pinsrw && op <= OP_pmulhw && op != OP_bswap) || /* both */
             (op >= OP_psubsb && op <= OP_psadbw) || /* both */
             (op >= OP_psubb && op <= OP_paddd) || /* both */
-            op == OP_fxsave || op == OP_fxrstor); /* both */
+            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
+            op == OP_fxsave64 || op == OP_fxrstor64); /* both */
 }
 
 bool 
@@ -4467,7 +4502,8 @@ opcode_is_sse_or_sse2(int op)
             op == OP_maskmovdqu || /* sse */
             (op >= OP_psubb && op <= OP_paddd) || /* both */
             (op >= OP_psrldq && op <= OP_pslldq) || /* sse */
-            op == OP_fxsave || op == OP_fxrstor || /* both */
+            op == OP_fxsave32 || op == OP_fxrstor32 || /* both */
+            op == OP_fxsave64 || op == OP_fxrstor64 || /* both */
             (op >= OP_ldmxcsr && op <= OP_prefetcht2) || /* sse */
             (op >= OP_movups && op <= OP_cvtpd2dq) || /* sse */
             op == OP_pause); /* sse2 */
@@ -5492,22 +5528,6 @@ instr_create_restore_dynamo_stack(dcontext_t *dcontext)
 {
     return instr_create_restore_from_dcontext(dcontext, REG_ESP, DSTACK_OFFSET);
 }
-
-#ifdef RETURN_STACK
-instr_t *
-instr_create_restore_dynamo_return_stack(dcontext_t *dcontext)
-{
-    return instr_create_restore_from_dcontext(dcontext, REG_ESP,
-                                              TOP_OF_RSTACK_OFFSET);
-}
-
-instr_t *
-instr_create_save_dynamo_return_stack(dcontext_t *dcontext)
-{
-    return instr_create_save_to_dcontext(dcontext, REG_ESP,
-                                         TOP_OF_RSTACK_OFFSET);
-}
-#endif
 
 opnd_t
 update_dcontext_address(opnd_t op, dcontext_t *old_dcontext,

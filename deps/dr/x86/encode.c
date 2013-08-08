@@ -1963,7 +1963,9 @@ encode_operand(decode_info_t *di, int optype, opnd_size_t opsize, opnd_t opnd)
             /* XXX PR 225937: allow client to specify whether data16 or not
              * instead of auto-adding the prefix if offset is small
              */
-            if (target <= USHRT_MAX) {
+            if (target <= USHRT_MAX &&
+                /* we can't use data16 on a far call as it changes the stack size */
+                di->opcode != OP_call_far) {
                 int val = (opnd_get_segment_selector(opnd)<<16) | ((short) target);
                 di->prefixes |= PREFIX_DATA;
                 set_immed(di, val, OPSZ_4);
@@ -2368,6 +2370,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     DOLOG(ENC_LEVEL, LOG_EMIT, { loginst(dcontext, 1, instr, "\n--- encoding"); });
 
     memset(&di, 0, sizeof(decode_info_t));
+    di.opcode = opc;
     IF_X64(di.x86_mode = instr_get_x86_mode(instr));
     /* while only PREFIX_SIGNIFICANT should be set by the user, internally
      * we set di.prefixes to communicate size prefixes between
@@ -2490,8 +2493,16 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
             /* if OPCODE_{MODRM,SUFFIX} there can be no prefix-opcode byte */
             !TESTANY(OPCODE_MODRM|OPCODE_SUFFIX, info->opcode)) {
             /* prefix byte is part of opcode */
-            *field_ptr = (byte)(info->opcode >> 24);
+            *field_ptr = (byte)(info->opcode >> 24); 
             field_ptr++;
+        }
+
+        if (TEST(REQUIRES_REX, info->flags)) {
+            /* We could add other rex flags by overloading OPCODE_SUFFIX or
+             * possibly OPCODE_MODRM (but the latter only for instrs that
+             * aren't in mod_ext).  For now this flag implies rex.w.
+             */
+            di.prefixes |= PREFIX_REX_W;
         }
 
         /* NOTE - the rex prefix must be the last prefix (even if the other prefix is
@@ -2544,21 +2555,7 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
     /* opcode depends on entire modrm byte */
     if (!TEST(REQUIRES_VEX, info->flags) && TEST(OPCODE_MODRM, info->opcode)) {
         /* modrm is encoded in prefix byte */
-#if 0 && defined(GRANARY)
-        enum {
-            MOD_EXT_LEN = 12
-        };
-
-        // Handle OP_clflush encoding issue.
-        byte mod_reg_rm = (byte)(info->opcode >> 24);
-        if(&(mod_extensions[3][0]) == info) {
-            mod_reg_rm = (mod_reg_rm & 0xF8) | di.rm;
-        }
-
-        *field_ptr = mod_reg_rm;
-#else
         *field_ptr = (byte)(info->opcode >> 24); 
-#endif /* GRANARY */
         field_ptr++;
         di.mod = 5; /* prevent modrm output from opnds below */
     }

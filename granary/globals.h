@@ -23,6 +23,11 @@
 #endif
 
 
+#ifndef IN_GRANARY_CODE
+#   define IN_GRANARY_CODE
+#endif
+
+
 #ifndef GRANARY_IN_KERNEL
 #   define GRANARY_IN_KERNEL 1
 #endif

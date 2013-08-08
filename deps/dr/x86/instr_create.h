@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011-2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2011-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2002-2010 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -192,15 +192,15 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
 /** Create a memory reference operand appropriately sized for OP_frstor. */
 #define OPND_CREATE_MEM_frstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_frstor)
-/** Create a memory reference operand appropriately sized for OP_fxsave. */
+/** Create a memory reference operand appropriately sized for OP_fxsave32/OP_fxsave64. */
 #define OPND_CREATE_MEM_fxsave(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxsave)
-/** Create a memory reference operand appropriately sized for OP_fxrstor. */
+/** Create a memory reference operand appropriately sized for OP_fxrstor32/OP_fxrstor64.*/
 #define OPND_CREATE_MEM_fxrstor(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_fxrstor)
 /**
- * Create a memory reference operand appropriately sized for OP_xsave,
- * OP_xsaveopt, or OP_xrstor.
+ * Create a memory reference operand appropriately sized for OP_xsave32,
+ * OP_xsave64, OP_xsaveopt32, OP_xsaveopt64, OP_xrstor32, or OP_xrstor64.
  */
 #define OPND_CREATE_MEM_xsave(base, index, scale, disp) \
     opnd_create_base_disp(base, index, scale, disp, OPSZ_xsave)
@@ -401,8 +401,17 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_fxrstor() to get the appropriate operand size.
  */
-#define INSTR_CREATE_fxrstor(dc, s) \
-  instr_create_0dst_1src((dc), OP_fxrstor, (s))
+#define INSTR_CREATE_fxrstor32(dc, s) \
+  instr_create_0dst_1src((dc), OP_fxrstor32, (s))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and
+ * the given explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_fxrstor() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_fxrstor64(dc, s) \
+  instr_create_0dst_1src((dc), OP_fxrstor64, (s))
 #define INSTR_CREATE_ldmxcsr(dc, s) \
   instr_create_0dst_1src((dc), OP_ldmxcsr, (s))
 #define INSTR_CREATE_vldmxcsr(dc, s) \
@@ -661,8 +670,18 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
  * \param s The opnd_t explicit source operand for the instruction, which can be
  * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
  */
-#define INSTR_CREATE_xrstor(dc, s)                                          \
-  instr_create_0dst_3src((dc), OP_xrstor, (s), opnd_create_reg(DR_REG_EDX), \
+#define INSTR_CREATE_xrstor32(dc, s) \
+  instr_create_0dst_3src((dc), OP_xrstor32, (s), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx, automatically
+ * supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param s The opnd_t explicit source operand for the instruction, which can be
+ * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_xrstor64(dc, s) \
+  instr_create_0dst_3src((dc), OP_xrstor64, (s), opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
@@ -776,8 +795,17 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
  * \param d The opnd_t explicit destination operand for the instruction, which can
  * be created with OPND_CREATE_MEM_fxsave() to get the appropriate operand size.
  */
-#define INSTR_CREATE_fxsave(dc, d) \
-  instr_create_1dst_0src((dc), OP_fxsave, (d))
+#define INSTR_CREATE_fxsave32(dc, d) \
+  instr_create_1dst_0src((dc), OP_fxsave32, (d))
+/**
+ * This INSTR_CREATE_xxx macro creates an instr_t with opcode OP_xxx and the given
+ * explicit operands, automatically supplying any implicit operands.
+ * \param dc The void * dcontext used to allocate memory for the instr_t.
+ * \param d The opnd_t explicit destination operand for the instruction, which can
+ * be created with OPND_CREATE_MEM_fxsave() to get the appropriate operand size.
+ */
+#define INSTR_CREATE_fxsave64(dc, d) \
+  instr_create_1dst_0src((dc), OP_fxsave64, (d))
 #define INSTR_CREATE_stmxcsr(dc, d) \
   instr_create_1dst_0src((dc), OP_stmxcsr, (d))
 #define INSTR_CREATE_vstmxcsr(dc, d) \
@@ -2445,11 +2473,17 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
  * \param d The opnd_t explicit destination operand for the instruction, which can be
  * created with OPND_CREATE_MEM_xsave() to get the appropriate operand size.
  */
-#define INSTR_CREATE_xsave(dc, d) \
-  instr_create_1dst_2src((dc), OP_xsave, (d), opnd_create_reg(DR_REG_EDX), \
+#define INSTR_CREATE_xsave32(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsave32, (d), opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX))
-#define INSTR_CREATE_xsaveopt(dc, d) \
-  instr_create_1dst_2src((dc), OP_xsaveopt, (d), opnd_create_reg(DR_REG_EDX), \
+#define INSTR_CREATE_xsave64(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsave64, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsaveopt32(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsaveopt32, (d), opnd_create_reg(DR_REG_EDX), \
+    opnd_create_reg(DR_REG_EAX))
+#define INSTR_CREATE_xsaveopt64(dc, d) \
+  instr_create_1dst_2src((dc), OP_xsaveopt64, (d), opnd_create_reg(DR_REG_EDX), \
     opnd_create_reg(DR_REG_EAX))
 /* @} */ /* end doxygen group */
 
@@ -3007,7 +3041,12 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
 #define INSTR_CREATE_stos_4(dc) \
   instr_create_2dst_2src((dc), OP_stos, \
     opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
-      OPSZ_4_rex8_short2), \
+      OPSZ_4_short2), \
+    opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_EAX), opnd_create_reg(DR_REG_XDI))
+#define INSTR_CREATE_stos_8(dc) \
+  instr_create_2dst_2src((dc), OP_stos, \
+    opnd_create_far_base_disp(DR_SEG_ES, DR_REG_XDI, DR_REG_NULL, 0, 0, \
+      OPSZ_8_short2), \
     opnd_create_reg(DR_REG_XDI), opnd_create_reg(DR_REG_XAX), opnd_create_reg(DR_REG_XDI))
 #define INSTR_CREATE_lods_1(dc) \
   instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_AL), \
@@ -3015,10 +3054,16 @@ INSTR_CREATE_nop3byte_reg(dcontext_t *dcontext, reg_id_t reg) GRANARY_IGNORE;
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, OPSZ_1), \
     opnd_create_reg(DR_REG_XSI))
 #define INSTR_CREATE_lods_4(dc) \
+  instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_EAX), \
+    opnd_create_reg(DR_REG_XSI), \
+    opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
+      OPSZ_4_short2), \
+    opnd_create_reg(DR_REG_XSI))
+#define INSTR_CREATE_lods_8(dc) \
   instr_create_2dst_2src((dc), OP_lods, opnd_create_reg(DR_REG_XAX), \
     opnd_create_reg(DR_REG_XSI), \
     opnd_create_far_base_disp(DR_SEG_DS, DR_REG_XSI, DR_REG_NULL, 0, 0, \
-      OPSZ_4_rex8_short2), \
+      OPSZ_8_short2), \
     opnd_create_reg(DR_REG_XSI)) 
 #define INSTR_CREATE_movs_1(dc) \
   instr_create_3dst_3src((dc), OP_movs, \

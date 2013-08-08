@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2011 Google, Inc.  All rights reserved.
+ * Copyright (c) 2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -40,10 +40,9 @@
  */
 
 #include "deps/dr/globals.h"
-#include "proc.h"
-#include "instr.h" /* for dr_insert_{save,restore}_fpstate */
-//#include "instr_create.h" /* for dr_insert_{save,restore}_fpstate */
-#include "decode.h" /* for dr_insert_{save,restore}_fpstate */
+#include "deps/dr/x86/proc.h"
+#include "deps/dr/x86/instr.h" /* for dr_insert_{save,restore}_fpstate */
+#include "deps/dr/x86/decode.h" /* for dr_insert_{save,restore}_fpstate */
 
 #ifdef DEBUG
 /* case 10450: give messages to clients */
@@ -288,7 +287,7 @@ get_processor_specific_info(void)
     }
 
     /* now get processor info */
-#ifdef LINUX
+#ifdef UNIX
     our_cpuid(cpuid_res_local, 1);
 #else
     __cpuid(cpuid_res_local, 1);
@@ -416,6 +415,10 @@ proc_init(void)
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE2\n");
         if (proc_has_feature(FEATURE_SSE3))
             LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has SSE3\n");
+        if (proc_has_feature(FEATURE_AVX))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has AVX\n");
+        if (proc_has_feature(FEATURE_OSXSAVE))
+            LOG(GLOBAL, LOG_TOP, 1, "\tProcessor has OSXSAVE\n");
     }
 #endif
     /* PR 264138: for 32-bit CONTEXT we assume fxsave layout */
@@ -580,6 +583,7 @@ machine_cache_sync(void *pc_start, void *pc_end, bool flush_icache)
     /* empty */
 }
 
+#ifndef GRANARY
 DR_API
 /**
  * Returns the size in bytes needed for a buffer for saving the floating point state.
@@ -606,6 +610,9 @@ DR_API
  * If the client needs to do so inside the code cache the client should implement
  * that itself.
  * return number of bytes written 
+ *
+ * XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
+ * we can try to support it in the future.
  */
 size_t
 proc_save_fpstate(byte *buf)
@@ -614,10 +621,16 @@ proc_save_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_save_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-#ifdef WINDOWS
-        dr_fxsave(buf);
+        /* Not using inline asm for identical cross-platform code
+         * here.  An extra function call won't hurt here.
+         */
+#ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            dr_fxsave(buf);
+        else
+            dr_fxsave32(buf);
 #else
-        asm volatile("fxsave %0 ; fnclex ; finit"  : "=m" ((*buf)));
+        dr_fxsave(buf);
 #endif
     } else {
 #ifdef WINDOWS
@@ -642,10 +655,16 @@ proc_restore_fpstate(byte *buf)
     CLIENT_ASSERT((((ptr_uint_t)buf) & 0x0000000f) == 0,
                   "proc_restore_fpstate: buf must be 16-byte aligned");
     if (proc_has_feature(FEATURE_FXSR)) {
-#ifdef WINDOWS
-        dr_fxrstor(buf);
+        /* Not using inline asm for identical cross-platform code
+         * here.  An extra function call won't hurt here.
+         */
+#ifdef X64
+        if (X64_MODE_DC(get_thread_private_dcontext()))
+            dr_fxrstor(buf);
+        else
+            dr_fxrstor32(buf);
 #else
-        asm volatile("fxrstor %0" : : "m" ((*buf)));
+        dr_fxrstor(buf);
 #endif
     } else {
 #ifdef WINDOWS
@@ -657,6 +676,9 @@ proc_restore_fpstate(byte *buf)
 }
 
 #ifndef GRANARY
+/* XXX: we do not translate the last fp pc (xref i#698).  If a client ever needs that
+ * we can try to support it in the future.
+ */
 void
 dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
                        opnd_t buf)
@@ -666,7 +688,10 @@ dr_insert_save_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         /* we want "fxsave, fnclex, finit" */
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");
-        instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave(dcontext, buf));
+        if (X64_MODE_DC(dcontext))
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave64(dcontext, buf));
+        else
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxsave32(dcontext, buf));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fnclex(dcontext));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fwait(dcontext));
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fninit(dcontext));
@@ -688,7 +713,10 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
     if (proc_has_feature(FEATURE_FXSR)) {
         CLIENT_ASSERT(opnd_get_size(buf) == OPSZ_512,
                       "dr_insert_save_fpstate: opnd size must be OPSZ_512");
-        instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor(dcontext, buf));
+        if (X64_MODE_DC(dcontext))
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor64(dcontext, buf));
+        else
+            instrlist_meta_preinsert(ilist, where, INSTR_CREATE_fxrstor32(dcontext, buf));
     } else {
         /* auto-adjust opnd size so it will encode */
         if (opnd_get_size(buf) == OPSZ_512)
@@ -696,4 +724,5 @@ dr_insert_restore_fpstate(void *drcontext, instrlist_t *ilist, instr_t *where,
         instrlist_meta_preinsert(ilist, where, INSTR_CREATE_frstor(dcontext, buf));
     }
 }
+#endif /* GRANARY */
 #endif /* GRANARY */

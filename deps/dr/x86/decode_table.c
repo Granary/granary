@@ -367,8 +367,8 @@ const instr_info_t * const op_instr[] =
     /* OP_lmsw         */   &extensions[14][6],
     /* OP_invlpg       */   &mod_extensions[2][0],
     /* OP_cmpxchg8b    */   &extensions[16][1],
-    /* OP_fxsave       */   &extensions[22][0],
-    /* OP_fxrstor      */   &extensions[22][1],
+    /* OP_fxsave32     */   &rex_w_extensions[0][0],
+    /* OP_fxrstor32    */   &rex_w_extensions[1][0],
     /* OP_ldmxcsr      */   &vex_extensions[61][0],
     /* OP_stmxcsr      */   &vex_extensions[62][0],
     /* OP_lfence       */   &mod_extensions[6][1],
@@ -471,7 +471,7 @@ const instr_info_t * const op_instr[] =
     /* OP_cvtdq2pd   */   &prefix_extensions[77][1],
     /* OP_cvttpd2dq  */   &prefix_extensions[77][2],
     /* OP_cvtpd2dq   */   &prefix_extensions[77][3],
-    /* OP_nop        */   &rex_extensions[0][0],
+    /* OP_nop        */   &rex_b_extensions[0][0],
     /* OP_pause      */   &prefix_extensions[103][1],
 
     /* OP_ins         */   &rep_extensions[1][0],
@@ -754,9 +754,9 @@ const instr_info_t * const op_instr[] =
     /* added in Intel Sandy Bridge */
     /* OP_xgetbv        */   &rm_extensions[4][0],
     /* OP_xsetbv        */   &rm_extensions[4][1],
-    /* OP_xsave         */   &extensions[22][4],
-    /* OP_xrstor        */   &mod_extensions[6][0],
-    /* OP_xsaveopt      */   &mod_extensions[7][0],
+    /* OP_xsave32       */   &rex_w_extensions[2][0],
+    /* OP_xrstor32      */   &rex_w_extensions[3][0],
+    /* OP_xsaveopt32    */   &rex_w_extensions[4][0],
 
     /* AVX */
     /* OP_vmovss        */  &mod_extensions[ 8][0],
@@ -1082,6 +1082,12 @@ const instr_info_t * const op_instr[] =
     /* OP_movq2dq       */  &prefix_extensions[61][1],
     /* OP_movdq2q       */  &prefix_extensions[61][3],
 
+    /* OP_fxsave64      */   &rex_w_extensions[0][1],
+    /* OP_fxrstor64     */   &rex_w_extensions[1][1],
+    /* OP_xsave64       */   &rex_w_extensions[2][1],
+    /* OP_xrstor64      */   &rex_w_extensions[3][1],
+    /* OP_xsaveopt64    */   &rex_w_extensions[4][1],
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
     /* OP_jmpe      */   &extensions[13][6],
@@ -1240,6 +1246,7 @@ const instr_info_t * const op_instr[] =
 /* pop but unusual size */
 #define i_xSPoN TYPE_INDIR_VAR_XREG_OFFS_N, REG_ESP
 #define c1  TYPE_1, OPSZ_0
+/* we pick the right constant based on the opcode */
 #define cF  TYPE_FLOATCONST, OPSZ_0
 
 #ifdef IA32_ON_IA64
@@ -1388,6 +1395,7 @@ const instr_info_t * const op_instr[] =
 #define o64      X86_INVALID
 #define reqp     REQUIRES_PREFIX
 #define vex      REQUIRES_VEX
+#define rex      REQUIRES_REX
 
 /* eflags */
 #define x     0
@@ -1439,7 +1447,8 @@ const instr_info_t * const op_instr[] =
 #define tfh (ptr_int_t)&float_high_modrm
 #define exop (ptr_int_t)&extra_operands
 #define t64e (ptr_int_t)&x64_extensions
-#define trex (ptr_int_t)&rex_extensions
+#define trexb (ptr_int_t)&rex_b_extensions
+#define trexw (ptr_int_t)&rex_w_extensions
 #define tvex (ptr_int_t)&vex_extensions
 
 /* point at this when you need a canonical invalid instr 
@@ -1642,8 +1651,8 @@ const instr_info_t first_byte[] = {
     {OP_mov_st,  0xa30000, "mov", Ov, xx, eAX, xx, xx, no, x, tfb[0xa2]},
     {REP_EXT, 0xa40000, "((rep) movs)", Yb, xx, Xb, xx, xx, no, fRD, 4},
     {REP_EXT, 0xa50000, "((rep) movs)", Yv, xx, Xv, xx, xx, no, fRD, 5},
-    {REPNE_EXT, 0xa60000, "((rep/ne) cmps)", Xb, xx, Yb, xx, xx, no, (fW6|fRD), 0},
-    {REPNE_EXT, 0xa70000, "((rep/ne) cmps)", Xv, xx, Yv, xx, xx, no, (fW6|fRD), 1},
+    {REPNE_EXT, 0xa60000, "((rep/ne) cmps)", Xb, xx, Yb, xx, xx, no, (fW6|fRD|fRZ), 0},
+    {REPNE_EXT, 0xa70000, "((rep/ne) cmps)", Xv, xx, Yv, xx, xx, no, (fW6|fRD|fRZ), 1},
     /* a8 */
     {OP_test,  0xa80000, "test", xx, xx,  al, Ib, xx, no, fW6, tfb[0x85]},
     {OP_test,  0xa90000, "test", xx, xx, eAX, Iz, xx, no, fW6, tfb[0xa8]},
@@ -1651,8 +1660,8 @@ const instr_info_t first_byte[] = {
     {REP_EXT, 0xab0000, "((rep) stos)", Yv, xx, eAX, xx, xx, no, fRD, 7},
     {REP_EXT, 0xac0000, "((rep) lods)", al, xx, Xb, xx, xx, no, fRD, 8},
     {REP_EXT, 0xad0000, "((rep) lods)", eAX, xx, Xv, xx, xx, no, fRD, 9},
-    {REPNE_EXT, 0xae0000, "((rep/ne) scas)", al, xx, Yb, xx, xx, no, (fW6|fRD), 2},
-    {REPNE_EXT, 0xaf0000, "((rep/ne) scas)", eAX, xx, Yv, xx, xx, no, (fW6|fRD), 3},
+    {REPNE_EXT, 0xae0000, "((rep/ne) scas)", al, xx, Yb, xx, xx, no, (fW6|fRD|fRZ), 2},
+    {REPNE_EXT, 0xaf0000, "((rep/ne) scas)", eAX, xx, Yv, xx, xx, no, (fW6|fRD|fRZ), 3},
     /* b0 */
     {OP_mov_imm, 0xb00000, "mov", al_x, xx, Ib, xx, xx, no, x, tfb[0xb1]},
     {OP_mov_imm, 0xb10000, "mov", cl_x, xx, Ib, xx, xx, no, x, tfb[0xb2]},
@@ -2333,11 +2342,11 @@ const instr_info_t extensions[][8] = {
   /* group 15 (first bytes 0f ae) */
   { /* extensions[22] */
     /* Intel tables imply they may add opcodes in the mod=3 (non-mem) space in future */
-    {OP_fxsave,  0x0fae30, "fxsave",  Me, xx, xx, xx, xx, mrm, x, END_LIST},
-    {OP_fxrstor, 0x0fae31, "fxrstor", xx, xx, Me, xx, xx, mrm, x, END_LIST},
+    {REX_W_EXT,  0x0fae30, "(rex.w ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
+    {REX_W_EXT,  0x0fae31, "(rex.w ext 1)", xx, xx, xx, xx, xx, mrm, x, 1},
     {VEX_EXT, 0x0fae32, "(vex ext 61)", xx, xx, xx, xx, xx, mrm, x, 61},
     {VEX_EXT, 0x0fae33, "(vex ext 62)", xx, xx, xx, xx, xx, mrm, x, 62},
-    {OP_xsave,   0x0fae34, "xsave", Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {REX_W_EXT,  0x0fae34, "(rex.w ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
     {MOD_EXT,    0x0fae35, "(group 15 mod ext 6)", xx, xx, xx, xx, xx, no, x, 6},
     {MOD_EXT,    0x0fae36, "(group 15 mod ext 7)", xx, xx, xx, xx, xx, no, x, 7},
     {MOD_EXT,    0x0fae37, "(group 15 mod ext 3)", xx, xx, xx, xx, xx, no, x, 3},
@@ -3546,7 +3555,7 @@ const instr_info_t prefix_extensions[][8] = {
   },
   /* prefix extension 103 */
   {
-    {REX_EXT,  0x900000, "(rex ext 0)", xx, xx, xx, xx, xx, no, x, 0},
+    {REX_B_EXT,  0x900000, "(rex.b ext 0)", xx, xx, xx, xx, xx, no, x, 0},
     {OP_pause,0xf3900000, "pause", xx, xx, xx, xx, xx, no, x, END_LIST},
     /* we chain these even though encoding won't find them */
     {OP_nop, 0x66900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][3]},
@@ -4143,11 +4152,11 @@ const instr_info_t vex_extensions[][2] = {
     {OP_mpsadbw,  0x663a4218, "mpsadbw",  Vdq, xx, Wdq, Ib, Vdq, mrm|reqp, x, END_LIST},
     {OP_vmpsadbw, 0x663a4218, "vmpsadbw",  Vdq, xx, Hdq, Wdq, Ib, mrm|vex|reqp, x, END_LIST},
   }, { /* vex ext 53 */
-    {OP_pcmpestrm, 0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[8]},
-    {OP_vpcmpestrm,0x663a6018, "vpcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, exop[11]},
+    {OP_pcmpestrm, 0x663a6018, "pcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp|xop, fW6, exop[8]},
+    {OP_vpcmpestrm,0x663a6018, "vpcmpestrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp|xop, fW6, exop[11]},
   }, { /* vex ext 54 */
-    {OP_pcmpestri, 0x663a6118, "pcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, exop[9]},
-    {OP_vpcmpestri,0x663a6118, "vpcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, exop[12]},
+    {OP_pcmpestri, 0x663a6118, "pcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|reqp|xop, fW6, exop[9]},
+    {OP_vpcmpestri,0x663a6118, "vpcmpestri",ecx, xx, Vdq, Wdq, Ib, mrm|vex|reqp|xop, fW6, exop[12]},
   }, { /* vex ext 55 */
     {OP_pcmpistrm, 0x663a6218, "pcmpistrm",xmm0, xx, Vdq, Wdq, Ib, mrm|reqp, fW6, END_LIST},
     {OP_vpcmpistrm,0x663a6218, "vpcmpistrm",xmm0, xx, Vdq, Wdq, Ib, mrm|vex|reqp, fW6, END_LIST},
@@ -4231,36 +4240,36 @@ const instr_info_t vex_extensions[][2] = {
  */
 const instr_info_t mod_extensions[][2] = {
   { /* mod extension 0 */
-    {OP_sgdt, 0x000f0170, "sgdt", Ms, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_sgdt, 0x0f0130, "sgdt", Ms, xx, xx, xx, xx, mrm, x, END_LIST},
     {RM_EXT,  0x0f0171, "(group 7 mod + rm ext 0)", xx, xx, xx, xx, xx, mrm, x, 0},
   },
   { /* mod extension 1 */
-    {OP_sidt, 0x080f0171, "sidt",  Ms, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_sidt, 0x0f0131, "sidt",  Ms, xx, xx, xx, xx, mrm, x, END_LIST},
     {RM_EXT,  0x0f0171, "(group 7 mod + rm ext 1)", xx, xx, xx, xx, xx, mrm, x, 1},
   },
   { /* mod extension 2 */
-    {OP_invlpg, 0x380f0177, "invlpg", xx, xx, Mm, xx, xx, mrm, x, END_LIST},
+    {OP_invlpg, 0x0f0137, "invlpg", xx, xx, Mm, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0177, "(group 7 mod + rm ext 2)", xx, xx, xx, xx, xx, mrm, x, 2},
   },
   { /* mod extension 3 */
-    {OP_clflush, 0x380fae77, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
+    {OP_clflush, 0x0fae37, "clflush", xx, xx, Mb, xx, xx, mrm, x, END_LIST},
     {OP_sfence,  0xf80fae77, "sfence",  xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 4 */
-    {OP_lidt, 0x180f0173, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {OP_lidt,   0x0f0133, "lidt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0173, "(group 7 mod + rm ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
   },
   { /* mod extension 5 */
-    {OP_lgdt, 0x100f0172, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
+    {OP_lgdt,   0x0f0132, "lgdt",  xx, xx, Ms, xx, xx, mrm, x, END_LIST},
     {RM_EXT,    0x0f0172, "(group 7 mod + rm ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
   },
   { /* mod extension 6 */
-    {OP_xrstor, 0x280fae75, "xrstor", xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
+    {REX_W_EXT, 0x0fae35, "(rex.w ext 3)", xx, xx, xx, xx, xx, mrm, x, 3},
     /* note that gdb thinks e9-ef are "lfence (bad)" (PR 239920) */
     {OP_lfence, 0xe80fae75, "lfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 7 */
-    {OP_xsaveopt, 0x300fae76, "xsaveopt", Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {REX_W_EXT,   0x0fae36, "(rex.w ext 4)", xx, xx, xx, xx, xx, mrm, x, 4},
     {OP_mfence,   0xf00fae76, "mfence", xx, xx, xx, xx, xx, mrm, x, END_LIST},
   },
   { /* mod extension 8 */
@@ -4305,7 +4314,7 @@ const instr_info_t rm_extensions[][8] = {
   },
   { /* rm extension 2 */
     {OP_swapgs, 0xf80f0177, "swapgs", xx, xx, xx, xx, xx, mrm|o64, x, END_LIST},
-    {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm, x, exop[10]},/*AMD-only*/
+    {OP_rdtscp, 0xf90f0177, "rdtscp", edx, eax, xx, xx, xx, mrm|xop, x, exop[10]},/*AMD-only*/
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
     {INVALID,   0x0f0131, "(bad)", xx, xx, xx, xx, xx, no, x, NA},
@@ -4436,15 +4445,17 @@ const instr_info_t vex_L_extensions[][3] = {
 
 /****************************************************************************
  * Instructions that differ depending on whether a rex prefix is present.
- * Our only entry right now depends on rex.b in particular so our
- * table is indexed by that: index 0 is for no rex.b.
  */
-const instr_info_t rex_extensions[][2] = {
-  { /* rex extension 0 */
+
+/* Instructions that differ depending on whether rex.b in is present.
+ * The table is indexed by rex.b: index 0 is for no rex.b.
+ */
+const instr_info_t rex_b_extensions[][2] = {
+  { /* rex.b extension 0 */
     {OP_nop,  0x900000, "nop", xx, xx, xx, xx, xx, no, x, tpe[103][2]},
     /* For decoding we avoid needing new operand types by only getting
-     * here if rex.b is set.  For encode, we would need either a hack
-     * flag REQUIRES_REX_B or a new operand type for registers that
+     * here if rex.b is set.  For encode, we would need either to take
+     * REQUIRES_REX + OPCODE_SUFFIX or a new operand type for registers that
      * must be extended (could also try to list r8 instead of eax but
      * have to make sure all decode/encode routines can handle that as most
      * assume the registers listed here are 32-bit base): that's too
@@ -4452,6 +4463,32 @@ const instr_info_t rex_extensions[][2] = {
      * all x64 processors, so we just don't list in the encoding chain.
      */
     {OP_xchg, 0x900000, "xchg", eAX_x, eAX, eAX_x, eAX, xx, o64, x, END_LIST},
+  },
+};
+
+/* Instructions that differ depending on whether rex.w in is present.
+ * The table is indexed by rex.w: index 0 is for no rex.w.
+ */
+const instr_info_t rex_w_extensions[][2] = {
+  { /* rex.w extension 0 */
+    {OP_fxsave32, 0x0fae30, "fxsave",   Me, xx, xx, xx, xx, mrm, x, END_LIST},
+    {OP_fxsave64, 0x0fae30, "fxsave64", Me, xx, xx, xx, xx, mrm|rex, x, END_LIST},
+  },
+  { /* rex.w extension 1 */
+    {OP_fxrstor32, 0x0fae31, "fxrstor",   xx, xx, Me, xx, xx, mrm, x, END_LIST},
+    {OP_fxrstor64, 0x0fae31, "fxrstor64", xx, xx, Me, xx, xx, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 2 */
+    {OP_xsave32,   0x0fae34, "xsave",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsave64,   0x0fae34, "xsave64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 3 */
+    {OP_xrstor32, 0x0fae35, "xrstor",   xx, xx, Mxsave, edx, eax, mrm, x, END_LIST},
+    {OP_xrstor64, 0x0fae35, "xrstor64", xx, xx, Mxsave, edx, eax, mrm|rex, o64, END_LIST},
+  },
+  { /* rex.w extension 4 */
+    {OP_xsaveopt32, 0x0fae36, "xsaveopt",   Mxsave, xx, edx, eax, xx, mrm, x, END_LIST},
+    {OP_xsaveopt64, 0x0fae36, "xsaveopt64", Mxsave, xx, edx, eax, xx, mrm|rex, o64, END_LIST},
   },
 };
 
@@ -4849,33 +4886,33 @@ const instr_info_t repne_extensions[][6] = {
   { /* repne extension 0 */
     {OP_cmps,       0xa60000, "cmps",         axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD), END_LIST},
     {OP_CONTD,      0xa60000, "cmps",         xx, xx, axDI, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_rep_cmps,   0xf3a60000, "rep cmps",   axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD), END_LIST},
+    {OP_rep_cmps,   0xf3a60000, "rep cmps",   axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD|fRZ), END_LIST},
     {OP_CONTD,      0xf3a60000, "rep cmps",   axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
-    {OP_repne_cmps, 0xf2a60000, "repne cmps", axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD), END_LIST},
+    {OP_repne_cmps, 0xf2a60000, "repne cmps", axSI, axDI, Xb, Yb, axSI, xop_next, (fW6|fRD|fRZ), END_LIST},
     {OP_CONTD,      0xf2a60000, "repne cmps", axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 1 */
     {OP_cmps,       0xa70000, "cmps",         axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD), tne[0][0]},
     {OP_CONTD,      0xa70000, "cmps",         xx, xx, axDI, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_rep_cmps,   0xf3a70000, "rep cmps",   axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD), tne[0][2]},
+    {OP_rep_cmps,   0xf3a70000, "rep cmps",   axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD|fRZ), tne[0][2]},
     {OP_CONTD,      0xf3a70000, "rep cmps",   axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
-    {OP_repne_cmps, 0xf2a70000, "repne cmps", axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD), tne[0][4]},
+    {OP_repne_cmps, 0xf2a70000, "repne cmps", axSI, axDI, Xv, Yv, axSI, xop_next, (fW6|fRD|fRZ), tne[0][4]},
     {OP_CONTD,      0xf2a70000, "repne cmps", axCX, xx, axDI, axCX, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 2 */
     {OP_scas,       0xae0000, "scas",         axDI, xx, Yb, al, axDI, no, (fW6|fRD), END_LIST},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_scas,   0xf3ae0000, "rep scas",   axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD), END_LIST},
+    {OP_rep_scas,   0xf3ae0000, "rep scas",   axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD|fRZ), END_LIST},
     {OP_CONTD,      0xf3ae0000, "rep scas",   xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_repne_scas, 0xf2ae0000, "repne scas", axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD), END_LIST},
+    {OP_repne_scas, 0xf2ae0000, "repne scas", axDI, axCX, Yb, al, axDI, xop_next, (fW6|fRD|fRZ), END_LIST},
     {OP_CONTD,      0xf2ae0000, "repne scas", xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
   },
   { /* repne extension 3 */
     {OP_scas,       0xaf0000, "scas",         axDI, xx, Yv, eAX, axDI, no, (fW6|fRD), tne[2][0]},
     {INVALID,   0x00000000, "(bad)",  xx, xx, xx, xx, xx, no, x, NA},
-    {OP_rep_scas,   0xf3af0000, "rep scas",   axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD), tne[2][2]},
+    {OP_rep_scas,   0xf3af0000, "rep scas",   axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD|fRZ), tne[2][2]},
     {OP_CONTD,      0xf3af0000, "rep scas",   xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
-    {OP_repne_scas, 0xf2af0000, "repne scas", axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD), tne[2][4]},
+    {OP_repne_scas, 0xf2af0000, "repne scas", axDI, axCX, Yv, eAX, axDI, xop_next, (fW6|fRD|fRZ), tne[2][4]},
     {OP_CONTD,      0xf2af0000, "repne scas", xx, xx, axCX, xx, xx, no, (fW6|fRD), END_LIST},
   }
 };

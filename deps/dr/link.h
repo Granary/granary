@@ -1,5 +1,5 @@
 /* **********************************************************
- * Copyright (c) 2012 Google, Inc.  All rights reserved.
+ * Copyright (c) 2012-2013 Google, Inc.  All rights reserved.
  * Copyright (c) 2000-2008 VMware, Inc.  All rights reserved.
  * **********************************************************/
 
@@ -81,16 +81,20 @@ enum {
     /* Indicates a far cti which uses a separate ibl entry */
     LINK_FAR             = 0x0020,
 
-    LINK_SELFMOD_EXIT    = 0x0040,
 #ifdef UNSUPPORTED_API
-    LINK_TARGET_PREFIX   = 0x0080,
+    LINK_TARGET_PREFIX   = 0x0040,
 #endif
 #ifdef X64
     /* PR 257963: since we don't store targets of ind branches, we need a flag
      * so we know whether this is a trace cmp exit, which has its own ibl entry
      */
-    LINK_TRACE_CMP       = 0x0100,
+    LINK_TRACE_CMP       = 0x0080,
 #endif
+    /* Flags that tell DR to take some action upon returning to dispatch.
+     * This first one is multiplexed via .
+     * All uses are assumed to be unlinkable.
+     */
+    LINK_SPECIAL_EXIT    = 0x0100,
 #ifdef WINDOWS
     LINK_CALLBACK_RETURN = 0x0200,
 #else
@@ -116,7 +120,7 @@ enum {
     /* WARNING: flags field is a ushort, so max flag is 0x8000! */
 };
 
-#ifdef LINUX
+#ifdef UNIX
 # define LINK_NI_SYSCALL_ALL (LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT)
 #else
 # define LINK_NI_SYSCALL_ALL LINK_NI_SYSCALL
@@ -251,10 +255,6 @@ typedef struct _cbr_fallthrough_linkstub_t {
 /* linkage info for each indirect fragment exit (slit for case 6468) */
 typedef struct _indirect_linkstub_t {
     linkstub_t       l;
-
-#ifdef NATIVE_RETURN
-    cache_pc       ret_pc;         /* if this exit is a ret, cache pc of the ret */
-#endif
 } indirect_linkstub_t;
 
 
@@ -451,7 +451,7 @@ coarse_deref_ibl_prefix(dcontext_t *dcontext, cache_pc target);
 coarse_info_t *
 get_stub_coarse_info(cache_pc pc);
 
-/* Initialises an array of linkstubs beginning with first */
+/* Initializes an array of linkstubs beginning with first */
 void linkstubs_init(linkstub_t *first, int num_direct, int num_indirect, fragment_t *f);
 
 bool is_linkable(dcontext_t *dcontext, fragment_t *from_f, linkstub_t *l,
@@ -489,7 +489,7 @@ const linkstub_t * get_reset_linkstub(void);
 const linkstub_t * get_syscall_linkstub(void);
 const linkstub_t * get_selfmod_linkstub(void);
 const linkstub_t * get_ibl_deleted_linkstub(void);
-#ifdef LINUX
+#ifdef UNIX
 const linkstub_t * get_sigreturn_linkstub(void);
 #else /* WINDOWS */
 const linkstub_t * get_asynch_linkstub(void);
@@ -501,6 +501,8 @@ const linkstub_t * get_hot_patch_linkstub(void);
 #endif
 #ifdef CLIENT_INTERFACE
 const linkstub_t * get_client_linkstub(void);
+bool is_client_ibl_linkstub(const linkstub_t *l);
+const linkstub_t * get_client_ibl_linkstub(uint link_flags, uint frag_flags);
 #endif
 const linkstub_t * get_ibl_sourceless_linkstub(uint link_flags, uint frag_flags);
 bool is_ibl_sourceless_linkstub(const linkstub_t *l);

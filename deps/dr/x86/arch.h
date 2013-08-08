@@ -112,6 +112,7 @@ mixed_mode_enabled(void)
 
 #define ERRNO_OFFSET      (offsetof(unprotected_context_t, errno))
 #define AT_SYSCALL_OFFSET (offsetof(unprotected_context_t, at_syscall))
+#define EXIT_REASON_OFFSET (offsetof(unprotected_context_t, exit_reason))
 
 #define NEXT_TAG_OFFSET        ((PROT_OFFS)+offsetof(dcontext_t, next_tag))
 #define LAST_EXIT_OFFSET       ((PROT_OFFS)+offsetof(dcontext_t, last_exit))
@@ -401,10 +402,31 @@ cleanup_after_clean_call(dcontext_t *dcontext, clean_call_info_t *cci,
 void convert_to_near_rel(dcontext_t *dcontext, instr_t *instr);
 instr_t *convert_to_near_rel_meta(dcontext_t *dcontext, instrlist_t *ilist,
                                   instr_t *instr);
+#ifdef WINDOWS
+bool
+instr_is_call_sysenter_pattern(instr_t *call, instr_t *mov, instr_t *sysenter);
+#endif
 int find_syscall_num(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr);
 bool insert_selfmod_sandbox(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
                             app_pc start_pc, app_pc end_pc, /* end is open */
                             bool record_translation, bool for_cache);
+
+void
+insert_mov_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val, opnd_t dst,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first OUT, instr_t **second OUT);
+void
+insert_push_immed_ptrsz(dcontext_t *dcontext, ptr_int_t val,
+                        instrlist_t *ilist, instr_t *instr,
+                        instr_t **first OUT, instr_t **second OUT);
+void
+insert_mov_instr_addr(dcontext_t *dcontext, instr_t *src, byte *encode_estimate,
+                      opnd_t dst, instrlist_t *ilist, instr_t *instr,
+                      instr_t **first, instr_t **second);
+void
+insert_push_instr_addr(dcontext_t *dcontext, instr_t *src_inst, byte *encode_estimate,
+                       instrlist_t *ilist, instr_t *instr,
+                       instr_t **first, instr_t **second);
 
 /* offsets within local_state_t used for specific scratch purposes */
 enum {
@@ -423,6 +445,10 @@ enum {
     /* ok for far cti mangling/far ibl and stub/ibl xbx slot usage to overlap */
     INDIRECT_STUB_SPILL_SLOT    = TLS_XBX_SLOT,
     MANGLE_FAR_SPILL_SLOT       = TLS_XBX_SLOT,
+    /* i#698: float_pc handling stores the mem addr of the float state here.  We
+     * assume this slot is not touched on the fcache_return path.
+     */
+    FLOAT_PC_STATE_SLOT         = TLS_XBX_SLOT,
     MANGLE_XCX_SPILL_SLOT       = TLS_XCX_SLOT,
     /* FIXME: edi is used as the base, yet I labeled this slot for edx
      * since it's next in the progression -- change one or the other?
@@ -435,7 +461,7 @@ enum {
 #endif
 };
 
-void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint flags,
+void mangle(dcontext_t *dcontext, instrlist_t *ilist, uint *flags INOUT,
             bool mangle_calls, bool record_translation);
 
 /* in interp.c but not exported to non-x86 files */
@@ -898,10 +924,12 @@ insert_restore_eflags(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
 instr_t * create_syscall_instr(dcontext_t *dcontext);
 
 void
-append_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, bool save_xdi);
+insert_shared_get_dcontext(dcontext_t *dcontext, instrlist_t *ilist, instr_t *where,
+                           bool save_xdi);
 
 void
-append_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist);
+insert_shared_restore_dcontext_reg(dcontext_t *dcontext, instrlist_t *ilist,
+                                   instr_t *where);
 
 /* in optimize.c */
 instr_t *find_next_self_loop(dcontext_t *dcontext, app_pc tag, instr_t *instr);

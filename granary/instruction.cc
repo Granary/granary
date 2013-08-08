@@ -103,6 +103,7 @@ namespace granary {
 
         ASSERT(instr);
 
+#if 0
         // Attempt to work around DR encoding issues.
         if(!instr->bytes && instr->length && instr->translation) {
             if(dynamorio::OP_fisttp <= instr->opcode
@@ -113,6 +114,7 @@ namespace granary {
             }
 
         }
+#endif
 
         // Address calculation for relative jumps uses the note
         // field; second-pass encoding for hot patchable instructions

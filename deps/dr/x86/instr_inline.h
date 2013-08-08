@@ -33,7 +33,13 @@
 #ifndef _INSTR_INLINE_H_
 #define _INSTR_INLINE_H_ 1
 
-#include "deps/dr/globals.h"
+#ifndef IN_GRANARY_CODE
+#   include "deps/dr/globals.h"
+#else
+#   define DR_FAST_IR
+#   define INSTR_INLINE inline
+#   define IF_GRANARY(...) __VA_ARGS__
+#endif /* IN_GRANARY_CODE */
 
 /* DR_API EXPORT TOFILE dr_ir_instr.h */
 /* DR_API EXPORT BEGIN */
@@ -51,7 +57,7 @@
 /* CLIENT_ASSERT with a trailing comma in a debug build, otherwise nothing. */
 #define CLIENT_ASSERT_(cond, msg) IF_DEBUG_(CLIENT_ASSERT(cond, msg))
 
-#ifdef API_EXPORT_ONLY
+//#ifdef API_EXPORT_ONLY
 /* Internally DR has multiple levels of IR, but once it gets to a client, we
  * assume it's already level 3 or higher, and we don't need to do any checks.
  * Furthermore, instr_decode() and get_thread_private_dcontext() are not
@@ -73,7 +79,7 @@
 #   undef IF_DEBUG_
 #endif
 #define IF_DEBUG_(stmt)
-#endif
+//#endif
 
 /* Any function that takes or returns an opnd_t by value should be a macro,
  * *not* an inline function.  Most widely available versions of gcc have trouble

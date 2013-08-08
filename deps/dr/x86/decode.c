@@ -897,12 +897,11 @@ read_instruction(byte *pc, byte *orig_pc,
              */
             (info->opcode >> 24) == PREFIX_DATA)
             di->data_prefix = false;
-        if (info->type == REX_EXT) {
+        if (info->type == REX_B_EXT) {
             /* discard old info, get new one */
             int code = (int) info->code;
-            /* currently indexed by rex.b only */
             int idx = (TEST(PREFIX_REX_B, di->prefixes) ? 1 : 0);
-            info = &rex_extensions[code][idx];
+            info = &rex_b_extensions[code][idx];
         }
     }
     else if (info->type == VEX_EXT) {
@@ -928,6 +927,14 @@ read_instruction(byte *pc, byte *orig_pc,
         int idx = (di->vex_encoded) ?
             (TEST(PREFIX_VEX_L, di->prefixes) ? 2 : 1) : 0;
         info = &vex_L_extensions[code][idx];
+    }
+
+    /* can occur AFTER above checks (MOD_EXT, in particular) */
+    if (info->type == REX_W_EXT) {
+        /* discard old info, get new one */
+        int code = (int) info->code;
+        int idx = (TEST(PREFIX_REX_W, di->prefixes) ? 1 : 0);
+        info = &rex_w_extensions[code][idx];
     }
 
     if (TEST(REQUIRES_PREFIX, info->flags)) {
@@ -1530,7 +1537,7 @@ decode_operand(decode_info_t *di, byte optype, opnd_size_t opsize, opnd_t *opnd)
     case TYPE_FLOATCONST:
         CLIENT_ASSERT(opsize == OPSZ_0, "internal decode inconsistency");
         /* i#386: avoid floating-point instructions */
-        *opnd = opnd_create_immed_float_zero();
+        *opnd = opnd_create_immed_float_for_opcode(di->opcode);
         return true;
     case TYPE_J:
         if (di->seg_override == SEG_JCC_NOT_TAKEN ||
@@ -1849,6 +1856,7 @@ decode_common(dcontext_t *dcontext, byte *pc, byte *orig_pc, instr_t *instr)
     IF_X64(CLIENT_ASSERT_TRUNCATE(di.len, int, next_pc - pc,
                                   "internal truncation error"));
     di.len = (int) (next_pc - pc);
+    di.opcode = info->type; /* used for opnd_create_immed_float_for_opcode */
 
     instr->prefixes |= di.prefixes;
 

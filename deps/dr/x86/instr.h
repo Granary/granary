@@ -557,6 +557,16 @@ struct _opnd_t {
 };
 #endif /* DR_FAST_IR */
 /* DR_API EXPORT END */
+#ifndef DR_FAST_IR
+struct _opnd_t {
+# ifdef X64
+    uint black_box_uint;
+    uint64 black_box_uint64;
+# else
+    uint black_box_uint[3];
+# endif
+};
+#endif
 
 /* We assert that our fields are packed properly in arch_init().
  * We could use #pragma pack to shrink x64 back down to 12 bytes (it's at 16
@@ -625,7 +635,7 @@ opnd_create_immed_float(float f);
 
 /* not exported */
 opnd_t
-opnd_create_immed_float_zero(void);
+opnd_create_immed_float_for_opcode(uint opcode);
 
 DR_API
 INSTR_INLINE
@@ -677,7 +687,7 @@ DR_API
  * (opnd_create_abs_addr()); for 64-bit mode, it will be encoded just
  * like a pc-relative address (opnd_create_rel_addr()). This operand
  * can be used anywhere a regular memory operand can be used.  Its
- * size is always #OPSZ_PTR.
+ * size is \p data_size.
  *
  * \note This operand will return false to opnd_is_instr(), opnd_is_rel_addr(),
  * and opnd_is_abs_addr().  It is a separate type.
@@ -1694,7 +1704,7 @@ enum {
     INSTR_JMP_EXIT              = LINK_JMP,
     INSTR_IND_JMP_PLT_EXIT      = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
     INSTR_FAR_EXIT              = LINK_FAR,
-    INSTR_BRANCH_SELFMOD_EXIT   = LINK_SELFMOD_EXIT,
+    INSTR_BRANCH_SPECIAL_EXIT   = LINK_SPECIAL_EXIT,
 #ifdef UNSUPPORTED_API
     INSTR_BRANCH_TARGETS_PREFIX = LINK_TARGET_PREFIX,
 #endif
@@ -1716,7 +1726,7 @@ enum {
                                    INSTR_RETURN_EXIT | INSTR_CALL_EXIT |     
                                    INSTR_JMP_EXIT |
                                    INSTR_FAR_EXIT |
-                                   INSTR_BRANCH_SELFMOD_EXIT |
+                                   INSTR_BRANCH_SPECIAL_EXIT |
 #ifdef UNSUPPORTED_API
                                    INSTR_BRANCH_TARGETS_PREFIX |
 #endif
@@ -2037,21 +2047,17 @@ void
 instr_branch_set_prefix_target(instr_t *instr, bool val);
 #endif /* UNSUPPORTED_API */
 
-DR_UNS_API
-/**
- * Returns true iff \p instr has been marked as a selfmod check failure
- * exit.
+/* Returns true iff \p instr has been marked as a special fragment
+ * exit cti.
  */
 bool
-instr_branch_selfmod_exit(instr_t *instr);
+instr_branch_special_exit(instr_t *instr);
 
-DR_UNS_API
-/**
- * If \p val is true, indicates that \p instr is a selfmod check failure exit.
+/* If \p val is true, indicates that \p instr is a special exit cti.
  * If \p val is false, indicates otherwise.
  */
 void
-instr_branch_set_selfmod_exit(instr_t *instr, bool val);
+instr_branch_set_special_exit(instr_t *instr, bool val);
 
 DR_API
 INSTR_INLINE
@@ -3213,6 +3219,9 @@ DR_API
 bool 
 instr_is_floating(instr_t *instr);
 
+bool
+instr_saves_float_pc(instr_t *instr);
+
 /* DR_API EXPORT BEGIN */
 /**
  * Indicates which type of floating-point operation and instruction performs.
@@ -4209,8 +4218,8 @@ enum op_code_type {
 /* 276 */     OP_lmsw,          /* &extensions[14][6], */ /**< lmsw opcode */
 /* 277 */     OP_invlpg,        /* &mod_extensions[2][0], */ /**< invlpg opcode */
 /* 278 */     OP_cmpxchg8b,     /* &extensions[16][1], */ /**< cmpxchg8b opcode */
-/* 279 */     OP_fxsave,        /* &extensions[22][0], */ /**< fxsave opcode */
-/* 280 */     OP_fxrstor,       /* &extensions[22][1], */ /**< fxrstor opcode */
+/* 279 */     OP_fxsave32,      /* &rex_w_extensions[0][0], */ /**< fxsave opcode */
+/* 280 */     OP_fxrstor32,     /* &rex_w_extensions[1][0], */ /**< fxrstor opcode */
 /* 281 */     OP_ldmxcsr,       /* &vex_extensions[61][0], */ /**< ldmxcsr opcode */
 /* 282 */     OP_stmxcsr,       /* &vex_extensions[62][0], */ /**< stmxcsr opcode */
 /* 283 */     OP_lfence,        /* &mod_extensions[6][1], */ /**< lfence opcode */
@@ -4313,7 +4322,7 @@ enum op_code_type {
 /* 378 */     OP_cvtdq2pd,    /* &prefix_extensions[77][1], */ /**< cvtdq2pd opcode */
 /* 379 */     OP_cvttpd2dq,   /* &prefix_extensions[77][2], */ /**< cvttpd2dq opcode */
 /* 380 */     OP_cvtpd2dq,    /* &prefix_extensions[77][3], */ /**< cvtpd2dq opcode */
-/* 381 */     OP_nop,         /* &rex_extensions[0][0], */ /**< nop opcode */
+/* 381 */     OP_nop,         /* &rex_b_extensions[0][0], */ /**< nop opcode */
 /* 382 */     OP_pause,       /* &prefix_extensions[103][1], */ /**< pause opcode */
 
 /* 383 */     OP_ins,          /* &rep_extensions[1][0], */ /**< ins opcode */
@@ -4596,9 +4605,9 @@ enum op_code_type {
     /* added in Intel Sandy Bridge */
 /* 631 */     OP_xgetbv,         /* &rm_extensions[4][0], */ /**< xgetbv opcode */
 /* 632 */     OP_xsetbv,         /* &rm_extensions[4][1], */ /**< xsetbv opcode */
-/* 633 */     OP_xsave,          /* &extensions[22][4], */ /**< xsave opcode */
-/* 634 */     OP_xrstor,         /* &mod_extensions[6][0], */ /**< xrstor opcode */
-/* 635 */     OP_xsaveopt,       /* &mod_extensions[7][0], */ /**< xsaveopt opcode */
+/* 633 */     OP_xsave32,        /* &rex_w_extensions[2][0], */ /**< xsave opcode */
+/* 634 */     OP_xrstor32,       /* &rex_w_extensions[3][0], */ /**< xrstor opcode */
+/* 635 */     OP_xsaveopt32,     /* &rex_w_extensions[4][0], */ /**< xsaveopt opcode */
 
     /* AVX */
 /* 636 */     OP_vmovss,         /* &mod_extensions[ 8][0], */ /**< vmovss opcode */
@@ -4782,9 +4791,9 @@ enum op_code_type {
 /* 814 */     OP_vpabsw,         /* &prefix_extensions[131][6], */ /**< vpabsw opcode */
 /* 815 */     OP_vpabsd,         /* &prefix_extensions[132][6], */ /**< vpabsd opcode */
 /* 816 */     OP_vpalignr,       /* &prefix_extensions[133][6], */ /**< vpalignr opcode */
-/* 817 */     OP_vpblendvb,      /* &vex_extensions[ 0][1], */ /**< vpblendvb opcode */
-/* 818 */     OP_vblendvps,      /* &vex_extensions[ 1][1], */ /**< vblendvps opcode */
-/* 819 */     OP_vblendvpd,      /* &vex_extensions[ 2][1], */ /**< vblendvpd opcode */
+/* 817 */     OP_vpblendvb,      /* &vex_extensions[ 2][1], */ /**< vpblendvb opcode */
+/* 818 */     OP_vblendvps,      /* &vex_extensions[ 0][1], */ /**< vblendvps opcode */
+/* 819 */     OP_vblendvpd,      /* &vex_extensions[ 1][1], */ /**< vblendvpd opcode */
 /* 820 */     OP_vptest,         /* &vex_extensions[ 3][1], */ /**< vptest opcode */
 /* 821 */     OP_vpmovsxbw,      /* &vex_extensions[ 4][1], */ /**< vpmovsxbw opcode */
 /* 822 */     OP_vpmovsxbd,      /* &vex_extensions[ 5][1], */ /**< vpmovsxbd opcode */
@@ -4847,15 +4856,15 @@ enum op_code_type {
 /* 879 */     OP_vldmxcsr,       /* &vex_extensions[61][1], */ /**< vldmxcsr opcode */
 /* 880 */     OP_vstmxcsr,       /* &vex_extensions[62][1], */ /**< vstmxcsr opcode */
 /* 881 */     OP_vbroadcastss,   /* &vex_extensions[64][1], */ /**< vbroadcastss opcode */
-/* 882 */     OP_vbroadcastsd,   /* &vex_extensions[65][1], */ /**< vbroadcastsd opcode */
-/* 883 */     OP_vbroadcastf128, /* &vex_extensions[66][1], */ /**< vbroadcastf128 opcode */
+/* 882 */     OP_vbroadcastsd,   /* &vex_L_extensions[1][2], */ /**< vbroadcastsd opcode */
+/* 883 */     OP_vbroadcastf128, /* &vex_L_extensions[2][2], */ /**< vbroadcastf128 opcode */
 /* 884 */     OP_vmaskmovps,     /* &vex_extensions[67][1], */ /**< vmaskmovps opcode */
 /* 885 */     OP_vmaskmovpd,     /* &vex_extensions[68][1], */ /**< vmaskmovpd opcode */
 /* 886 */     OP_vpermilps,      /* &vex_extensions[71][1], */ /**< vpermilps opcode */
 /* 887 */     OP_vpermilpd,      /* &vex_extensions[72][1], */ /**< vpermilpd opcode */
 /* 888 */     OP_vperm2f128,     /* &vex_extensions[73][1], */ /**< vperm2f128 opcode */
 /* 889 */     OP_vinsertf128,    /* &vex_extensions[74][1], */ /**< vinsertf128 opcode */
-/* 890 */     OP_vextractf128,   /* &vex_extensions[75][1], */ /**< vextractf128 opcode */
+/* 890 */     OP_vextractf128,   /* &vex_L_extensions[3][2], */ /**< vextractf128 opcode */
 /* 891 */     OP_vcvtph2ps,      /* &vex_extensions[63][1], */ /**< vcvtph2ps opcode */
 /* 892 */     OP_vcvtps2ph,      /* &vex_extensions[76][1], */ /**< vcvtps2ph opcode */
 
@@ -4924,10 +4933,16 @@ enum op_code_type {
 /* 953 */     OP_movq2dq,        /* &prefix_extensions[61][1], */ /**< movq2dq opcode */
 /* 954 */     OP_movdq2q,        /* &prefix_extensions[61][3], */ /**< movdq2q opcode */
 
+/* 955 */     OP_fxsave64,       /* &rex_w_extensions[0][1], */ /**< fxsave64 opcode */
+/* 956 */     OP_fxrstor64,      /* &rex_w_extensions[1][1], */ /**< fxrstor64 opcode */
+/* 957 */     OP_xsave64,        /* &rex_w_extensions[2][1], */ /**< xsave64 opcode */
+/* 958 */     OP_xrstor64,       /* &rex_w_extensions[3][1], */ /**< xrstor64 opcode */
+/* 959 */     OP_xsaveopt64,     /* &rex_w_extensions[4][1], */ /**< xsaveopt64 opcode */
+
     /* Keep these at the end so that ifdefs don't change internal enum values */
 #ifdef IA32_ON_IA64
-/* 955 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
-/* 956 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
+/* 960 */     OP_jmpe,       /* &extensions[13][6], */ /**< jmpe opcode */
+/* 961 */     OP_jmpe_abs,   /* &second_byte[0xb8], */ /**< jmpe_abs opcode */
 #endif
 
     OP_AFTER_LAST,
@@ -4990,6 +5005,13 @@ enum op_code_type {
 #define OP_cmovne  OP_cmovnz  /**< Alternative opcode name. */
 #define OP_cmovge  OP_cmovnl  /**< Alternative opcode name. */
 #define OP_cmovg   OP_cmovnle /**< Alternative opcode name. */
+#ifndef X64
+# define OP_fxsave   OP_fxsave32   /**< Alternative opcode name. */
+# define OP_fxrstor  OP_fxrstor32  /**< Alternative opcode name. */
+# define OP_xsave    OP_xsave32    /**< Alternative opcode name. */
+# define OP_xrstor   OP_xrstor32   /**< Alternative opcode name. */
+# define OP_xsaveopt OP_xsaveopt32 /**< Alternative opcode name. */
+#endif
 /* undocumented opcodes */
 #define OP_icebp OP_int1
 #define OP_setalc OP_salc
