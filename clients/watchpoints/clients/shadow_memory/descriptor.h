@@ -101,12 +101,12 @@ namespace client { namespace wp {
                     uint16_t type_id;
 
                     /// Low 48 bits of this object's base address.
-                    uintptr_t base_address:48;
+                    uintptr_t base_address;
                 };
 
                 struct {
                     /// The combined index of this descriptor.
-                    uint32_t index;
+                    uint64_t index;
 
                     /// Pointer to the next free descriptor.
                     shadow_policy_descriptor *next_free;

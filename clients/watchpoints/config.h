@@ -18,7 +18,7 @@
 /// Instrument less host code. This will instrument only basic blocks within
 /// a faulting host function, as well as basic blocks reached through indirect
 /// control-flow instructions.
-#define WP_TRANSITIVE_INSTRUMENT_HOST 1
+#define WP_TRANSITIVE_INSTRUMENT_HOST 0
 
 
 /// Enable if %RBP should be treated as a frame pointer and not as a potential
@@ -33,7 +33,7 @@
 /// kernel-mode instrumentation and can be a useful debugging aid when trying
 /// to see if an instrumentation error might be caused by the presence of a
 /// user space address.
-#define WP_CHECK_FOR_USER_ADDRESS 0
+#define WP_CHECK_FOR_USER_ADDRESS 1
 
 
 /// Size (in bits) of the counter index. This should either be 16.
@@ -50,7 +50,7 @@
 /// Size (in bits) of the inherited index. This should be a small, non-negative
 /// number that complement the counter index with (minus 1), so as to get the
 /// desired space of objects.
-#define WP_INHERITED_INDEX_WIDTH 5
+#define WP_INHERITED_INDEX_WIDTH 8
 
 
 /// The granularity of the inherited index. This depends on the expected size of
@@ -66,7 +66,7 @@
 /// Note: One approach that deals with the above issues is duplicating a
 ///       descriptor entry across adjacent zones. This is possible because
 ///       inherited indexes make the descriptor table (if used) more sparse.
-#define WP_INHERITED_INDEX_GRANULARITY 14
+#define WP_INHERITED_INDEX_GRANULARITY 20
 
 
 /// Backup for if the inherited index width is set to 0 but the inherited indexes

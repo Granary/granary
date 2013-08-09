@@ -274,6 +274,7 @@ ifeq ($(GR_CLIENT),shadow_memory)
     GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/descriptor.o
     GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/thread.o
     GR_OBJS += bin/clients/watchpoints/clients/shadow_memory/shadow_report.o
+    GR_OBJS += bin/clients/watchpoints/utils.o
     
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o

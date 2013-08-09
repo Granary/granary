@@ -131,6 +131,11 @@ namespace client { namespace wp {
         return true;
     }
 
+    inline unsigned long normalize_addr(unsigned long u)
+    {
+        return (signed long)(u << 16) >> 16;
+    }
+
 
     /// Initialise a watchpoint descriptor.
     void shadow_policy_descriptor::init(
@@ -138,12 +143,17 @@ namespace client { namespace wp {
         void *base_address,
         size_t size
     ) throw() {
-        desc->base_address = reinterpret_cast<uintptr_t>(base_address);
-        desc->size = size;
-        desc->read_shadow = unsafe_cast<app_pc>(__kmalloc(size/8, 0x20));
-        memset(desc->read_shadow, 0x0, size/8);
+        unsigned long shadow;
+        desc->base_address = reinterpret_cast<uintptr_t>(
+                normalize_addr(unsafe_cast<unsigned long>(base_address)));
 
-        desc->write_shadow = unsafe_cast<app_pc>(__kmalloc(size/8, 0x20));
+        desc->size = size;
+        shadow = unsafe_cast<unsigned long>(types::__kmalloc(size/4, 0x20));
+        memset(unsafe_cast<void*>(shadow), 0x0, size/4);
+
+        desc->read_shadow = unsafe_cast<app_pc>(shadow);
+
+        desc->write_shadow = unsafe_cast<app_pc>(shadow+size/8);
         memset(desc->write_shadow, 0x0, size/8);
     }
 

@@ -63,7 +63,7 @@
 #endif
 
 /// selective shadow watchpoint policy.
-#ifdef CLIENT_WATCHPOINT_SHADOW
+#ifdef CLIENT_SHADOW_MEMORY
 #   include "clients/watchpoints/clients/shadow_memory/instrument.h"
 #endif
 
