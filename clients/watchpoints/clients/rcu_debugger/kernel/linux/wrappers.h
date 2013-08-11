@@ -18,8 +18,6 @@
             if(!is_valid_address(arg)) {
                 return;
             }
-            //client::report();
-            //SCAN_HEAD_FUNC(decltype(arg))(arg);
 #if 0
             client::wp::add_to_scanlist(
                 unsafe_cast<app_pc>(arg),

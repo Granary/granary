@@ -38,6 +38,9 @@ namespace client { namespace wp {
             /// rcu policy applies to only rcu protected object;
             bool is_rcu_object:1;
 
+            //gets set inside rcu dereference
+            bool is_rcu_dereference:1;
+
         } __attribute__((packed));
 
 
@@ -104,6 +107,9 @@ namespace client { namespace wp {
                     /// Pointer to the next free descriptor.
                     rcu_policy_descriptor *next_free;
                 };
+
+                rcu_policy_descriptor *list_next;
+
             };
 
         }__attribute__((packed));

@@ -33,6 +33,7 @@ namespace client {
         struct rcu_policy_descriptor;
         struct rcu_policy_thread_state {
             thread_private_state local_state;
+            rcu_policy_descriptor *desc_list;
         };
     }
 

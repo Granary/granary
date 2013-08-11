@@ -137,6 +137,8 @@ namespace client { namespace wp {
         desc->base_address = unwatched_address(unsafe_cast<uintptr_t>(base_address));
 
         desc->size = size;
+
+        desc->list_next = nullptr;
     }
 
 

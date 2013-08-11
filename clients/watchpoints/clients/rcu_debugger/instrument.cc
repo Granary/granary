@@ -54,12 +54,30 @@ namespace client {
             uintptr_t watched_addr,
             app_pc addr_in_bb
         ) throw() {
+            bool flag = false;
+
             thread_state_handle thread = safe_cpu_access_zone();
             rcu_policy_thread_state *thread_state(thread->state);
+
             rcu_policy_descriptor *desc = client::wp::descriptor_of(watched_addr);
+            rcu_policy_descriptor *next_desc;
+
             if(thread_state && thread_state->local_state.is_read_critical_section) {
                 //printf("Accessing watched object : %llx, %llx\n", watched_addr, desc);
-                if(desc->state.is_rcu_object){
+                next_desc = thread_state->desc_list;
+     //           if(next_desc == desc){
+       //             flag = true;
+         //       }
+#if 1
+                while(next_desc != nullptr){
+                    if(next_desc == desc){
+                        flag = true;
+                        break;
+                    }
+                    next_desc = next_desc->list_next;
+                }
+#endif
+                if(desc->state.is_rcu_object && flag){
                     printf("Accessing rcu protected object : %llx\n", watched_addr);
                 }
             }

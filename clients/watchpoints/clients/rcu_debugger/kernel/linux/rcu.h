@@ -18,6 +18,8 @@ namespace client {
         extern void rcu_read_lock_callback(enum read_critical_type type);
 
         extern void rcu_read_unlock_callback(enum read_critical_type type);
+
+        extern void rcu_dereference_callback(void *addr);
     }
 }
 
@@ -41,6 +43,23 @@ namespace client {
 #   define APP_WRAPPER_FOR_rcu_watch_dereference
     FUNCTION_WRAPPER(APP, rcu_watch_dereference, (void*), (void *addr, const char* s_ptr), {
         //granary::printf("rcu_watch_dereference\n");
+        client::wp::rcu_policy_descriptor *desc;
+        client::wp::rcu_policy_descriptor *new_desc;
+        void* deref_addr;
+        if(is_watched_address(addr)){
+            rcu_dereference_callback(addr);
+#if 0
+            deref_addr = unwatched_address(addr);
+            desc = descriptor_of(addr);
+            add_watchpoint(deref_addr, deref_addr, desc->size);
+            new_desc = descriptor_of(deref_addr);
+            if(new_desc && desc) {
+                memcpy(new_desc, desc, sizeof(client::wp::rcu_policy_descriptor));
+                new_desc->state.is_rcu_dereference = 1;
+                return rcu_watch_dereference((void*)deref_addr, s_ptr);
+            }
+#endif
+        }
         return rcu_watch_dereference(addr, s_ptr);
     })
 #endif
