@@ -67,6 +67,11 @@
 #   include "clients/watchpoints/clients/shadow_memory/instrument.h"
 #endif
 
+/// selective rcu watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_RCU
+#   include "clients/watchpoints/clients/rcu_debugger/instrument.h"
+#endif
+
 
 
 /// Default to NULL policy if no policy was chosen.

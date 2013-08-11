@@ -24,4 +24,9 @@
 #   include "clients/watchpoints/clients/shadow_memory/state.h"
 #endif
 
+
+#ifdef CLIENT_WATCHPOINT_RCU
+#   include "clients/watchpoints/clients/rcu_debugger/state.h"
+#endif
+
 #endif /* WATCHPOINTS_STATE_H_ */

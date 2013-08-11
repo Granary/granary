@@ -1,19 +1,19 @@
 /*
  * descriptor.h
  *
- *  Created on: 2013-08-05
+ *  Created on: 2013-08-09
  *      Author: akshayk
  */
 
-#ifndef _SHADOW_POLICY_DESCRIPTORS_H_
-#define _SHADOW_POLICY_DESCRIPTORS_H_
+#ifndef _RCU_DESCRIPTOR_H_
+#define _RCU_DESCRIPTOR_H_
 
 #include "clients/watchpoints/instrument.h"
 
 namespace client { namespace wp {
 
-    /// State for a tracked object.
-    union shadow_policy_state {
+    /// State for a rcu allocated object.
+    union rcu_policy_state {
         struct {
             /// True if the watched object was accessed in the last epoch
             bool accessed_in_last_epoch;
@@ -24,19 +24,19 @@ namespace client { namespace wp {
             /// Has app or host code freed this object? If so, then who freed
             /// this object?
             bool was_freed:1;
-            bool was_freed_by_app:1;
-
-            /// In which direction have we observed this object crossing the
-            /// app/host boundary.
-            bool crossed_host_boundary:1;
-            bool crossed_app_boundary:1;
 
             /// Was this object allocated by app (instrumented) code? If so then
             /// this descriptor is likely in our descriptor table and associated
             /// with a watchpoint, as opposed to being "dangling".
             bool was_allocated_by_app:1;
 
+            /// If the object currently is active;
             bool is_active:1;
+
+            /// true if the object is rcu protected object
+            /// decided at rcu_watch_assign_pointers;
+            /// rcu policy applies to only rcu protected object;
+            bool is_rcu_object:1;
 
         } __attribute__((packed));
 
@@ -51,7 +51,7 @@ namespace client { namespace wp {
         ///     `state.set({{was_freed = true}});`
         ///
         /// To set the `was_freed` value.
-        void set_state(shadow_policy_state bits_to_set) throw();
+        void set_state(rcu_policy_state bits_to_set) throw();
 
 
         /// Set one or more of the state values for this object. To use this, do
@@ -60,32 +60,25 @@ namespace client { namespace wp {
         ///     `state.unset({{was_freed = true}});`
         ///
         /// To unset the `was_freed` value.
-        void unset_state(shadow_policy_state bits_to_unset) throw();
+        void unset_state(rcu_policy_state bits_to_unset) throw();
 
     } __attribute__((packed));
 
 
-    /// Specifies the shadow policy descriptor for the watched object.
-    struct shadow_policy_descriptor {
+    /// Specifies the rcu policy descriptor for the watched object.
+    struct rcu_policy_descriptor {
 
         enum : uint64_t {
             BASE_ADDRESS_MASK = (~0ULL << 48)
         };
 
         struct {
-            struct {
-                // selective shadow memory for read operation
-                granary::app_pc read_shadow;
-
-                // shadow memory for the write operation
-                granary::app_pc write_shadow;
-            }__attribute__((packed));
 
             union {
                 struct {
 
                     /// State of the object.
-                    shadow_policy_state state;
+                    rcu_policy_state state;
 
                     /// Size in bytes of the allocated object. The limit address of
                     /// the object of `base_address + size`.
@@ -109,7 +102,7 @@ namespace client { namespace wp {
                     uint64_t index;
 
                     /// Pointer to the next free descriptor.
-                    shadow_policy_descriptor *next_free;
+                    rcu_policy_descriptor *next_free;
                 };
             };
 
@@ -117,47 +110,46 @@ namespace client { namespace wp {
 
         /// Allocate a watchpoint descriptor.
         static bool allocate(
-                shadow_policy_descriptor *&,
+                rcu_policy_descriptor *&,
                 uintptr_t &,
                 const uintptr_t
         ) throw();
 
 
         /// Free a watchpoint descriptor.
-        static void free(shadow_policy_descriptor *, uintptr_t) throw();
+        static void free(rcu_policy_descriptor *, uintptr_t) throw();
 
 
         /// Initialise a watchpoint descriptor.
         static void init(
-                shadow_policy_descriptor *,
+                rcu_policy_descriptor *,
                 void *base_address,
                 size_t size
         ) throw();
 
 
-        /// Notify the shadow policy that the descriptor can be assigned
+        /// Notify the rcu policy that the descriptor can be assigned
         /// to the index.
         static void assign(
-                shadow_policy_descriptor *desc,
+                rcu_policy_descriptor *desc,
                 uintptr_t index
         ) throw();
 
 
         /// Get the assigned descriptor for a given index.
-        static shadow_policy_descriptor *access(uintptr_t index) throw();
+        static rcu_policy_descriptor *access(uintptr_t index) throw();
 
     } __attribute__((packed));
 
     /// Specify the descriptor type to the generic watchpoint framework.
     template <typename>
     struct descriptor_type {
-        typedef shadow_policy_descriptor type;
+        typedef rcu_policy_descriptor type;
     };
 
-#define READ_SHADOW_OFFSET offsetof(shadow_policy_descriptor, read_shadow)
-#define WRITE_SHADOW_OFFSET offsetof(shadow_policy_descriptor, write_shadow)
-
 }}
+
+
 
 
 #endif /* DESCRIPTOR_H_ */

@@ -14,7 +14,8 @@
  || defined(CLIENT_WATCHPOINT_LEAK) \
  || defined(CLIENT_WATCHPOINT_WATCHED) \
  || defined(CLIENT_WATCHPOINT_STATS) \
- || defined(CLIENT_SHADOW_MEMORY)
+ || defined(CLIENT_SHADOW_MEMORY) \
+ || defined(CLIENT_WATCHPOINT_RCU)
 #   include "clients/watchpoints/kernel/linux/wrappers.h"
 #endif
 

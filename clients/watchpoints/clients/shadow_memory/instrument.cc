@@ -75,7 +75,7 @@ namespace client {
             unsigned i
         ) throw() {
             using namespace granary;
-            const unsigned reg_index(register_to_index(unsafe_cast<dynamorio::reg_id_t>(tracker.regs[i].value.reg)));
+            const unsigned reg_index(register_to_index(tracker.regs[i].value.reg));
             instruction call(insert_cti_after(ls, tracker.labels[i],
                 unsafe_cast<app_pc>(DESCRIPTOR_READ_ACCESSORS[reg_index]),
                 CTI_DONT_STEAL_REGISTER, operand(),
@@ -91,7 +91,7 @@ namespace client {
             unsigned i
         ) throw() {
             using namespace granary;
-            const unsigned reg_index(register_to_index(unsafe_cast<dynamorio::reg_id_t>(tracker.regs[i].value.reg)));
+            const unsigned reg_index(register_to_index(tracker.regs[i].value.reg));
             instruction call(insert_cti_after(ls, tracker.labels[i],
                 unsafe_cast<app_pc>(DESCRIPTOR_WRITE_ACCESSORS[reg_index]),
                 CTI_DONT_STEAL_REGISTER, operand(),

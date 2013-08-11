@@ -283,6 +283,22 @@ ifeq ($(GR_CLIENT),shadow_memory)
 		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
 	endif
 endif
+ifeq ($(GR_CLIENT),rcu_debugger)
+    GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_RCU
+    GR_OBJS += bin/clients/watchpoints/instrument.o
+	GR_OBJS += bin/clients/watchpoints/clients/rcu_debugger/rcu_policy.o
+	GR_OBJS += bin/clients/watchpoints/clients/rcu_debugger/instrument.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcu_debugger/descriptor.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcu_debugger/thread.o
+    GR_OBJS += bin/clients/watchpoints/utils.o
+    
+    ifeq ($(KERNEL),1)
+		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += bin/clients/watchpoints/kernel/linux/detach.o
+	else
+		GR_OBJS += bin/clients/watchpoints/user/posix/signal.o
+	endif
+endif
 
 # Client-generated C++ files.
 GR_CLIENT_GEN_OBJS = $(patsubst clients/%.cc,bin/clients/%.o,$(wildcard clients/gen/*.cc))
@@ -591,6 +607,7 @@ install:
 	@-mkdir bin/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/stats/ > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/shadow_memory > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/rcu_debugger > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:
