@@ -469,6 +469,29 @@ namespace granary {
     }
 
 
+    /// Remove a tail of the list, starting at an instruction.
+    void instruction_list::remove_tail_at(instruction at_item_) throw() {
+        dynamorio::instr_t *instr(at_item_.instr);
+        if(!instr) {
+            return;
+        }
+
+        ASSERT(is_valid_address(instr));
+        ASSERT(0 < length_);
+
+        last_ = instr->prev;
+        if(last_) {
+            last_->next = nullptr;
+            for(; instr; instr = instr->next) {
+                --length_;
+            }
+        } else {
+            ASSERT(first_ == instr);
+            length_ = 0;
+        }
+    }
+
+
     /// Chain an element into the list.
     instruction instruction_list::chain(
         dynamorio::instr_t *before_item,

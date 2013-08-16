@@ -12,7 +12,7 @@
 #if defined(CLIENT_WATCHPOINT_BOUND) \
  || defined(CLIENT_WATCHPOINT_LEAK) \
  || defined(CLIENT_SHADOW_MEMORY) \
- || defined(CLIENT_WATCHPOINT_RCU)
+ || defined(CLIENT_RCUDBG)
 #   include "clients/watchpoints/state.h"
 #endif
 

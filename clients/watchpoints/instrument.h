@@ -735,6 +735,37 @@ namespace client {
 
     };
 
+
+    /// Never implemented; meant as a convenience and formal specification of
+    /// the watchpoints API. This is here to make it easier for client code to
+    /// declare that they follow the API in a header.
+    struct watchpoint_api {
+
+        static void visit_read(
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls,
+            wp::watchpoint_tracker &tracker,
+            unsigned i
+        ) throw();
+
+
+        static void visit_write(
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls,
+            wp::watchpoint_tracker &tracker,
+            unsigned i
+        ) throw();
+
+
+        static granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle cpu,
+            granary::thread_state_handle thread,
+            granary::basic_block_state &bb,
+            granary::interrupt_stack_frame &isf,
+            granary::interrupt_vector vector
+        ) throw();
+    };
+
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 }

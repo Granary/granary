@@ -694,18 +694,22 @@ namespace granary {
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
-            ls.append(jmp_(pc_(*pc)));
+            instruction fall_through_cti(ls.append(jmp_(pc_(*pc))));
+            fall_through_cti.set_pc(*pc);
 
         /// Add in a trailing (emulated) jmp or ret if we are detaching.
         } else if(fall_through_detach) {
             if(detach_tail_call) {
                 ls.append(mangled(ret_()));
             } else {
-                insert_cti_after(
+                instruction fall_through_cti(insert_cti_after(
                     ls, ls.last(), *pc,
                     CTI_DONT_STEAL_REGISTER, operand(),
                     CTI_JMP
-                ).set_mangled();
+                ));
+
+                fall_through_cti.set_mangled();
+                fall_through_cti.set_pc(*pc);
             }
         }
 

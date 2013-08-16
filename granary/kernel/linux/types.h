@@ -251,6 +251,10 @@ void __init_work(struct work_struct *work, int onstack);
 
 #include <uapi/linux/posix_types.h>
 #include <linux/rcupdate.h>
+#include <linux/rcutree.h>
+
+/* Granary-specific linux kernel file! */
+#include <linux/granary.h>
 
 /* Manually defined to exist */
 struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);

@@ -689,6 +689,9 @@ namespace granary {
         /// Remove an element from an instruction list.
         void remove(instruction to_remove) throw();
 
+        /// Remove a tail of the list, starting at an instruction.
+        void remove_tail_at(instruction at_item_) throw();
+
         /// Insert an element after another object in the list
         instruction insert_after(instruction before_item_, instruction item_) throw();
 

@@ -1,19 +1,18 @@
 /*
  * rcu.h
  *
- *  Created on: 2013-08-10
- *      Author: akshayk
+ *  Created on: 2013-08-13
+ *      Author: pgoodman
  */
 
 #ifndef _RCU_API_H_
 #define _RCU_API_H_
 
 #include "clients/watchpoints/instrument.h"
-#include "clients/watchpoints/clients/rcu_debugger/descriptor.h"
-#include "clients/watchpoints/clients/rcu_debugger/state.h"
 
 
 namespace client {
+
     namespace wp {
         extern void rcu_read_lock_callback(enum read_critical_type type);
 

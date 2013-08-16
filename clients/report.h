@@ -25,6 +25,11 @@
 #endif
 
 
+#ifdef CLIENT_RCUDBG
+#   define CLIENT_report
+#endif
+
+
 #ifdef CLIENT_report
 namespace client {
     void report(void) throw();

@@ -30,6 +30,9 @@
 #endif
 
 
+#ifdef CLIENT_RCUDBG
+#   define CLIENT_init
+#endif
 
 #ifdef CLIENT_init
 namespace client {

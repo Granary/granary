@@ -62,16 +62,17 @@
 #   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
-/// selective shadow watchpoint policy.
+
+/// Shadow memory watchpoints policy.
 #ifdef CLIENT_SHADOW_MEMORY
 #   include "clients/watchpoints/clients/shadow_memory/instrument.h"
 #endif
 
-/// selective rcu watchpoint policy.
-#ifdef CLIENT_WATCHPOINT_RCU
+
+/// RCU debugging policy.
+#ifdef CLIENT_RCU_DEBUGGER
 #   include "clients/watchpoints/clients/rcu_debugger/instrument.h"
 #endif
-
 
 
 /// Default to NULL policy if no policy was chosen.
