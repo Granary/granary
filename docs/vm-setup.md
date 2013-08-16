@@ -22,7 +22,7 @@ This will launch the VM and allow you to run through the OS's
 installing process.
 
 ```basemake
-$(which qemu-system-x86_64) -m 2048 -hda vm.img -cdrom <path-to-your-iso> -boot d
+$(which qemu-system-x86_64) -cpu host -enable-kvm -m 2048 -hda vm.img -cdrom <path-to-your-iso> -boot d
 ```
 
 ## Step 3: Create a convenient VM-launcher script
