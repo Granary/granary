@@ -41,8 +41,8 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/shadow_memory/kernel/linux/wrappers.h"
 #endif
 
-#ifdef CLIENT_WATCHPOINT_RCU
-#   include "clients/watchpoints/clients/rcu_debugger/kernel/linux/wrappers.h"
+#ifdef CLIENT_RCUDBG
+#   include "clients/watchpoints/clients/rcudbg/kernel/linux/wrappers.h"
 #endif
 
 

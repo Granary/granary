@@ -289,6 +289,8 @@ ifeq ($(GR_CLIENT),rcudbg)
     GR_OBJS += bin/clients/watchpoints/utils.o
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/instrument.o
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/events.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/log.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/location.o
     
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o
@@ -408,7 +410,7 @@ else
 		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
 	endif
 	
-	# common flags to disable certain user space features for the kernel
+	# Common flags to disable certain user space features for the kernel
 	GR_COMMON_KERNEL_FLAGS += -mno-red-zone -mno-3dnow -fno-stack-protector
 	GR_COMMON_KERNEL_FLAGS += -mno-sse -mno-sse2 -mno-mmx -m64 -march=native
 	GR_COMMON_KERNEL_FLAGS += -fno-asynchronous-unwind-tables -fno-common
@@ -419,11 +421,12 @@ else
 	GR_DETACH_FILE = granary/gen/kernel_detach.inc
 	GR_OUTPUT_SCANNERS = clients/gen/kernel_type_scanners.h
 	
-	# kernel-specific test cases
+	# Kernel-specific test cases.
 	GR_OBJS += bin/tests/test_interrupt_delay.o
 	
-	# kernel-specific versions of granary functions
+	# Kernel-specific versions of granary functions.
 	GR_OBJS += bin/granary/kernel/linux/module.o
+	GR_OBJS += bin/granary/kernel/linux/state.o
 	GR_OBJS += bin/granary/kernel/hotpatch.o
 	GR_OBJS += bin/granary/kernel/state.o
 	GR_OBJS += bin/granary/kernel/interrupt.o
@@ -438,7 +441,7 @@ else
 	cflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
 	asflags-y = $(GR_DEBUG_LEVEL) -Wl,-flat_namespace
 	
-	# Module objects
+	# Module objects.
 	obj-m += $(GR_NAME).o
 	$(GR_NAME)-objs = $(GR_OBJS) $(GR_MOD_OBJS) module.o
 	
@@ -579,8 +582,9 @@ detach: types
 	@$(call GR_GET_LD_LIBRARIES)
 
 
-# make the folders where binaries / generated assemblies are stored
-install:
+# Make the folders where binaries / generated assemblies are stored. If new
+# folders are added, then this step likely needs to be repeated.
+env:
 	@echo "  [1] Creating directories for binary/assembly files."
 	@-mkdir bin > /dev/null 2>&1 ||:
 	@-mkdir bin/granary > /dev/null 2>&1 ||:
@@ -605,7 +609,7 @@ install:
 	@-mkdir bin/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/stats/ > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/shadow_memory > /dev/null 2>&1 ||:
-	@-mkdir bin/clients/watchpoints/clients/rcu_debugger > /dev/null 2>&1 ||:
+	@-mkdir bin/clients/watchpoints/clients/rcudbg > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
 	@-mkdir bin/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:

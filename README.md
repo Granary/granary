@@ -12,13 +12,36 @@ Getting Started
  * You will need Python 2.7 or above, but not Python 3.
  * You will need `make`/`gmake`.
 
+Common Makefile Options
+-----------------------
+ * `KERNEL` specifies if Granary is being built for kernel instrumentation (`1`)
+   or user space instrumentation (`0`). The default value is `0`.
+ * `KERNEL_DIR` specifies the location of one's kernel build directory. This is
+   only relevant if `KERNEL=1`. The default value is `/lib/modules/$(shell uname -r)/build`.
+ * `GR_CC` specifies the C compiler to be used. The default is `gcc-4.8`.
+ * `GR_CXX` specifies the C++ compiler to be used. The default is `g++-4.8`.
+ * `GR_PYTHON` specifies the version of Python to use. Granary depends on Python 2.7;
+   however, some setups default to other versions. If Python 2.7 is not your default
+   version, and if it is installed, then you can select the specific binary with this
+   flag.
+ * `GR_CLIENT` specifies the client/tool to be used. The default is `null`. Other
+   clients include `cfg`, `null_plus`, `track_entry_exit`, `bounds_checker`,
+   `everything_watched`, `leak_detector`, `watchpoint_null`, `rcudbg`,
+   `shadow_memory`, and `watchpoint_stats`. This might not be a complete list.
+ * `GR_EXTRA_CC_FLAGS` and `GR_EXTRA_CXX_FLAGS` allow one to specify extra flags to
+   the C and C++ compilers, respectively.
+ * `GR_DLL` allows one to tell the Makefile to generate a dynamically linked library
+   (for use when `KERNEL=0`). The default value is `0`. If `GR_DLL=1` and `KERNEL=0`
+   then the Makefile will generate `libgranary.so` on Linux and `libgranary.dyld` on
+   Mac.
+
 Installing
 ----------
 This is a necessary first step. This step creates a number of folders, generates
 files, etc.
 
 ```basemake
-make install GR_CC=gcc
+make env
 ```
 
 Compiling for user space
@@ -27,7 +50,7 @@ Compiling for user space
 ```basemake
 make detach KERNEL=0
 make wrappers KERNEL=0
-make clean KERNEL=0 ; make all KERNEL=0 GR_CC=gcc GR_CXX=g++
+make clean KERNEL=0 ; make all KERNEL=0
 ```
 
 ### Compiling with clang

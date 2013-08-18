@@ -20,6 +20,13 @@ namespace client {
 #   define CLIENT_thread_state
     struct thread_state {
 
+        /// Read-side critical section id for the outermost critical section.
+        /// This implies that rcudbg implicitly flattens RCU critical sections.
+        uint16_t read_section_id;
+
+        /// Source code location of the most recently executed RCU read lock.
+        const char *read_lock_carat_backtrace[3];
+        const char *active_carat;
     };
 
 }

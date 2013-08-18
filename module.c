@@ -78,10 +78,12 @@ void **kernel_get_cpu_state(void *ptr[]) {
 }
 
 
-/// Get access to the per-thread Granary state.
+/// Get access to the per-task Granary state. The Granary state field might
+/// be as small as a pointer, or might be a larger structure, depending on how
+/// the kernel's task struct has been changed.
 __attribute__((hot))
-void **kernel_get_thread_state(void) {
-    return &((current)->granary);
+void *kernel_get_thread_state(void) {
+    return (void *) &((current)->granary);
 }
 
 

@@ -469,6 +469,76 @@ namespace client {
         }
 
 
+        /// Chooses whether or not to allocate and initialise a descriptor, or
+        /// to allocate then init.
+        template <typename T>
+        struct allocate_and_init_descriptor {
+            enum {
+                VALUE = false
+            };
+        };
+
+
+        /// Alllocate and initialise a watched address.
+        template <typename desc_type, bool>
+        struct allocate_and_init_watched_address {
+            template <typename... InitArgs>
+            static add_watchpoint_status apply(
+                desc_type *&desc,
+                uintptr_t &counter_index,
+                uintptr_t inherited_index,
+                InitArgs... init_args
+            ) throw() {
+                // Allocate descriptor.
+                if(!desc_type::allocate_and_init(desc,
+                                                 counter_index,
+                                                 inherited_index,
+                                                 init_args...)) {
+                    return ADDRESS_NOT_WATCHED;
+                }
+
+                if(desc) {
+                    const uintptr_t index(
+                        combined_index(counter_index, inherited_index));
+                    desc_type::assign(desc, index);
+                }
+
+                ASSERT(counter_index <= MAX_COUNTER_INDEX);
+            }
+        };
+
+        template <typename DescType>
+        struct allocate_and_init_watched_address<DescType, false> {
+
+            template <typename... InitArgs>
+            static add_watchpoint_status apply(
+                DescType *&desc,
+                uintptr_t &counter_index,
+                uintptr_t inherited_index,
+                InitArgs... init_args
+            ) throw() {
+
+                // Allocate descriptor.
+                if(!DescType::allocate(desc, counter_index, inherited_index)) {
+                    return ADDRESS_NOT_WATCHED;
+                }
+
+                ASSERT(counter_index <= MAX_COUNTER_INDEX);
+
+                // Construct the descriptor and add it to the table.
+                if(desc) {
+                    const uintptr_t index(
+                        combined_index(counter_index, inherited_index));
+
+                    DescType::init(desc, init_args...);
+                    DescType::assign(desc, index);
+                }
+
+                return ADDRESS_WATCHED;
+            }
+        };
+
+
         /// Add a new watchpoint to an address.
         ///
         /// This is responsible for deferring to a higher-level watchpoint
@@ -493,18 +563,17 @@ namespace client {
             uintptr_t inherited_index(inherited_index_of(ptr));
             desc_type *desc(nullptr);
 
-            // Allocate descriptor.
-            if(!desc_type::allocate(desc, counter_index, inherited_index)) {
-                return ADDRESS_NOT_WATCHED;
-            }
+            enum {
+                ALLOC_AND_INIT = allocate_and_init_descriptor<desc_type>::VALUE
+            };
 
-            ASSERT(counter_index <= MAX_COUNTER_INDEX);
+            const add_watchpoint_status status(allocate_and_init_watched_address<
+                desc_type,
+                ALLOC_AND_INIT
+            >::apply(desc, counter_index, inherited_index, init_args...));
 
-            // Construct the descriptor and add it to the table.
-            const uintptr_t index(combined_index(counter_index, inherited_index));
-            if(desc) {
-                desc_type::init(desc, init_args...);
-                desc_type::assign(desc, index);
+            if(ADDRESS_NOT_WATCHED == status) {
+                return status;
             }
 
             // Taint the pointer.
@@ -520,7 +589,7 @@ namespace client {
 
             ptr_ = granary::unsafe_cast<T>(ptr);
 
-            return ADDRESS_WATCHED;
+            return status;
         }
     }
 

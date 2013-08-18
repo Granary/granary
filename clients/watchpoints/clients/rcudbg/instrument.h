@@ -6,8 +6,8 @@
  *      Author: Peter Goodman
  */
 
-#ifndef _RCU_INSTRUMENT_H_
-#define _RCU_INSTRUMENT_H_
+#ifndef _RCUDBG_INSTRUMENT_H_
+#define _RCUDBG_INSTRUMENT_H_
 
 #include "clients/watchpoints/instrument.h"
 
@@ -124,13 +124,14 @@ namespace client {
     /// Add CTI-specific instrumentation for an RCU read-side critical section.
     granary::instruction rcu_instrument_cti(
         granary::instrumentation_policy &curr_policy,
+        unsigned &curr_depth,
         granary::instruction_list &ls,
-        granary::instruction in,
-        unsigned &curr_depth
+        granary::instruction in
     ) throw();
 
 
-    /// Policy to apply while instrumenting code executing in a read-sidefor depth `depth`.
+    /// Policy to apply while instrumenting code executing in a read-side for
+    /// depth `depth`.
     template <unsigned depth>
     struct read_critical_section
         : public client::watchpoints<wp::rcu_read_policy, wp::rcu_read_policy>
@@ -230,4 +231,4 @@ namespace client {
     ) throw();
 }
 
-#endif /* _RCU_INSTRUMENT_H_ */
+#endif /* _RCUDBG_INSTRUMENT_H_ */
