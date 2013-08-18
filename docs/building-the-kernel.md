@@ -59,6 +59,19 @@ struct task_struct {
 }
 ```
 
+If you want to give granary more task-local state to play with then you can do something like this:
+
+```c
+struct task_struct {
+    ...
+    struct {
+        unsigned long granary_data[10];
+    } granary;
+}
+```
+
+Giving Granary more task-local state can be beneficial for tools that make heavier use of task-local state.
+
 ## Step 4: Configure and build the kernel
 
 First, copy your current kernel configuration, as that makes life
