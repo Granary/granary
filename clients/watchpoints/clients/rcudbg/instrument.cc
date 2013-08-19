@@ -7,6 +7,7 @@
  */
 
 #include "clients/watchpoints/clients/rcudbg/instrument.h"
+#include "clients/watchpoints/clients/rcudbg/events.h"
 #include "clients/watchpoints/utils.h"
 
 #include "granary/detach.h"
@@ -44,18 +45,6 @@ using namespace granary;
 
 namespace client {
 
-    /// Invoked when an RCU read-side critical section extend beyond the
-    /// function in which the read-side critical section was started. This seems
-    /// like bad practice as it splits up the read-critical sections, and makes
-    /// it more likely for bugs to creep in. This could also be evidence of a
-    /// read-side critical section being left locked.
-    app_pc EVENT_READ_THROUGH_RET = nullptr;
-
-
-    /// A trailing call to a read-side critical section unlock point is invoked.
-    /// This unlock does not match a lock.
-    app_pc EVENT_TRAILING_RCU_READ_UNLOCK = nullptr;
-
 
     /// Returns the policy for a given read-side critical section nesting
     /// depth.
@@ -84,8 +73,6 @@ namespace client {
         instruction_list &ls,
         instruction in
     ) throw() {
-
-        const unsigned start_depth(curr_depth);
 
         // Here we have a read-critical section started in one function and
         // expanding out into another function through a function return. This
@@ -146,24 +133,42 @@ namespace client {
                     EVENT_TRAILING_RCU_READ_UNLOCK,
                     CTI_DONT_STEAL_REGISTER, operand(),
                     CTI_CALL);
+
+                // Don't wrap the redundant `rcu_read_unlock`.
+                in.set_mangled();
             } else {
                 curr_policy = policy_for_depth(--curr_depth);
-                if(0 < curr_depth) {
-                    curr_policy.force_attach(true);
-                }
+                curr_policy.force_attach(true);
             }
-
             break;
 
         // RCU dereference.
         case DETACH_ADDR___granary_rcu_dereference:
-            // TODO
+
+            // Don't wrap if we're at depth 0, report an issue.
+            if(!curr_depth) {
+                instruction call(ls.insert_before(in, label_()));
+                call = insert_cti_after(
+                    ls, call,
+                    EVENT_DEREF_OUTSIDE_OF_SECTION,
+                    CTI_DONT_STEAL_REGISTER, operand(),
+                    CTI_CALL);
+                in.set_mangled();
+            }
             break;
 
         // RCU assign pointer. Likely shouldn't be in a read-critical section,
         // but can be outside of one.
         case DETACH_ADDR___granary_rcu_assign_pointer:
-            // TODO
+            if(curr_depth) {
+                instruction call(ls.insert_before(in, label_()));
+                call = insert_cti_after(
+                    ls, call,
+                    EVENT_ASSIGN_IN_SECTION,
+                    CTI_DONT_STEAL_REGISTER, operand(),
+                    CTI_CALL);
+                in.set_mangled();
+            }
             break;
 
         /// Not an event that we care about; make sure to attach to all code
@@ -225,7 +230,7 @@ namespace client {
         granary::basic_block_state &bb,
         instruction_list &ls
     ) throw() {
-        visit_app_instructions(cpu, bb, ls);
+        return visit_app_instructions(cpu, bb, ls);
     }
 
 

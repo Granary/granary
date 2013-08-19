@@ -11,7 +11,7 @@
 #include "clients/watchpoints/clients/rcudbg/instrument.h"
 #include "clients/watchpoints/clients/rcudbg/descriptor.h"
 #include "clients/watchpoints/clients/rcudbg/log.h"
-#include "clients/watchpoints/clients/rcudbg/location.h"
+#include "clients/watchpoints/clients/rcudbg/carat.h"
 
 using namespace granary;
 
@@ -19,7 +19,7 @@ namespace client {
 
 
     /// Initialisation for an `rcu_dereference`d pointer.
-    static bool allocate_and_init(
+    bool rcudbg_descriptor::allocate_and_init(
         rcudbg_descriptor *, // descriptor, unused
         uintptr_t &counter_index,
         uintptr_t, // inherited index, unused
@@ -32,7 +32,7 @@ namespace client {
         thread_state_handle thread = safe_cpu_access_zone();
         const uint16_t section_id(thread->read_section_id);
         const void *task(thread.state);
-        const char *read_lock_carat(thread->active_carat);
+        const char *read_lock_carat(thread->section_carat);
         IF_KERNEL( granary_store_flags(flags); )
 
         // Doing a de-reference on an unwatched address. Issue a warning that
@@ -42,7 +42,6 @@ namespace client {
         // elements into an RCU-protected linked list, for which only the head
         // element of the list must be assigned.
         if(!wp::is_watched_address(deref_address.as_uint)) {
-
             log(DEREF_UNWATCHED_ADDRESS,
                 task,
                 deref_address.as_pointer,
@@ -55,7 +54,6 @@ namespace client {
             // Issue a warning that this is potentially redundant, or
             // potentially indicative of an error.
             if(deref_address.read_section_id == section_id) {
-
                 log(DOUBLE_DEREF,
                     task,
                     carat,
@@ -72,8 +70,8 @@ namespace client {
                     get_location_carat(deref_address.assign_location_id));
             }
 
-        // This was the result of an `rcu_assign_pointer`, yay! We can add a
-        // dependency between the assign location and the dereference location.
+        // We are dereferencing a pointer that was created using
+        // `rcu_assign_pointer`.
         } else {
             // TODO
         }
@@ -83,13 +81,12 @@ namespace client {
         index.read_section_id = section_id;
 
         counter_index = index.as_uint;
-
         return true;
     }
 
 
     /// Initialisation for an `rcu_assign_pointer`d pointer.
-    static bool allocate_and_init(
+    bool rcudbg_descriptor::allocate_and_init(
         rcudbg_descriptor *, // descriptor, unused
         uintptr_t &counter_index,
         uintptr_t, // inherited index, unused
@@ -97,6 +94,36 @@ namespace client {
         rcudbg_watched_address assigned_pointer,
         const char *carat
     ) throw() {
+
+        // We are assigning to a watched address.
+        if(wp::is_watched_address(assign_pointer.as_uint)) {
+
+            // This is not good, we're doing the equivalent of:
+            // rcu_assign_pointer(rcu_dereference(p), q). This could be
+            // indicative of a pointer leaking from a critical section. We'll
+            // report the most recent carat for that section ID.
+            //
+            // Note: The reported carat might be out-of-date.
+            if(assign_pointer.is_deref) {
+
+                // TODO
+
+            // We're assigning to a previously assigned pointer. This is good
+            // because it gives us information about where inside of a given
+            // structure the pointers to other RCU-protected objects are.
+            // Because we don't track types or maintain descriptors, we'll fall
+            // back on a global, sort-of probabilistic approach to detecting
+            // reads that don't do rcu_dereference on this pointer by using
+            // shadow memory.
+            } else {
+                // TODO
+            }
+
+        } else {
+            // TODO: Is it worth it to record these addresses into a heavier
+            //       weight shadow memory mechanism?
+        }
+
         return true;
     }
 }

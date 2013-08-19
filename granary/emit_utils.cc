@@ -18,7 +18,10 @@ namespace granary {
     /// registers.
     ///
     /// Note: This will recursively follow through direct function calls.
-    register_manager find_used_regs_in_func(app_pc func) throw() {
+    register_manager find_used_regs_in_func(
+        app_pc func,
+        instruction_traversal_constraint constraint
+    ) throw() {
         register_manager used_regs;
         list<app_pc> process_bbs;
         list<app_pc>::handle_type next;
@@ -28,7 +31,7 @@ namespace granary {
         used_regs.revive_all();
         process_bbs.append(func);
 
-        // traverse instructions and find all used registers.
+        // Traverse instructions and find all used registers.
         while(process_bbs.length()) {
 
             next = process_bbs.first();
@@ -45,13 +48,20 @@ namespace granary {
                 in.decode_update(&bb);
                 used_regs.kill_dests(in);
 
-                // done processing this basic block
-                if(dynamorio::OP_ret == in.op_code()) {
+                // Done processing this basic block.
+                if(dynamorio::OP_ret == in.op_code()
+                || dynamorio::OP_iret == in.op_code()
+                || dynamorio::OP_sysret == in.op_code()) {
                     break;
                 }
 
-                // this is a cti; add the destination instruction as
+                // Try to follow CTIs.
                 if(in.is_cti()) {
+                    const bool is_call(in.is_call());
+
+                    if(is_call && USED_REGS_IGNORE_CALLS == constraint) {
+                        continue;
+                    }
 
                     operand target(in.cti_target());
                     if(!dynamorio::opnd_is_pc(target)) {
@@ -60,6 +70,19 @@ namespace granary {
                     }
 
                     process_bbs.append(dynamorio::opnd_get_pc(target));
+
+                    if(in.is_unconditional_cti()) {
+
+                        // Done processing this basic block.
+                        if(!is_call) {
+                            break;
+                        }
+
+                    // Done processing this basic block.
+                    } else {
+                        process_bbs.append(bb);
+                        break;
+                    }
                 }
             }
         }
@@ -340,7 +363,17 @@ namespace granary {
             unsigned num_args,
             register_exit_constaint constraint
         ) throw() {
-            register_manager dead_regs(find_used_regs_in_func(func_pc));
+
+            // How should we look for used registers?
+            instruction_traversal_constraint used_reg_constraint;
+            if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
+                used_reg_constraint = USED_REGS_IGNORE_CALLS;
+            } else {
+                used_reg_constraint = USED_REGS_VISIT_ALL_INSTRUCTIONS;
+            }
+
+            register_manager dead_regs(find_used_regs_in_func(
+                func_pc, used_reg_constraint));
 
             // Assume that the caller does not cae
             for(unsigned i(num_args); i--; ) {
@@ -359,7 +392,7 @@ namespace granary {
                 dead_regs.revive(dynamorio::DR_REG_R14);
                 dead_regs.revive(dynamorio::DR_REG_R15);
 
-                // Some of the scratch regs.
+                // Some of the scratch registers.
                 dead_regs.kill(dynamorio::DR_REG_R8);
                 dead_regs.kill(dynamorio::DR_REG_R9);
                 dead_regs.kill(dynamorio::DR_REG_R10);

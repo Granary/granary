@@ -14,12 +14,10 @@
 
 namespace client {
 
-    enum {
-        MAX_NUM_MESSAGES = 4096
-    };
 
-
-    message_container MESSAGES[MAX_NUM_MESSAGES] = {0};
+    message_container MESSAGES[MAX_NUM_MESSAGES] = {{
+        ATOMIC_VAR_INIT(MESSAGE_NOT_READY), {0, 0, 0, 0}
+    }};
 
 
     /// A generic printer function that operates on an untypes message
@@ -46,9 +44,10 @@ namespace client {
 
 
     /// Puts all the printer format strings into an array.
-#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) message ,
     const char *PRINTER_FORMATS[] = {
-#   include "clients/watchpoints/clients/rcudbg/message.h"
+#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) message ,
+#include "clients/watchpoints/clients/rcudbg/message.h"
+#undef RCUDBG_MESSAGE
         ""
     };
 
@@ -79,26 +78,21 @@ namespace client {
             cont->payload[3] \
         ); \
     }
-#   include "clients/watchpoints/clients/rcudbg/message.h"
+#include "clients/watchpoints/clients/rcudbg/message.h"
+#undef RCUDBG_MESSAGE
 
 
     /// Define an array of printers for the various log messages.
+    static printer_func *PRINTERS[] = {
 #define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
     & PRINT_ ## ident ,
-    static printer_func *PRINTERS[] = {
-#   include "clients/watchpoints/clients/rcudbg/message.h"
+#include "clients/watchpoints/clients/rcudbg/message.h"
+#undef RCUDBG_MESSAGE
         nullptr
     };
 
-    /// Define the various loggers.
-#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
-    void LOG_ ## ident arg_defs throw() { \
-        uint64_t index(NEXT_LOG_OFFSET.fetch_add(1)); \
-        message_container &cont(MESSAGES[index % MAX_NUM_MESSAGES]); \
-        cont.message_id = ident ; \
 
-    }
-#   include "clients/watchpoints/clients/rcudbg/message.h"
-
-
+    STATIC_INITIALISE({
+        (void) PRINTERS;
+    });
 }

@@ -44,6 +44,4 @@ RCUDBG_MESSAGE(
     (const void *task, void *deref_carat, const char *read_lock_carat),
     (task, deref_carat, read_lock_carat))
 
-#undef RCUDBG_MESSAGE
-
 #endif /* RCUDBG_MESSAGE_H_ */

@@ -159,6 +159,11 @@ namespace granary {
             new (&self) T;
         }
 
+        template <typename... Args>
+        void construct(Args... args) throw() {
+            self = new (&self) T(args...);
+        }
+
 #else
         char memory[sizeof(T)];
         T *self;
@@ -173,6 +178,89 @@ namespace granary {
         }
 #endif
     } __attribute__((aligned (16)));
+
+
+    /// Represents a fixed-size set of elements, where each entry in the set is
+    /// uniquely identified by an ID. The type of element in the set (`KV`) must
+    /// be convertible to a `uintptr_t`.
+    template <unsigned max_items, typename KV>
+    struct atomic_id_set {
+    private:
+        std::atomic<KV> set[max_items];
+
+        const KV default_value;
+        const KV missing_value;
+
+    public:
+        atomic_id_set(KV default_value_, KV missing_value_) throw()
+            : default_value(default_value_)
+            , missing_value(missing_value_)
+        { }
+
+        /// Add an entry to the set, and return its ID.
+        unsigned add(KV value) throw() {
+
+            const uintptr_t value_bits(
+                granary::unsafe_cast<uintptr_t>(value));
+
+            uintptr_t index;
+            uintptr_t next_index(value_bits % max_items);
+
+            KV found_value(default_value);
+
+            unsigned last_missing_index(0);
+            bool found_missing_slot(false);
+
+            do {
+                index = next_index;
+                next_index = (index + 1) % max_items;
+                found_value = set[index].load(std::memory_order_relaxed);
+
+                if(missing_value == found_value) {
+                    last_missing_index = index;
+                    found_missing_slot = true;
+                } else if(default_value == found_value) {
+
+                    bool updated(false);
+
+                    // If we previously walked across an entry that can be
+                    // re-allocated, then re-allocate it.
+                    if(found_missing_slot) {
+                        updated = set[last_missing_index].compare_exchange_weak(
+                            missing_value,
+                            value);
+                    }
+
+                    // If we didn't re-allocate a previously allocated
+                    if(!updated) {
+                        updated = set[index].compare_exchange_weak(
+                            found_value,
+                            value);
+                    }
+
+                    if(updated) {
+                        found_value = value;
+                    }
+                }
+            } while(found_value != value);
+
+            return index;
+        }
+
+        /// Get an element from the set given its ID.
+        KV get(unsigned id) throw() {
+            KV val(set[id % max_items].load());
+            if(missing_value == val) {
+                return default_value;
+            }
+            return val;
+        }
+
+        /// Remove the element in the set with ID `id`.
+        void remove(unsigned id) throw() {
+            set[id % max_items].store(missing_value);
+        }
+    };
 #endif
 
 

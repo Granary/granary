@@ -290,7 +290,7 @@ ifeq ($(GR_CLIENT),rcudbg)
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/instrument.o
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/events.o
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/log.o
-    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/location.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/carat.o
     
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o

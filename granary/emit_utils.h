@@ -46,9 +46,18 @@ namespace granary {
     }
 
 
+    enum instruction_traversal_constraint {
+        USED_REGS_VISIT_ALL_INSTRUCTIONS,
+        USED_REGS_IGNORE_CALLS
+    };
+
+
     /// Traverse through the instruction control-flow graph and look for used
     /// registers.
-    register_manager find_used_regs_in_func(app_pc func) throw();
+    register_manager find_used_regs_in_func(
+        app_pc func,
+        instruction_traversal_constraint constraint=USED_REGS_VISIT_ALL_INSTRUCTIONS
+    ) throw();
 
 
     /// Push all registers that are dead in a register manager.

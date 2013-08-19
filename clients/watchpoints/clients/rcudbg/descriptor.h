@@ -6,8 +6,8 @@
  *      Author: Peter Goodman
  */
 
-#ifndef DESCRIPTOR_H_
-#define DESCRIPTOR_H_
+#ifndef RCUDBG_DESCRIPTOR_H_
+#define RCUDBG_DESCRIPTOR_H_
 
 namespace client {
 
@@ -32,6 +32,7 @@ namespace client {
 
     static_assert(sizeof(uint16_t) == sizeof(rcudbg_counter_index),
         "Invalid packing of `rcudbg_counter_index` structure.");
+
 
     /// Structure of a watched address.
     union rcudbg_watched_address {
@@ -120,4 +121,4 @@ namespace client {
 }
 
 
-#endif /* DESCRIPTOR_H_ */
+#endif /* RCUDBG_DESCRIPTOR_H_ */

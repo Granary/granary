@@ -38,7 +38,7 @@ namespace client {
         struct rcu_read_policy {
 
             enum {
-                AUTO_INSTRUMENT_HOST = false
+                AUTO_INSTRUMENT_HOST = true
             };
 
             static void visit_read(
@@ -81,6 +81,10 @@ namespace client {
     /// Base case: The maximum depth for rcu read-side critical sections.
     template <>
     struct read_critical_section<MAX_SECTION_DEPTH> {
+
+        enum {
+            AUTO_INSTRUMENT_HOST = false
+        };
 
         typedef read_critical_section<MAX_SECTION_DEPTH> self_type;
 
@@ -136,6 +140,11 @@ namespace client {
     struct read_critical_section
         : public client::watchpoints<wp::rcu_read_policy, wp::rcu_read_policy>
     {
+
+        enum {
+            AUTO_INSTRUMENT_HOST = true
+        };
+
         static granary::instrumentation_policy visit_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
@@ -199,6 +208,11 @@ namespace client {
     /// Policy for code not running in an RCU read-side critical section, nor
     /// operating on any RCU objects (writers).
     struct rcu_null : public granary::instrumentation_policy {
+
+        enum {
+            AUTO_INSTRUMENT_HOST = false
+        };
+
         static granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,

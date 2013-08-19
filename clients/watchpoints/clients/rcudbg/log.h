@@ -9,22 +9,17 @@
 #ifndef RCUDBG_LOG_H_
 #define RCUDBG_LOG_H_
 
-#include "granary/utils.h"
-
-#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) ident,
+#include "granary/client.h"
 
 namespace client {
     enum log_message_id {
         MESSAGE_NOT_READY = 0,
-
-#       include "clients/watchpoints/clients/rcudbg/message.h"
+#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) ident,
+#include "clients/watchpoints/clients/rcudbg/message.h"
+#undef RCUDBG_MESSAGE
         NUM_MESSAGES
     };
 
-    /// Declare the various loggers.
-#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
-    void LOG_ ## ident arg_defs ;
-#   include "clients/watchpoints/clients/rcudbg/message.h"
 
     /// A generic message container for log entries from the rcudbg tool.
     struct message_container {
