@@ -9,8 +9,18 @@
 #define _SHADOW_POLICY_DESCRIPTORS_H_
 
 #include "clients/watchpoints/instrument.h"
+#include "clients/watchpoints/clients/shadow_memory/kernel/linux/kernel_type_id.h"
+
+#define NUM_SUB_STRUCTURES 4
+
 
 namespace client { namespace wp {
+
+
+    struct sub_struct_shadow_policy {
+        uint16_t type_id;
+        uint16_t byte_offset;
+    } __attribute__((packed));
 
     /// State for a tracked object.
     union shadow_policy_state {
@@ -65,6 +75,8 @@ namespace client { namespace wp {
     } __attribute__((packed));
 
 
+
+
     /// Specifies the shadow policy descriptor for the watched object.
     struct shadow_policy_descriptor {
 
@@ -81,6 +93,8 @@ namespace client { namespace wp {
                 granary::app_pc write_shadow;
             }__attribute__((packed));
 
+
+            sub_struct_shadow_policy sub_structures[4];
             union {
                 struct {
 
@@ -98,7 +112,7 @@ namespace client { namespace wp {
                     /// If the type is known then we can use the type's size info
                     /// in conjunction with the allocation size to find arrays of
                     /// objects.
-                    uint16_t type_id;
+                    uint16_t type;
 
                     /// object's base address.
                     uintptr_t base_address;
@@ -146,6 +160,51 @@ namespace client { namespace wp {
         /// Get the assigned descriptor for a given index.
         static shadow_policy_descriptor *access(uintptr_t index) throw();
 
+
+        template <typename T>
+        void update_type(T *ptr_) throw() {
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(unwatchped_address(ptr_)));
+            const uint16_t begin(ptr - base_address);
+            const uint16_t end(begin + size);
+
+
+            for(unsigned i(0); i < NUM_SUB_STRUCTURES; ++i) {
+                sub_struct_shadow_policy &sub(sub_structures[i]);
+
+                if(!sub.type_id) {
+                    if(i) {
+                        // Does the previous entry contain us? If so then ignore, it can be
+                        // added in post-processing.
+                        const sub_struct_shadow_policy &prev_sub(sub_structures[i - 1]);
+                        if(end <= (prev_sub.byte_offset + TYPE_SIZES[prev_sub.type_id])) {
+                            break;
+                        }
+                    }
+
+                    goto overwrite;
+                }
+
+                // Already there; stop.
+                if(type_id<T>::VALUE == sub.type_id && begin == sub.byte_offset) {
+                    break;
+                }
+
+                // Containment: type T fully contains what's already there, overwrite it.
+                if(sub.byte_offset >= begin
+                && end >= (sub.byte_offset + TYPE_SIZES[sub.type_id])) {
+                    goto overwrite;
+                }
+
+                continue;
+
+            overwrite:
+                sub.type_id = type_id<T>::VALUE;
+                //sub.byte_offset = offset;
+                break;
+            }
+        }
+
+
     } __attribute__((packed));
 
     /// Specify the descriptor type to the generic watchpoint framework.
@@ -153,10 +212,6 @@ namespace client { namespace wp {
     struct descriptor_type {
         typedef shadow_policy_descriptor type;
     };
-
-#define READ_SHADOW_OFFSET offsetof(shadow_policy_descriptor, read_shadow)
-#define WRITE_SHADOW_OFFSET offsetof(shadow_policy_descriptor, write_shadow)
-
 }}
 
 

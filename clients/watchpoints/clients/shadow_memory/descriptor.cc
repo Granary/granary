@@ -220,5 +220,6 @@ namespace client { namespace wp {
         free_list = desc;
         IF_KERNEL( granary_store_flags(flags); )
     }
+
 }}
 
