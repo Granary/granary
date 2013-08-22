@@ -85,7 +85,7 @@ Next, ensure your public key is authorized for each host you setup. You will
 need to enter a password for that host during this step.
 
 ```basemake
-$ ssh-copy-id -i ~/id_rsa.pub deb7vm
+$ ssh-copy-id -i ~/.ssh/id_rsa.pub deb7vm
 ```
 
 Hereafter, you can simply `ssh deb7vm` or `scp somefile deb7vm:` or `scp

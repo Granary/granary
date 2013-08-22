@@ -11,6 +11,9 @@
 //#include "clients/watchpoints/clients/shadow_memory/kernel/linux/scanner.h"
 #include "clients/watchpoints/clients/shadow_memory/kernel/linux/allocator_wrappers.h"
 
+using namespace granary;
+using namespace client::wp;
+
 namespace client {
     extern void report(void);
 }
@@ -23,24 +26,24 @@ namespace client {
             if(!is_valid_address(arg)) {
                 return;
             }
+
+            if(is_watched_address(arg)) {
+                descriptor_of(arg)->update_type(arg);
+            }
+
             client::report();
-            //SCAN_HEAD_FUNC(decltype(arg))(arg);
-#if 0
-            client::wp::add_to_scanlist(
-                unsafe_cast<app_pc>(arg),
-                unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-#endif
+
             PRE_OUT_WRAP(*unwatched_address_check(arg));
         }
         PRE_IN {
             if(!is_valid_address(arg)) {
                 return;
             }
-#if 0
-            client::wp::add_to_scanlist(
-                unsafe_cast<app_pc>(arg),
-                unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-#endif
+
+            if(is_watched_address(arg)) {
+                descriptor_of(arg)->update_type(arg);
+            }
+
             PRE_IN_WRAP(*unwatched_address_check(arg));
         }
         INHERIT_POST_INOUT
@@ -48,21 +51,21 @@ namespace client {
             if(!is_valid_address(arg)){
                 return;
             }
-#if 0
-            client::wp::add_to_scanlist(
-                unsafe_cast<app_pc>(arg),
-                unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-#endif
+
+            if(is_watched_address(arg)) {
+                descriptor_of(arg)->update_type(arg);
+            }
+
         }
         RETURN_IN {
             if(!is_valid_address(arg)){
                 return;
             }
-#if 0
-            client::wp::add_to_scanlist(
-                unsafe_cast<app_pc>(arg),
-                unsafe_cast<app_pc>(SCAN_HEAD_FUNC(decltype(arg))));
-#endif
+
+            if(is_watched_address(arg)) {
+                descriptor_of(arg)->update_type(arg);
+            }
+
         }
     })
 #endif

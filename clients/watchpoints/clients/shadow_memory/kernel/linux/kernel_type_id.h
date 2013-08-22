@@ -36,15 +36,42 @@ struct type_id<const volatile T> {
     };
 };
 
-#define DEFINE_TYPE(id, type) \
+template<bool B, class T = void>
+struct enable_if {};
+
+template<class T>
+struct enable_if<true, T> { typedef T type; };
+
+template<class T>
+struct enable_if<false, T> { typedef T type; };
+
+#define MODULE_TYPE_ID(type_name) \
     template <> \
-    struct type_id<type> { \
+    struct type_id<struct type_name> { \
     public: \
         enum { \
-            VALUE = id \
+            VALUE = type_name##_ID \
         }; \
     };
 
+#if GRANARY_IN_KERNEL
+#   include "clients/watchpoints/clients/shadow_memory/kernel/linux/kernel_type_descriptor.h"
+#else
+#   error "User space type shadows are not yet supported."
+#endif
 
+#undef MODULE_TYPE_ID
+
+const uint16_t TYPE_SIZES[] = {
+    0, // NOTE: type id == 0 is an undefined type!
+
+#define MODULE_TYPE_ID(type_name) sizeof(struct type_name),
+#if GRANARY_IN_KERNEL
+#   include "clients/watchpoints/clients/shadow_memory/kernel/linux/kernel_type_descriptor.h"
+#else
+#   error "User space type shadows are not yet supported."
+#endif
+    0
+};
 
 #endif /* KERNEL_TYPE_ID_H_ */
