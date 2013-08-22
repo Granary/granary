@@ -39,7 +39,7 @@ namespace granary {
             process_bbs.remove(next);
 
             if(seen.contains(bb)) {
-                break;
+                continue;
             }
 
             seen.add(bb);
@@ -59,6 +59,7 @@ namespace granary {
                 if(in.is_cti()) {
                     const bool is_call(in.is_call());
 
+                    // TODO: Too conservative; fall back on ABI.
                     if(is_call && USED_REGS_IGNORE_CALLS == constraint) {
                         continue;
                     }
@@ -69,7 +70,10 @@ namespace granary {
                         return used_regs;
                     }
 
-                    process_bbs.append(dynamorio::opnd_get_pc(target));
+                    app_pc target_pc(dynamorio::opnd_get_pc(target));
+                    if(!seen.contains(bb)) {
+                        process_bbs.append(target_pc);
+                    }
 
                     if(in.is_unconditional_cti()) {
 
@@ -80,7 +84,9 @@ namespace granary {
 
                     // Done processing this basic block.
                     } else {
-                        process_bbs.append(bb);
+                        if(!seen.contains(bb)) {
+                            process_bbs.append(bb);
+                        }
                         break;
                     }
                 }
@@ -375,7 +381,9 @@ namespace granary {
             register_manager dead_regs(find_used_regs_in_func(
                 func_pc, used_reg_constraint));
 
-            // Assume that the caller does not cae
+            // Assume that the caller does not care about saving argument
+            // registers which it likely clobbered (and had to save on its
+            // own).
             for(unsigned i(num_args); i--; ) {
                 dead_regs.revive(ARGUMENT_REGISTERS[i]);
             }

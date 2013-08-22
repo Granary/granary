@@ -146,25 +146,6 @@ namespace granary {
     /// instrumented in user space.
     template <typename T>
     struct static_data {
-
-#if GRANARY_IN_KERNEL
-
-        T self;
-
-        inline T *operator->(void) throw() {
-            return &self;
-        }
-
-        inline void construct(void) throw() {
-            new (&self) T;
-        }
-
-        template <typename... Args>
-        void construct(Args... args) throw() {
-            self = new (&self) T(args...);
-        }
-
-#else
         char memory[sizeof(T)];
         T *self;
 
@@ -176,7 +157,6 @@ namespace granary {
         inline T *operator->(void) throw() {
             return self;
         }
-#endif
     } __attribute__((aligned (16)));
 
 
@@ -188,8 +168,8 @@ namespace granary {
     private:
         std::atomic<KV> set[max_items];
 
-        const KV default_value;
-        const KV missing_value;
+        KV default_value;
+        KV missing_value;
 
     public:
         atomic_id_set(KV default_value_, KV missing_value_) throw()
@@ -259,6 +239,40 @@ namespace granary {
         /// Remove the element in the set with ID `id`.
         void remove(unsigned id) throw() {
             set[id % max_items].store(missing_value);
+        }
+    };
+
+
+    /// Represents a bitset.
+    template <unsigned num_bits>
+    struct bitset {
+
+        typedef uint64_t elem_type;
+
+        enum {
+            MIN_NUM_BITS = sizeof(elem_type) * 8,
+            TRAILING_BITS = num_bits % MIN_NUM_BITS,
+            MISSING_BITS = MIN_NUM_BITS - TRAILING_BITS,
+            NUM_BITS = TRAILING_BITS ? (num_bits + MISSING_BITS) : num_bits,
+            NUM_ELEMS = NUM_BITS / MIN_NUM_BITS
+        };
+
+        elem_type elems[NUM_ELEMS];
+
+        void set(unsigned offset, bool value) throw() {
+            const elem_type one(1);
+            const elem_type mask(1 << (offset % MIN_NUM_BITS));
+            if(value) {
+               elems[offset / MIN_NUM_BITS] |= mask;
+            } else {
+                elems[offset / MIN_NUM_BITS] &= ~mask;
+            }
+        }
+
+        bool get(unsigned offset) const throw() {
+            const elem_type one(1);
+            const elem_type mask(1 << (offset % MIN_NUM_BITS));
+            return 0 != elems[offset / MIN_NUM_BITS];
         }
     };
 #endif

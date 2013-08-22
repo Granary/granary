@@ -6,35 +6,29 @@
  *      Author: Peter Goodman
  */
 
-#ifndef EVENTS_H_
-#define EVENTS_H_
+#ifndef RCUDBG_EVENTS_H_
+#define RCUDBG_EVENTS_H_
 
-#include "granary/client.h"
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include "granary/client.h"
+#endif
 
 namespace client {
 
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
     /// Invoked when an RCU read-side critical section extend beyond the
     /// function in which the read-side critical section was started. This seems
     /// like bad practice as it splits up the read-critical sections, and makes
     /// it more likely for bugs to creep in. This could also be evidence of a
     /// read-side critical section being left locked.
-    granary::app_pc EVENT_READ_THROUGH_RET;
+    extern granary::app_pc EVENT_READ_THROUGH_RET;
+#endif
 
-
-    /// A trailing call to a read-side critical section unlock point is invoked.
-    /// This unlock does not match a lock.
-    granary::app_pc EVENT_TRAILING_RCU_READ_UNLOCK;
-
-
-    /// Invoked when there is an rcu_dereference outside of a read-side
-    /// critical section.
-    granary::app_pc EVENT_DEREF_OUTSIDE_OF_SECTION;
-
-
-    /// Invoked when there is an rcu_assign_pointer within a read-side
-    /// critical section.
-    granary::app_pc EVENT_ASSIGN_IN_SECTION;
+    void *event_rcu_dereference(void *ptr, const char *carat) throw();
+    void event_rcu_assign_pointer(void **p, void *v, const char *carat) throw();
+    void event_rcu_read_lock(const char *carat) throw();
+    void event_rcu_read_unlock(const char *carat) throw();
 }
 
 
-#endif /* EVENTS_H_ */
+#endif /* RCUDBG_EVENTS_H_ */

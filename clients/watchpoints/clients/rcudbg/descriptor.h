@@ -13,11 +13,14 @@ namespace client {
 
     /// Counter index for an `rcudbg` watched address.
     union rcudbg_counter_index {
+
         struct {
-            union {
-                uint64_t read_section_id:14;
-                uint64_t assign_location_id:14;
-            } __attribute__((packed));
+            uint16_t assign_location_id:14;
+            uint16_t:2;
+        } __attribute__((packed));
+
+        struct {
+            uint16_t read_section_id:14;
 
             /// Was this an assigned pointer (using `rcu_assign_pointer`) or a
             /// dereferenced pointer (using `rcu_dereference`).
@@ -36,6 +39,17 @@ namespace client {
 
     /// Structure of a watched address.
     union rcudbg_watched_address {
+
+        struct {
+            uint64_t:49;
+
+            /// ID for the pointer assign location. Overlaps with
+            /// `read_section_id`.
+            uint64_t assign_location_id:14;
+
+            uint64_t:1;
+        } __attribute__((packed));
+
         struct {
             uint64_t:3;                  // low
 
@@ -47,15 +61,14 @@ namespace client {
 
             bool is_watched:1;
 
-            union {
-                uint64_t read_section_id:14;
-                uint64_t assign_location_id:14;
-            } __attribute__((packed));
+            /// ID for the read-side critical section. Overlaps with
+            /// `assign_location_id`.
+            uint64_t read_section_id:14;
 
             /// Was this an assigned pointer (using `rcu_assign_pointer`) or a
             /// dereferenced pointer (using `rcu_dereference`).
             bool is_deref:1;            // high
-        };
+        } __attribute__((packed));
 
         uintptr_t as_uint;
         void *as_pointer;
@@ -69,8 +82,8 @@ namespace client {
 
     /// Descriptor type for RCU debugging. Note: this object is never allocated!
     struct rcudbg_descriptor {
-    private:
-        inline rcudbg_descriptor(void) throw() { ASSERT(false); }
+    //private:
+    //    inline rcudbg_descriptor(void) throw() { ASSERT(false); }
 
     public:
 
@@ -97,7 +110,7 @@ namespace client {
         /// Unused by `rcudbg`.
         static void free(rcudbg_descriptor *, uintptr_t) throw() { }
         static void assign(rcudbg_descriptor *, uintptr_t) throw() { }
-        static rcudbg_descriptor *access(uintptr_t index) throw() { return nullptr; }
+        static rcudbg_descriptor *access(uintptr_t) throw() { return nullptr; }
     };
 
 

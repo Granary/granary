@@ -14,34 +14,94 @@
 #endif
 
 RCUDBG_MESSAGE(
-    DEREF_UNWATCHED_ADDRESS,
+    RCU_DEREFERENCE_UNASSIGNED_ADDRESS,
     WARNING,
-    "Warning: Dereferencing unwatched address (%p).\n"
-    " > task: %p.\n"
+    "Warning: Dereferencing from an address that wasn't assigned using rcu_assign_pointer. (%p).\n"
+    " > thread: %p.\n"
     " > rcu_dereference: %s.\n"
     " > rcu_read_lock: %s.",
-    (const void *task, void *address, const char *deref_carat, const char *read_lock_carat),
-    (address, task, deref_carat, read_lock_carat))
+    (const void *thread, void *address, const char *deref_carat, const char *read_lock_carat),
+    (address, thread, deref_carat, read_lock_carat))
 
 RCUDBG_MESSAGE(
-    DOUBLE_DEREF_WRONG_SECTION,
+    DOUBLE_RCU_DEREFERENCE_WRONG_SECTION,
     ERROR,
     "Error: Dereferencing already dereferenced pointer, but from another context.\n"
-    " > task: %p.\n"
+    " > thread: %p.\n"
     " > rcu_dereference: %s.\n"
     " > rcu_read_lock (mine): %s.\n"
     " > rcu_read_lock (theirs): %s.",
-    (const void *task, void *deref_carat, const char *read_lock_carat, const char *their_read_lock_carat),
-    (task, deref_carat, read_lock_carat, their_read_lock_carat))
+    (const void *thread, const char *deref_carat, const char *read_lock_carat, const char *their_read_lock_carat),
+    (thread, deref_carat, read_lock_carat, their_read_lock_carat))
 
 RCUDBG_MESSAGE(
-    DOUBLE_DEREF,
+    DOUBLE_RCU_DEREFERENCE,
     WARNING,
     "Warning: Dereferencing already dereferenced pointer.\n"
-    " > task: %p\n"
+    " > thread: %p.\n"
     " > rcu_dereference: %s.\n"
     " > rcu_read_lock: %s.",
-    (const void *task, void *deref_carat, const char *read_lock_carat),
-    (task, deref_carat, read_lock_carat))
+    (const void *thread, const char *deref_carat, const char *read_lock_carat),
+    (thread, deref_carat, read_lock_carat))
+
+RCUDBG_MESSAGE(
+    RCU_ASSIGN_TO_RCU_DEREFERENCED_POINTER,
+    ERROR,
+    "Error: Assigning to dereferenced pointer.\n"
+    " > thread: %p.\n"
+    " > rcu_dereference: %s.\n"
+    " > rcu_assign_pointer: %s.",
+    (const void *thread, const char *deref_carat, const char *assign_carat),
+    (thread, deref_carat, assign_carat))
+
+RCUDBG_MESSAGE(
+    RCU_ASSIGN_WITH_RCU_DEREFERENCED_POINTER,
+    ERROR,
+    "Error: Assigning with a dereferenced pointer.\n"
+    " > thread: %p.\n"
+    " > rcu_dereference: %s.\n"
+    " > rcu_assign_pointer: %s.",
+    (const void *thread, const char *deref_carat, const char *assign_carat),
+    (thread, deref_carat, assign_carat))
+
+RCUDBG_MESSAGE(
+    RCU_READ_SECTION_ACROSS_FUNC_BOUNDARY,
+    WARNING,
+    "Warning: Read-side critical section expands through function return.\n"
+    " > thread: %p.\n"
+    " > rcu_read_lock: %s.",
+    (const void *thread, const char *read_lock_carat),
+    (thread, read_lock_carat))
+
+RCUDBG_MESSAGE(
+    RCU_READ_UNLOCK_OUTSIDE_OF_CRITICAL_SECTION,
+    ERROR,
+    "Error: rcu_read_unlock invoked outside of a read-side critical section.\n"
+    " > thread: %p.\n"
+    " > last rcu_read_unlock: %s.\n"
+    " > rcu_read_unlock: %s.",
+    (const void *thread, const char *prev_unlock_carat, const char *curr_unlock_carat),
+    (thread, read_unlock_carat, curr_unlock_carat))
+
+RCUDBG_MESSAGE(
+    RCU_ASSIGN_IN_CRITICAL_SECTION,
+    ERROR,
+    "Error: rcu_assign_pointer within read-side critical section.\n"
+    " > thread: %p.\n"
+    " > rcu_read_lock: %s.\n"
+    " > rcu_assign_pointer: %s.",
+    (const void *thread, const char *read_lock_carat, const char *assign_carat),
+    (thread, read_lock_carat, assign_carat))
+
+
+RCUDBG_MESSAGE(
+    RCU_DEREFERENCE_OUTSIDE_OF_CRITICAL_SECTION,
+    WARNING,
+    "Warning: rcu_dereference outside of read-side critical section.\n"
+    " > thread: %p.\n"
+    " > last rcu_read_unlock: %s.\n"
+    " > rcu_dereference: %s.",
+    (const void *thread, const char *read_unlock_carat, const char *deref_carat),
+    (thread, read_unlock_carat, deref_carat))
 
 #endif /* RCUDBG_MESSAGE_H_ */

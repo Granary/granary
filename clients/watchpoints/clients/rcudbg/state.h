@@ -20,6 +20,9 @@ namespace client {
 #   define CLIENT_thread_state
     struct thread_state {
 
+        /// Current depth of read-side critical sections.
+        unsigned section_depth;
+
         /// Read-side critical section id for the outermost critical section.
         /// This implies that rcudbg implicitly flattens RCU critical sections.
         unsigned section_id;

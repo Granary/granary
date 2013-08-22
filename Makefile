@@ -287,10 +287,12 @@ ifeq ($(GR_CLIENT),rcudbg)
     GR_CXX_FLAGS += -DCLIENT_RCUDBG
     GR_OBJS += bin/clients/watchpoints/instrument.o
     GR_OBJS += bin/clients/watchpoints/utils.o
-    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/instrument.o
-    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/events.o
-    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/log.o
     GR_OBJS += bin/clients/watchpoints/clients/rcudbg/carat.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/descriptor.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/events.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/instrument.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/log.o
+    GR_OBJS += bin/clients/watchpoints/clients/rcudbg/report.o
     
     ifeq ($(KERNEL),1)
 		GR_OBJS += bin/clients/watchpoints/kernel/interrupt.o

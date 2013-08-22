@@ -504,6 +504,8 @@ namespace client {
                 }
 
                 ASSERT(counter_index <= MAX_COUNTER_INDEX);
+
+                return ADDRESS_WATCHED;
             }
         };
 
@@ -557,6 +559,8 @@ namespace client {
 
             if(is_watched_address(ptr)) {
                 return ADDRESS_ALREADY_WATCHED;
+            } else if(!granary::is_valid_address(ptr)) {
+                return ADDRESS_NOT_WATCHED;
             }
 
             uintptr_t counter_index(0);

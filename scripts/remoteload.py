@@ -135,7 +135,7 @@ def main(argv):
         # Load Granary module & get sections
         cmd = [
                 """sudo insmod %s""" % "/tmp/granary.ko",
-                """python /tmp/__granary__remoteload.py --get_sections={module}""".format(module=args.module),
+                """sudo python /tmp/__granary__remoteload.py --get_sections={module}""".format(module=args.module),
                 ]
         agent.run_on_target(";".join(cmd))
 

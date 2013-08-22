@@ -57,21 +57,21 @@
 #endif
 
 
-/// Leak detector watchpoint policy.
+/// Leak detector watchpoint tool.
 #ifdef CLIENT_WATCHPOINT_LEAK
 #   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
 
-/// Shadow memory watchpoints policy.
+/// Shadow memory watchpoints tool.
 #ifdef CLIENT_SHADOW_MEMORY
 #   include "clients/watchpoints/clients/shadow_memory/instrument.h"
 #endif
 
 
-/// RCU debugging policy.
-#ifdef CLIENT_RCU_DEBUGGER
-#   include "clients/watchpoints/clients/rcu_debugger/instrument.h"
+/// RCU debugging watchpoint tool.
+#ifdef CLIENT_RCUDBG
+#   include "clients/watchpoints/clients/rcudbg/instrument.h"
 #endif
 
 

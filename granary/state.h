@@ -55,6 +55,7 @@ namespace granary {
             };
         };
 
+
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
@@ -68,6 +69,9 @@ namespace granary {
         };
 
 
+        /// For transiently allocated instructions that are meant to appear
+        /// "close enough" in memory with the rest of the code cache. This
+        /// allocator feeds the DynamoRIO side of things.
         struct instruction_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -79,6 +83,8 @@ namespace granary {
             };
         };
 
+
+        /// For dynamic wrapper entrypoints.
         struct wrapper_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -86,7 +92,7 @@ namespace granary {
                 TRANSIENT = false,
                 SHARED = true,
                 EXEC_WHERE = EXEC_WRAPPER,
-                MIN_ALIGN = 1
+                MIN_ALIGN = 16
             };
         };
 
@@ -99,7 +105,7 @@ namespace granary {
                 TRANSIENT = false,
                 SHARED = false,
                 EXEC_WHERE = EXEC_NONE,
-                MIN_ALIGN = 1
+                MIN_ALIGN = 16
             };
         };
 
@@ -112,7 +118,7 @@ namespace granary {
                 TRANSIENT = false,
                 SHARED = true,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 1
+                MIN_ALIGN = 16
             };
         };
 

@@ -125,49 +125,9 @@ namespace client {
         // Read unlock case; don't change the policy of the CTI,
         // but change the policy to decrease the depth.
         case DETACH_ADDR___granary_rcu_read_unlock:
-
-            if(0 == curr_depth) {
-                instruction call(ls.insert_before(in, label_()));
-                call = insert_cti_after(
-                    ls, call,
-                    EVENT_TRAILING_RCU_READ_UNLOCK,
-                    CTI_DONT_STEAL_REGISTER, operand(),
-                    CTI_CALL);
-
-                // Don't wrap the redundant `rcu_read_unlock`.
-                in.set_mangled();
-            } else {
+            if(0 < curr_depth) {
                 curr_policy = policy_for_depth(--curr_depth);
                 curr_policy.force_attach(true);
-            }
-            break;
-
-        // RCU dereference.
-        case DETACH_ADDR___granary_rcu_dereference:
-
-            // Don't wrap if we're at depth 0, report an issue.
-            if(!curr_depth) {
-                instruction call(ls.insert_before(in, label_()));
-                call = insert_cti_after(
-                    ls, call,
-                    EVENT_DEREF_OUTSIDE_OF_SECTION,
-                    CTI_DONT_STEAL_REGISTER, operand(),
-                    CTI_CALL);
-                in.set_mangled();
-            }
-            break;
-
-        // RCU assign pointer. Likely shouldn't be in a read-critical section,
-        // but can be outside of one.
-        case DETACH_ADDR___granary_rcu_assign_pointer:
-            if(curr_depth) {
-                instruction call(ls.insert_before(in, label_()));
-                call = insert_cti_after(
-                    ls, call,
-                    EVENT_ASSIGN_IN_SECTION,
-                    CTI_DONT_STEAL_REGISTER, operand(),
-                    CTI_CALL);
-                in.set_mangled();
             }
             break;
 
@@ -183,7 +143,7 @@ namespace client {
 
 
     /// "Null" RCU debugging policy. This instruments any code executing
-    /// outside of a read-side critical section. This code is upgrades to
+    /// outside of a read-side critical section. This code upgrades to
     /// writer code on a fault.
     instrumentation_policy rcu_null::visit_app_instructions(
         granary::cpu_state_handle,
@@ -249,5 +209,44 @@ namespace client {
         return INTERRUPT_DEFER;
     }
 
+    namespace wp {
+        void rcu_read_policy::visit_read(
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls,
+            watchpoint_tracker &tracker,
+            unsigned i
+        ) throw() {
+            (void) bb;
+            (void) ls;
+            (void) tracker;
+            (void) i;
+            // TODO
+        }
+
+
+        void rcu_read_policy::visit_write(
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls,
+            watchpoint_tracker &tracker,
+            unsigned i
+        ) throw() {
+            (void) bb;
+            (void) ls;
+            (void) tracker;
+            (void) i;
+            // TODO
+        }
+
+
+        interrupt_handled_state rcu_read_policy::handle_interrupt(
+            cpu_state_handle,
+            thread_state_handle,
+            granary::basic_block_state &,
+            interrupt_stack_frame &,
+            interrupt_vector
+        ) throw() {
+            return INTERRUPT_DEFER;
+        }
+    }
 }
 

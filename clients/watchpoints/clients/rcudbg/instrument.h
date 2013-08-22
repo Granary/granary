@@ -10,6 +10,7 @@
 #define _RCUDBG_INSTRUMENT_H_
 
 #include "clients/watchpoints/instrument.h"
+#include "clients/watchpoints/clients/rcudbg/descriptor.h"
 
 #ifndef GRANARY_INIT_POLICY
 #   define GRANARY_INIT_POLICY (client::rcu_null())
@@ -64,6 +65,7 @@ namespace client {
                 granary::interrupt_stack_frame &isf,
                 granary::interrupt_vector vector
             ) throw();
+
         };
 
     }

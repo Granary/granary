@@ -81,6 +81,14 @@ namespace granary {
         thread_state_handle(safe_cpu_access_zone) throw();
 
 
+        /// Some form of internal pointer to the current thread state, used
+        /// to semi-uniquely identify this task. It is not safe to convert
+        /// between this pointer and any other pointer.
+        FORCE_INLINE const void *identifying_address(void) throw() {
+            return operator->();
+        }
+
+
         FORCE_INLINE thread_state *operator->(void) throw() {
 
 #if GRANARY_IN_KERNEL

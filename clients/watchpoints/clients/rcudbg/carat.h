@@ -20,8 +20,12 @@ namespace client {
     const char *get_location_carat(unsigned location_id) throw();
 
 
-    /// Gets a section ID for a given carat and task.
-    unsigned get_section_id(const char *lock_carat_, void *task) throw();
+    /// Gets a section ID for a given carat and thread.
+    unsigned allocate_section_id(
+        const char *carat,
+        const void *thread,
+        const unsigned conflict_id
+    ) throw();
 
 
     /// Gets the last carat assigned to a particular section id.

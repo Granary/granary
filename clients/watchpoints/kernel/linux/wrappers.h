@@ -149,7 +149,6 @@ using namespace client::wp;
 #endif
 
 
-
 #if defined(CAN_WRAP_bit_waitqueue) && CAN_WRAP_bit_waitqueue
 #   ifndef APP_WRAPPER_FOR_bit_waitqueue
 #       define APP_WRAPPER_FOR_bit_waitqueue
