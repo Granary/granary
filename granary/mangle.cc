@@ -1130,6 +1130,9 @@ namespace granary {
         // TODO: in future, it might be worth hot-patching the call if we
         //       can make good predictions.
         if(in.is_call()) {
+
+            IF_PERF( perf::visit_mangle_indirect_call(); )
+
             instruction start_of_stub(ls->prepend(label_()));
             ibl_entry_stub(
                 *ls,
@@ -1141,12 +1144,18 @@ namespace granary {
             in.replace_with(patchable(mangled(call_(instr_(start_of_stub)))));
 
         } else if(in.is_return()) {
+
+            IF_PERF( perf::visit_mangle_return(); )
+
 #if !CONFIG_ENABLE_DIRECT_RETURN
             // TODO: handle RETn/RETf with a byte count.
             in.replace_with(
                 mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
 #endif
         } else {
+
+            IF_PERF( perf::visit_mangle_indirect_jmp(); )
+
             in.replace_with(mangled(jmp_(instr_(ibl_entry_stub(
                 *ls,
                 ls->prepend(label_()),

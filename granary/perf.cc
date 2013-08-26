@@ -38,6 +38,12 @@ namespace granary {
     static std::atomic<unsigned> NUM_BB_STATE_BYTES(ATOMIC_VAR_INIT(0U));
 
 
+    /// Performance counters for tracking different types of indirect CTIs.
+    static std::atomic<unsigned> NUM_INDIRECT_JMPS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_INDIRECT_CALLS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_RETURNS(ATOMIC_VAR_INIT(0U));
+
+
     /// Performance counters for tracking IBL, RBL, and DBL instruction counts.
     static std::atomic<unsigned> NUM_IBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_ENTRY_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
@@ -107,6 +113,21 @@ namespace granary {
             bb.info->num_bytes - bb.info->num_patch_bytes);
         NUM_BB_PATCH_BYTES.fetch_add(bb.info->num_patch_bytes);
         NUM_BB_STATE_BYTES.fetch_add(sizeof(basic_block_state));
+    }
+
+
+    void perf::visit_mangle_indirect_jmp(void) throw() {
+        NUM_INDIRECT_JMPS.fetch_add(1);
+    }
+
+
+    void perf::visit_mangle_indirect_call(void) throw() {
+        NUM_INDIRECT_CALLS.fetch_add(1);
+    }
+
+
+    void perf::visit_mangle_return(void) throw() {
+        NUM_RETURNS.fetch_add(1);
     }
 
 
@@ -201,6 +222,13 @@ namespace granary {
             NUM_BB_PATCH_BYTES.load());
         printf("Number of state bytes: %u\n\n",
             NUM_BB_STATE_BYTES.load());
+
+        printf("Number of indirect JMPs: %u\n",
+            NUM_INDIRECT_JMPS.load());
+        printf("Number of indirect CALLs: %u\n",
+            NUM_INDIRECT_CALLS.load());
+        printf("Number of RETs: %u\n\n",
+            NUM_RETURNS.load());
 
         printf("Number of IBL entry instructions: %u\n",
             NUM_IBL_ENTRY_INSTRUCTIONS.load());
