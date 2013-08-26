@@ -261,9 +261,9 @@ namespace granary {
 
         void set(unsigned offset, bool value) throw() {
             const elem_type one(1);
-            const elem_type mask(1 << (offset % MIN_NUM_BITS));
+            const elem_type mask(one << (offset % MIN_NUM_BITS));
             if(value) {
-               elems[offset / MIN_NUM_BITS] |= mask;
+                elems[offset / MIN_NUM_BITS] |= mask;
             } else {
                 elems[offset / MIN_NUM_BITS] &= ~mask;
             }
@@ -271,8 +271,8 @@ namespace granary {
 
         bool get(unsigned offset) const throw() {
             const elem_type one(1);
-            const elem_type mask(1 << (offset % MIN_NUM_BITS));
-            return 0 != elems[offset / MIN_NUM_BITS];
+            const elem_type mask(one << (offset % MIN_NUM_BITS));
+            return 0 != (mask & elems[offset / MIN_NUM_BITS]);
         }
     };
 #endif
