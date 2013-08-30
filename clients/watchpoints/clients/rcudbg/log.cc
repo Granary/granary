@@ -25,7 +25,7 @@ namespace client {
 
 
     message_container MESSAGES[MAX_NUM_MESSAGES] = {{
-        ATOMIC_VAR_INIT(MESSAGE_NOT_READY), {0, 0, 0, 0}
+        ATOMIC_VAR_INIT(MESSAGE_NOT_READY), 0, {0, 0, 0, 0}
     }};
 
 
@@ -52,50 +52,126 @@ namespace client {
     std::atomic<uint64_t> NEXT_LOG_OFFSET = ATOMIC_VAR_INIT(0);
 
 
-    /// Puts all the printer format strings into an array.
-    const char *PRINTER_FORMATS[] = {
-#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) message ,
+    /// Puts all the static info of each message into a common place.
+    const message_info MESSAGE_INFO[] = {
+        {INFO, ""},
+#define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
+    { kind , message },
 #include "clients/watchpoints/clients/rcudbg/message.h"
 #undef RCUDBG_MESSAGE
-        ""
+        {INFO, ""}
+    };
+
+    typedef int print_4_func(
+        char *, const char *, uint64_t, uint64_t, uint64_t, uint64_t);
+    typedef int print_3_func(
+        char *, const char *, uint64_t, uint64_t, uint64_t);
+    typedef int print_2_func(
+        char *, const char *, uint64_t, uint64_t);
+    typedef int print_1_func(
+        char *, const char *, uint64_t);
+    typedef int (int_func)(void);
+    typedef int (generic_printer_func)(
+        char *, const message_container *, int_func *);
+
+
+    static int print_4(
+        char *buff,
+        const message_container *cont,
+        int_func *printer
+    ) throw() {
+        print_4_func *print_func = (print_4_func *) printer;
+        const unsigned id(cont->message_id.load(std::memory_order_relaxed));
+
+        return print_func(
+            buff,
+            MESSAGE_INFO[id].format,
+            cont->payload[0],
+            cont->payload[1],
+            cont->payload[2],
+            cont->payload[3]
+        );
+    }
+
+
+    static int print_3(
+        char *buff,
+        const message_container *cont,
+        int_func *printer
+    ) throw() {
+        print_3_func *print_func = (print_3_func *) printer;
+        const unsigned id(cont->message_id.load(std::memory_order_relaxed));
+
+        return print_func(
+            buff,
+            MESSAGE_INFO[id].format,
+            cont->payload[0],
+            cont->payload[1],
+            cont->payload[2]
+        );
+    }
+
+
+    static int print_2(
+        char *buff,
+        const message_container *cont,
+        int_func *printer
+    ) throw() {
+        print_2_func *print_func = (print_2_func *) printer;
+        const unsigned id(cont->message_id.load(std::memory_order_relaxed));
+
+        return print_func(
+            buff,
+            MESSAGE_INFO[id].format,
+            cont->payload[0],
+            cont->payload[1]
+        );
+    }
+
+
+    static int print_1(
+        char *buff,
+        const message_container *cont,
+        int_func *printer
+    ) throw() {
+        print_1_func *print_func = (print_1_func *) printer;
+        const unsigned id(cont->message_id.load(std::memory_order_relaxed));
+
+        return print_func(
+            buff,
+            MESSAGE_INFO[id].format,
+            cont->payload[0]
+        );
+    }
+
+
+    generic_printer_func *VARIADIC_PRINTERS[] = {
+        nullptr,
+        &print_1,
+        &print_2,
+        &print_3,
+        &print_4
     };
 
 
     /// Define logger printers.
 #define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
-    static int CAT(PRINT_impl_, ident) ( \
+    static int CAT(PRINT_, ident) ( \
         char *buff, \
         const char *format, \
         SPLAT arg_defs \
     ) throw() { \
         return sprintf(buff, format, SPLAT arg_splat ); \
-    } \
-    \
-    static int CAT(PRINT_, ident) ( \
-        char *buff, \
-        const message_container *cont \
-    ) throw() { \
-        untyped_printer_func *print_func = \
-            (untyped_printer_func *) & CAT(PRINT_impl_, ident) ; \
-        \
-        return print_func( \
-            buff, \
-            PRINTER_FORMATS[ ident ], \
-            cont->payload[0], \
-            cont->payload[1], \
-            cont->payload[2], \
-            cont->payload[3] \
-        ); \
     }
 #include "clients/watchpoints/clients/rcudbg/message.h"
 #undef RCUDBG_MESSAGE
 
 
     /// Define an array of printers for the various log messages.
-    static printer_func *PRINTERS[] = {
+    static int_func *MESSAGE_PRINTERS[] = {
         nullptr,
 #define RCUDBG_MESSAGE(ident, kind, message, arg_defs, arg_splat) \
-    & CAT(PRINT_, ident) ,
+    (int_func *) & CAT(PRINT_, ident) ,
 #include "clients/watchpoints/clients/rcudbg/message.h"
 #undef RCUDBG_MESSAGE
         nullptr
@@ -146,7 +222,10 @@ namespace client {
                 b = 0;
             }
 
-            b += PRINTERS[id](&(BUFFER[b]), &cont);
+            b += VARIADIC_PRINTERS[cont.num_args](
+                &(BUFFER[b]),
+                &cont,
+                MESSAGE_PRINTERS[id]);
         }
 
         if(b) {

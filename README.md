@@ -78,9 +78,9 @@ for Granary. This step does not need to be repeated, unless you plan on
 changing any of the scripts in the scripts folder.
 
 Note: If you are using a remote machine, e.g. a VM, then specify `--remote`,
-otherwise leave it absent from the load.py script invocation. It helps if
+otherwise leave it absent from the *load.py script invocation. It helps if
 your local and remote machines are running the same build of the kernel. This
-is because `load.py --symbols` makes a copy of `/proc/kallsyms`.
+is because `*load.py --symbols` makes a copy of `/proc/kallsyms`.
 
 ```basemake
 python scripts/load.py --symbols
