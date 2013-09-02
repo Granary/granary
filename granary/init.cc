@@ -71,6 +71,9 @@ namespace granary {
         IF_USER_ELSE(init_user(), init_kernel());
 
 #ifdef CLIENT_init
+        cpu_state_handle cpu;
+        cpu.free_transient_allocators();
+
         // Initialise the client.
         client::init();
 #endif

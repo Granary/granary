@@ -80,7 +80,7 @@ if "__main__" == __name__:
   if "scripts" in sys.path[0]:
     rel_path = "../"
 
-  local_granary_file = os.path.join(sys.path[0], "%sgranary.ko" % rel_path)
+  local_granary_file = os.path.join(sys.path[0], "%sbin/granary.ko" % rel_path)
   local_symbols_file = os.path.join(sys.path[0], "%skernel.syms" % rel_path)
 
   # running Granary on a remote machine.

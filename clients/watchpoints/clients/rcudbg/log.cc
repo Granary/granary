@@ -234,4 +234,14 @@ namespace client {
 
         NEXT_LOG_OFFSET.store(0);
     }
+
+
+    bool log_entry_is(unsigned offset, const log_message_id expect_id) throw() {
+        if(offset >= MAX_NUM_MESSAGES) {
+            return false;
+        }
+
+        message_container &cont(MESSAGES[offset]);
+        return expect_id == cont.message_id.load();
+    }
 }

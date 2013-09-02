@@ -149,6 +149,21 @@ namespace client {
         cont.payload[3] = granary::unsafe_cast<uint64_t>(a3);
         cont.message_id.store(id);
     }
+
+
+    inline void clear_log(void) throw() {
+        NEXT_LOG_OFFSET.store(0);
+    }
+
+
+    inline uint64_t log_size(void) throw() {
+        return NEXT_LOG_OFFSET.load();
+    }
+
+
+    /// Used for testing. Returns true iff the log entry at offset `offset` has
+    /// the expected log message identifier, `expect_id`.
+    bool log_entry_is(unsigned offset, const log_message_id expect_id) throw();
 }
 
 #endif /* RCUDBG_LOG_H_ */
