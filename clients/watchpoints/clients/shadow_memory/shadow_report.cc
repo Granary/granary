@@ -22,9 +22,10 @@ namespace client {
     void report(void) throw() {
 
         unsigned long index;
+        uint16_t type;
 
         printf("\nWatchpoint shadow dumps\n");
-
+        type = client::wp::get_inode_type_id();
         for(index = 0; index < client::wp::MAX_NUM_WATCHPOINTS; index++){
             wp::shadow_policy_descriptor *desc;
             desc = wp::shadow_policy_descriptor::access(index);

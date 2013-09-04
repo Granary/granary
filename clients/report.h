@@ -24,6 +24,9 @@
 #   define CLIENT_report
 #endif
 
+#ifdef CLIENT_WATCHPOINT_PROFILE
+#   define CLIENT_report
+#endif
 
 #ifdef CLIENT_RCUDBG
 #   define CLIENT_report

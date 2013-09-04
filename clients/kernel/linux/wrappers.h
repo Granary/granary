@@ -16,6 +16,7 @@
  || defined(CLIENT_WATCHPOINT_STATS) \
  || defined(CLIENT_SHADOW_MEMORY) \
  || defined(CLIENT_RCUDBG)
+ || defined(CLIENT_WATCHPOINT_PROFILE)
 #   include "clients/watchpoints/kernel/linux/wrappers.h"
 #endif
 

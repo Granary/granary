@@ -163,10 +163,11 @@ namespace client { namespace wp {
 
         template <typename T>
         void update_type(T *ptr_) throw() {
-            const uintptr_t ptr(reinterpret_cast<uintptr_t>(unwatchped_address(ptr_)));
+            const uintptr_t ptr(reinterpret_cast<uintptr_t>(unwatched_address(ptr_)));
             const uint16_t begin(ptr - base_address);
             const uint16_t end(begin + size);
 
+            type = type_id<struct inode>::VALUE;
 
             for(unsigned i(0); i < NUM_SUB_STRUCTURES; ++i) {
                 sub_struct_shadow_policy &sub(sub_structures[i]);
@@ -212,6 +213,10 @@ namespace client { namespace wp {
     struct descriptor_type {
         typedef shadow_policy_descriptor type;
     };
+
+    uint16_t get_inode_type_id(void){
+        return type_id<struct inode>::VALUE;
+    }
 }}
 
 

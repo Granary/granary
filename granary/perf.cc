@@ -74,6 +74,7 @@ namespace granary {
     static std::atomic<unsigned> NUM_RECURSIVE_INTERRUPTS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned long> NUM_DELAYED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
     static std::atomic<unsigned long> NUM_BAD_MODULE_EXECS(ATOMIC_VAR_INIT(0UL));
+    static std::atomic<unsigned long> NUM_GP_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
 #endif
 
 

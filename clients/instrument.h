@@ -62,6 +62,9 @@
 #   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
+#ifdef CLIENT_WATCHPOINT_PROFILE
+#   include "clients/watchpoints/clients/profiler/instrument.h"
+#endif
 
 /// Shadow memory watchpoints tool.
 #ifdef CLIENT_SHADOW_MEMORY

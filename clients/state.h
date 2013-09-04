@@ -13,6 +13,8 @@
  || defined(CLIENT_WATCHPOINT_LEAK) \
  || defined(CLIENT_SHADOW_MEMORY) \
  || defined(CLIENT_RCUDBG)
+ || defined(CLIENT_WATCHPOINT_WATCHED) \
+ || defined(CLIENT_WATCHPOINT_PROFILE)
 #   include "clients/watchpoints/state.h"
 #endif
 

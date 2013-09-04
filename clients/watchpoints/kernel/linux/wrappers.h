@@ -25,6 +25,11 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/leak_detector/kernel/wrappers.h"
 #endif
 
+/// Leak detector watchpoint policy wrappers.
+#ifdef CLIENT_WATCHPOINT_PROFILE
+#   include "clients/watchpoints/clients/profiler/kernel/wrappers.h"
+#endif
+
 
 /// Null policy that taints addresses.
 #ifdef CLIENT_WATCHPOINT_WATCHED

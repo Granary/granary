@@ -51,6 +51,7 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
         static void visit_interrupt(void) throw();
+        static void visit_gp_interrupt(void) throw();
         static void visit_recursive_interrupt(void) throw();
         static void visit_delayed_interrupt(void) throw();
         static unsigned long num_delayed_interrupts(void) throw();

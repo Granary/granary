@@ -21,6 +21,10 @@
 #endif
 
 
+#ifdef CLIENT_WATCHPOINT_PROFILE
+#   include "clients/watchpoints/clients/profiler/state.h"
+#endif
+
 /// Shadow memory tool.
 #ifdef CLIENT_SHADOW_MEMORY
 #   include "clients/watchpoints/clients/shadow_memory/state.h"
