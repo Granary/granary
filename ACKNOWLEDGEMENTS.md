@@ -1,4 +1,4 @@
-### Acknowledgements
+# Acknowledgements
 
 ## DynamoRIO
 See [DynamoRIO's acknowledgements document](https://code.google.com/p/dynamorio/source/browse/trunk/ACKNOWLEDGEMENTS) for the authors of the DynamoRIO components of Granary.
