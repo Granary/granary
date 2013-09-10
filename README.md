@@ -80,10 +80,10 @@ changing any of the scripts in the scripts folder.
 Note: If you are using a remote machine, e.g. a VM, then specify `--remote`,
 otherwise leave it absent from the *load.py script invocation. It helps if
 your local and remote machines are running the same build of the kernel. This
-is because `*load.py --symbols` makes a copy of `/proc/kallsyms`.
+is because `{fast,slow}load.py --symbols` makes a copy of `/proc/kallsyms`.
 
 ```basemake
-python scripts/load.py --symbols
+python scripts/slowload.py --symbols
 make detach KERNEL=1
 make wrappers KERNEL=1
 ```
@@ -103,7 +103,7 @@ files. Todo: make it so that this last dependency depends on all others, so that
 parallel make is supported.
 
 ```basemake
-make clean KERNEL=1 ; make all KERNEL=1 GR_CC=clang GR_CXX=clang++
+make clean KERNEL=1 ; make all KERNEL=1
 ```
 
 Instrumenting kernel modules
@@ -118,13 +118,16 @@ typing the administrator password, either for the local or remote machine, depen
 on the `--remote` flag.
 
 ```basemake
-python scripts/load.py --remote
+python scripts/slowload.py --remote
 ```
 
 Note: if you are loading Granary into a VM, then it is suggested to use
 clang/clang++ as the compiler toolchain (as exampled above), because the debugging
 sections emitted by clang are orders of magnitude smaller, which improves the
-execution time of the `load.py` script.
+execution time of the `slowload.py` script. Alternatively, the `fastload.py` script
+can be used, which requires some extra SSH setup, but greatly improves load times
+regardless of the compiler. The `fastload.py` script is the preferred mechanism for
+loading; however, `slowload.py` requires less setup.
 
 Note: this is a good time to attach `gdb` if you are running Granary remotely and
 are concerned that Granary might crash during its initialisation. Instruct `gdb` to
