@@ -25,7 +25,7 @@ Copyright Notice
 Copyright &copy; 2012-2013 Peter Goodman. All rights reserved.
 
 Granary is licensed under a 3-clause BSD license. See [LICENSE.md](LICENSE.md) for
-the license.
+the license. See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for the list of contributors.
 
 Getting Started
 ---------------
