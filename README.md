@@ -1,5 +1,24 @@
 Granary
 =======
+Granary is a kernel space dynamic binary translation framework. The main goal of Granary
+is to enable flexible and efficient instrumentation of Linux kernel modules, while
+imposing no overhead to non-module kernel code.
+
+Granary's three key novelties are:
+  1. Mixed-mode execution. Granary is able to quickly "attach" and "detach" instrumentation.
+     Under normal operation, Granary controls and instruments the execution of module code,
+     while leaving the kernel to execute natively.
+  2. Policy-driven instrumentation. Granary is able to runtime code specialisation by allowing
+     tool authors to explicitly recognize different execution contexts, and associate different
+     instrumentation to code running in those contexts using "instrumentation policies". Policy-
+     driven instrumentation lets Granary do things like instrument the code running inside an
+     RCU read-side critical section differently than the code running outside of a read-side
+     critical section.
+  3. Reifying instrumentation. Granary bridges the gap between static and dynamic analysis by
+     integrating static analysis results into its dynamic analyses. Reifying instrumentation
+     allows Granary to implement low-overhead attach/detach, inspect the object graph during
+     kernel/module transitions, and assign runtime type information to dynamically allocated
+     objects.
 
 Copyright Notice
 ----------------
