@@ -5,6 +5,9 @@ Copyright Notice
 ----------------
 Copyright &copy; 2012-2013 Peter Goodman. All rights reserved.
 
+Granary is licensed under a 3-clause BSD license. See [License.txt](License.txt) for
+the license.
+
 Getting Started
 ---------------
  * You will need a recent version of the GCC (at least`gcc`/`g++` 4.8), or a
