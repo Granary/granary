@@ -73,6 +73,10 @@ make env
 
 Compiling for kernel space
 --------------------------
+
+First, check [the related documents](docs/) to make sure that your kernel is
+built in a Granary-compatible way.
+
 This will prepare a number of auto-generated source and non-source files
 for Granary. This step does not need to be repeated, unless you plan on
 changing any of the scripts in the scripts folder.
