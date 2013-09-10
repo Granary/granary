@@ -76,7 +76,8 @@ Compiling for kernel space
 
 First, check [the related documents](docs/) to make sure that your kernel is
 built in a Granary-compatible way. It is suggested that you follow all SSH-related
-documents so that you can use `fastload.py` in place of `slowload.py`.
+documents so that you can use `fastload.py` in place of `slowload.py` for the
+commands listed below.
 
 This step will prepare a number of auto-generated source and non-source files
 for Granary. This step does not need to be repeated, unless you plan on
