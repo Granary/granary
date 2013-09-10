@@ -70,32 +70,6 @@ files, etc.
 make env
 ```
 
-Compiling for user space
-------------------------
-
-```basemake
-make detach KERNEL=0
-make wrappers KERNEL=0
-make clean KERNEL=0 ; make all KERNEL=0
-```
-
-### Compiling with clang
-Other options for clang are `GR_ASAN` and `GR_LIBCXX`.
-
-
-Instrumenting user space programs
----------------------------------
-
-### Linux
-```basemake
-LD_PRELOAD=./libgranary.so my_program
-```
-
-### Mac OS X
-```basemake
-DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
-```
-
 
 Compiling for kernel space
 --------------------------
@@ -175,3 +149,32 @@ statistics to the kernel log.
 After Granary is loaded and initialised, modules can be instrumented. To instrument
 a module, simply load it into the kernel. Loading a module is done using either
 `modprobe` or `insmod`.
+
+Compiling for user space
+------------------------
+Note: Granary is a kernel-space DBT system first. The user space implementation is
+highly experimental and mostly suited toward prototyping and debugging small Granary
+features.
+
+```basemake
+make detach KERNEL=0
+make wrappers KERNEL=0
+make clean KERNEL=0 ; make all KERNEL=0
+```
+
+### Compiling with clang
+Other options for clang are `GR_ASAN` and `GR_LIBCXX`.
+
+
+Instrumenting user space programs
+---------------------------------
+
+### Linux
+```basemake
+LD_PRELOAD=./libgranary.so my_program
+```
+
+### Mac OS X
+```basemake
+DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
+```
