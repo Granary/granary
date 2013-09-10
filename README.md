@@ -127,13 +127,17 @@ on the `--remote` flag.
 python scripts/slowload.py --remote
 ```
 
-Note: if you are loading Granary into a VM, then it is suggested to use
-clang/clang++ as the compiler toolchain (as exampled above), because the debugging
-sections emitted by clang are orders of magnitude smaller, which improves the
-execution time of the `slowload.py` script. Alternatively, the `fastload.py` script
-can be used, which requires some extra SSH setup, but greatly improves load times
-regardless of the compiler. The `fastload.py` script is the preferred mechanism for
-loading; however, `slowload.py` requires less setup.
+If SSH is properly configured, then you can use `fastload.py` in place of `slowload.py`.
+For example, for an SSH host named `slothvm`, one can do:
+
+```basemake
+python scripts/fastload.py --remote slothvm
+```
+
+Note: If you are using `slowload.py` then we suggest using `clang` and `clang++` as
+the compiler toolchain. However, this can sometimes introduce spurious bugs when
+debugging remote virtual machines. If `fastload.py` is used then either GCC or Clang
+can be used, with no expected drop in load times.
 
 Note: this is a good time to attach `gdb` if you are running Granary remotely and
 are concerned that Granary might crash during its initialisation. Instruct `gdb` to
