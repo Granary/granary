@@ -33,6 +33,10 @@ Getting Started
    recent version of Clang (at least `clang`/`clang++` 3.2).
  * You will need Python 2.7 or above, but not Python 3.
  * You will need `make`/`gmake`.
+ * Consult the [documentation files](docs/) on how to build a kernel that will work with Granary,
+   how to set up a virtual machine, and how to set up SSH to enable (fast) loading.
+ * Consult the [online discussion group](https://groups.google.com/forum/#!forum/granary-dev)
+   for any other questions / details.
 
 Common Makefile Options
 -----------------------
