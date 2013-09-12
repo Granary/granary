@@ -51,7 +51,7 @@ namespace client {
 
 
     /// Unique IDs for basic blocks.
-    static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(0);
+    static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(1);
 
 
     enum allocator_kind {
@@ -84,7 +84,6 @@ namespace client {
         MEMORY_ALLOCATORS.construct();
 
 #if GRANARY_IN_KERNEL
-
 #   define CFG_MEMORY_ALLOCATOR(func) \
         MEMORY_ALLOCATORS->store( \
             unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_ALLOCATOR);
@@ -101,7 +100,6 @@ namespace client {
 #   undef CFG_MEMORY_ALLOCATOR
 #   undef CFG_MEMORY_DEALLOCATOR
 #   undef CFG_MEMORY_REALLOCATOR
-
 #endif /* GRANARY_IN_KERNEL */
     }
 
@@ -129,6 +127,13 @@ namespace client {
         granary::basic_block_state &bb,
         instruction_list &ls
     ) throw() {
+        
+        // This is a recursive invocation of instrumentation on an indirect
+        // CTI that loads from memory.
+        if(bb.block_id.load()) {
+            return;
+        }
+        
         instruction in(ls.last());
         register_manager used_regs;
         register_manager entry_regs;
@@ -159,19 +164,6 @@ namespace client {
                     if(!end_pc) {
                         end_pc = curr_pc;
                     }
-                }
-            }
-
-            // Is this a memory allocator?
-            allocator_kind alloc_kind;
-            if(MEMORY_ALLOCATORS->load(start_pc, alloc_kind)) {
-                if(MEMORY_ALLOCATOR == alloc_kind) {
-                    bb.is_allocator = true;
-                } else if(MEMORY_DEALLOCATOR == alloc_kind) {
-                    bb.is_deallocator = true;
-                } else {
-                    bb.is_allocator = true;
-                    bb.is_deallocator = true;
                 }
             }
 #endif /* GRANARY_IN_KERNEL */
@@ -214,6 +206,20 @@ namespace client {
         bb.entry_regs = entry_regs.encode();
 
 #if GRANARY_IN_KERNEL
+
+        // Is this a memory allocator?
+        allocator_kind alloc_kind;
+        if(MEMORY_ALLOCATORS->load(start_pc, alloc_kind)) {
+            if(MEMORY_ALLOCATOR == alloc_kind) {
+                bb.is_allocator = true;
+            } else if(MEMORY_DEALLOCATOR == alloc_kind) {
+                bb.is_deallocator = true;
+            } else {
+                bb.is_allocator = true;
+                bb.is_deallocator = true;
+            }
+        }
+
         // Record the name and relative offset of the code within the
         // module. We can correlate this offset with an `objdump` or do
         // static instrumentation of the ELF/KO based on this offset.
