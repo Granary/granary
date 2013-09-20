@@ -53,6 +53,10 @@ GR_OUTPUT_FORMAT =
 # Compilation options
 GR_DEBUG_LEVEL = -g3 
 
+# Whether or not kernel annotations are enabled. This requires that some files
+# be added to the kernel. This is required by things like the `rcudbg` tool.
+GR_ANNOTATIONS ?= 0
+
 # Optimisation level.
 ifeq ($(KERNEL),0)
 	GR_DEBUG_LEVEL += -O0
@@ -342,14 +346,14 @@ ifeq (1,$(GR_TESTS))
     GR_OBJS += $(BIN_DIR)/tests/test_indirect_cti.o
 endif
 
-# user space
+# User space.
 ifeq ($(KERNEL),0)
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
 	GR_OUTPUT_TYPES = $(SOURCE_DIR)/granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = $(SOURCE_DIR)/granary/gen/user_wrappers.h
 	GR_DETACH_FILE = $(SOURCE_DIR)/granary/gen/user_detach.inc
 	
-	# user-specific versions of granary functions
+	# User-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/user/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/user/state.o
 	GR_OBJS += $(BIN_DIR)/granary/user/init.o
@@ -378,12 +382,12 @@ ifeq ($(KERNEL),0)
 		endif
 	endif
 
-	# Granary tests
+	# Granary tests.
 	GR_OBJS += $(BIN_DIR)/tests/test_mat_mul.o
 	GR_OBJS += $(BIN_DIR)/tests/test_md5.o
 	GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
 
-	# figure out how to link in various libraries that might be OS-specific
+	# Figure out how to link in various libraries that might be OS-specific.
 	GR_LD_PREFIX_SPECIFIC =
 	GR_LD_SUFFIX_SPECIFIC =
 
@@ -425,7 +429,7 @@ endef
 		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_dll_detach_table.py >> $(GR_DETACH_FILE))
 endef
 
-# kernel space
+# Kernel space.
 else
 	GR_COMMON_KERNEL_FLAGS = -DGRANARY_IN_KERNEL=1 -DGRANARY_USE_PIC=0
 	
@@ -435,6 +439,10 @@ else
 	else # gcc
 		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel -maccumulate-outgoing-args
 		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
+	endif
+	
+	ifeq (1,$(GR_ANNOTATIONS))
+		GR_TYPE_CC_FLAGS += -DGRANARY_KERNEL_ANNOTATIONS
 	endif
 	
 	# Common flags to disable certain user space features for the kernel

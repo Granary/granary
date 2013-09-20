@@ -158,7 +158,11 @@
 #include <linux/if_vlan.h>
 
 #include <net/iw_handler.h>
-#include <uapi/linux/nl80211.h>
+#if KERNEL_VERSION(3,3,0) <= LINUX_VERSION_CODE
+#   include <uapi/linux/nl80211.h>
+#else
+#   include <linux/nl80211.h>
+#endif
 #include <net/cfg80211.h>
 #include <net/if_inet6.h>
 #include <net/dn_dev.h>
@@ -249,12 +253,18 @@
 #include <linux/workqueue.h>
 void __init_work(struct work_struct *work, int onstack);
 
-#include <uapi/linux/posix_types.h>
+#if KERNEL_VERSION(3,3,0) <= LINUX_VERSION_CODE
+#   include <uapi/linux/posix_types.h>
+#else
+#   include <linux/posix_types.h>
+#endif
 #include <linux/rcupdate.h>
 #include <linux/rcutree.h>
 
 /* Granary-specific linux kernel file! */
-#include <linux/granary.h>
+#ifdef GRANARY_KERNEL_ANNOTATIONS
+#   include <linux/granary.h>
+#endif
 
 /* Manually defined to exist */
 struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);
