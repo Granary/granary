@@ -130,7 +130,7 @@ namespace client {
         
         // This is a recursive invocation of instrumentation on an indirect
         // CTI that loads from memory.
-        if(bb.block_id.load()) {
+        if(bb.block_id) {
             return;
         }
         
