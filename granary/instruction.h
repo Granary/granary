@@ -253,7 +253,7 @@ namespace granary {
         static typename dynamorio::dcontext_t *DCONTEXT;
 
         enum instruction_flag {
-            /// Mark an instruction as alredy mangled. By default, all
+            /// Mark an instruction as already mangled. By default, all
             /// instructions are subject to mangling.
             DONT_MANGLE         = (1 << 0),
 
@@ -267,7 +267,10 @@ namespace granary {
 
             /// Set iff a label is targeted by a CTI within the current basic
             /// block.
-            TARGETED_BY_CTI     = (1 << 3)
+            TARGETED_BY_CTI     = (1 << 3),
+
+            /// Mark this instruction as hot-patchable.
+            HOT_PATCHABLE       = (1 << 4)
         };
 
         typename dynamorio::instr_t *instr;
@@ -469,35 +472,40 @@ namespace granary {
             instr->granary_flags |= flag;
         }
 
+        /// Returns true iff this instruction has a specific flag.
+        inline bool has_flag(instruction_flag flag) const throw() {
+            return 0 != (flag & instr->granary_flags);
+        }
+
 
 #if GRANARY_IN_KERNEL
         /// Return true iff this instruction begins a delay region.
         inline bool begins_delay_region(void) const throw() {
-            return 0 != (DELAY_BEGIN & instr->granary_flags);
+            return has_flag(DELAY_BEGIN);
         }
 
 
         /// Set this instruction to begin a delay region.
         inline void begin_delay_region(void) throw() {
-            instr->granary_flags |= DELAY_BEGIN;
+            add_flag(DELAY_BEGIN);
         }
 
 
         /// Return true iff this instruction ends a delay region.
         inline bool ends_delay_region(void) const throw() {
-            return 0 != (DELAY_END & instr->granary_flags);
+            return has_flag(DELAY_END);
         }
 
 
         /// Set this instruction to end a delay region.
         inline void end_delay_region(void) throw() {
-            instr->granary_flags |= DELAY_END;
+            add_flag(DELAY_END);
         }
 #endif
 
         /// Return true iff this instruction is mangled.
         inline bool is_mangled(void) const throw() {
-            return 0 != (DONT_MANGLE & instr->granary_flags);
+            return has_flag(DONT_MANGLE);
         }
 
 
@@ -510,13 +518,13 @@ namespace granary {
         /// Check to see if this instruction can be patched at runtime. If so,
         /// then this instruction needs to be aligned nicely.
         inline bool is_patchable(void) const throw() {
-            return 0 != (dynamorio::INSTR_HOT_PATCHABLE & instr->flags);
+            return has_flag(HOT_PATCHABLE);
         }
 
 
         /// Set the state of the instruction to be mangled.
         inline void set_patchable(void) throw() {
-            instr->flags |= dynamorio::INSTR_HOT_PATCHABLE;
+            add_flag(HOT_PATCHABLE);
         }
 
 

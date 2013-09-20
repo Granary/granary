@@ -112,7 +112,7 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENABLE_DIRECT_RETURN
         const uintptr_t addr_uint(reinterpret_cast<uintptr_t>(app_target_addr));
         uint32_t *header_addr(reinterpret_cast<uint32_t *>(
             addr_uint + 16 - RETURN_ADDRESS_OFFSET));

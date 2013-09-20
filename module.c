@@ -115,6 +115,12 @@ void granary_break_on_fault(void) {
 }
 
 
+/// Function that is called on a weird event in Granary.
+void granary_break_on_curiosity(void) {
+    __asm__ __volatile__ ("");
+}
+
+
 /// Function that is called in order to force a fault.
 int granary_fault(void) {
     __asm__ __volatile__ ("int3; int3; mov 0, %rax;");

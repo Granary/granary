@@ -27,9 +27,27 @@ namespace client {
         const unsigned conflict_id
     ) throw();
 
+    enum section_carat_kind {
+        SECTION_LOCK_CARAT,
+        SECTION_UNLOCK_CARAT,
+        SECTION_DEREF_CARAT
+    };
 
     /// Gets the last carat assigned to a particular section id.
-    const char *get_section_carat(unsigned section_id) throw();
+    const char *get_section_carat(
+        unsigned section_id,
+        section_carat_kind kind
+    ) throw();
+
+
+    /// Gets the last carat assigned to a particular section id. This won't
+    /// necessarily get the right carat, but it will usually get one that's
+    /// close enough.
+    void set_section_carat(
+        unsigned section_id,
+        section_carat_kind kind,
+        const char *carat
+    ) throw();
 }
 
 

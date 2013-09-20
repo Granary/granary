@@ -105,9 +105,20 @@ RCUDBG_MESSAGE(
     ACCESS_OF_LEAKED_RCU_DEREFERENCED_POINTER,
     ERROR,
     "Error: Access of an rcu_dereference'd pointer outside of a "
-    "read-sidecritical section.\n"
+    "read-side critical section.\n"
     " > thread: %p.\n"
-    " > last_rcu_read_unlock: %s.\n"
-    " > rcu_dereference: %s.\n\n",
+    " > last rcu_read_unlock: %s.\n"
+    " > last rcu_dereference: %s.\n\n",
+    (const void *thread, const char *read_unlock_carat, const char *deref_carat),
+    (thread, read_unlock_carat, deref_carat))
+
+RCUDBG_MESSAGE(
+    ACCESS_OF_WRONG_RCU_DEREFERENCED_POINTER,
+    ERROR,
+    "Error: Access of an rcu_dereference'd pointer in the wrong read-side "
+    "critical section.\n"
+    " > thread: %p.\n"
+    " > last rcu_read_unlock: %s.\n"
+    " > last rcu_dereference: %s.\n\n",
     (const void *thread, const char *read_unlock_carat, const char *deref_carat),
     (thread, read_unlock_carat, deref_carat))

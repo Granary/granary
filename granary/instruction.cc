@@ -450,14 +450,12 @@ namespace granary {
 
         if(prev) {
             prev->next = next;
-            instr->prev = nullptr;
         } else {
             first_ = next;
         }
 
         if(next) {
             next->prev = prev;
-            instr->next = nullptr;
         } else {
             last_ = prev;
         }
@@ -470,24 +468,11 @@ namespace granary {
 
 
     /// Remove a tail of the list, starting at an instruction.
-    void instruction_list::remove_tail_at(instruction at_item_) throw() {
-        dynamorio::instr_t *instr(at_item_.instr);
-        if(!instr) {
-            return;
-        }
-
-        ASSERT(is_valid_address(instr));
-        ASSERT(0 < length_);
-
-        last_ = instr->prev;
-        if(last_) {
-            last_->next = nullptr;
-            for(; instr; instr = instr->next) {
-                --length_;
-            }
-        } else {
-            ASSERT(first_ == instr);
-            length_ = 0;
+    void instruction_list::remove_tail_at(instruction item) throw() {
+        instruction next;
+        for(; item.is_valid(); item = next) {
+            next = item.next();
+            remove(item);
         }
     }
 

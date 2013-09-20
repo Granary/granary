@@ -22,6 +22,24 @@ namespace client {
     /// it more likely for bugs to creep in. This could also be evidence of a
     /// read-side critical section being left locked.
     extern granary::app_pc EVENT_READ_THROUGH_RET;
+
+
+    /// Invoked when a watched address that is the result of an
+    /// `rcu_assign_pointer` is directly accessed (read or write) from within
+    /// an RCU read-side critical section.
+    extern granary::app_pc EVENT_ACCESS_ASSIGNED_POINTER;
+
+
+    /// Invoked when a watched address that is the result of an
+    /// `rcu_dereference` is written to from within a RCU read-side critical
+    /// section.
+    extern granary::app_pc EVENT_WRITE_TO_DEREF_POINTER;
+
+
+    /// Invoked when a watched address that is the result of an
+    /// `rcu_dereference` is read from within a RCU read-side critical
+    /// section.
+    extern granary::app_pc EVENT_READ_FROM_DEREF_POINTER;
 #endif
 
     void *event_rcu_dereference(void *ptr, const char *carat) throw();

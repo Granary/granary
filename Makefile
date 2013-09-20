@@ -33,6 +33,9 @@ GR_NAME = granary
 # Client
 GR_CLIENT ?= null
 
+# Enable normal Granary tests.
+GR_TESTS ?= 0
+
 # Compilation toolchain
 GR_CPP = cpp
 GR_CC = gcc-4.8
@@ -303,20 +306,22 @@ ifeq ($(GR_CLIENT),shadow_memory)
 	endif
 endif
 ifeq ($(GR_CLIENT),rcudbg)
-    GR_CXX_FLAGS += -DCLIENT_RCUDBG
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/carat.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/descriptor.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/events.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/instrument.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/log.o
-    
-    ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
+	ifeq ($(KERNEL),1)
+        GR_CXX_FLAGS += -DCLIENT_RCUDBG
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	else
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
+		
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/carat.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/descriptor.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/events.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/instrument.o
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/log.o
+        
+        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/tests/access_leaked_pointer.o
+    else
+    	$(error Can't use the rcudbg tool in user space.)
 	endif
 endif
 
@@ -329,11 +334,13 @@ GR_OBJS += $(BIN_DIR)/deps/icxxabi/icxxabi.o
 
 # Granary tests.
 GR_OBJS += $(BIN_DIR)/granary/test.o
-GR_OBJS += $(BIN_DIR)/tests/test_direct_cbr.o
-GR_OBJS += $(BIN_DIR)/tests/test_direct_call.o
-GR_OBJS += $(BIN_DIR)/tests/test_lock_inc.o
-GR_OBJS += $(BIN_DIR)/tests/test_direct_rec.o
-GR_OBJS += $(BIN_DIR)/tests/test_indirect_cti.o
+ifeq (1,$(GR_TESTS))
+    GR_OBJS += $(BIN_DIR)/tests/test_direct_cbr.o
+    GR_OBJS += $(BIN_DIR)/tests/test_direct_call.o
+    GR_OBJS += $(BIN_DIR)/tests/test_lock_inc.o
+    GR_OBJS += $(BIN_DIR)/tests/test_direct_rec.o
+    GR_OBJS += $(BIN_DIR)/tests/test_indirect_cti.o
+endif
 
 # user space
 ifeq ($(KERNEL),0)
@@ -637,6 +644,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/stats/ > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/shadow_memory > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/rcudbg > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/rcudbg/tests > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:

@@ -90,7 +90,8 @@ namespace granary {
 
 
     enum {
-        MAX_NUM_POLICIES = 1 << mangled_address::NUM_MANGLED_BITS
+        MAX_NUM_POLICIES = 1 << mangled_address::NUM_MANGLED_BITS,
+        HOTPATCH_ALIGN = 8
     };
 
 
@@ -753,7 +754,7 @@ namespace granary {
 
         const unsigned size(in.encoded_size());
         if((size + offset) < 8) {
-            inject_mangled_nops(ls, ls.first(), 8U - (size + offset));
+            inject_mangled_nops(ls, ls.first(), HOTPATCH_ALIGN - (size + offset));
         }
 
         ls.stage_encode(stage, dest);
@@ -798,7 +799,8 @@ namespace granary {
             if(maybe_jmp.is_cti()) {
                 ASSERT(dynamorio::OP_jmp == maybe_jmp.op_code());
                 patch_address = maybe_jmp.cti_target().value.pc;
-                ASSERT(0 == (reinterpret_cast<uint64_t>(patch_address) % 8));
+                ASSERT(0 == (reinterpret_cast<uint64_t>(patch_address)
+                             % HOTPATCH_ALIGN));
                 break;
             }
         }
@@ -851,8 +853,8 @@ namespace granary {
             }
         }
 
-        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
-            ls.encoded_size()));
+        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>(ls.encoded_size()));
 
         IF_PERF( perf::visit_dbl_patch(ls); )
 
@@ -1104,7 +1106,9 @@ namespace granary {
             dbl_entry_routine(target_policy, in, am) // target of stub
         );
 
-        in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
+        in.replace_with(jmp_(instr_(stub)));
+        in.set_patchable();
+        in.set_mangled();
 
         const unsigned new_size(in.encoded_size());
 
@@ -1122,9 +1126,9 @@ namespace granary {
         instrumentation_policy target_policy
     ) throw() {
 
-        // mark indirect calls as hot-patchable (even though they won't be
+        // Mark indirect calls as hot-patchable (even though they won't be
         // patched) so that they are automatically aligned to an 8-byte boundary
-        // with associated alignment nops after them. This is so that the RBL
+        // with associated alignment NOPs after them. This is so that the RBL
         // can treat direct and indirect calls uniformly.
         //
         // TODO: in future, it might be worth hot-patching the call if we
@@ -1610,13 +1614,6 @@ namespace granary {
             // longer reachable with %rip-relative encoding, and convert to a
             // use of an absolute address.
             } else {
-
-#if 0
-                if(dynamorio::OP_bsr == in.op_code()
-                || dynamorio::OP_bsf == in.op_code()) {
-                    mangle_bit_scan(in);
-                }
-#endif
                 IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_far_memory_refs(in);
                 IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
@@ -1625,32 +1622,41 @@ namespace granary {
         }
 
 
-        // do a second-pass over all instructions, looking for any hot-patchable
+        // Do a second-pass over all instructions, looking for any hot-patchable
         // instructions, and aligning them nicely.
         //
         // Extra alignment/etc needs to be done here instead of in encoding
         // because of how basic block allocation works.
         unsigned align(0);
         instruction prev_in;
-        in = ls->first();
 
-        for(; in.is_valid(); in = next_in) {
+        for(in = ls->first(); in.is_valid(); in = next_in) {
 
             next_in = in.next();
             const bool is_hot_patchable(in.is_patchable());
             const unsigned in_size(in.encoded_size());
 
-            // x86-64 guaranteed quadword atomic writes so long as the memory
+            // x86-64 guarantees quadword atomic writes so long as the memory
             // location is aligned on an 8-byte boundary; we will assume that
-            // we are never patching an instruction longer than 8 bytes
+            // we are never patching an instruction longer than 8 bytes.
             if(is_hot_patchable) {
-                uint64_t forward_align(ALIGN_TO(align, 8));
+                ASSERT(HOTPATCH_ALIGN >= in_size);
 
+                uint64_t forward_align(ALIGN_TO(align, HOTPATCH_ALIGN));
+
+#if !CONFIG_ENABLE_DIRECT_RETURN
                 // This will make sure that even indirect calls have their
-                // return addresses aligned at `RETURN_ADDRESS_OFFSET`.
+                // return addresses aligned at `RETURN_ADDRESS_OFFSET`. The
+                // purpose of this is that in some Granary configurations, we
+                // inspect (return address + 16 - RETURN_ADDRESS_OFFSET) to
+                // try to find the basic block meta info magic number. We mark
+                // both direct and indirect calls as hot-patchable, which
+                // introduces some inefficiency, but enables uniformity at this
+                // step.
                 if(in.is_call() && RETURN_ADDRESS_OFFSET > in_size) {
                     forward_align += RETURN_ADDRESS_OFFSET - in_size;
                 }
+#endif /* CONFIG_ENABLE_DIRECT_RETURN */
 
                 inject_mangled_nops(*ls, prev_in, forward_align);
                 align += forward_align;
@@ -1659,10 +1665,10 @@ namespace granary {
             prev_in = in;
             align += in_size;
 
-            // make sure that the instruction is the only "useful" one in it's
-            // 8-byte block
+            // Make sure that the instruction is the only "useful" one in it's
+            // 8-byte block.
             if(is_hot_patchable) {
-                uint64_t forward_align(ALIGN_TO(align, 8));
+                uint64_t forward_align(ALIGN_TO(align, HOTPATCH_ALIGN));
                 inject_mangled_nops(ls_, prev_in, forward_align);
                 align += forward_align;
             }

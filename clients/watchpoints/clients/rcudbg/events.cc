@@ -24,9 +24,22 @@ namespace client {
     app_pc EVENT_READ_THROUGH_RET = nullptr;
 
 
-    /// A trailing call to a read-side critical section unlock point is invoked.
-    /// This unlock does not match a lock.
-    app_pc EVENT_TRAILING_RCU_READ_UNLOCK = nullptr;
+    /// Invoked when a watched adddress that is the result of an
+    /// `rcu_assign_pointer` is directly accessed (read or write) from within
+    /// an RCU read-side critical section.
+    app_pc EVENT_ACCESS_ASSIGNED_POINTER = nullptr;
+
+
+    /// Invoked when a watched address that is the result of an
+    /// `rcu_dereference` is written to from within a RCU read-side critical
+    /// section.
+    app_pc EVENT_WRITE_TO_DEREF_POINTER = nullptr;
+
+
+    /// Invoked when a watched address that is the result of an
+    /// `rcu_dereference` is read from within a RCU read-side critical
+    /// section.
+    app_pc EVENT_READ_FROM_DEREF_POINTER = nullptr;
 
 
     /// Log a warning that a read-side critical section extends through a
@@ -82,7 +95,11 @@ namespace client {
                 carat, thread.identifying_address(), thread->section_id);
         }
         thread->section_depth++;
+
+        const unsigned section_id(thread->section_id);
         IF_KERNEL( granary_store_flags(flags); )
+
+        set_section_carat(section_id, SECTION_LOCK_CARAT, carat);
     }
 
 
@@ -92,16 +109,27 @@ namespace client {
         thread_state_handle thread = safe_cpu_access_zone();
         const void *thread_id(nullptr);
         const char *last_read_unlock_carat(nullptr);
+
+        unsigned section_id(0);
+        bool has_section_id(false);
+
         if(thread->section_depth) {
             thread->section_carat = carat;
             thread->section_carat_backtrace[thread->section_depth] = carat;
             thread->section_depth--;
+
+            has_section_id = true;
+            section_id = thread->section_id;
         } else {
             thread_id = thread.identifying_address();
             last_read_unlock_carat = thread->section_carat;
             thread->section_carat = carat;
         }
         IF_KERNEL( granary_store_flags(flags); )
+
+        if(has_section_id) {
+            set_section_carat(section_id, SECTION_UNLOCK_CARAT, carat);
+        }
 
         // Report the unbalanced `rcu_read_unlock`.
         if(thread_id) {
@@ -113,6 +141,43 @@ namespace client {
     }
 
 
+
+    /// Visit a read or write of a watched address that is the result of an
+    /// `rcu_assign_pointer` within a read-side critical section.
+    void access_assigned_pointer(register rcudbg_watched_address addr) {
+        (void) addr;
+    }
+
+
+    /// Visit a write to a watched address that is the result of an
+    /// `rcu_dereference` within a read-side critical section.
+    void write_to_deref_pointer(register rcudbg_watched_address addr) {
+        (void) addr;
+    }
+
+
+    /// Visit a read from a watched address that is the result of an
+    /// `rcu_dereference` within a read-side critical section.
+    void read_from_deref_pointer(register rcudbg_watched_address addr) {
+        thread_state_handle thread = safe_cpu_access_zone();
+
+        // Dereferenced outside of a read-side critical section.
+        if(!thread->section_depth) {
+            log(ACCESS_OF_LEAKED_RCU_DEREFERENCED_POINTER,
+                thread.identifying_address(),
+                get_section_carat(addr.read_section_id, SECTION_UNLOCK_CARAT),
+                get_section_carat(addr.read_section_id, SECTION_DEREF_CARAT));
+
+        // Dereferenced in wrong read-side critical section.
+        } else if(thread->section_id != addr.read_section_id) {
+            log(ACCESS_OF_WRONG_RCU_DEREFERENCED_POINTER,
+                thread.identifying_address(),
+                get_section_carat(addr.read_section_id, SECTION_UNLOCK_CARAT),
+                get_section_carat(addr.read_section_id, SECTION_DEREF_CARAT));
+        }
+    }
+
+
     /// Initialise the clean-callable target for the events.
     void init(void) throw() {
         cpu_state_handle cpu;
@@ -120,6 +185,18 @@ namespace client {
         cpu.free_transient_allocators();
         EVENT_READ_THROUGH_RET = generate_clean_callable_address(
             event_read_through_ret);
+
+        cpu.free_transient_allocators();
+        EVENT_ACCESS_ASSIGNED_POINTER = generate_clean_callable_address(
+            access_assigned_pointer);
+
+        cpu.free_transient_allocators();
+        EVENT_WRITE_TO_DEREF_POINTER = generate_clean_callable_address(
+            write_to_deref_pointer);
+
+        cpu.free_transient_allocators();
+        EVENT_READ_FROM_DEREF_POINTER = generate_clean_callable_address(
+            read_from_deref_pointer);
 
         cpu.free_transient_allocators();
     }

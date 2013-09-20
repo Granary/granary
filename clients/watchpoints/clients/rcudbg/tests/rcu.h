@@ -42,10 +42,9 @@
     } while(0)
 
 
-
 #define rcu_assign_pointer(p, v) \
     do { \
-        p = (decltype(p)) granary::types::__granary_rcu_assign_pointer(\
+        granary::types::__granary_rcu_assign_pointer(\
             (void **) &(p), \
             (void *) v, \
             GRANARY_CARAT); \

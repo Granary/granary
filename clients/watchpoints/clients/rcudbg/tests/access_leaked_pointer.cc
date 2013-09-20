@@ -56,8 +56,11 @@ namespace test {
 
         granary::app_pc test_pc(
             (granary::app_pc) access_leaked_pointer);
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::rcu_null>();
+        policy.force_attach(true);
         granary::basic_block test_bb(granary::code_cache::find(
-            test_pc, granary::policy_for<client::rcu_null>()));
+            test_pc, policy));
 
         client::clear_log();
 
@@ -74,15 +77,18 @@ namespace test {
 
         granary::app_pc test_pc(
             (granary::app_pc) access_leaked_pointer_wrong_section);
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::rcu_null>();
+        policy.force_attach(true);
         granary::basic_block test_bb(granary::code_cache::find(
-            test_pc, granary::policy_for<client::rcu_null>()));
+            test_pc, policy));
 
         client::clear_log();
 
         ASSERT(10 == test_bb.call<int>());
         ASSERT(1 == client::log_size());
         ASSERT(client::log_entry_is(
-            0, client::ACCESS_OF_LEAKED_RCU_DEREFERENCED_POINTER));
+            0, client::ACCESS_OF_WRONG_RCU_DEREFERENCED_POINTER));
     }
 
 

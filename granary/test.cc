@@ -30,6 +30,11 @@ extern "C" {
     }
 
 
+    DONT_OPTIMISE void granary_break_on_curiosity(void) {
+        ASM("");
+    }
+
+
     DONT_OPTIMISE int granary_fault(void) {
         ASM("int3; int3; mov 0, %rax;");
         return 1;

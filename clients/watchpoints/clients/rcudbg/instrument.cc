@@ -16,34 +16,82 @@
 #   error "RCU debugging requires that `__granary_rcu_read_lock` be defined."
 #endif
 
-
-#define DECLARE_READ_ACCESSOR(reg) \
-    extern void CAT(granary_rcu_policy_read_, reg)(void);
-
-
-#define DECLARE_READ_ACCESSORS(reg, rest) \
-    DECLARE_READ_ACCESSOR(reg) \
-    rest
-
-#define DESCRIPTOR_READ_ACCESSOR_PTR(reg) \
-    &CAT(granary_rcu_policy_read_, reg)
-
-
-#define DESCRIPTOR_READ_ACCESSOR_PTRS(reg, rest) \
-    DESCRIPTOR_READ_ACCESSOR_PTR(reg), \
-    rest
-
-
-extern "C" {
-    ALL_REGS(DECLARE_READ_ACCESSORS, DECLARE_READ_ACCESSOR)
-}
-
-
-
 using namespace granary;
 
 
 namespace client {
+
+    enum {
+        IS_DEREF_BIT = 63
+    };
+
+
+    /// Generates and returns a function to be called when a watched address
+    /// is dereferenced.
+    ///
+    /// Note: we can freely clobber the CF.
+    static app_pc instrumented_access(operand reg, bool is_read) throw() {
+        static app_pc WATCHED_VISITORS[16][2] = {nullptr};
+        const unsigned reg_id(wp::register_to_index(reg.value.reg));
+
+        if(WATCHED_VISITORS[reg_id][is_read]) {
+            return WATCHED_VISITORS[reg_id][is_read];
+        }
+
+        instruction_list ls;
+        instruction label_is_deref = label_();
+        instruction cti;
+
+        if(reg::arg1.value.reg != reg.value.reg) {
+            ls.append(push_(reg::arg1));
+            ls.append(mov_ld_(reg::arg1, reg));
+        }
+
+        ls.append(bt_(reg::arg1, int8_(IS_DEREF_BIT)));
+        ls.append(jnb_(instr_(label_is_deref)));
+
+        // Accessing a watched object that is the result of an
+        // `rcu_assign_pointer`.
+
+        insert_cti_after(
+            ls, ls.last(), EVENT_ACCESS_ASSIGNED_POINTER,
+            CTI_DONT_STEAL_REGISTER, operand(),
+            CTI_CALL).set_mangled();
+
+        if(reg::arg1.value.reg != reg.value.reg) {
+            ls.append(pop_(reg::arg1));
+        }
+        ls.append(ret_());
+
+        // Accessing a watched object that is hte result of an
+        // `rcu_dereference`.
+        ls.append(label_is_deref);
+
+        if(!is_read) {
+            insert_cti_after(
+                ls, ls.last(), EVENT_WRITE_TO_DEREF_POINTER,
+                CTI_DONT_STEAL_REGISTER, operand(),
+                CTI_CALL).set_mangled();
+        } else {
+            insert_cti_after(
+                ls, ls.last(), EVENT_READ_FROM_DEREF_POINTER,
+                CTI_DONT_STEAL_REGISTER, operand(),
+                CTI_CALL).set_mangled();
+        }
+
+        if(reg::arg1.value.reg != reg.value.reg) {
+            ls.append(pop_(reg::arg1));
+        }
+        ls.append(ret_());
+
+        app_pc ret(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
+            ls.encoded_size()));
+
+        ls.encode(ret);
+        WATCHED_VISITORS[reg_id][is_read] = ret;
+
+        return ret;
+    }
 
 
     /// Returns the policy for a given read-side critical section nesting
@@ -80,7 +128,7 @@ namespace client {
         // left open, so we report the issue. It is also likely bad practice to
         // extend read-side critical sections in this way because they should be
         // short.
-        if(in.is_return()) {
+        if(curr_depth && in.is_return()) {
             instruction ret(label_());
 
             ls.insert_before(in, ret);
@@ -91,6 +139,7 @@ namespace client {
                 EVENT_READ_THROUGH_RET,
                 CTI_STEAL_REGISTER, reg::r10,
                 CTI_CALL);
+            ret.set_mangled();
 
             // Emulated RET.
             ret = ls.insert_after(ret, mangled(pop_(reg::r10)));
@@ -142,6 +191,18 @@ namespace client {
     }
 
 
+    /// Return the next valid PC in the instruction list, starting at
+    /// instruction `in`.
+    static app_pc next_pc(instruction in) throw() {
+        for(; in.is_valid(); in = in.next()) {
+            if(in.pc()) {
+                return in.pc();
+            }
+        }
+        return nullptr;
+    }
+
+
     /// "Null" RCU debugging policy. This instruments any code executing
     /// outside of a read-side critical section. This code upgrades to
     /// writer code on a fault.
@@ -152,14 +213,19 @@ namespace client {
     ) throw() {
 
         // Upgrade patch point for write-side debugging. If this basic block
-        // faults while running (i.e. because it writes to a RCU-protected
-        // data structure) then it is either a
-        ls.prepend(patchable(nop_()));
+        // faults while running (i.e. because it writes to an RCU-protected
+        // data structure) then it is either in an area where the writer is
+        // updating the data structure, or doing something wrong.
+
+        instruction first(ls.first());
+
+        instruction patch_target(ls.prepend(label_()));
+        ls.prepend(mangled(patchable(jmp_short_(instr_(patch_target)))));
 
         unsigned curr_depth(0);
         instrumentation_policy curr_policy(policy_for_depth(curr_depth));
 
-        for(instruction in(ls.first()); in.is_valid(); ) {
+        for(instruction in = first; in.is_valid(); ) {
             instruction next_in(in.next());
 
             if(in.is_cti()) {
@@ -169,11 +235,13 @@ namespace client {
             // Chop the instruction list short because we've transitioned
             // from null to the watchpoints-based RCU debugger.
             if(0 < curr_depth) {
-                ASSERT(next_in.is_valid() && next_in.pc());
-                const app_pc fall_through_pc(next_in.pc());
+                const app_pc fall_through_pc(next_pc(next_in));
+                ASSERT(fall_through_pc);
                 ls.remove_tail_at(next_in);
+
                 in = ls.append(jmp_(pc_(fall_through_pc)));
                 in.set_policy(curr_policy);
+                in.set_pc(fall_through_pc);
                 break;
             }
 
@@ -211,30 +279,33 @@ namespace client {
 
     namespace wp {
         void rcu_read_policy::visit_read(
-            granary::basic_block_state &bb,
+            granary::basic_block_state &,
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
         ) throw() {
-            (void) bb;
-            (void) ls;
-            (void) tracker;
-            (void) i;
-            // TODO
+            if(DEST_OPERAND & tracker.ops[i].kind) {
+                return; // Don't double-instrument a read&write access.
+            }
+            insert_cti_after(
+                ls, tracker.labels[i],
+                instrumented_access(tracker.regs[i], true),
+                CTI_DONT_STEAL_REGISTER, operand(),
+                CTI_CALL).set_mangled();
         }
 
 
         void rcu_read_policy::visit_write(
-            granary::basic_block_state &bb,
+            granary::basic_block_state &,
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
         ) throw() {
-            (void) bb;
-            (void) ls;
-            (void) tracker;
-            (void) i;
-            // TODO
+            insert_cti_after(
+                ls, tracker.labels[i],
+                instrumented_access(tracker.regs[i], false),
+                CTI_DONT_STEAL_REGISTER, operand(),
+                CTI_CALL).set_mangled();
         }
 
 

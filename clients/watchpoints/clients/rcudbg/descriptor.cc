@@ -116,6 +116,8 @@ namespace client {
         index.is_deref = true;
         index.read_section_id = section_id;
 
+        set_section_carat(section_id, SECTION_DEREF_CARAT, dereference_carat);
+
         counter_index = index.as_uint;
         return watch_the_address;
     }
@@ -160,7 +162,9 @@ namespace client {
 
                 log(RCU_ASSIGN_TO_RCU_DEREFERENCED_POINTER,
                     thread_id,
-                    get_section_carat(assign_pointer.read_section_id),
+                    get_section_carat(
+                        assign_pointer.read_section_id,
+                        SECTION_DEREF_CARAT),
                     assign_carat);
 
             // We're assigning to a previously assigned pointer. This is good
@@ -190,7 +194,9 @@ namespace client {
             if(assigned_pointer.is_deref) {
                 log(RCU_ASSIGN_WITH_RCU_DEREFERENCED_POINTER,
                     thread_id,
-                    get_section_carat(assign_pointer.read_section_id),
+                    get_section_carat(
+                        assign_pointer.read_section_id,
+                        SECTION_DEREF_CARAT),
                     assign_carat);
             }
         }
