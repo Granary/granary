@@ -21,6 +21,7 @@
 #   include "granary/printf.h"
 #   include "granary/dynamorio.h"
 #   include "granary/code_cache.h"
+#   include "granary/basic_block.h"
 #endif
 
 #endif /* GRANARY_CLIENT_H_ */

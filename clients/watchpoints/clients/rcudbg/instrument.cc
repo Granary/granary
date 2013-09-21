@@ -48,7 +48,7 @@ namespace client {
         }
 
         ls.append(bt_(reg::arg1, int8_(IS_DEREF_BIT)));
-        ls.append(jnb_(instr_(label_is_deref)));
+        ls.append(jb_(instr_(label_is_deref)));
 
         // Accessing a watched object that is the result of an
         // `rcu_assign_pointer`.
@@ -262,20 +262,189 @@ namespace client {
     }
 
 
+    /// Re-encode some of the instructions in the faulting basic block, up to
+    /// the first CTI, which will either be a CTI into a stub or a CTI to a
+    /// wrapped address.
+    ///
+    /// This is used as part of the basic block upgrade process. A rcu_null
+    /// basic block is upgraded to an rcu_watched basic block, and then control
+    /// is returned to this "watched tail" of the faulting basic block.
+    ///
+    /// TODO: Handle case of indirect CTIs through watched memory address.
+    app_pc rcu_watched_tail(
+        cpu_state_handle cpu,
+        granary::basic_block_state &bb,
+        app_pc cache_pc
+    ) throw() {
+        instruction_list ls;
+        for(;;) {
+            const app_pc in_pc(cache_pc);
+            instruction in(instruction::decode(&cache_pc));
+
+            if(in.is_cti()) {
+                ls.append(mangled(jmp_(pc_(in_pc))));
+                break;
+            }
+
+            ls.append(in);
+        }
+
+        // Run the watchpoints instrumentation on the tail.
+        client::watchpoints<
+            wp::rcu_read_policy, wp::rcu_read_policy
+        >::visit_app_instructions(cpu, bb, ls);
+
+        // Emit as gencode.
+        app_pc tail_pc(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>(ls.encoded_size()));
+        ls.encode(tail_pc);
+
+        return tail_pc;
+    }
+
+
     /// Interrupted in `rcu_null`, upgrade to an RCU-writer protocol. We will
     /// hot-patch the original basic block to redirect control-flow to the
     /// upgraded basic block. We will also try to instrument the tail of the
     /// interrupted basic block.
     interrupt_handled_state rcu_null::handle_interrupt(
+        granary::cpu_state_handle cpu,
+        granary::thread_state_handle,
+        granary::basic_block_state &bb,
+        interrupt_stack_frame &isf,
+        interrupt_vector vec
+    ) throw() {
+        if(VECTOR_GENERAL_PROTECTION == vec) {
+
+            // Sequence of NOPs (0x90).
+            uint64_t patch(0x9090909090909090ULL);
+
+            // Re-encode the basic block using the rcu_watched policy and hot-
+            // patch the first instruction to redirect execution.
+            basic_block faulting_bb(isf.instruction_pointer);
+            instrumentation_policy policy = policy_for<rcu_watched>();
+            policy.force_attach(true);
+
+            // Figure out the location of the hot-patchable entry-point. If the
+            // trace logger is being used then we need to shift by 8 bytes.
+            // Double check that we find a short/near JMP instruction.
+            app_pc patch_pc(faulting_bb.cache_pc_start);
+#if CONFIG_TRACE_EXECUTION
+            patch_pc += 8;
+#endif
+            ASSERT(0xEB == *patch_pc || 0xE9 == *patch_pc);
+
+            mangled_address am(
+                reinterpret_cast<app_pc>(faulting_bb.info->generating_pc),
+                policy);
+
+            // Stage a patched JMP to the upgraded basic block.
+            app_pc upgraded_bb_pc(code_cache::find(cpu, am));
+            instruction patch_jmp(jmp_(pc_(upgraded_bb_pc)));
+            patch_jmp.stage_encode(unsafe_cast<app_pc>(&patch), patch_pc);
+
+            // Apply the patch.
+            uint64_t *patch_target(reinterpret_cast<uint64_t *>(patch_pc));
+            *patch_target = patch;
+            std::atomic_thread_fence(std::memory_order_seq_cst);
+
+            // Build the tail if we didn't fault at the first instruction.
+            // Redirect the interrupt to resume where watchpoints are tested
+            // for.
+            const app_pc first_ins(patch_pc + 8);
+            if(first_ins == isf.instruction_pointer) {
+                isf.instruction_pointer = upgraded_bb_pc;
+            } else {
+                isf.instruction_pointer = rcu_watched_tail(
+                    cpu, bb, isf.instruction_pointer);
+            }
+
+            return INTERRUPT_IRET;
+        }
+
+        return INTERRUPT_DEFER;
+    }
+
+
+    /// "Null" RCU debugging policy. This instruments any code executing
+    /// outside of a read-side critical section. This code upgrades to
+    /// writer code on a fault.
+    instrumentation_policy rcu_watched::visit_app_instructions(
+        granary::cpu_state_handle cpu,
+        granary::basic_block_state &bb,
+        instruction_list &ls
+    ) throw() {
+
+        // Only apply the watchpoints instrumentation up until the first CTI.
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+
+            if(!in.is_cti()) {
+                continue;
+            }
+
+            // Keep RET instructions in.
+            if(in.is_return()) {
+                continue;
+            }
+
+            operand target(in.cti_target());
+            const app_pc fall_through_pc(next_pc(in));
+
+            if(!dynamorio::opnd_is_pc(target)) {
+                ASSERT(fall_through_pc);
+
+                // CTI with a memory operand.
+                if(dynamorio::REG_kind != target.kind) {
+                    ls.remove_tail_at(in);
+                    ls.append(jmp_(pc_(fall_through_pc)));
+                    break;
+                }
+
+                // CTI with a register operand.
+                continue;
+            }
+
+            switch(reinterpret_cast<uintptr_t>(target.value.pc)) {
+            case DETACH_ADDR___granary_rcu_read_lock:
+            case DETACH_ADDR___granary_rcu_read_unlock:
+                ASSERT(fall_through_pc);
+                ls.remove_tail_at(in);
+                ls.append(jmp_(pc_(fall_through_pc)));
+                goto done;
+            default: break;
+            }
+        }
+    done:
+
+        // Run the watchpoints instrumentation.
+        client::watchpoints<
+            wp::rcu_read_policy, wp::rcu_read_policy
+        >::visit_app_instructions(cpu, bb, ls);
+
+        return policy_for<rcu_null>();
+    }
+
+
+    /// Host/app are the same.
+    instrumentation_policy rcu_watched::visit_host_instructions(
+        granary::cpu_state_handle cpu,
+        granary::basic_block_state &bb,
+        instruction_list &ls
+    ) throw() {
+        return visit_app_instructions(cpu, bb, ls);
+    }
+
+
+    interrupt_handled_state rcu_watched::handle_interrupt(
         granary::cpu_state_handle,
         granary::thread_state_handle,
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector
     ) throw() {
-        // TODO: upgrade basic block!
         return INTERRUPT_DEFER;
     }
+
 
     namespace wp {
         void rcu_read_policy::visit_read(

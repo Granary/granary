@@ -27,6 +27,7 @@
 
 namespace client {
 
+
     enum read_critical_section_kind {
         RCU_READ_SECTION,
         RCU_READ_SECTION_BH,
@@ -204,6 +205,37 @@ namespace client {
         ) throw() {
             return visit_instructions(cpu, bb, ls);
         }
+    };
+
+
+    /// Policy for code not running in an RCU read-side critical section that
+    /// has triggered a fault.
+    struct rcu_watched
+        : public client::watchpoints<wp::rcu_read_policy, wp::rcu_read_policy>
+    {
+        enum {
+            AUTO_INSTRUMENT_HOST = false
+        };
+
+        static granary::instrumentation_policy visit_app_instructions(
+            granary::cpu_state_handle cpu,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw();
+
+        static granary::instrumentation_policy visit_host_instructions(
+            granary::cpu_state_handle cpu,
+            granary::basic_block_state &bb,
+            granary::instruction_list &ls
+        ) throw();
+
+        static granary::interrupt_handled_state handle_interrupt(
+            granary::cpu_state_handle,
+            granary::thread_state_handle,
+            granary::basic_block_state &,
+            granary::interrupt_stack_frame &,
+            granary::interrupt_vector
+        ) throw();
     };
 
 

@@ -811,14 +811,7 @@ namespace granary {
         info->policy_bits = policy.encode();
         info->generating_num_bytes = byte_len;
         info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
-
-#if GRANARY_IN_KERNEL
-        basic_block_state_address state_addr;
-        state_addr.state_addr = block_storage;
-        info->state_addr_low_32 = state_addr.low;
-#else
         info->state_addr = block_storage;
-#endif
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
