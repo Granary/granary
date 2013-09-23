@@ -603,9 +603,10 @@ namespace granary {
         app_pc *pc_,
         instruction_decode_constraint constraint
     ) throw() {
-        if(!instr) {
+        if(true || !instr) {
             instr = make_instr();
         } else {
+            // TODO: Improve this for the future.
             dynamorio::instr_reset(DCONTEXT, instr);
             dynamorio::instr_set_x86_mode(instr, false);
             instr->flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;

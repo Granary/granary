@@ -63,12 +63,10 @@ namespace test {
             test_pc, policy));
 
         client::clear_log();
-
         ASSERT(10 == test_bb.call<int>());
         ASSERT(1 == client::log_size());
         ASSERT(client::log_entry_is(
             0, client::ACCESS_OF_LEAKED_RCU_DEREFERENCED_POINTER));
-
         client::clear_log();
     }
 
@@ -86,12 +84,10 @@ namespace test {
             test_pc, policy));
 
         client::clear_log();
-
         ASSERT(10 == test_bb.call<int>());
         ASSERT(1 == client::log_size());
         ASSERT(client::log_entry_is(
             0, client::ACCESS_OF_WRONG_RCU_DEREFERENCED_POINTER));
-
         client::clear_log();
     }
 

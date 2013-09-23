@@ -42,7 +42,7 @@ namespace client {
     extern granary::app_pc EVENT_READ_FROM_DEREF_POINTER;
 #endif
 
-    void *event_rcu_dereference(void *ptr, const char *carat) throw();
+    void *event_rcu_dereference(void **derefed_ptr, void *ptr, const char *carat) throw();
     void event_rcu_assign_pointer(void **p, void *v, const char *carat) throw();
     void event_rcu_read_lock(const char *carat) throw();
     void event_rcu_read_unlock(const char *carat) throw();

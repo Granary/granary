@@ -162,6 +162,12 @@ namespace client {
         }
 
         const app_pc target_pc(target.value.pc);
+
+        // Previous and/or current policy, but with force attach as false.
+        instrumentation_policy in_policy = curr_policy;
+        in_policy.force_attach(false);
+        bool set_in_policy(true);
+
         switch(reinterpret_cast<uintptr_t>(target_pc)) {
 
         // Read lock case; don't change the policy of the CTI,
@@ -180,11 +186,20 @@ namespace client {
             }
             break;
 
+        case DETACH_ADDR___granary_rcu_assign_pointer:
+        case DETACH_ADDR___granary_rcu_dereference:
+            break;
+
         /// Not an event that we care about; make sure to attach to all code
         /// running, including kernel code.
         default:
+            set_in_policy = false;
             in.set_policy(curr_policy);
             break;
+        }
+
+        if(set_in_policy) {
+            in.set_policy(in_policy);
         }
 
         return in;

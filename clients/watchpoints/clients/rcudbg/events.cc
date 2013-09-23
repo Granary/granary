@@ -59,10 +59,19 @@ namespace client {
 
 
     /// Happens when `rcu_dereference` is invoked.
-    void *event_rcu_dereference(void *ptr, const char *carat) throw() {
+    void *event_rcu_dereference(
+        void **derefed_ptr,
+        void *ptr,
+        const char *carat
+    ) throw() {
         rcudbg_watched_address ptr_;
         ptr_.as_pointer = ptr;
-        wp::add_watchpoint(ptr, ptr_, carat);
+
+        rcudbg_watched_address derefed_ptr_;
+        derefed_ptr_.as_pointer = reinterpret_cast<void *>(derefed_ptr);
+
+        wp::add_watchpoint(
+            ptr, ptr_, derefed_ptr_, carat, rcu_dereference_tag());
         return ptr;
     }
 
@@ -70,12 +79,12 @@ namespace client {
     /// Happens when `rcu_assign_pointer` is invoked.
     void event_rcu_assign_pointer(void **p, void *v, const char *carat) throw() {
         rcudbg_watched_address p_;
-        p_.as_pointer = *p; // Note: dereferenced.
+        p_.as_pointer = reinterpret_cast<void *>(p);
 
         rcudbg_watched_address v_;
         v_.as_pointer = v;
 
-        wp::add_watchpoint(v, p_, v_, carat);
+        wp::add_watchpoint(v, p_, v_, carat, rcu_assign_pointer_tag());
 
         // Do the actual pointer assignment.
         std::atomic_thread_fence(std::memory_order_seq_cst);

@@ -187,6 +187,10 @@ namespace client { namespace wp {
     template <typename>
     struct descriptor_type {
         typedef leak_detector_descriptor type;
+        enum {
+            ALLOC_AND_INIT = false,
+            REINIT_WATCHED_POINTERS = false
+        };
     };
 
 }}

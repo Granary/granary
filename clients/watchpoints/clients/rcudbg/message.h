@@ -21,6 +21,16 @@ RCUDBG_MESSAGE(
     (address, thread, deref_carat, read_lock_carat))
 
 RCUDBG_MESSAGE(
+    RCU_DEREFERENCE_UNASSIGNED_VALUE,
+    WARNING,
+    "Warning: Dereferencing a value that wasn't assigned using rcu_assign_pointer. (%p).\n"
+    " > thread: %p.\n"
+    " > rcu_dereference: %s.\n"
+    " > rcu_read_lock: %s.\n\n",
+    (const void *thread, void *address, const char *deref_carat, const char *read_lock_carat),
+    (address, thread, deref_carat, read_lock_carat))
+
+RCUDBG_MESSAGE(
     DOUBLE_RCU_DEREFERENCE_WRONG_SECTION,
     ERROR,
     "Error: Dereferencing already dereferenced pointer, but from another context.\n"

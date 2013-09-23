@@ -20,6 +20,7 @@
 
 #define rcu_dereference(p) \
     ((decltype(p)) granary::types::__granary_rcu_dereference( \
+        (void **) &(p), \
         (void *) (p), \
         GRANARY_CARAT))
 
