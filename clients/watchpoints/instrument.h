@@ -568,6 +568,7 @@ namespace client {
                 return status;
             }
 
+            granary_break_on_curiosity();
             // Taint the pointer.
             counter_index &= MAX_COUNTER_INDEX;
             counter_index <<= 1;
