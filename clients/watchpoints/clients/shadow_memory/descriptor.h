@@ -212,6 +212,10 @@ namespace client { namespace wp {
     template <typename>
     struct descriptor_type {
         typedef shadow_policy_descriptor type;
+        enum {
+            ALLOC_AND_INIT = false,
+            REINIT_WATCHED_POINTERS = false
+        };
     };
 
     uint16_t get_inode_type_id(void){

@@ -21,6 +21,10 @@ namespace client { namespace wp {
     template <typename>
     struct descriptor_type {
         typedef void type;
+        enum {
+            ALLOC_AND_INIT = false,
+            REINIT_WATCHED_POINTERS = false
+        };
     };
 }}
 

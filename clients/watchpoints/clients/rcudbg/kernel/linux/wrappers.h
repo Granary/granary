@@ -25,16 +25,18 @@
 #   define HOST_WRAPPER_FOR___granary_rcu_dereference
 
     FUNCTION_WRAPPER(APP, __granary_rcu_dereference, (void *), (
+        void ** derefed_ptr,
         void * ptr,
         const char * carat
     ), {
-        return client::event_rcu_dereference(ptr, carat);
+        return client::event_rcu_dereference(derefed_ptr, ptr, carat);
     })
     FUNCTION_WRAPPER(HOST, __granary_rcu_dereference, (void *), (
+       void ** derefed_ptr,
        void * ptr,
        const char * carat
    ), {
-       return client::event_rcu_dereference(ptr, carat);
+       return client::event_rcu_dereference(derefed_ptr, ptr, carat);
     })
 #endif
 

@@ -63,12 +63,10 @@ namespace test {
             test_pc, policy));
 
         client::clear_log();
-
         ASSERT(10 == test_bb.call<int>());
         ASSERT(1 == client::log_size());
         ASSERT(client::log_entry_is(
             0, client::ACCESS_OF_LEAKED_RCU_DEREFERENCED_POINTER));
-
         client::clear_log();
     }
 
@@ -86,23 +84,21 @@ namespace test {
             test_pc, policy));
 
         client::clear_log();
-
         ASSERT(10 == test_bb.call<int>());
         ASSERT(1 == client::log_size());
         ASSERT(client::log_entry_is(
             0, client::ACCESS_OF_WRONG_RCU_DEREFERENCED_POINTER));
-
         client::clear_log();
     }
 
 
     ADD_TEST(detect_access_leaked_pointer,
-        "Test that we detect accessed of rcu_dereferece'd pointers outside "
+        "Test that we detect accesses of rcu_dereferece'd pointers outside "
         "of any read-side critical sections.")
 
 
     ADD_TEST(detect_access_leaked_pointer_wrong_section,
-        "Test that we detect accessed of rcu_dereferece'd pointers in the "
+        "Test that we detect accesses of rcu_dereferece'd pointers in the "
         "wrong read-side critical section.")
 }
 

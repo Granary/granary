@@ -11,6 +11,11 @@
 
 namespace client {
 
+
+    struct rcu_dereference_tag { };
+    struct rcu_assign_pointer_tag { };
+
+
     /// Counter index for an `rcudbg` watched address.
     union rcudbg_counter_index {
 
@@ -30,7 +35,8 @@ namespace client {
         } __attribute__((packed));
 
         uint16_t as_uint;
-    };
+
+    } __attribute__((packed));
 
 
     static_assert(sizeof(uint16_t) == sizeof(rcudbg_counter_index),
@@ -59,7 +65,7 @@ namespace client {
 
             uint64_t:29;
 
-            bool is_watched:1;
+            bool IF_USER_ELSE(is_watched, is_unwatched):1;
 
             /// ID for the read-side critical section. Overlaps with
             /// `assign_location_id`.
@@ -82,9 +88,6 @@ namespace client {
 
     /// Descriptor type for RCU debugging. Note: this object is never allocated!
     struct rcudbg_descriptor {
-    //private:
-    //    inline rcudbg_descriptor(void) throw() { ASSERT(false); }
-
     public:
 
         /// Initialisation for an `rcu_dereference`d pointer.
@@ -93,7 +96,9 @@ namespace client {
             uintptr_t &counter_index,
             uintptr_t, // inherited index, unused
             rcudbg_watched_address deref_address,
-            const char *carat
+            rcudbg_watched_address derefed_address,
+            const char *carat,
+            rcu_dereference_tag
         ) throw();
 
 
@@ -104,7 +109,8 @@ namespace client {
             uintptr_t, // inherited index, unused
             rcudbg_watched_address assign_pointer,
             rcudbg_watched_address assigned_pointer,
-            const char *carat
+            const char *carat,
+            rcu_assign_pointer_tag
         ) throw();
 
         /// Unused by `rcudbg`.
@@ -117,18 +123,13 @@ namespace client {
     /// Specify the descriptor type to the watchpoints instrumentation.
     namespace wp {
 
-        /// Mark the `rcudbg` descriptors as using a combined allocation and
-        /// initialisation mechanism.
-        template <>
-        struct allocate_and_init_descriptor<rcudbg_descriptor> {
-            enum {
-                VALUE = true
-            };
-        };
-
         template <typename>
         struct descriptor_type {
             typedef rcudbg_descriptor type;
+            enum {
+                ALLOC_AND_INIT = true,
+                REINIT_WATCHED_POINTERS = true
+            };
         };
     }
 }

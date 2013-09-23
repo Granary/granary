@@ -37,7 +37,9 @@ namespace client {
         uintptr_t &counter_index,
         uintptr_t, // inherited index, unused
         rcudbg_watched_address deref_address,
-        const char *dereference_carat
+        rcudbg_watched_address derefed_address,
+        const char *dereference_carat,
+        rcu_dereference_tag
     ) throw() {
         bool watch_the_address(true);
 
@@ -61,23 +63,63 @@ namespace client {
             watch_the_address = false;
         }
 
-        // Doing a dereference on an unwatched address. Issue a warning that
-        // there was no matching `rcu_assign_pointer` for this
-        // `rcu_dereference`. This is only treated as a warning and not as an
-        // error because a writer might, for example, write a chain of list
-        // elements into an RCU-protected linked list, for which only the head
-        // element of the list must be assigned.
-        if(!wp::is_watched_address(deref_address.as_uint)) {
-
-            if(!UNWATCHED_AND_ASSIGNED_POINTERS.get(deref_address.shadow_offset)) {
+        // Doing a dereference of an unwatched object. This is common, so we
+        // double check with the shadow memory associated with unwatched
+        // objects. Because it's common, we treat it as a warning. For example:
+        //      <&GLOBAL_P is unwatched>
+        //      <value of GLOBAL_P is potentially watched, if it was first
+        //       assigned with rcu_assign_pointer>
+        //      void *p = rcu_dereference(GLOBAL_P)
+        //      <value of p is watched>
+        //      <&p is unwatched>
+        if(!wp::is_watched_address(derefed_address.as_uint)) {
+            if(!UNWATCHED_AND_ASSIGNED_POINTERS.get(derefed_address.shadow_offset)) {
                 log(RCU_DEREFERENCE_UNASSIGNED_ADDRESS,
+                    derefed_address.as_pointer,
                     thread_id,
-                    deref_address.as_pointer,
                     dereference_carat,
                     read_lock_carat);
             }
+        } else if(!WATCHED_AND_ASSIGNED_POINTERS.get(derefed_address.shadow_offset)) {
+            log(RCU_DEREFERENCE_UNASSIGNED_ADDRESS,
+                derefed_address.as_pointer,
+                thread_id,
+                dereference_carat,
+                read_lock_carat);
+        }
 
-        // A double-dereference has occurred.
+        // The value/pointer stored is not watched. For example:
+        //      <&q is watched or unwatched>
+        //      <value of q is unwatched>
+        //      void *p = rcu_dereference(q);
+        //      <p is watched>
+        // We report this as a warning because it's possible that multiple
+        // items were assigned in a hurd, for example:
+        //      q = new list()
+        //      q_next = new list()
+        //      q->next = q_next
+        //      rcu_assign_pointer(p, q)
+        // Here, p's value will be a watched q, but q->next's value will be
+        // unwatched.
+        if(!wp::is_watched_address(deref_address.as_uint)) {
+            log(RCU_DEREFERENCE_UNASSIGNED_VALUE,
+                deref_address.as_pointer,
+                thread_id,
+                dereference_carat,
+                read_lock_carat);
+
+        // A double-dereference has occurred. That is:
+        //      void *q = rcu_dereference(p);
+        //      <value of q is watched, is_deref=true>
+        //      <&q is unwatched>
+        //      void *r = rcu_dereference(q);
+        //      <value of r is watched>
+        //      <&r is unwatched>
+        // We look at deref_address instead of derefed_address because we expect
+        // that derefed_address will have is_deref=true, for example:
+        //      list_head *first = rcu_dereference(HEAD);
+        //      <value of first is watched, is_deref=true>
+        //      list_head *second = rcu_dereference(first->next);
         } else if(deref_address.is_deref) {
 
             // Issue a warning that this is potentially redundant, or
@@ -99,16 +141,20 @@ namespace client {
                     get_location_carat(deref_address.assign_location_id));
             }
 
-        // We are dereferencing a pointer that was created using
-        // `rcu_assign_pointer`.
+
         } else {
-            if(!WATCHED_AND_ASSIGNED_POINTERS.get(deref_address.shadow_offset)) {
-                log(RCU_DEREFERENCE_UNASSIGNED_ADDRESS,
-                    thread_id,
-                    deref_address.as_pointer,
-                    dereference_carat,
-                    read_lock_carat);
-            }
+
+            // We are dereferencing a pointer that was created using
+            // `rcu_assign_pointer`. For example:
+            //      rcu_assign_pointer(p->next, q);
+            //      <value of p->next is watched>
+            //      <value of p may be watched>
+            //      <&p is unlikely to be watched>
+            //      rcu_dereference(p->next);
+            // Don't have enough info to check anything meaningful.
+            //
+            // TODO: Perhaps associate assign location_ids with read lock
+            //       carats.
         }
 
         // Inherit the section ID from the current thread.
@@ -130,7 +176,8 @@ namespace client {
         uintptr_t, // inherited index, unused
         rcudbg_watched_address assign_pointer,
         rcudbg_watched_address assigned_pointer,
-        const char *assign_carat
+        const char *assign_carat,
+        rcu_assign_pointer_tag
     ) throw() {
 
         // Get an identifying pointer for the current thread.
@@ -185,7 +232,7 @@ namespace client {
                 assign_pointer.shadow_offset, true);
         }
 
-        if(wp::is_watched_address(assign_pointer.as_uint)) {
+        if(wp::is_watched_address(assigned_pointer.as_uint)) {
 
             // Not good, we're doing the equivalent of:
             //      rcu_assign_pointer(p, rcu_dereference(q))
@@ -195,7 +242,7 @@ namespace client {
                 log(RCU_ASSIGN_WITH_RCU_DEREFERENCED_POINTER,
                     thread_id,
                     get_section_carat(
-                        assign_pointer.read_section_id,
+                        assigned_pointer.read_section_id,
                         SECTION_DEREF_CARAT),
                     assign_carat);
             }

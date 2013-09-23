@@ -76,6 +76,10 @@ namespace client {
         template <typename>
         struct descriptor_type {
             typedef bound_descriptor type;
+            enum {
+                ALLOC_AND_INIT = false,
+                REINIT_WATCHED_POINTERS = false
+            };
         };
 
 

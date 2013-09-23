@@ -443,7 +443,7 @@ namespace client {
 
         /// Add a watchpoint to an address.
         ///
-        /// This tains the address, but does nothing else.
+        /// This taints the address, but does nothing else.
         template <typename T>
         add_watchpoint_status add_watchpoint(T &ptr_) throw() {
             static_assert(
@@ -460,16 +460,6 @@ namespace client {
             ptr_ = granary::unsafe_cast<T>(ptr);
             return ADDRESS_TAINTED;
         }
-
-
-        /// Chooses whether or not to allocate and initialise a descriptor, or
-        /// to allocate then init.
-        template <typename T>
-        struct allocate_and_init_descriptor {
-            enum {
-                VALUE = false
-            };
-        };
 
 
         /// Alllocate and initialise a watched address.
@@ -501,6 +491,7 @@ namespace client {
                 return ADDRESS_WATCHED;
             }
         };
+
 
         template <typename DescType>
         struct allocate_and_init_watched_address<DescType, false> {
@@ -546,12 +537,20 @@ namespace client {
                 std::is_pointer<T>::value || std::is_integral<T>::value,
                 "`add_watchpoint` expects an integral/pointer operand.");
 
-            typedef typename descriptor_type<T>::type desc_type;
+            typedef descriptor_type<T> container;
+            typedef typename container::type desc_type;
 
             uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
 
+            enum {
+                ALLOC_AND_INIT = container::ALLOC_AND_INIT,
+                REINIT_WATCHED_POINTERS = container::REINIT_WATCHED_POINTERS,
+            };
+
             if(is_watched_address(ptr)) {
-                return ADDRESS_ALREADY_WATCHED;
+                if(!REINIT_WATCHED_POINTERS) {
+                    return ADDRESS_ALREADY_WATCHED;
+                }
             } else if(!granary::is_valid_address(ptr)) {
                 return ADDRESS_NOT_WATCHED;
             }
@@ -559,10 +558,6 @@ namespace client {
             uintptr_t counter_index(0);
             uintptr_t inherited_index(inherited_index_of(ptr));
             desc_type *desc(nullptr);
-
-            enum {
-                ALLOC_AND_INIT = allocate_and_init_descriptor<desc_type>::VALUE
-            };
 
             const add_watchpoint_status status(allocate_and_init_watched_address<
                 desc_type,
