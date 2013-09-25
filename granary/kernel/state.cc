@@ -53,9 +53,8 @@ namespace granary {
     { }
 
 
-    /// Initialise the per-cpu state, including a new interrupt descriptor
-    /// table.
-    void init_cpu_state(void *) throw() {
+    /// Initialise the CPU state.
+    void cpu_state_handle::init(void) throw() {
         cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
         *state_ptr = allocate_memory<cpu_state>();
 
@@ -63,12 +62,6 @@ namespace granary {
         state->interrupt_delay_handler = reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
                 allocate_untyped(16, INTERRUPT_DELAY_CODE_SIZE));
-    }
-
-
-    /// Initialise the CPU state.
-    void cpu_state_handle::init(void) throw() {
-        kernel_run_on_each_cpu(init_cpu_state, nullptr);
     }
 
 

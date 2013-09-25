@@ -6,8 +6,8 @@
  *      Author: pag
  */
 
-#ifndef INTERRUPT_H_
-#define INTERRUPT_H_
+#ifndef GRANARY_INTERRUPT_H_
+#define GRANARY_INTERRUPT_H_
 
 #include "deps/drk/segment_descriptor.h"
 
@@ -80,4 +80,4 @@ namespace granary {
 }
 
 
-#endif /* INTERRUPT_H_ */
+#endif /* GRANARY_INTERRUPT_H_ */

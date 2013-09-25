@@ -25,8 +25,14 @@ if "__main__" == __name__:
         SYMBOLS.add(line[prefix_len:])
   
   # special function that we need!
-  SYMBOLS.add("module_alloc_update_bounds")
-  SYMBOLS.add("process_one_work")
+  EXTRA_SYMBOLS = set([
+    "module_alloc_update_bounds", "process_one_work"
+  ])
+  MISSING_EXTRA_SYMBOLS = set()
+  for sym in EXTRA_SYMBOLS:
+    if sym not in SYMBOLS:
+      MISSING_EXTRA_SYMBOLS.add(sym)
+  SYMBOLS.update(EXTRA_SYMBOLS)
 
   with open("kernel.syms", "r") as lines_:
     for line in lines_:
@@ -47,9 +53,15 @@ if "__main__" == __name__:
       func_index = SYMBOL_TO_ADDRESS_INDEX[sym]
       func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
 
+      if sym in MISSING_EXTRA_SYMBOLS:
+        new_lines.append("#ifndef CAN_WRAP_%s\n" % sym)
+        new_lines.append("#   define CAN_WRAP_%s\n" % sym)
+        new_lines.append("    WRAP_FOR_DETACH(%s)\n" % sym)
+        new_lines.append("#endif\n")
+
       new_lines.append("#ifndef DETACH_ADDR_%s\n" % sym)
-      new_lines.append("#    define DETACH_ADDR_%s 0x%s\n" % (sym, addr))
-      new_lines.append("#    define DETACH_LENGTH_%s %d\n" % (sym, func_len))
+      new_lines.append("#   define DETACH_ADDR_%s 0x%s\n" % (sym, addr))
+      new_lines.append("#   define DETACH_LENGTH_%s %d\n" % (sym, func_len))
       new_lines.append("#endif\n")
     
     missing = SYMBOLS - set(FOUND_SYMBOLS.keys())

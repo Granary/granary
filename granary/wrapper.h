@@ -1210,9 +1210,16 @@ namespace granary {
     }
 
 #if GRANARY_IN_KERNEL
+#   if CONFIG_INSTRUMENT_HOST
 
+#       define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
+            FUNCTION_WRAPPER(HOST, function_name, return_type, arg_list, wrapper_code)
 
-#define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
+#       define PATCH_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
+            FUNCTION_WRAPPER_VOID(HOST, function_name, arg_list, wrapper_code)
+
+#   else
+#       define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         extern "C" PARAMS return_type function_name arg_list ; \
         struct CAT(patched_, function_name) { \
@@ -1251,7 +1258,7 @@ namespace granary {
     }
 
 
-#define PATCH_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
+#       define PATCH_WRAPPER_VOID(function_name, arg_list, wrapper_code) \
     namespace granary { \
         extern "C" void function_name arg_list ; \
         struct CAT(patched_, function_name) { \
@@ -1288,7 +1295,7 @@ namespace granary {
                 unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
         }); \
     }
-
+#   endif /* GRANARY_INSTRUMENT_HOST */
 #endif /* GRANARY_IN_KERNEL */
 
 #define WRAP_FUNCTION(lvalue) \

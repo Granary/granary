@@ -269,6 +269,8 @@ void __init_work(struct work_struct *work, int onstack);
 /* Manually defined to exist */
 struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);
 void __schedule(void);
+void process_one_work(struct worker *worker, struct work_struct *work);
+void *module_alloc_update_bounds(unsigned long size);
 
 
 #endif /* GR_KERNEL_TYPES_H_ */

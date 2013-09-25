@@ -154,18 +154,33 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
+#if GRANARY_IN_KERNEL
+#   if CONFIG_INSTRUMENT_HOST
+
+        /// Copy of this CPU's original MSR_LSTAR model-specific register. This
+        /// register contains the address of the system call handler.
+        app_pc native_syscall_handler;
+
+#   endif
+#   if CONFIG_INSTRUMENT_HOST || CONFIG_HANDLE_INTERRUPTS
+
+        /// Copy of this CPU's original interrupt descriptor table register
+        /// value/
+        system_table_register_t native_idtr;
+
+#   endif
+#   if CONFIG_HANDLE_INTERRUPTS
         /// A region of executable code that is overwritten as necessary to
         /// delay interrupts.
-        IF_KERNEL( app_pc interrupt_delay_handler; )
-
+        app_pc interrupt_delay_handler;
 
         /// Spilled registers needed for interrupt delaying.
-        IF_KERNEL( uint64_t spill[2]; )
-
+        uint64_t spill[2];
 
         /// Number of nested interrupts.
-        IF_KERNEL( std::atomic<unsigned> num_nested_interrupts; )
-
+        std::atomic<unsigned> num_nested_interrupts;
+#   endif
+#endif /* GRANARY_IN_KERNEL */
 
         /// Thread data.
         IF_USER( thread_state thread_data; )

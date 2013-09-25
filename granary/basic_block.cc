@@ -43,6 +43,10 @@ namespace granary {
         BITS_PER_BYTE   = 8,
         BITS_PER_STATE  = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
         BITS_PER_QWORD  = BITS_PER_BYTE * 8,
+
+        /// Optimise by eliding JMPs in basic blocks with fewer than this
+        /// many instructions.
+        BB_ELIDE_JMP_MIN_INSTRUCTIONS = 10
     };
 
 
@@ -624,10 +628,13 @@ namespace granary {
 
             if(in.is_cti()) {
                 operand target(in.cti_target());
+                bool target_is_pc(false);
 
                 // Direct branch (e.g. un/conditional branch, jmp, call).
                 if(dynamorio::opnd_is_pc(target)) {
+                    target_is_pc = true;
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
+
                     if(detach_app_pc == target_pc) {
                         fall_through_detach = true;
                         if(in.is_jump()) {
@@ -640,8 +647,17 @@ namespace granary {
                 // Unconditional JMP; ends the block, without possibility
                 // of falling through.
                 if(in.is_jump()) {
-                    fall_through_pc = false;
-                    break;
+
+                    // Minor optimisation: If the basic block is small and ends
+                    // in a direct JMP then elide the JMP and continue.
+                    if(target_is_pc
+                    && BB_ELIDE_JMP_MIN_INSTRUCTIONS >= ls.length()) {
+                        ls.remove(in);
+                        *pc = dynamorio::opnd_get_pc(target);
+                    } else {
+                        fall_through_pc = false;
+                        break;
+                    }
 
                 // CALL, if direct returns are supported then the basic
                 // block that can continue; however, if direct returns
@@ -653,8 +669,8 @@ namespace granary {
                     break;
 #endif
 
-                // RET instruction.
-                } else if(in.is_return() || dynamorio::OP_iret == in.op_code()) {
+                // RET, far RET, and IRET instruction.
+                } else if(in.is_return()) {
                     break;
 
                 // Conditional CTI, end the block with the ability to fall-

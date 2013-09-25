@@ -15,10 +15,12 @@
 namespace granary {
 
 
+#if !CONFIG_INSTRUMENT_HOST
     /// Should this policy auto-instrument host (kernel, libc) code?
     bool instrumentation_policy::AUTO_VISIT_HOST[
         instrumentation_policy::MAX_NUM_POLICY_IDS
     ] = {false};
+#endif
 
 
     /// Policy basic block visitor functions for each policy. The code

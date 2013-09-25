@@ -36,6 +36,9 @@ GR_CLIENT ?= null
 # Enable normal Granary tests.
 GR_TESTS ?= 0
 
+# Should Granary be used to instrument the whole kernel?
+GR_WHOLE_KERNEL ?= 0
+
 # Compilation toolchain
 GR_CPP = cpp
 GR_CC = gcc-4.8
@@ -441,6 +444,9 @@ else
 		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
 	endif
 	
+	# Toggle Granary-specific kernel annotation inclusion when parsing the
+	# kernel types. For this to be supported, linux/include/granary.h must
+	# be present, and be backed by kernel/granary.c.
 	ifeq (1,$(GR_ANNOTATIONS))
 		GR_TYPE_CC_FLAGS += -DGRANARY_KERNEL_ANNOTATIONS
 	endif
@@ -468,6 +474,12 @@ else
 	GR_OBJS += $(BIN_DIR)/granary/kernel/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/printf.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/init.o
+	
+	# Toggle whole-kernel instrumentation.
+	ifeq (1,$(GR_WHOLE_KERNEL))
+		GR_COMMON_KERNEL_FLAGS += -DGRANARY_WHOLE_KERNEL=1
+		GR_OBJS += $(BIN_DIR)/granary/kernel/syscall.o
+	endif
 
 	# Must be last!!!!
 	GR_OBJS += $(BIN_DIR)/granary/x86/init.o

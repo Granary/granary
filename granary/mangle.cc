@@ -1191,6 +1191,9 @@ namespace granary {
             return;
 
         } else if(in.is_return()) {
+            ASSERT(dynamorio::OP_ret_far != in.op_code());
+            ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
+
             target_policy.return_target(true);
             target_policy.indirect_cti_target(false);
             target_policy.in_host_context(false);

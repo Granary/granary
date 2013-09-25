@@ -36,6 +36,9 @@
 #   define GRANARY_USE_PIC 0
 #endif
 
+#ifndef GRANARY_WHOLE_KERNEL
+#   define GRANARY_WHOLE_KERNEL 0
+#endif
 
 /// Should Granary interpose on any interrupts? If this is disabled then any
 /// faults caused by the kernel invoking unwrapped module code will not be
@@ -49,6 +52,14 @@
 #   define CONFIG_HANDLE_INTERRUPTS 1
 #else
 #   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
+#endif
+
+
+/// Should the host be instrument as well as the app?
+#if GRANARY_IN_KERNEL
+#   define CONFIG_INSTRUMENT_HOST GRANARY_WHOLE_KERNEL
+#else
+#   define CONFIG_INSTRUMENT_HOST 0 // TODO: Perhaps default to 1.
 #endif
 
 
@@ -449,6 +460,9 @@ extern "C" {
 
 #include "granary/kernel/interrupt.h"
 
+#if CONFIG_INSTRUMENT_HOST && GRANARY_IN_KERNEL
+#   include "granary/kernel/syscall.h"
+#endif
 
 namespace granary {
     /// Log some data from Granary to the external world.

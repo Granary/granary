@@ -226,7 +226,7 @@ namespace granary {
             mangle_delayed_instruction(ls, in);
         }
 
-        // redirect internal CTIs.
+        // Redirect internal CTIs.
         if(num_ctis) {
             instruction next_in;
 
@@ -759,16 +759,28 @@ namespace granary {
     }
 
 
+    /// Used to share IDTs across multiple CPUs.
+    static system_table_register_t PREV_IDTR;
+    static system_table_register_t PREV_IDTR_GEN;
+
+
     /// Create a Granary version of the interrupt descriptor table. This
     /// assumes that the IDT for all CPUs is the same.
     system_table_register_t create_idt(void) throw() {
-
+        cpu_state_handle cpu;
         system_table_register_t native;
-        system_table_register_t instrumented;
-        detail::interrupt_descriptor_table *idt(granary_allocate_idt());
 
         get_idtr(&native);
+        cpu->native_idtr = native;
 
+        if(native.base == PREV_IDTR.base && native.limit == PREV_IDTR.limit) {
+            return PREV_IDTR_GEN;
+        }
+
+        PREV_IDTR = native;
+
+        system_table_register_t instrumented;
+        detail::interrupt_descriptor_table *idt(granary_allocate_idt());
         detail::interrupt_descriptor_table *kernel_idt(
             unsafe_cast<detail::interrupt_descriptor_table *>(native.base));
 
@@ -812,10 +824,12 @@ namespace granary {
             }
         }
 
-        kernel_make_page_read_only(idt);
+        // TODO: Re-enable me, or do this outside of `on_each_cpu`.
+        //kernel_make_page_read_only(idt);
 
         instrumented.base = &(idt->vectors[0]);
         instrumented.limit = native.limit;
+        PREV_IDTR_GEN = instrumented;
 
         return instrumented;
     }

@@ -132,7 +132,9 @@ namespace granary {
         // then we'll mark the CTI target as being in the host context. If the
         // mark was wrong (i.e. the IBL targets app code) then that's fine, and
         // if it targets host code then auto instrument.
+#if !CONFIG_INSTRUMENT_HOST
         const bool policy_was_in_host_context(policy.is_in_host_context());
+#endif
         policy.in_host_context(
             IF_USER_ELSE(false, is_host_address(app_target_addr)));
 
@@ -155,6 +157,7 @@ namespace granary {
         if(!target_addr && policy.can_detach()) {
             target_addr = find_detach_target(app_target_addr, policy.context());
 
+#if !CONFIG_INSTRUMENT_HOST
             // Application of the auto-instrument host protocol. If we weren't
             // auto-instrumenting or already in host code, and now we've
             // switched to host code, then set the target address so that we
@@ -164,6 +167,7 @@ namespace granary {
             && policy.is_in_host_context()) {
                 target_addr = app_target_addr;
             }
+#endif
         }
 
         // If we don't have a target yet then translate the target assuming it's

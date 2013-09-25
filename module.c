@@ -88,8 +88,8 @@ void *kernel_get_thread_state(void) {
 
 
 /// Run a function on each CPU.
-void kernel_run_on_each_cpu(void (*func)(void *), void *thunk) {
-    on_each_cpu(func, thunk, 1);
+void kernel_run_on_each_cpu(void (*func)(void)) {
+    on_each_cpu(((void (*)(void *)) func), NULL, 1);
 }
 
 
