@@ -163,6 +163,9 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT(detach)
+
+#if GRANARY_IN_KERNEL
     GRANARY_DETACH_POINT(notify_module_state_change);
+#endif
 }
 
