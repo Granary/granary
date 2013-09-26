@@ -623,6 +623,18 @@ namespace granary {
                 break;
             }
 
+            switch(in.op_code()) {
+            case dynamorio::OP_swapgs:
+            case dynamorio::OP_sysexit:
+            case dynamorio::OP_sysret:
+            case dynamorio::OP_iret:
+            case dynamorio::OP_ret_far:
+                granary_do_break_on_translate = true;
+                break;
+            default:
+                break;
+            }
+
             byte_len += in.instr->length;
             ls.append(in);
 
@@ -680,16 +692,47 @@ namespace granary {
                     break;
                 }
 
-
-            // some other instruction
-            } else {
-
 #if GRANARY_IN_KERNEL
-                if(dynamorio::OP_sysexit == in.op_code()
-                || dynamorio::OP_sysret == in.op_code()) {
-                    break;
+#   if CONFIG_INSTRUMENT_HOST
+
+            // Expect to see a write to %rsp at some point before sysret.
+            } else if(dynamorio::OP_sysret == in.op_code()) {
+
+                fall_through_detach = true;
+                *pc = in.pc();
+                ls.remove(in);
+
+                // Try to find a write to %rsp somewhere earlier in the
+                // instruction list. If so, chop the list off there.
+                for(in = ls.last(); in.is_valid(); in = in.prev()) {
+                    const bool changes_stack(dynamorio::instr_writes_to_reg(
+                        in.instr, dynamorio::DR_REG_RSP));
+
+                    if(changes_stack
+                    && dynamorio::OP_mov_ld <= in.op_code()
+                    && dynamorio::OP_mov_priv >= in.op_code()) {
+                        *pc = in.pc();
+                        ls.remove_tail_at(in);
+                        break;
+                    }
                 }
+
+                in = ls.last();
+                break;
+
+            } else if(dynamorio::OP_sysexit == in.op_code()) {
+                break;
+#   else
+            } else if(dynamorio::OP_sysret == in.op_code()
+                   || dynamorio::OP_sysexit == in.op_code()
+                   || dynamorio::OP_swapgs == in.op_code()) {
+                granary_break_on_curiosity();
+                break;
+#   endif
 #endif
+
+            // Some other instruction.
+            } else {
 
 #if CONFIG_TRACK_XMM_REGS
                 // update the policy to be in an xmm context.

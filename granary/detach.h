@@ -20,6 +20,14 @@
     })
 
 
+#define GRANARY_DETACH_ADDR_POINT(addr) \
+    STATIC_INITIALISE({ \
+        granary::app_pc func(granary::unsafe_cast<granary::app_pc>(addr)); \
+        granary::add_detach_target(func, func, granary::RUNNING_AS_HOST); \
+        granary::add_detach_target(func, func, granary::RUNNING_AS_APP); \
+    })
+
+
 #define GRANARY_DETACH_INSTEAD_OF_WRAP(func_name, context) \
     STATIC_INITIALISE({ \
         granary::app_pc func( \

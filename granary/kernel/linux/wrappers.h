@@ -318,4 +318,13 @@
 #endif
 
 
+/// Appears to be used for swapping the user-space GS register value instead of
+/// using WRMSR. The benefit of the approach appears to be that there is very
+/// little possibility for exceptions using a SWAPGS in this function, whereas
+/// WRMSR has a few more exception possibilities.
+#if defined(DETACH_ADDR_native_load_gs_index)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_native_load_gs_index);
+#endif
+
+
 #endif /* granary_KERNEL_OVERRIDE_WRAPPERS_H_ */

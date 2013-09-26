@@ -16,6 +16,8 @@
 #      define _GNU_SOURCE
 #   endif
 #   include <dlfcn.h>
+#else
+#   include "granary/kernel/linux/module.h"
 #endif
 
 namespace granary {
@@ -161,5 +163,6 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT(detach)
+    GRANARY_DETACH_POINT(notify_module_state_change);
 }
 
