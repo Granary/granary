@@ -571,6 +571,14 @@ namespace granary {
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             const app_pc bytes(in.pc_or_raw_bytes());
 
+            // E.g. copy_user_enhanced_fast_string, doesn't contain
+            // the binary pattern. Unfortunately, this will also capture
+            // memcpy and others.
+            if(dynamorio::OP_ins <= in.op_code()
+            || dynamorio::OP_repne_scas >= in.op_code()) {
+                return true;
+            }
+
             if(nullptr != bytes
             && 3 == in.encoded_size()
             && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {

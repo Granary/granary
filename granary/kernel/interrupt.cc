@@ -593,10 +593,12 @@ namespace granary {
     ) throw() {
         instruction_list ls;
 
+        const bool vec_has_error_code(has_error_code(vector_num));
+
         // This makes it convenient to find top of the ISF from the common
         // interrupt handler.
         ls.append(push_(reg::rsp));
-        if(!has_error_code(vector_num)) {
+        if(!vec_has_error_code) {
             ls.append(push_(seg::ss(*reg::rsp)));
         }
 
@@ -609,25 +611,28 @@ namespace granary {
         ls.append(pop_(reg::arg1));
         ls.append(pop_(reg::rsp));
 
-        // If this is a page fault then we want to restore the flags just in
-        // case the alignment check flag is set. The Linux kernel appears to
-        // read this flag in `smap_violation`.
+        // Restore the flags. This is definitely needed on page faults because
+        // the kernel checks the alignment check flag, although not through the
+        // ISF-saved version of the flags.
         //
-        // Note: Page faults push an error code.
-        // Note: Need to make sure we don't turn interrupts back on.
         //
         // Frame layout:
         //          5 SS
         //          4 RSP
-        //          3 RFLAGS
-        //          2 CS
-        //          1 RIP
+        //          3 RFLAGS            2
+        //          2 CS                1
+        //          1 RIP               0  <- %RSP (no error code)
         // %RSP->   0 Error Code
-        if(VECTOR_PAGE_FAULT == vector_num) {
-            ls.append(push_(reg::rsp[3 * 8]));
-            ls.append(xor_(*reg::rsp, int32_(0x0200U))); // Disable IF.
-            ls.append(popf_());
-        }
+        const int rflags_offset(vec_has_error_code ? 3 : 2);
+        instruction disabled_interrupts(label_());
+        ls.append(push_(reg::rsp[rflags_offset * 8]));
+        ls.append(bt_(*reg::rsp, int8_(9U)));
+        ls.append(jnb_(instr_(disabled_interrupts)));
+        ls.append(xor_(*reg::rsp, int32_(0x0200U))); // Disable IF.
+        ls.append(disabled_interrupts);
+        ls.append(popf_());
+
+        // TODO: Nested task (NT) flag.
 
         insert_cti_after(
             ls, ls.last(), original_routine,
@@ -639,11 +644,6 @@ namespace granary {
                 allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
 
         ls.encode(routine);
-
-        if(VECTOR_PAGE_FAULT == vector_num) {
-            granary_break_on_translate(routine);
-        }
-
         return routine;
     }
 
