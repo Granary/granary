@@ -379,8 +379,8 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
 
-        // We don't need to do anything specific for interrupts.
 #if !CONFIG_ENABLE_INTERRUPT_DELAY && !CONFIG_CLIENT_HANDLE_INTERRUPT
+        // We don't need to do anything specific for interrupts.
         return INTERRUPT_DEFER;
 #else
 
@@ -399,6 +399,12 @@ namespace granary {
             return INTERRUPT_RETURN;
         }
 #   endif
+
+        // Try to prepare for us being in a place where the kernel can
+        // validly take a page fault.
+        if(VECTOR_PAGE_FAULT == vector && bb.info->has_user_access) {
+            cpu->unsafe_pacify_exception_table_search = true;
+        }
 
         // We don't need to delay; let the client try to handle the
         // interrupt, or defer to the kernel if the client doesn't handle
@@ -529,6 +535,9 @@ namespace granary {
                 isf, vector, cpu, prev_num_nested_interrupts);
         }
 
+        // Linux specific; always re-initialise this just in case.
+        cpu->unsafe_pacify_exception_table_search = false;
+
         app_pc pc(isf->instruction_pointer);
 
         IF_PERF( perf::visit_interrupt(); )
@@ -600,17 +609,41 @@ namespace granary {
         ls.append(pop_(reg::arg1));
         ls.append(pop_(reg::rsp));
 
-        app_pc *slot(global_state::FRAGMENT_ALLOCATOR-> \
-                allocate<app_pc>());
-        *slot = original_routine;
+        // If this is a page fault then we want to restore the flags just in
+        // case the alignment check flag is set. The Linux kernel appears to
+        // read this flag in `smap_violation`.
+        //
+        // Note: Page faults push an error code.
+        // Note: Need to make sure we don't turn interrupts back on.
+        //
+        // Frame layout:
+        //          5 SS
+        //          4 RSP
+        //          3 RFLAGS
+        //          2 CS
+        //          1 RIP
+        // %RSP->   0 Error Code
+        if(VECTOR_PAGE_FAULT == vector_num) {
+            ls.append(push_(reg::rsp[3 * 8]));
+            ls.append(xor_(*reg::rsp, int32_(0x0200U))); // Disable IF.
+            ls.append(popf_());
+        }
 
-        ls.append(jmp_ind_(absmem_(slot, dynamorio::OPSZ_8)));
+        insert_cti_after(
+            ls, ls.last(), original_routine,
+            CTI_DONT_STEAL_REGISTER, operand(),
+            CTI_JMP);
 
         app_pc routine(reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
                 allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
 
         ls.encode(routine);
+
+        if(VECTOR_PAGE_FAULT == vector_num) {
+            granary_break_on_translate(routine);
+        }
+
         return routine;
     }
 

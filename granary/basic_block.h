@@ -51,12 +51,12 @@ namespace granary {
         /// bytes of padding, and the patch bytes.
         uint16_t num_bytes;
 
-        /// Number of bytes of patch instructions beginning this basic block.
-        uint16_t num_patch_bytes:15;
+        //-------------------
 
-        /// Does this basic block have any state bits following it? It will only
-        /// have state bits of there is a delay region.
-        bool has_delay_range:1;
+        /// Number of bytes of patch instructions beginning this basic block.
+        uint16_t num_patch_bytes;
+
+        //-------------------
 
         /// Represents the translation policy used to translate this basic
         /// block. This includes policy properties.
@@ -64,6 +64,22 @@ namespace granary {
 
         /// Number of bytes of instructions in the generating basic block.
         uint16_t generating_num_bytes;
+
+        //-------------------
+
+        /// Does this basic block have any state bits following it? It will only
+        /// have state bits of there is a delay region.
+        bool has_delay_range:8;
+
+#if GRANARY_IN_KERNEL
+        /// Does this basic block look like it might have a user space access
+        /// in it?
+        bool has_user_access:8;
+#endif
+
+        uint32_t:IF_USER_ELSE(24,16);
+
+        //-------------------
 
         basic_block_state *state_addr;
 

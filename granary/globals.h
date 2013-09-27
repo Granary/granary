@@ -37,7 +37,7 @@
 #endif
 
 #ifndef GRANARY_WHOLE_KERNEL
-#   define GRANARY_WHOLE_KERNEL 0
+#   define GRANARY_WHOLE_KERNEL 1
 #endif
 
 /// Should Granary interpose on any interrupts? If this is disabled then any

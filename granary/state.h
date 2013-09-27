@@ -180,6 +180,13 @@ namespace granary {
         /// Number of nested interrupts.
         std::atomic<unsigned> num_nested_interrupts;
 #   endif
+
+        /// Linux-specific; bypass an exception table search if we think there's
+        /// a place in this code that can legally access user space code.
+        /// See `__do_page_fault` in the kernel source code, and search of
+        /// `search_exception_tables`.
+        bool unsafe_pacify_exception_table_search;
+
 #endif /* GRANARY_IN_KERNEL */
 
         /// Thread data.

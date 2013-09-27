@@ -103,7 +103,6 @@ namespace granary {
 
         ASSERT(0 == (reinterpret_cast<uintptr_t>(old_address) % 8));
 
-
         uint64_t buff(0);
         uint8_t *buff_ptr(unsafe_cast<uint8_t *>(&buff));
         instruction in(jmp_(pc_(new_address)));

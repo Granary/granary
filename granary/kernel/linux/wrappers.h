@@ -305,26 +305,4 @@
     })
 #endif
 
-
-/// Hot-patch the `process_one_work` function to wrap `work_struct`s before
-/// their functions are executed. This is here because there are ways to get
-/// work structs registered through macros/inline functions, thus bypassing
-/// wrapping.
-#if defined(DETACH_ADDR_process_one_work)
-    PATCH_WRAPPER_VOID(process_one_work, (struct worker *worker, struct work_struct *work), {
-        PRE_OUT_WRAP(work);
-        process_one_work(worker, work);
-    })
-#endif
-
-
-/// Appears to be used for swapping the user-space GS register value instead of
-/// using WRMSR. The benefit of the approach appears to be that there is very
-/// little possibility for exceptions using a SWAPGS in this function, whereas
-/// WRMSR has a few more exception possibilities.
-#if defined(DETACH_ADDR_native_load_gs_index)
-    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_native_load_gs_index);
-#endif
-
-
 #endif /* granary_KERNEL_OVERRIDE_WRAPPERS_H_ */

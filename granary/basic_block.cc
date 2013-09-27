@@ -555,6 +555,38 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    /// Try to detect if the basic block contains a specific binary instruction
+    /// pattern that makes it look like it could contain and exception table
+    /// entry.
+    static bool might_touch_user_address(instruction_list &ls) throw() {
+
+        enum {
+            DATA32_XCHG_AX_AX = 0x906666U
+        };
+
+        bool might_touch(false);
+        const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+            const app_pc bytes(in.pc_or_raw_bytes());
+
+            if(nullptr != bytes
+            && 3 == in.encoded_size()
+            && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
+                if(!might_touch) {
+                    might_touch = true;
+                } else {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+#endif
+
+
     /// Decode and translate a single basic block of application/module code.
     basic_block basic_block::translate(
         instrumentation_policy policy,
@@ -744,6 +776,11 @@ namespace granary {
             }
         }
 
+#if GRANARY_IN_KERNEL
+        // Look for potential user-space code access.
+        const bool migh_touch_user_mem(might_touch_user_address(ls));
+#endif
+
         // Translate loops and resolve local branches into jmps to instructions.
         // done before mangling, as mangling removes the opportunity to do this
         // type of transformation.
@@ -821,7 +858,13 @@ namespace granary {
         // because direct jump patchers will be prepended to the basic block.
         basic_block ret(bb_begin.pc());
 
-        // quick double check to make sure that we can properly resolve the
+#if GRANARY_IN_KERNEL
+        if(migh_touch_user_mem) {
+            ret.info->has_user_access = migh_touch_user_mem;
+        }
+#endif
+
+        // Quick double check to make sure that we can properly resolve the
         // basic block info later. If this isn't the case, then we likely need
         // to choose different magic values, or make them longer.
         ASSERT(bb_begin.pc() == ret.cache_pc_start);

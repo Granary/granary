@@ -468,6 +468,7 @@ else
 	# Kernel-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/module.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/state.o
+	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/wrappers.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/hotpatch.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/interrupt.o
