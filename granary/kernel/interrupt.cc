@@ -606,33 +606,12 @@ namespace granary {
         ls.append(push_(reg::arg2));
         ls.append(lea_(reg::arg1, seg::ss(reg::rsp[24])));
         ls.append(mov_imm_(reg::arg2, int64_(vector_num)));
+        ls.append(pushf_()); // Save the flags; the kernel reads them.
         ls.append(call_(pc_(common_interrupt_routine)));
+        ls.append(popf_());
         ls.append(pop_(reg::arg2));
         ls.append(pop_(reg::arg1));
         ls.append(pop_(reg::rsp));
-
-        // Restore the flags. This is definitely needed on page faults because
-        // the kernel checks the alignment check flag, although not through the
-        // ISF-saved version of the flags.
-        //
-        //
-        // Frame layout:
-        //          5 SS
-        //          4 RSP
-        //          3 RFLAGS            2
-        //          2 CS                1
-        //          1 RIP               0  <- %RSP (no error code)
-        // %RSP->   0 Error Code
-        const int rflags_offset(vec_has_error_code ? 3 : 2);
-        instruction disabled_interrupts(label_());
-        ls.append(push_(reg::rsp[rflags_offset * 8]));
-        ls.append(bt_(*reg::rsp, int8_(9U)));
-        ls.append(jnb_(instr_(disabled_interrupts)));
-        ls.append(xor_(*reg::rsp, int32_(0x0200U))); // Disable IF.
-        ls.append(disabled_interrupts);
-        ls.append(popf_());
-
-        // TODO: Nested task (NT) flag.
 
         insert_cti_after(
             ls, ls.last(), original_routine,
@@ -650,7 +629,7 @@ namespace granary {
 
     /// Emit a common interrupt entry routine. This routine handles the full
     /// interrupt.
-    static app_pc emit_common_interrupt_routine() throw() {
+    static app_pc emit_common_interrupt_routine(void) throw() {
         instruction_list ls;
         instruction in_kernel(label_());
         operand isf_ptr(reg::arg1);
@@ -691,7 +670,7 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-        // Call out to the handler
+        // Call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
         in = insert_align_stack_after(ls, in);
         in = insert_cti_after(
@@ -701,7 +680,7 @@ namespace granary {
             CTI_CALL);
         insert_restore_old_stack_alignment_after(ls, in);
 
-        // check to see if the interrupt was handled or not
+        // Check to see if the interrupt was handled or not.
         ls.append(xor_(isf_ptr, isf_ptr));
         ls.append(cmp_(reg::ret, isf_ptr));
         ls.append(pop_(reg::ret));
@@ -714,10 +693,21 @@ namespace granary {
 
         // CASE 2.1: fall-through: IRET from the interrupt, it has been handled.
         {
-            ls.append(lea_(reg::rsp, reg::rsp[16])); // arg1 + return address
+            // 24 = sizeof( arg1 + return address + flags )
+            ls.append(lea_(reg::rsp, reg::rsp[24]));
             ls.append(pop_(vector));
             ls.append(pop_(isf_ptr));
-            ls.append(lea_(reg::rsp, reg::rsp[16])); // align to base of ISF
+
+            // Align to base of ISF. In `emit_interrupt_routine`, we did:
+            //      a) No error code:
+            //          push %rsp;
+            //          push (%rsp);
+            //      b) Error code:
+            //          push %rsp;
+            // So aligning by 16 bytes to find the top of the ISF (excluding the
+            // error code) is always valid because we guarantee that there will
+            // always be 16 bytes of something there.
+            ls.append(lea_(reg::rsp, reg::rsp[16]));
             ls.append(iret_());
         }
 
@@ -731,9 +721,8 @@ namespace granary {
         // TODO: unaligned RET issue? Potentially consider RETn.
         ls.append(ret);
         {
-
             ls.append(pop_(isf_ptr));
-            ls.append(push_(reg::rax)); // will serve as a temp stack ptr
+            ls.append(push_(reg::rax)); // Will serve as a temp stack ptr.
 
             // Use RAX as a stack pointer.
             ls.append(mov_ld_(
@@ -759,8 +748,8 @@ namespace granary {
 
             // Compute the new stack pointer, restore arg1, arg2, rsp, and rax.
             ls.append(lea_(reg::rax, reg::rax[-24]));
-            ls.append(mov_ld_(reg::arg2, reg::rsp[16]));
-            ls.append(mov_ld_(reg::arg1, reg::rsp[24]));
+            ls.append(mov_ld_(reg::arg2, reg::rsp[24]));
+            ls.append(mov_ld_(reg::arg1, reg::rsp[32]));
             ls.append(mov_ld_(reg::rsp, reg::rax));
             ls.append(pop_(reg::rax));
 

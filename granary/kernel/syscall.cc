@@ -22,17 +22,6 @@ namespace granary {
     static app_pc LAST_GEN_SYSCALL_ENTRYPOINT = nullptr;
 
 
-    /// Try to find the first write to %rsp, which we take as a signal that
-    /// we're now on a kernel stack, where push/pop are safe.
-    static void find_safe_stack(const operand_ref &op, bool &is_safe) {
-        if(DEST_OPERAND == op.kind
-        && dynamorio::REG_kind == op->kind
-        && dynamorio::DR_REG_RSP == op->value.reg) {
-            is_safe = true;
-        }
-    }
-
-
     /// Generate a system call entry point for the current CPU.
     app_pc create_syscall_entrypoint(void) throw() {
         app_pc native_syscall_handler = unsafe_cast<app_pc>(get_msr(MSR_LSTAR));
@@ -43,18 +32,16 @@ namespace granary {
         }
 
         instruction_list ls;
-        bool stack_is_safe(false);
-
         cpu->native_syscall_handler = native_syscall_handler;
         LAST_SYSCALL_ENTRYPOINT = native_syscall_handler;
 
         for(;;) {
             instruction in(instruction::decode(&native_syscall_handler));
-            in.for_each_operand(find_safe_stack, stack_is_safe);
-
             ls.append(in);
 
-            if(stack_is_safe) {
+            // Found a point at which the stack is safe, i.e. the kernel has
+            // switched from a user space stack to a kernel space stack.
+            if(dynamorio::instr_writes_to_exact_reg(in, dynamorio::DR_REG_RSP)) {
                 break;
             }
         }

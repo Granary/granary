@@ -745,8 +745,9 @@ namespace granary {
                 // Try to find a write to %rsp somewhere earlier in the
                 // instruction list. If so, chop the list off there.
                 for(in = ls.last(); in.is_valid(); in = in.prev()) {
-                    const bool changes_stack(dynamorio::instr_writes_to_reg(
-                        in.instr, dynamorio::DR_REG_RSP));
+                    const bool changes_stack(
+                        dynamorio::instr_writes_to_exact_reg(
+                            in.instr, dynamorio::DR_REG_RSP));
 
                     if(changes_stack
                     && dynamorio::OP_mov_ld <= in.op_code()
