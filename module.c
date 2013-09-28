@@ -71,9 +71,22 @@ MODULE_LICENSE("GPL");
 struct rchan *GRANARY_RELAY_CHANNEL = NULL;
 
 
+static inline uint16_t \
+get_gs(void) \
+{\
+    uint16_t result; \
+    asm volatile("movw %%" "gs" ", %0" : "=m" (result)); \
+    return result; \
+}
+
+extern void granary_break_on_curiosity(void);
+
 /// Get access to per-CPU Granary state.
 __attribute__((hot))
 void **kernel_get_cpu_state(void *ptr[]) {
+    if(0 == get_gs()) {
+        granary_break_on_curiosity();
+    }
     return &(ptr[smp_processor_id()]);
 }
 

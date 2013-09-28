@@ -663,6 +663,13 @@ namespace granary {
                 break;
             }
 
+            // Useful to relate back to the kernel's BUG_ON macro.
+            if(dynamorio::OP_ud2a == in.op_code()
+            || dynamorio::OP_ud2b == in.op_code()) {
+                fall_through_detach = true;
+                break;
+            }
+
             switch(in.op_code()) {
             case dynamorio::OP_swapgs:
             case dynamorio::OP_sysexit:
@@ -723,6 +730,22 @@ namespace granary {
 
                 // RET, far RET, and IRET instruction.
                 } else if(in.is_return()) {
+#if GRANARY_IN_KERNEL
+                    // Go look to see if there's a SWAPGS leading to an IRET
+                    // and chop the block off at the SWAPGS.
+                    if(dynamorio::OP_iret == in.op_code()) {
+                        for(in = ls.last(); in.is_valid(); in = in.prev()) {
+                            if(dynamorio::OP_swapgs != in.op_code()) {
+                                continue;
+                            }
+
+                            *pc = in.pc();
+                            ls.remove_tail_at(in);
+                            fall_through_detach = true;
+                            break;
+                        }
+                    }
+#endif
                     break;
 
                 // Conditional CTI, end the block with the ability to fall-

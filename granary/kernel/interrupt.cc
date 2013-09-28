@@ -355,13 +355,11 @@ namespace granary {
         DONT_OPTIMISE void granary_break_on_nested_interrupt(
             granary::interrupt_stack_frame *isf,
             interrupt_vector vector,
-            cpu_state_handle cpu,
-            unsigned prev_num_nested_interrupts
+            cpu_state_handle cpu
         ) {
             USED(isf);
             USED(vector);
             USED(cpu);
-            USED(prev_num_nested_interrupts);
         }
     }
 
@@ -523,16 +521,16 @@ namespace granary {
         cpu_state_handle cpu;
         thread_state_handle thread(cpu);
 
-        const unsigned prev_num_nested_interrupts(
-            cpu->num_nested_interrupts.fetch_add(1));
-
-        // Avoid nested interrupts clobbering Granary's internal data
-        // structures.
-        if(!prev_num_nested_interrupts) {
+        // If the high 48 bits of the two stack pointers are the same then
+        // we hit a recursive interrupt; otherwise, mark us as entering into
+        // Granary.
+        const uintptr_t private_stack_check(
+            reinterpret_cast<uintptr_t>(isf->stack_pointer) ^
+            reinterpret_cast<uintptr_t>(cpu->percpu_stack.top));
+        if(0 != (private_stack_check >> 16)) {
             granary::enter(cpu);
         } else {
-            granary_break_on_nested_interrupt(
-                isf, vector, cpu, prev_num_nested_interrupts);
+            granary_break_on_nested_interrupt(isf, vector, cpu);
         }
 
         // Linux specific; always re-initialise this just in case.
@@ -576,8 +574,7 @@ namespace granary {
             ret = handle_kernel_interrupt(cpu, thread, isf, vector);
         }
 
-        // Reset the stack pointer for this CPU.
-        cpu->num_nested_interrupts.fetch_sub(1);
+        // Tell the kernel that pre-emption is enabled again.
         kernel_preempt_enable();
 
         return ret;
@@ -670,28 +667,30 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-        // Get ready to switch stacks and call out to the handler
+        // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
         in = insert_align_stack_after(ls, in);
 
-        // Call the interrupt handler while on the private stack
+        // Switch to the private stack (we might be on the private stack if this
+        // is a nested interrupt).
         in = insert_cti_after(
             ls, in,
             unsafe_cast<app_pc>(granary_enter_private_stack),
             CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
-        // Call handler 
+        // Call handler.
         in = insert_cti_after(
             ls, in, // instruction
             unsafe_cast<app_pc>(handle_interrupt), // target
             CTI_STEAL_REGISTER, reg::ret, // clobber reg
             CTI_CALL);
 
-        // Need to save the return value for checking (after we exit the private stack again)
+        // Need to save the return value for checking (after we exit the
+        // private stack again).
         ls.append(mov_ld_(isf_ptr, reg::ret));
 
-        // Switch back to original stack
+        // Switch back to original stack.
         in = insert_cti_after(
             ls, in, unsafe_cast<app_pc>(granary_exit_private_stack),
             CTI_STEAL_REGISTER, reg::ret,
@@ -699,7 +698,7 @@ namespace granary {
 
         insert_restore_old_stack_alignment_after(ls, in);
 
-        // check to see if the interrupt was handled or not
+        // Check to see if the interrupt was handled or not.
         ls.append(xor_(reg::ret, reg::ret));
         ls.append(cmp_(reg::ret, isf_ptr));
 
@@ -713,10 +712,10 @@ namespace granary {
 
         // CASE 2.1: fall-through: IRET from the interrupt, it has been handled.
         {
-            // 24 = sizeof( arg1 + return address + flags )
+            // 24 = sizeof( isf_ptr + return address + flags )
             ls.append(lea_(reg::rsp, reg::rsp[24]));
-            ls.append(pop_(vector));
-            ls.append(pop_(isf_ptr));
+            ls.append(pop_(vector)); // arg2.
+            ls.append(pop_(isf_ptr)); // arg1.
 
             // Align to base of ISF. In `emit_interrupt_routine`, we did:
             //      a) No error code:

@@ -195,9 +195,9 @@
 #   define CONFIG_MEMORY_PAGE_SIZE 4096
 #endif
 
-// Size of per-cpu/thread-local private stack
+// Size of per-cpu/thread-local private stack (currently 6 pages).
 #ifndef CONFIG_PRIVATE_STACK_SIZE
-#   define CONFIG_PRIVATE_STACK_SIZE    16384
+#   define CONFIG_PRIVATE_STACK_SIZE 24576
 #endif
 
 
@@ -444,6 +444,11 @@ extern "C" {
 
     /// Get the current stack pointer.
     extern uint64_t granary_get_stack_pointer(void);
+
+
+    /// Used for switching to a CPU-private stack.
+    extern void granary_enter_private_stack(void);
+    extern void granary_exit_private_stack(void);
 
 
 #if CONFIG_ENABLE_ASSERTIONS

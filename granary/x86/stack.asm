@@ -10,7 +10,7 @@ START_FILE
 DECLARE_FUNC(granary_enter_private_stack)
 GLOBAL_LABEL(granary_enter_private_stack:)
     // The compiler that will call this function has respected the ABI, so we
-    // only need to protect registers we explicitly use
+    // only need to protect registers we explicitly use.
     pushq %ARG1
     pushq %ARG2
 

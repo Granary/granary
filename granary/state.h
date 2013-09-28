@@ -36,10 +36,10 @@ namespace granary {
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw();
 
-    struct __attribute__((aligned (16), packed)) stack_state {
+    struct stack_state {
         char base[CONFIG_PRIVATE_STACK_SIZE];
         uint64_t top[0];
-    };
+    } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE), packed));
 
     extern "C" {
         uint64_t *granary_get_private_stack_top(void);
@@ -187,9 +187,6 @@ namespace granary {
 
         /// Spilled registers needed for interrupt delaying.
         uint64_t spill[2];
-
-        /// Number of nested interrupts.
-        std::atomic<unsigned> num_nested_interrupts;
 #   endif
 
         /// Linux-specific; bypass an exception table search if we think there's
@@ -202,9 +199,6 @@ namespace granary {
 
         /// Thread data.
         IF_USER( thread_state thread_data; )
-
-        // Per-CPU private stack
-        IF_KERNEL( stack_state percpu_stack; )
 
 
         /// The code cache allocator for this CPU.
@@ -242,6 +236,9 @@ namespace granary {
         /// A buffer, allocated from the global fragment allocator, that
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
+
+        // Per-CPU private stack
+        IF_KERNEL( stack_state percpu_stack; )
     };
 
 
