@@ -26,20 +26,22 @@ GLOBAL_LABEL(granary_enter_private_stack:)
 
     // Compare the top 48-bits of the private stack address %rax and
     // whichever stack we are currently on %rsp
-    movq %rax, %rbx
-    xorq %rsp, %rbx
-    shrq $16, %rbx
-    test %rbx, %rbx
+    pushq %rax
+    xorq %rsp, %rax
+    shrq $16, %rax // Sets the zero flag.
+    popq %rax
 
     // High 48-bits were the same, already on private stack!
     jz .enter_do_not_switch
 
 .enter_switch_stack:
-    // Get return address of this function call
-    popq %rbx
-
-    // Switch stack
+    // Switch stack; After this, %rax will be the native stack and %rsp will
+    // be the private stack.
     xchg %rsp, %rax
+
+    // Adjust the native stack pointer to pretend that the return address
+    // wasn't there.
+    lea 8(%rax), %rax;
 
     // As of here:
     // %rsp - top of private stack
@@ -51,38 +53,37 @@ GLOBAL_LABEL(granary_enter_private_stack:)
     pushq %rax
 
     // Tail-cail return
-    jmpq *%rbx
+    jmpq *-8(%rax)
 
 .enter_do_not_switch:
-    // Get return address of this function call
-    popq %rbx
+    // Get return address of this function call.
+    popq %rax
 
     // As of here (since we are already on the private stack per the test above):
     // %rsp - somewhere on the private stack
-    // %rax - top of private stack
+    // %rax - return address.
 
     // Save current private stack position
     // NB: two pushes to ensure 16 byte alignment (and make sure they are both
     // the same %rsp value!)
-    movq %rsp, %rax
-    pushq %rax
-    pushq %rax
+    pushq %rsp
+    pushq (%rsp)
 
     // Tail-cail return
-    jmpq *%rbx
+    jmpq *%rax
 
     END_FUNC(granary_enter_private_stack)
 
 DECLARE_FUNC(granary_exit_private_stack)
 GLOBAL_LABEL(granary_exit_private_stack:)
     // Get return address
-    pop %rbx
+    pop %rax
 
     // Unconditionally switch stacks
     pop %rsp
 
     // Tail-call return
-    jmpq *%rbx
+    jmpq *%rax
 
     END_FUNC(granary_exit_private_stack)
 

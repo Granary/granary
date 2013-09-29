@@ -71,22 +71,9 @@ MODULE_LICENSE("GPL");
 struct rchan *GRANARY_RELAY_CHANNEL = NULL;
 
 
-static inline uint16_t \
-get_gs(void) \
-{\
-    uint16_t result; \
-    asm volatile("movw %%" "gs" ", %0" : "=m" (result)); \
-    return result; \
-}
-
-extern void granary_break_on_curiosity(void);
-
 /// Get access to per-CPU Granary state.
-__attribute__((hot))
+__attribute__((hot, optimize("O3")))
 void **kernel_get_cpu_state(void *ptr[]) {
-    if(0 == get_gs()) {
-        granary_break_on_curiosity();
-    }
     return &(ptr[smp_processor_id()]);
 }
 
@@ -94,7 +81,7 @@ void **kernel_get_cpu_state(void *ptr[]) {
 /// Get access to the per-task Granary state. The Granary state field might
 /// be as small as a pointer, or might be a larger structure, depending on how
 /// the kernel's task struct has been changed.
-__attribute__((hot))
+__attribute__((hot, optimize("O3")))
 void *kernel_get_thread_state(void) {
     return (void *) &((current)->granary);
 }
@@ -423,7 +410,9 @@ static struct kernel_module *find_internal_module(void *vmod) {
 
 
 /// Notify Granary's back-end of a state change to a particular module.
-static int module_load_notifier(
+///
+/// Note: Not static so that we can see it in granary/detach.cc.
+int module_load_notifier(
     struct notifier_block *nb,
     unsigned long mod_state,
     void *vmod

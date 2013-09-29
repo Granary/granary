@@ -37,7 +37,7 @@
 #endif
 
 #ifndef GRANARY_WHOLE_KERNEL
-#   define GRANARY_WHOLE_KERNEL 1
+#   define GRANARY_WHOLE_KERNEL 0
 #endif
 
 /// Should Granary interpose on any interrupts? If this is disabled then any
@@ -86,6 +86,14 @@
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
 #define CONFIG_CHECK_INSTRUCTION_ENCODE 0
+
+
+/// If one is experiencing triple faults / spurious CPU rests, they might be
+/// because of `kernel_get_cpu_state`, i.e. the `mov %gs:offset, reg` faults,
+/// which goes into an interrupt handler which tries the same thing over again,
+/// which faults again, etc. The current mechanism for debugging this problem
+/// assumes that Granary is compiled with frame pointers.
+#define CONFIG_DEBUG_CPU_RESET 1
 
 
 /// Should the direct return optimisation be enabled? This is not available for

@@ -21,7 +21,7 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
 
     mov %rsp, %ARG1
 
-    // ensure 16-byte alignment of the stack; this assumes the stack pointer is
+    // Ensure 16-byte alignment of the stack; this assumes the stack pointer is
     // either 8 or 16-byte aligned.
     push %rsp
     push (%rsp)
@@ -30,15 +30,12 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
     PUSHA_XMM
 
     ENTER_PRIVATE_STACK()
-
-    // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
-    callq *%rax
-
+    callq *%rax // Replaced by `make_direct_cti_patch_func`.
     EXIT_PRIVATE_STACK()
 
     POPA_XMM
 
-    // restore the old stack pointer
+    // Restore the old stack alignment.
     mov 8(%rsp), %rsp
 
     POPA
@@ -67,38 +64,35 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
 
     mov %rsp, %ARG1
 
-    // ensure 16-byte alignment of the stack; this assumes the stack pointer is
+#if !GRANARY_IN_KERNEL
+    // Ensure 16-byte alignment of the stack; this assumes the stack pointer is
     // either 8 or 16-byte aligned.
     push %rsp
     push (%rsp)
     and $-0x10, %rsp
 
-#if !GRANARY_IN_KERNEL
     lea -32(%rsp), %rsp;
     movaps %xmm0, 16(%rsp);
     movaps %xmm1, (%rsp);
 #endif
 
     ENTER_PRIVATE_STACK()
-
-    // mov <dest addr>, %rax    <--- filled in by `make_direct_cti_patch_func`
-    callq *%rax
-
+    callq *%rax // Replaced by `make_direct_cti_patch_func`.
     EXIT_PRIVATE_STACK()
 
 #if !GRANARY_IN_KERNEL
     movaps (%rsp), %xmm1;
     movaps 16(%rsp), %xmm0;
     lea 32(%rsp), %rsp;
-#endif
 
-    // restore the old stack pointer
+    // Restore the old stack alignment.
     mov 8(%rsp), %rsp
+#endif
 
     POPA
     popf
 
-    // pop off the target address.
+    // Pop off the target address.
     lea 8(%rsp), %rsp;
 
     // return to the patch stub, which will jmp to the now patched function

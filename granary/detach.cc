@@ -140,7 +140,11 @@ namespace granary {
     app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
 
 #if GRANARY_IN_KERNEL
+#   if !CONFIG_INSTRUMENT_WHOLE_KERNEL
         if(likely(RUNNING_AS_APP == context)) {
+#   else
+        if(unlikely(RUNNING_AS_APP == context)) {
+#   endif
             if(!is_host_address(detach_addr)) {
                 return nullptr;
             }
@@ -165,7 +169,14 @@ namespace granary {
     GRANARY_DETACH_POINT(detach)
 
 #if GRANARY_IN_KERNEL
+    extern "C" {
+        extern void module_load_notifier(void);
+        extern void granary_report(void);
+    }
+
     GRANARY_DETACH_POINT(notify_module_state_change);
+    GRANARY_DETACH_POINT(module_load_notifier);
+    GRANARY_DETACH_POINT(granary_report);
 #endif
 }
 

@@ -223,7 +223,7 @@ namespace client {
         ///     data32 xchg %ax, %ax
         ///
         /// If the pattern is matched then `check_bit_47` is set to true.
-        bool match_user_space_address_boundary(granary::instruction in) throw();
+        bool match_user_space_pattern(granary::instruction in) throw();
 #endif /* GRANARY_IN_KERNEL */
 
 
@@ -622,6 +622,14 @@ namespace client {
 
 #if GRANARY_IN_KERNEL && !WP_CHECK_FOR_USER_ADDRESS
             bool in_user_access_zone(false);
+
+            // Quick scan through looking for user space accessing patterns.
+            for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
+                if(wp::match_user_space_pattern(in)) {
+                    in_user_access_zone = true;
+                    break;
+                }
+            }
 #endif
 
             // Backward pass.
@@ -661,9 +669,6 @@ namespace client {
 #   if WP_CHECK_FOR_USER_ADDRESS
                 tracker.check_bit_47 = true;
 #   else
-                if(wp::match_user_space_address_boundary(in)) {
-                    in_user_access_zone = !in_user_access_zone;
-                }
                 tracker.check_bit_47 = in_user_access_zone;
 #   endif /* WP_CHECK_FOR_USER_ADDRESS */
 #endif

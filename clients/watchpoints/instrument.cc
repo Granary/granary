@@ -615,15 +615,29 @@ namespace client { namespace wp {
     ///     data32 xchg %ax, %ax
     ///
     /// If the pattern is matched then `check_bit_47` is set to true.
-    bool match_user_space_address_boundary(instruction in) throw() {
+    ///
+    /// Another pattern checked for is any instruction with a REP prefix.
+    bool match_user_space_pattern(instruction in) throw() {
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
         };
         const app_pc bytes(in.pc_or_raw_bytes());
         const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-        return nullptr != bytes
-            && 3 == in.encoded_size()
-            && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3);
+        if(nullptr != bytes
+        && 3 == in.encoded_size()
+        && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
+            return true;
+        }
+
+        // E.g. copy_user_enhanced_fast_string, doesn't contain
+        // the binary pattern. Unfortunately, this will also capture
+        // memcpy and others.
+        if(dynamorio::OP_ins <= in.op_code()
+        || dynamorio::OP_repne_scas >= in.op_code()) {
+            return true;
+        }
+
+        return false;
     }
 #endif
 

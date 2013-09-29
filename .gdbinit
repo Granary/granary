@@ -357,11 +357,6 @@ define p-trace-entry-regs
   printf "   rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
   printf "   rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
   printf "   rax: 0x%lx\n", $trace_entry->state.rax.value_64
-  if !$in_user_space
-    printf "   gs:  0x%lx\n", $trace_entry->state.gs.value_64
-  else
-    printf "   fs:  0x%lx\n", $trace_entry->state.fs.value_64
-  end
   dont-repeat
 end
 
@@ -505,5 +500,137 @@ define p-instr
   set $__instr = (instr_t *) $arg0
   printf "Instruction:\n"
   p (op_code_type) $__instr->opcode
+  dont-repeat
+end
+
+
+# Saved machine state.
+set $__reg_r15 = 0
+set $__reg_r14 = 0
+set $__reg_r13 = 0
+set $__reg_r12 = 0
+set $__reg_r11 = 0
+set $__reg_r10 = 0
+set $__reg_r9  = 0
+set $__reg_r8  = 0
+set $__reg_rdi = 0
+set $__reg_rsi = 0
+set $__reg_rbp = 0
+set $__reg_rbx = 0
+set $__reg_rdx = 0
+set $__reg_rcx = 0
+set $__reg_rax = 0
+set $__reg_rsp = 0
+
+set $__regs_saved = 0
+
+
+# Save all of the registers to some global GDB variables.
+define save-regs
+  set $__regs_saved = 1
+  set $__reg_r15 = $r15
+  set $__reg_r14 = $r14
+  set $__reg_r13 = $r13
+  set $__reg_r12 = $r12
+  set $__reg_r11 = $r11
+  set $__reg_r10 = $r10
+  set $__reg_r9  = $r9 
+  set $__reg_r8  = $r8 
+  set $__reg_rdi = $rdi
+  set $__reg_rsi = $rsi
+  set $__reg_rbp = $rbp
+  set $__reg_rbx = $rbx
+  set $__reg_rdx = $rdx
+  set $__reg_rcx = $rcx
+  set $__reg_rax = $rax
+  set $__reg_rsp = $rsp
+  dont-repeat
+end
+
+
+# Restore all of the registers from some global GDB variables.
+define restore-regs
+  set $__regs_saved = 0
+  set $r15 = $__reg_r15
+  set $r14 = $__reg_r14
+  set $r13 = $__reg_r13
+  set $r12 = $__reg_r12
+  set $r11 = $__reg_r11
+  set $r10 = $__reg_r10
+  set $r9  = $__reg_r9 
+  set $r8  = $__reg_r8 
+  set $rdi = $__reg_rdi
+  set $rsi = $__reg_rsi
+  set $rbp = $__reg_rbp
+  set $rbx = $__reg_rbx
+  set $rdx = $__reg_rdx
+  set $rcx = $__reg_rcx
+  set $rax = $__reg_rax
+  set $rsp = $__reg_rsp
+  dont-repeat
+end
+
+# restore-interrupted-state <isf pointer>
+#
+# Restore the interrupted register state.
+define restore-interrupted-state
+  set language c++
+
+  set $__isf = (granary::interrupt_stack_frame *) $arg0
+
+  # Save the current register state so that if we want to, we can
+  # restore it later on to continue execution.
+  if !$__regs_saved
+    save-regs
+  end
+
+  set $rsp = $__isf->stack_pointer
+  set $rip = $__isf->instruction_pointer
+
+  # Okay, now we need to find where we saved the other registers.
+  set $__top = (uint64_t *) &($__isf->instruction_pointer)
+  set $__top = $__top + 2
+
+  set $rdi = *$__top
+  set $__top = $__top + 1
+
+  set $rsi = *$__top
+  set $__top = $__top + 4
+  # skip over rsi, the flags, the return address of the common
+  # interrupt routine, the re-saved %rdi (holding the ISF pointer)
+
+  # Saved independently so that the common interrupt handler can
+  # handle the interrupt according to the return value of
+  # `handle_interrupt`.
+  set $rax = *$__top
+  set $__top = $__top + 1
+
+  # Saved by `save_and_restore_registers`.
+  set $rcx = *$__top
+  set $__top = $__top + 1
+  set $rdx = *$__top
+  set $__top = $__top + 1
+  set $rbx = *$__top
+  set $__top = $__top + 1
+  set $rbp = *$__top
+  set $__top = $__top + 1
+  set $r8 = *$__top
+  set $__top = $__top + 1
+  set $r9 = *$__top
+  set $__top = $__top + 1
+  set $r10 = *$__top
+  set $__top = $__top + 1
+  set $r11 = *$__top
+  set $__top = $__top + 1
+  set $r12 = *$__top
+  set $__top = $__top + 1
+  set $r13 = *$__top
+  set $__top = $__top + 1
+  set $r14 = *$__top
+  set $__top = $__top + 1
+  set $r15 = *$__top
+  set $__top = $__top + 1
+
+
   dont-repeat
 end

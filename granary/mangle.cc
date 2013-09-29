@@ -532,15 +532,13 @@ namespace granary {
         }
 #endif
 
-        // save the target on the stack so that if the register is clobbered by
+        // Save the target on the stack so that if the register is clobbered by
         // the CPU-private lookup function then we can recall it for the global
         // lookup.
         safe = ibl.insert_after(safe, push_(reg_target_addr));
 
-        // align the stack to a 16 byte boundary before the call.
+        // Fast path: try to find the address in the CPU-private code cache.
         safe = insert_align_stack_after(ibl, safe);
-
-        // fast path: try to find the address in the CPU-private code cache.
         safe = insert_cti_after(
             ibl, safe, cpu_private_code_cache_find,
             CTI_STEAL_REGISTER, reg::rax,
@@ -554,9 +552,14 @@ namespace granary {
         safe = ibl.insert_after(safe, jnz_(instr_(safe_fast)));
 
         // Slow path: do a global code cache lookup.
-        safe = insert_align_stack_after(ibl, safe);
+        //
+        // Note: Don't need to align the stack, because the private stack is
+        //       already nicely aligned, and `enter_private_stack` maintains
+        //       the stack alignment.
 
-        // Find the local private stack to use.
+        // Find the local private stack to use. %rax is safe to clobber for
+        // the target address because `granary_enter_private_stack` will
+        // clobber it too.
         safe = insert_cti_after(
             ibl, safe, unsafe_cast<app_pc>(granary_enter_private_stack),
             CTI_STEAL_REGISTER, reg::ret,
@@ -567,22 +570,32 @@ namespace granary {
             CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
-        // stash the return value before it disappears
+        // Stash the return value before it disappears because
+        // `granary_exit_private_stack` clobbers %rax.
         safe = ibl.insert_after(safe, mov_ld_(reg_target_addr, reg::ret));
 
-        // exit from the private stack again
+        // Exit from the private stack again.
         safe = insert_cti_after(
             ibl, safe, unsafe_cast<app_pc>(granary_exit_private_stack),
             CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
-        // restore the return value from the cache find
+        // End of slow path, prepare for the join point between the fast and
+        // slow paths:
+        //
+        //      Fast path:
+        //          reg_target_addr (valid, native target address)
+        //          reg::ret        (valid, code cache target address)
+        //      Slow path:
+        //          reg_target_addr (valid, code cache target_address)
+        //          reg::ret        (invalid)
+
+        // Restore the return value from the cache find.
         safe = ibl.insert_after(safe, mov_ld_(reg::ret, reg_target_addr));
 
-        // Restore alignment.
-        safe = insert_restore_old_stack_alignment_after(ibl, safe);
+        //          !! JOIN POINT OF FAST AND SLOW PATHS !!
 
-        // fast path, and fall-through of slow path: move the returned target
+        // Fast path, and fall-through of slow path: move the returned target
         // address into `reg_target_addr` (`reg::arg1`)
         ibl.insert_after(safe_fast, mov_ld_(reg_target_addr, reg::ret));
 
@@ -863,17 +876,26 @@ namespace granary {
         for(;;) {
             instruction in(instruction::decode(&start_pc));
             if(in.is_call()) {
-                // The direct calls are to the private stack enter/exit functions
+                // Leave any direct calls as is. For example, the private stack
+                // entry/exit functions.
                 if (in.is_direct_call()) {
                     insert_cti_after(
                         ls, ls.last(), in.cti_target().value.pc,
                         CTI_STEAL_REGISTER, reg::ret,
                         CTI_CALL);
+
+                // The indirect call targeting %rax is meant to be replaced with
+                // the call to our patch function.
                 } else {
-                    // The second
-                    ls.append(mov_imm_(reg::rax, int64_(reinterpret_cast<int64_t>(
-                            find_and_patch_direct_cti<make_opcode>))));
-                    ls.append(in);
+                    ASSERT(dynamorio::REG_kind == in.cti_target().kind);
+                    ASSERT(dynamorio::DR_REG_RAX == in.cti_target().value.reg);
+                    insert_cti_after(
+                        ls, ls.last(),
+                        unsafe_cast<app_pc>(
+                            find_and_patch_direct_cti<make_opcode>),
+                        CTI_STEAL_REGISTER, reg::rax,
+                        CTI_CALL);
+
                 }
             } else {
                 ls.append(in);

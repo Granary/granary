@@ -79,6 +79,8 @@ namespace granary {
 
 
     /// Add a custom mapping to the code cache.
+    ///
+    /// Note: If in the kernel, must be called with interrupts disabled!
     void code_cache::add(app_pc source, app_pc dest) throw() {
         CODE_CACHE->store(source, dest);
     }

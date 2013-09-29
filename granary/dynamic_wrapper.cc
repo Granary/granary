@@ -23,17 +23,30 @@ namespace granary {
         wrappers.construct();
     })
 
-    /* This function is implemented in x86/dynamic_wrapper.asm, which then
-     * calls `granary_dynamic_wrapper_of__impl` as defined below.
-     *
-     * app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
-     */
 
-    /// Return the dynamic wrapper address for a wrapper / wrappee.
-    // NB: Prefer C-style non-mangled symbols for the assembly portion
-    extern "C" app_pc granary_dynamic_wrapper_of__impl(app_pc wrapper, app_pc wrappee) throw() {
+    /// Return the dynamic wrapper address for something to be wrapped.
+    ///
+    /// This function is partially implemented in x86/dynamic_wrapper.asm,
+    /// which is responsible for switching stacks, disabling interrupts, and
+    /// invoking this code.
+    GRANARY_ENTRYPOINT
+    extern "C" app_pc granary_dynamic_wrapper_of_impl(
+        app_pc wrapper,
+        app_pc wrappee
+    ) throw() {
+
+        // Notify the kernel that pre-emption is disabled.
+        IF_KERNEL( kernel_preempt_disable(); )
+
+        // Enter Granary.
+        cpu_state_handle cpu;
+        enter(cpu);
+
         app_pc target_wrapper(nullptr);
+
+        // Fast path: we've already wrapped this.
         if(wrappers->load(wrappee, target_wrapper)) {
+            IF_KERNEL( kernel_preempt_enable(); )
             return target_wrapper;
         }
 
@@ -46,7 +59,8 @@ namespace granary {
         if(policy.is_in_host_context() && !policy.is_host_auto_instrumented()) {
             target_code_cache = wrappee;
         } else {
-            target_code_cache = code_cache::find(wrappee, policy);
+            mangled_address am(wrappee, policy);
+            target_code_cache = code_cache::find(cpu, am);
         }
 
         // Build the list to jump to that entry. This will put the address of
@@ -79,7 +93,9 @@ namespace granary {
         mangled_address mangled_wrappee(wrappee, policy);
         code_cache::add(mangled_wrappee.as_address, target_wrapper);
 
+        // Notify the kernel that pre-emption is enabled.
+        IF_KERNEL( kernel_preempt_enable(); )
+
         return target_wrapper;
     }
-
 }

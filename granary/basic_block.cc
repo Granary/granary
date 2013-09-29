@@ -559,7 +559,14 @@ namespace granary {
     /// Try to detect if the basic block contains a specific binary instruction
     /// pattern that makes it look like it could contain and exception table
     /// entry.
-    static bool might_touch_user_address(instruction_list &ls) throw() {
+    static bool might_touch_user_address(
+        instruction_list &ls,
+        app_pc start_pc
+    ) throw() {
+
+        if(unsafe_cast<app_pc>(memcpy) == start_pc) {
+            return false;
+        }
 
         enum {
             DATA32_XCHG_AX_AX = 0x906666U
@@ -707,16 +714,21 @@ namespace granary {
                 // of falling through.
                 if(in.is_jump()) {
 
-                    // Minor optimisation: If the basic block is small and ends
-                    // in a direct JMP then elide the JMP and continue.
-                    if(target_is_pc
-                    && BB_ELIDE_JMP_MIN_INSTRUCTIONS >= ls.length()) {
-                        ls.remove(in);
-                        *pc = dynamorio::opnd_get_pc(target);
-                    } else {
+                    if(!target_is_pc
+                    || BB_ELIDE_JMP_MIN_INSTRUCTIONS < ls.length()) {
                         fall_through_pc = false;
                         break;
                     }
+
+                    ls.remove(in);
+                    *pc = dynamorio::opnd_get_pc(target);
+
+                    if(find_detach_target(*pc, policy.context())) {
+                        fall_through_detach = true;
+                        break;
+                    }
+
+                    // We continue decoding at the target.
 
                 // CALL, if direct returns are supported then the basic
                 // block that can continue; however, if direct returns
@@ -810,7 +822,7 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
         // Look for potential user-space code access.
-        const bool migh_touch_user_mem(might_touch_user_address(ls));
+        const bool migh_touch_user_mem(might_touch_user_address(ls, start_pc));
 #endif
 
         // Translate loops and resolve local branches into jmps to instructions.

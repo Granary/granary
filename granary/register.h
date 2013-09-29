@@ -341,13 +341,9 @@ namespace granary {
             general_purpose_register rdx;
             general_purpose_register rcx;
             general_purpose_register rax;
-
-            // Segment selectors.
-            IF_KERNEL( general_purpose_register gs; )
-            IF_USER( general_purpose_register fs; )
         };
 
-        general_purpose_register regs[16];
+        general_purpose_register regs[15];
 
         general_purpose_register &operator[](dynamorio::reg_id_t) throw();
     };

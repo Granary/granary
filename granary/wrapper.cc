@@ -74,7 +74,7 @@ namespace granary {
 
     function_wrapper FUNCTION_WRAPPERS[] = {
 
-    // first, generate detach entries for wrappers
+    // First, generate detach entries for wrappers.
 #   define WRAP_FOR_DETACH(func) \
     {   (uintptr_t) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
         (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \

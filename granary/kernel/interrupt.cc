@@ -624,6 +624,13 @@ namespace granary {
     }
 
 
+#if CONFIG_DEBUG_CPU_RESET
+    extern "C" {
+        extern void **kernel_get_cpu_state(void *[]);
+    }
+#endif
+
+
     /// Emit a common interrupt entry routine. This routine handles the full
     /// interrupt.
     static app_pc emit_common_interrupt_routine(void) throw() {
@@ -639,6 +646,34 @@ namespace granary {
 
         // Save the return value as it will be clobbered by handle_interrupt
         ls.append(push_(reg::ret));
+
+#if CONFIG_DEBUG_CPU_RESET
+        // Check to see if a fault is coming from `kernel_get_cpu_state`,
+        // specifically, the access of the %gs register in:
+        //
+        //    0x0000000000052280 <+0>:      push   %rbp
+        //    0x0000000000052281 <+1>:      mov    %gs:0x0,%eax
+        //    0x0000000000052289 <+9>:      cltq
+        //    0x000000000005228b <+11>:     mov    %rsp,%rbp
+        //    0x000000000005228e <+14>:     lea    (%rdi,%rax,8),%rax
+        //    0x0000000000052292 <+18>:     pop    %rbp
+        //    0x0000000000052293 <+19>:     retq
+        //
+        // If this function faults, then it will lead to a cascade of faults
+        // as our interrupt handlers try to access CPU-private data using the
+        // same mechanism. This cascade eventually results in a CPU reset.
+        instruction not_in_func(label_());
+        ls.append(mov_imm_(reg::ret,
+            int64_(unsafe_cast<uint64_t>(kernel_get_cpu_state) + 1)));
+        ls.append(cmp_(reg::ret,
+            seg::ss(isf_ptr[offsetof(interrupt_stack_frame, instruction_pointer)])));
+        ls.append(jnz_(instr_(not_in_func)));
+        insert_cti_after(
+            ls, ls.last(), unsafe_cast<app_pc>(granary_break_on_curiosity),
+            CTI_DONT_STEAL_REGISTER, operand(),
+            CTI_CALL);
+        ls.append(not_in_func);
+#endif
 
         // Check for a privilege level change: OR together CS and SS, then
         // inspect the low order bits. If they are both zero then we were
@@ -660,7 +695,7 @@ namespace granary {
         // CASE 2: in the kernel.
         ls.append(in_kernel);
 
-        // in kernel space
+        // In kernel space.
         register_manager rm;
         rm.kill_all();
         rm.revive(isf_ptr);
@@ -669,7 +704,6 @@ namespace granary {
 
         // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
-        in = insert_align_stack_after(ls, in);
 
         // Switch to the private stack (we might be on the private stack if this
         // is a nested interrupt).
@@ -688,7 +722,7 @@ namespace granary {
 
         // Need to save the return value for checking (after we exit the
         // private stack again).
-        ls.append(mov_ld_(isf_ptr, reg::ret));
+        in = ls.insert_after(in, mov_ld_(isf_ptr, reg::ret));
 
         // Switch back to original stack.
         in = insert_cti_after(
@@ -696,12 +730,11 @@ namespace granary {
             CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
-        insert_restore_old_stack_alignment_after(ls, in);
-
         // Check to see if the interrupt was handled or not.
         ls.append(xor_(reg::ret, reg::ret));
         ls.append(cmp_(reg::ret, isf_ptr));
 
+        // Restore reg::reg (%rax) to its native state.
         ls.append(pop_(reg::ret));
 
         instruction ret(label_());
@@ -846,11 +879,14 @@ namespace granary {
                 // Ignore user space system call handlers.
                 app_pc target(native_handler);
 
-                // If clients aren't handling interrupts
 #if !CONFIG_CLIENT_HANDLE_INTERRUPT && !CONFIG_ENABLE_INTERRUPT_DELAY
+                // If clients aren't handling interrupts, and we don't care
+                // about delaying interrupts.
                 if(VECTOR_PAGE_FAULT == i) {
 #else
-                if(VECTOR_SYSCALL != i) {
+                // If clients are handling interrupts, or we want to be able to
+                // delay interrupts.
+                if(VECTOR_SYSCALL != i && VECTOR_NMI != i) {
 #endif
                     target = emit_interrupt_routine(
                         i,
