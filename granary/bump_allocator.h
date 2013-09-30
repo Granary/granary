@@ -286,7 +286,7 @@ namespace granary {
         }
 
         template <typename T>
-        inline T *allocate_staged(void) throw() {
+        inline const T *allocate_staged(void) throw() {
 #if CONFIG_PRECISE_ALLOCATE
             if(staged_addr) {
                 return unsafe_cast<T *>(staged_addr);
@@ -306,7 +306,7 @@ namespace granary {
             };
             uint8_t *arena(allocate_bare(MIN_ALIGN_, sizeof(T) * length));
 
-            // initialise each element using placement new syntax; C++ standard
+            // Initialise each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.
             if(!std::is_trivial<T>::value) {
                 T *ptr(unsafe_cast<T *>(arena));

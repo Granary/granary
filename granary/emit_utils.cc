@@ -233,7 +233,7 @@ namespace granary {
         }
 
         // Start with a staged allocation that should be close enough.
-        app_pc staged_loc(
+        const const_app_pc staged_loc(
             global_state::FRAGMENT_ALLOCATOR->allocate_staged<uint8_t>());
 
         // Add in the indirect call to the find on CPU function.

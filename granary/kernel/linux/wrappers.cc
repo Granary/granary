@@ -41,7 +41,7 @@
         if(cpu->unsafe_pacify_exception_table_search) {
             cpu->unsafe_pacify_exception_table_search = false;
 
-            // Return's a noticably bad value, just in case this is ever
+            // Returns a noticeably bad value, just in case this is ever
             // de-referenced.
             //
             // Note: bits 48 and 47 are both 1, so this should also not
@@ -51,5 +51,34 @@
         }
         return search_exception_tables(add);
     });
+#endif
+
+
+/// Wraps memset to try to make sure we never memset over existing code cache
+/// code.
+#if CONFIG_ENABLE_ASSERTIONS && defined(DETACH_ADDR_memset)
+    extern "C" {
+
+        // Defined in module.c, actually as unsigned long long, but for
+        // comparison's sake, it's easier to declare them differently here.
+        extern uint8_t *EXEC_START;
+        extern uint8_t *CODE_CACHE_END;
+    }
+
+    PATCH_WRAPPER(memset, (void *), (uint8_t *addr, uint8_t val, size_t size), {
+
+        // Slow path: check that all bytes are zero first.
+        if(addr >= EXEC_START && (addr + size) <= CODE_CACHE_END) {
+            bool reported_issue(false);
+            for(size_t i(0); i < size; ++i) {
+                if(!reported_issue && 0 != addr[i]) {
+                    granary_break_on_curiosity();
+                    reported_issue = true;
+                }
+            }
+        }
+
+        return memset(addr, val, size);
+    })
 #endif
 

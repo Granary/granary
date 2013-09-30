@@ -37,7 +37,7 @@ namespace granary {
 
         // used to estimate if an address is too far away from the code cache
         // to use relative addressing.
-        app_pc estimator_pc;
+        const const_app_pc estimator_pc;
 
         void dbl_entry_stub(
             instruction_list &patch_ls,

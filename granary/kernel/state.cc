@@ -28,8 +28,24 @@ namespace granary {
     /// Manually manage our own per-cpu state.
     cpu_state *CPU_STATES[256] = {nullptr};
 
+
+#if CONFIG_CHECK_CPU_ACCESS_SAFE
+    /// Check that it's safe to access CPU-private state.
+    __attribute__((noinline))
+    void check_cpu_access_safety(void) {
+        const eflags flags = granary_load_flags();
+        if(flags.interrupt) {
+            granary_break_on_curiosity();
+        }
+    }
+#endif
+
+
     extern "C" uint64_t *granary_get_private_stack_top(void)
     {
+#if CONFIG_CHECK_CPU_ACCESS_SAFE
+        check_cpu_access_safety();
+#endif
         return (uint64_t *) &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top);
     }
 
@@ -59,6 +75,10 @@ namespace granary {
 
     /// Initialise the CPU state.
     void cpu_state_handle::init(void) throw() {
+#if CONFIG_CHECK_CPU_ACCESS_SAFE
+        check_cpu_access_safety();
+#endif
+
         cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
         *state_ptr = allocate_memory<cpu_state>();
 
@@ -69,16 +89,9 @@ namespace granary {
     }
 
 
-    /// Initialise the thread state.
-    void thread_state_handle::init(void) throw() {
-        if(sizeof(thread_state) > sizeof(uintptr_t)) {
-            state = allocate_memory<thread_state>();
-            *state_ptr = state;
-            state_ptr = nullptr;
-        }
-    }
 
 
-    /// Note: thread_state_handle::thread_state_handle is in the OS-specific
-    ///       state.cc file.
+
+    /// Note: thread_state_handle::thread_state_handle and ::init are in the
+    ///       OS-specific state.cc file.
 }

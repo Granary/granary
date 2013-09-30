@@ -85,7 +85,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_CHECK_INSTRUCTION_ENCODE 0
+#define CONFIG_CHECK_INSTRUCTION_ENCODE 1
+
+
+/// Should Granary double check that any time CPU private data is accessed, that
+/// interrupts are disabled?
+#define CONFIG_CHECK_CPU_ACCESS_SAFE 1
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -238,6 +243,7 @@ namespace granary {
 
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
+    typedef const uint8_t *const_app_pc;
 
 
     enum {

@@ -1371,7 +1371,7 @@ namespace granary {
     /// this instruction then don't repeat the check.
     static void find_far_operand(
         const operand_ref op,
-        app_pc &estimator_pc,
+        const const_app_pc &estimator_pc,
         operand &far_op,
         bool &has_far_op
     ) throw() {

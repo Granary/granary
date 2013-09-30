@@ -137,6 +137,16 @@ namespace granary {
                 } else if(dynamorio::OP_mov_st == instr->opcode
                        && dynamorio::OP_mov_ld == instr2->opcode) {
                     // okay
+                } else if(dynamorio::OP_jo <= instr->opcode
+                       && dynamorio::OP_jnle >= instr->opcode
+                       && dynamorio::OP_jo_short <= instr2->opcode
+                       && dynamorio::OP_jnle_short >= instr2->opcode) {
+                    // probably okay :-)
+                } else if(dynamorio::OP_jo <= instr2->opcode
+                       && dynamorio::OP_jnle >= instr2->opcode
+                       && dynamorio::OP_jo_short <= instr->opcode
+                       && dynamorio::OP_jnle_short >= instr->opcode) {
+                    // probably okay :-)
                 } else {
                     ASSERT(false);
                 }

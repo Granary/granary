@@ -633,7 +633,7 @@ namespace client { namespace wp {
         // the binary pattern. Unfortunately, this will also capture
         // memcpy and others.
         if(dynamorio::OP_ins <= in.op_code()
-        || dynamorio::OP_repne_scas >= in.op_code()) {
+        && dynamorio::OP_repne_scas >= in.op_code()) {
             return true;
         }
 

@@ -146,9 +146,6 @@ namespace granary {
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
-        // Initialise all state bytes to have their states as native.
-        memset(bytes, 0, num_state_bytes);
-
         unsigned byte_offset(0);
         unsigned prev_byte_offset(0);
 
@@ -171,6 +168,9 @@ namespace granary {
         if(!has_delay) {
             return 0;
         }
+
+        // Initialise all state bytes to have their states as native.
+        memset(bytes, 0, num_state_bytes);
 
         for(in = first; in.is_valid(); in = in.next()) {
 
@@ -582,7 +582,7 @@ namespace granary {
             // the binary pattern. Unfortunately, this will also capture
             // memcpy and others.
             if(dynamorio::OP_ins <= in.op_code()
-            || dynamorio::OP_repne_scas >= in.op_code()) {
+            && dynamorio::OP_repne_scas >= in.op_code()) {
                 return true;
             }
 
@@ -822,7 +822,7 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
         // Look for potential user-space code access.
-        const bool migh_touch_user_mem(might_touch_user_address(ls, start_pc));
+        const bool might_touch_user_mem(might_touch_user_address(ls, start_pc));
 #endif
 
         // Translate loops and resolve local branches into jmps to instructions.
@@ -885,13 +885,22 @@ namespace granary {
         // Re-calculate the size and re-allocate; if our earlier
         // guess was too small then we need to re-instrument the
         // instruction list
-        generated_pc = cpu->fragment_allocator.\
-            allocate_array<uint8_t>(basic_block::size(ls));
+        const unsigned size(basic_block::size(ls));
+        generated_pc = cpu->fragment_allocator.allocate_array<uint8_t>(size);
 
+#if CONFIG_ENABLE_ASSERTIONS
+        // Double check that the allocator has given us zerod memory.
+        for(unsigned i(0); i < size; ++i) {
+            ASSERT(0 == generated_pc[i]);
+        }
+#endif
+
+        IF_TEST( app_pc end_pc(nullptr); )
         IF_TEST( app_pc emitted_pc = ) emit(
             policy, ls, bb_begin, block_storage,
             start_pc, byte_len,
-            generated_pc);
+            generated_pc
+            _IF_TEST(end_pc));
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
@@ -903,9 +912,21 @@ namespace granary {
         basic_block ret(bb_begin.pc());
 
 #if GRANARY_IN_KERNEL
-        if(migh_touch_user_mem) {
-            ret.info->has_user_access = migh_touch_user_mem;
+        ASSERT(!ret.info->has_user_access);
+        if(might_touch_user_mem) {
+            ret.info->has_user_access = might_touch_user_mem;
         }
+#endif
+
+#if CONFIG_ENABLE_ASSERTIONS
+        // Check the validity of our basic block sizing.
+        ASSERT((generated_pc + size) >= end_pc);
+
+        // Double check the validity of our basic block sizing against the
+        // allocator itself.
+        const const_app_pc staged_end_pc(
+            cpu->fragment_allocator.allocate_staged<uint8_t>());
+        ASSERT(staged_end_pc >= end_pc);
 #endif
 
         // Quick double check to make sure that we can properly resolve the
@@ -932,36 +953,39 @@ namespace granary {
         app_pc generating_pc,
         unsigned byte_len,
         app_pc pc
+        _IF_TEST(app_pc &end_pc)
     ) throw() {
 
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);
 
-        // add in the instructions
+        // Add in the instructions.
         const app_pc start_pc(pc);
         pc = ls.encode(pc);
 
         uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));
         app_pc pc_aligned(pc + ALIGN_TO(pc_uint, BB_INFO_BYTE_ALIGNMENT));
 
-        // add in the padding
+        // Add in the padding.
         for(; pc < pc_aligned; ) {
             *pc++ = BB_PADDING;
         }
 
         basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
 
-        // fill in the info
+        // Fill in the info.
         info->magic = basic_block_info::HEADER;
-        info->num_bytes = static_cast<unsigned>(pc - start_pc);
-        info->num_patch_bytes = static_cast<unsigned>(bb_begin.pc() - start_pc);
+        info->num_bytes = static_cast<uint16_t>(pc - start_pc);
+        info->num_patch_bytes = static_cast<uint16_t>(bb_begin.pc() - start_pc);
         info->policy_bits = policy.encode();
-        info->generating_num_bytes = byte_len;
+        info->generating_num_bytes = static_cast<uint16_t>(byte_len & 0xFFFF);
         info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
         info->state_addr = block_storage;
 
         // fill in the byte state set
         pc += sizeof(basic_block_info);
         IF_KERNEL( pc += initialise_state_bytes(info, ls.first(), pc); )
+
+        IF_TEST( end_pc = pc; )
 
         return start_pc;
     }

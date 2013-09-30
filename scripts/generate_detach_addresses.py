@@ -51,7 +51,14 @@ if "__main__" == __name__:
     new_lines = []
     for sym, addr in FOUND_SYMBOLS.items():
       func_index = SYMBOL_TO_ADDRESS_INDEX[sym]
-      func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
+
+      # Some symbols have different names but the same address, e.g.
+      # `memset` and `__memset`, so if we only checked immediately
+      # adjacent addresses then we might report the length as 0.
+      func_len = 0
+      while not func_len:
+        func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
+        func_index += 1
 
       if sym in MISSING_EXTRA_SYMBOLS:
         new_lines.append("#ifndef CAN_WRAP_%s\n" % sym)

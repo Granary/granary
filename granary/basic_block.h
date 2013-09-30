@@ -232,6 +232,7 @@ namespace granary {
             app_pc generating_pc,
             unsigned byte_len,
             app_pc generated_pc
+            _IF_TEST(app_pc &end_pc)
         ) throw();
 
 

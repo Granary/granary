@@ -200,7 +200,8 @@ static struct kernel_module KERNEL_MODULE = {
 };
 
 
-static unsigned long EXEC_START = 0;
+/// Exposed for the C++ side of things to see for the debug memset hot-patcher.
+unsigned long EXEC_START = 0;
 static unsigned long EXEC_END = 0;
 
 
@@ -210,7 +211,7 @@ static unsigned long EXEC_END = 0;
 ///      |--------------->              <--------------|-------->      |
 ///                CODE_CACHE_END                          WRAPPER_END
 ///
-static unsigned long CODE_CACHE_END = 0;
+unsigned long CODE_CACHE_END = 0;
 static unsigned long GEN_CODE_START = 0;
 static unsigned long WRAPPER_START = 0;
 static unsigned long WRAPPER_END = 0;
@@ -474,6 +475,8 @@ static void preallocate_executable(void) {
         granary_fault();
     }
 
+    memset(mem, 0, _100_MB);
+
     EXEC_START = (unsigned long) mem;
     EXEC_END = EXEC_START + _100_MB;
 
@@ -529,7 +532,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
         break;
     }
 
-    return (void *) mem;
+    return memset((void *) mem, 0, size);
 }
 
 

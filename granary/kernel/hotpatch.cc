@@ -38,6 +38,9 @@ namespace granary {
     /// new buffer of the same size, re-relativize those instructions, and
     /// return a pointer to the new instructions.
     app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw() {
+
+        ASSERT(0 < len);
+
         app_pc pc(addr);
         const app_pc end_addr(addr + len);
         const int new_len(len + ALIGN_TO(len, 16));
