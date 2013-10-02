@@ -361,7 +361,6 @@ ifeq ($(KERNEL),0)
 	# User-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/user/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/user/state.o
-	GR_OBJS += $(BIN_DIR)/granary/user/init.o
 	GR_OBJS += $(BIN_DIR)/granary/user/printf.o
 	
 	ifneq ($(GR_DLL),1)
@@ -476,7 +475,6 @@ else
 	GR_OBJS += $(BIN_DIR)/granary/kernel/interrupt.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/printf.o
-	GR_OBJS += $(BIN_DIR)/granary/kernel/init.o
 	
 	# Toggle whole-kernel instrumentation.
 	ifeq (1,$(GR_WHOLE_KERNEL))

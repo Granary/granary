@@ -70,13 +70,21 @@ namespace granary {
         VECTOR_EXCEPTION_END = VECTOR_SECURITY_EXCEPTION,
         VECTOR_INTERRUPT_START = 32,
         VECTOR_SYSCALL = 0x80, // Linux-specific.
+
+        // Linux-specific.
+        // See: arch/x86/include/asm/irq_vectors.h
+        //      arch/ia64/include/asm/hw_irq.h
+        VECTOR_X86_KVM_IPI = 0xf2,
+        VECTOR_X86_IPI = 0xf7,
+        VECTOR_IA64_IPI = 0xfe,
+
         VECTOR_INTERRUPT_END = 255,
         VECTOR_END = VECTOR_INTERRUPT_END
     };
 
 
     /// Replace the IDT with one that Granary controls.
-    system_table_register_t create_idt(void) throw();
+    system_table_register_t create_idt(system_table_register_t) throw();
 }
 
 

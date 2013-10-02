@@ -44,8 +44,6 @@ namespace granary {
             return state;
         }
 
-        IF_KERNEL( static void init(void) throw(); )
-
 
         /// Implicit conversion operator for marking a location as safe to
         /// access CPU state by virtue of us having already accessed CPU-private

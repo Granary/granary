@@ -105,13 +105,16 @@ namespace granary {
 
 
     void run_tests(void) throw() {
-        cpu_state_handle cpu;
+
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {
             if(test->func) {
+                IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+                cpu_state_handle cpu;
                 cpu.free_transient_allocators();
                 printf("Running test '%s'\n", test->desc);
                 test->func();
+                IF_KERNEL( granary_store_flags(flags); )
             }
         }
     }

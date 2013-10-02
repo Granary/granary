@@ -12,7 +12,7 @@
 #include "deps/drk/msr.h"
 
 namespace granary {
-    app_pc create_syscall_entrypoint(void) throw();
+    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) throw();
 }
 
 #endif /* GRANARY_SYSCALL_H_ */

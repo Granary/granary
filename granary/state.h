@@ -166,36 +166,45 @@ namespace granary {
     public:
 
 #if GRANARY_IN_KERNEL
-#   if CONFIG_INSTRUMENT_HOST
-
-        /// Copy of this CPU's original MSR_LSTAR model-specific register. This
-        /// register contains the address of the system call handler.
-        app_pc native_syscall_handler;
-
-#   endif
 #   if CONFIG_INSTRUMENT_HOST || CONFIG_HANDLE_INTERRUPTS
 
         /// Copy of this CPU's original interrupt descriptor table register
         /// value/
         system_table_register_t native_idtr;
 
-#   endif
-#   if CONFIG_HANDLE_INTERRUPTS
+        /// Granary's CPU-specific interrupt descriptor table.
+        system_table_register_t idtr;
+
+#if CONFIG_ENABLE_INTERRUPT_DELAY
         /// A region of executable code that is overwritten as necessary to
         /// delay interrupts.
         app_pc interrupt_delay_handler;
+#endif
 
         /// Spilled registers needed for interrupt delaying.
         uint64_t spill[2];
+
+#   endif
+#   if CONFIG_INSTRUMENT_HOST
+
+        /// Native value of the MSR_LSTAR model-specific register, which is
+        /// normally used for system calls on this particular CPU.
+        uint64_t native_msr_lstar;
+
+        /// Granary's version of the MSR_LSTAR model-specific register, which
+        /// is what is used for system calls on this CPU when Granary is
+        /// instrumenting the whole kernel.
+        uint64_t msr_lstar;
 #   endif
 
         /// Linux-specific; bypass an exception table search if we think there's
         /// a place in this code that can legally access user space code.
         /// See `__do_page_fault` in the kernel source code, and search of
         /// `search_exception_tables`.
-        bool unsafe_pacify_exception_table_search;
-
+        void *last_exception_instruction_pointer;
+        void *last_exception_table_entry;
 #endif /* GRANARY_IN_KERNEL */
+
 
         /// Thread data.
         IF_USER( thread_state thread_data; )
@@ -237,8 +246,13 @@ namespace granary {
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
 
-        // Per-CPU private stack
+        /// Per-CPU private stack
         IF_KERNEL( stack_state percpu_stack; )
+
+
+        /// Used by granary for early initialisation of the CPU state.
+        IF_KERNEL( static void init_early(void) throw(); )
+        IF_KERNEL( static void init_late(void) throw(); )
     };
 
 

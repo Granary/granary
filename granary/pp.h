@@ -61,20 +61,24 @@
     } \
 
 #   define IF_KERNEL(...) __VA_ARGS__
-#   define IF_KERNEL_(...) , __VA_ARGS__
+#   define IF_KERNEL_(...) __VA_ARGS__ ,
+#   define _IF_KERNEL(...) , __VA_ARGS__
 #   define IF_KERNEL_ELSE(if_true, if_false) if_true
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_true
 #   define IF_USER(...)
+#   define _IF_USER(...)
 #   define IF_USER_(...)
 #   define IF_USER_ELSE(x, y) y
 #else
 #   define INITIALISE_GLOBAL_VARIABLE(var)
 #   define IF_KERNEL(...)
 #   define IF_KERNEL_(...)
+#   define _IF_KERNEL(...)
 #   define IF_KERNEL_ELSE(if_true, if_false) if_false
 #   define IF_KERNEL_ELSE_(if_true, if_false) , if_false
 #   define IF_USER(...) __VA_ARGS__
-#   define IF_USER_(...) , __VA_ARGS__
+#   define _IF_USER(...) , __VA_ARGS__
+#   define IF_USER_(...) __VA_ARGS__ ,
 #   define IF_USER_ELSE(x, y) x
 #endif
 

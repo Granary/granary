@@ -23,8 +23,13 @@ namespace granary {
 
     void init(void) throw();
 
-    IF_KERNEL( bool should_init_sync(void) throw(); )
-    IF_KERNEL( void init_sync(void) throw(); )
+#if GRANARY_IN_KERNEL
+    /// Returns true iff there is anything to run in a synchronised way.
+    bool should_init_sync(void) throw();
+
+    /// Initialise the synchronised static initialisers.
+    void init_sync(void) throw();
+#endif
 }
 
 #endif /* GR_INIT_H_ */

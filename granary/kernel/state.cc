@@ -18,15 +18,28 @@ extern "C" {
 
 
     /// Used to run a function on each CPU.
-    extern void kernel_run_on_each_cpu(void (*func)(void *), void *thunk);
+    extern void kernel_run_on_each_cpu(void (*func)(void));
+
+
+    /// Call a function where all CPUs are synchronised.
+    void kernel_run_synchronised(void (*func)(void));
+
+
+    /// Mark a page as being only readable.
+    void kernel_make_page_read_only(void *addr);
 }
 
 
 namespace granary {
 
 
+    enum {
+        MAX_NUM_CPUS = 256
+    };
+
+
     /// Manually manage our own per-cpu state.
-    cpu_state *CPU_STATES[256] = {nullptr};
+    cpu_state *CPU_STATES[MAX_NUM_CPUS] = {nullptr};
 
 
 #if CONFIG_CHECK_CPU_ACCESS_SAFE
@@ -73,19 +86,114 @@ namespace granary {
     { }
 
 
-    /// Initialise the CPU state.
-    void cpu_state_handle::init(void) throw() {
-#if CONFIG_CHECK_CPU_ACCESS_SAFE
-        check_cpu_access_safety();
+    /// Represents CPU state that is actually allocated and has two poisoned
+    /// pages around it.
+    struct poison {
+        char poison[PAGE_SIZE];
+    } __attribute__((packed, aligned(CONFIG_MEMORY_PAGE_SIZE)));
+
+
+    struct poisoned_cpu_state {
+        poison before;
+        cpu_state state;
+        poison after;
+    } __attribute__((aligned(CONFIG_MEMORY_PAGE_SIZE)));
+
+
+    /// Allocate and initialise state for each CPU.
+    static void alloc_cpu_state(void) {
+        cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
+        poisoned_cpu_state *poisoned_state(
+            allocate_memory<poisoned_cpu_state>());
+
+        *state_ptr = &(poisoned_state->state);
+
+#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+        // Get a copy of the native IDTR.
+        get_idtr(&(poisoned_state->state.native_idtr));
 #endif
 
-        cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
-        *state_ptr = allocate_memory<cpu_state>();
+#if CONFIG_INSTRUMENT_HOST
+        /// Get a copy of the native MSR_LSTAR model-specific register.
+        poisoned_state->state.native_msr_lstar = get_msr(MSR_LSTAR);
+#endif
+    }
 
-        cpu_state *state(*state_ptr);
-        state->interrupt_delay_handler = reinterpret_cast<app_pc>(
-            global_state::FRAGMENT_ALLOCATOR-> \
-                allocate_untyped(16, INTERRUPT_DELAY_CODE_SIZE));
+
+    /// Initialise the CPU state.
+    void cpu_state::init_early(void) throw() {
+        kernel_run_on_each_cpu(alloc_cpu_state);
+    }
+
+
+    /// Initialise the IDTR and MSR_LSTAR for each CPU.
+    static void set_percpu(void) {
+        cpu_state_handle cpu;
+
+#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+        set_idtr(&(cpu->idtr));
+#endif
+
+#if CONFIG_INSTRUMENT_HOST
+        set_msr(MSR_LSTAR, cpu->msr_lstar);
+#endif
+
+        UNUSED(cpu);
+    }
+
+
+    void cpu_state::init_late(void) throw() {
+        eflags flags;
+
+        enum {
+            NEG_OFFSET = offsetof(poisoned_cpu_state, state),
+            POS_OFFSET = offsetof(poisoned_cpu_state, after) - NEG_OFFSET
+        };
+
+        for(unsigned i(0); i < MAX_NUM_CPUS; ++i) {
+
+            if(!CPU_STATES[i]) {
+                continue;
+            }
+
+            // Page protect the poisoned pages around the CPU state.
+            kernel_make_page_read_only(
+                unsafe_cast<char *>(CPU_STATES[i]) - NEG_OFFSET);
+            kernel_make_page_read_only(
+                unsafe_cast<char *>(CPU_STATES[i]) + POS_OFFSET);
+
+#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+#   if CONFIG_ENABLE_INTERRUPT_DELAY
+            // Allocate space for interrupt delay handlers.
+            CPU_STATES[i]->interrupt_delay_handler = reinterpret_cast<app_pc>(
+                global_state::FRAGMENT_ALLOCATOR-> \
+                    allocate_untyped(16, INTERRUPT_DELAY_CODE_SIZE));
+#   endif
+            // Create this CPUs IDT and vector entry points.
+            flags = granary_disable_interrupts();
+            CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
+            granary_store_flags(flags);
+#endif
+#if CONFIG_INSTRUMENT_HOST
+            // Create this CPUs SYSCALL entry point.
+            flags = granary_disable_interrupts();
+            CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
+                CPU_STATES[i]->native_msr_lstar);
+            granary_store_flags(flags);
+#endif
+
+            // Page protect the IDTs.
+            kernel_make_page_read_only(CPU_STATES[i]->idtr.base);
+        }
+
+        kernel_run_on_each_cpu(set_percpu);
+
+        // Performed initialisation, where all CPUs are first synchronised.
+        if(should_init_sync()) {
+            kernel_run_synchronised(&init_sync);
+        }
+
+        UNUSED(flags);
     }
 
 

@@ -20,10 +20,6 @@
 extern "C" {
 
 
-    /// Mark a page as being only readable.
-    void kernel_make_page_read_only(void *addr);
-
-
     extern granary::cpu_state *get_percpu_state(void *);
 
 
@@ -75,6 +71,7 @@ namespace granary {
 
 
     /// Handers for the various interrupt vectors.
+    static app_pc NATIVE_VECTOR_HANDLER[256] = {nullptr};
     static app_pc VECTOR_HANDLER[256] = {nullptr};
 
 
@@ -400,8 +397,10 @@ namespace granary {
 
         // Try to prepare for us being in a place where the kernel can
         // validly take a page fault.
-        if(VECTOR_PAGE_FAULT == vector && bb.info->has_user_access) {
-            cpu->unsafe_pacify_exception_table_search = true;
+        if(VECTOR_PAGE_FAULT == vector
+        && bb.info->exception_table_entry_pointer_offset) {
+            cpu->last_exception_instruction_pointer = isf->instruction_pointer;
+            cpu->last_exception_table_entry = bb.get_exception_table_entry();
         }
 
         // We don't need to delay; let the client try to handle the
@@ -534,7 +533,8 @@ namespace granary {
         }
 
         // Linux specific; always re-initialise this just in case.
-        cpu->unsafe_pacify_exception_table_search = false;
+        cpu->last_exception_instruction_pointer = nullptr;
+        cpu->last_exception_table_entry = nullptr;
 
         app_pc pc(isf->instruction_pointer);
 
@@ -840,12 +840,7 @@ namespace granary {
 
     /// Create a Granary version of the interrupt descriptor table. This
     /// assumes that the IDT for all CPUs is the same.
-    system_table_register_t create_idt(void) throw() {
-        cpu_state_handle cpu;
-        system_table_register_t native;
-
-        get_idtr(&native);
-        cpu->native_idtr = native;
+    system_table_register_t create_idt(system_table_register_t native) throw() {
 
         if(native.base == PREV_IDTR.base && native.limit == PREV_IDTR.limit) {
             return PREV_IDTR_GEN;
@@ -876,6 +871,15 @@ namespace granary {
                     continue;
                 }
 
+                // We've already made a handler for this vector.
+                if(native_handler == NATIVE_VECTOR_HANDLER[i]) {
+                    ASSERT(nullptr != VECTOR_HANDLER[i]);
+                    set_gate_target_offset(
+                        &(i_vec->gate),
+                        VECTOR_HANDLER[i]);
+                    continue;
+                }
+
                 // Ignore user space system call handlers.
                 app_pc target(native_handler);
 
@@ -886,7 +890,12 @@ namespace granary {
 #else
                 // If clients are handling interrupts, or we want to be able to
                 // delay interrupts.
-                if(VECTOR_SYSCALL != i && VECTOR_NMI != i) {
+                //
+                // Magic number 0xfe: This covers most Linux x86 and ia64 IPI
+                // interrupt vectors (as well as a few others, but whatever).
+                if(VECTOR_SYSCALL != i
+                && VECTOR_NMI != i
+                && i <= 0xf0) {
 #endif
                     target = emit_interrupt_routine(
                         i,
@@ -894,15 +903,16 @@ namespace granary {
                         common_vector_handler);
                 }
 
+                // Cache, just in case some CPUs use different IDTs.
+                NATIVE_VECTOR_HANDLER[i] = native_handler;
                 VECTOR_HANDLER[i] = target;
+
+                // Set the target into our IDT.
                 set_gate_target_offset(
                     &(i_vec->gate),
                     target);
             }
         }
-
-        // TODO: Re-enable me, or do this outside of `on_each_cpu`.
-        //kernel_make_page_read_only(idt);
 
         instrumented.base = &(idt->vectors[0]);
         instrumented.limit = native.limit;

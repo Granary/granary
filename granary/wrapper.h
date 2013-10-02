@@ -1228,13 +1228,9 @@ namespace granary {
         (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
         \
         STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
-            prepare_redirect_function(unsafe_cast<app_pc>( \
-                CAT(DETACH_ADDR_, function_name))); \
-        }); \
-        \
-        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
             app_pc original_addr(unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
+            prepare_redirect_function(original_addr); \
             app_pc new_addr(copy_and_rerelativize_function(\
                 original_addr, \
                 CAT(DETACH_LENGTH_, function_name)));\
@@ -1242,6 +1238,11 @@ namespace granary {
                 unsafe_cast<\
                     decltype(CAT(patched_, function_name)::function_name)\
                 >(new_addr); \
+        }); \
+        \
+        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
+            app_pc original_addr(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
             redirect_function(\
                 original_addr, \
                 unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
@@ -1267,13 +1268,9 @@ namespace granary {
         (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
         \
         STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
-            prepare_redirect_function(unsafe_cast<app_pc>( \
-                CAT(DETACH_ADDR_, function_name))); \
-        }); \
-        \
-        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
             app_pc original_addr(unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
+            prepare_redirect_function(original_addr); \
             app_pc new_addr(copy_and_rerelativize_function(\
                 original_addr, \
                 CAT(DETACH_LENGTH_, function_name)));\
@@ -1281,6 +1278,11 @@ namespace granary {
                 unsafe_cast<\
                     decltype(CAT(patched_, function_name)::function_name)\
                 >(new_addr); \
+        }); \
+        \
+        STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
+            app_pc original_addr(unsafe_cast<app_pc>( \
+                CAT(DETACH_ADDR_, function_name))); \
             redirect_function(\
                 original_addr, \
                 unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\

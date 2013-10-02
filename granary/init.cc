@@ -13,10 +13,6 @@
 namespace granary {
 
 
-    IF_KERNEL(extern void init_kernel(void) throw();)
-    IF_USER(extern void init_user(void) throw();)
-
-
     /// List of static initialisers to be run at granary::init. The separation
     /// between normal static initialisation and granary initialisation is
     /// useful for debugging, especially in user space where there might be
@@ -59,22 +55,25 @@ namespace granary {
     /// Initialise granary.
     void init(void) throw() {
 
+        IF_KERNEL( cpu_state::init_early(); )
+
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
         for(; init; init = init->next) {
             if(init->exec) {
+                IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+
+                cpu_state_handle cpu;
+                cpu.free_transient_allocators();
+
                 init->exec();
+                IF_KERNEL( granary_store_flags(flags); )
             }
         }
 
-        // Initialise for kernel or user space.
-        IF_USER_ELSE(init_user(), init_kernel());
+        IF_KERNEL( cpu_state::init_late(); )
 
 #ifdef CLIENT_init
-        cpu_state_handle cpu;
-        cpu.free_transient_allocators();
-
-        // Initialise the client.
         client::init();
 #endif
     }
@@ -93,22 +92,20 @@ namespace granary {
 
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_SYNC_HEAD.next);
-        cpu_state_handle cpu;
 
-        bool executed(false);
         for(; init; init = init->next) {
             if(init->exec) {
 
                 // Free up temporary resources before executing a CPU-specific
                 // Thing.
+                IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+                cpu_state_handle cpu;
                 cpu.free_transient_allocators();
-                init->exec();
-                executed = true;
-            }
-        }
 
-        if(executed) {
-            cpu.free_transient_allocators();
+                init->exec();
+
+                IF_KERNEL( granary_store_flags(flags); )
+            }
         }
     }
 #endif /* GRANARY_IN_KERNEL */

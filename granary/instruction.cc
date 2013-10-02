@@ -147,6 +147,12 @@ namespace granary {
                        && dynamorio::OP_jo_short <= instr->opcode
                        && dynamorio::OP_jnle_short >= instr->opcode) {
                     // probably okay :-)
+                } else if(dynamorio::OP_jmp == instr2->opcode
+                       && dynamorio::OP_jmp_short == instr->opcode) {
+                    // probably okay :-)
+                } else if(dynamorio::OP_jmp == instr->opcode
+                       && dynamorio::OP_jmp_short == instr2->opcode) {
+                    // probably okay :-)
                 } else {
                     ASSERT(false);
                 }

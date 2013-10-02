@@ -93,6 +93,18 @@ void kernel_run_on_each_cpu(void (*func)(void)) {
 }
 
 
+/// Search for an exception table entry.
+const void *kernel_search_exception_tables(void *pc) {
+#ifdef DETACH_ADDR_search_exception_tables
+    const void *(*search_exception_tables)(void *) = \
+        (const void *(*)(void *)) DETACH_ADDR_search_exception_tables;
+    return search_exception_tables(pc);
+#else
+#   return nullptr;
+#endif
+}
+
+
 /// Assembly function to run constructors for globally-defined C++ data
 /// structures.
 extern void granary_run_initialisers(void);

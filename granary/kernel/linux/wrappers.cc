@@ -9,6 +9,7 @@
 #include "granary/wrapper.h"
 #include "granary/state.h"
 
+
 /// Hot-patch the `process_one_work` function to wrap `work_struct`s before
 /// their functions are executed. This is here because there are ways to get
 /// work structs registered through macros/inline functions, thus bypassing
@@ -36,20 +37,13 @@
 /// then mark those basic blocks as being special, so that if a page fault
 /// happens in them, then the kernel won't over-react and do something unusual.
 #if defined(DETACH_ADDR_search_exception_tables)
-    PATCH_WRAPPER(search_exception_tables, (const struct exception_table_entry *), (unsigned long add), {
+    PATCH_WRAPPER(search_exception_tables, (const struct exception_table_entry *), (void *pc), {
         cpu_state_handle cpu;
-        if(cpu->unsafe_pacify_exception_table_search) {
-            cpu->unsafe_pacify_exception_table_search = false;
-
-            // Returns a noticeably bad value, just in case this is ever
-            // de-referenced.
-            //
-            // Note: bits 48 and 47 are both 1, so this should also not
-            //       interfere with behavioural watchpoints.
+        if(pc == cpu->last_exception_instruction_pointer) {
             return unsafe_cast<const struct exception_table_entry *>(
-                0xEA7DEADBEEFFEE1FULL);
+                cpu->last_exception_table_entry);
         }
-        return search_exception_tables(add);
+        return search_exception_tables(pc);
     });
 #endif
 

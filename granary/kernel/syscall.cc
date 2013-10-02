@@ -18,22 +18,22 @@ namespace granary {
 
 
     /// Try to share syscall entry points across CPUs if they are common.
-    static app_pc LAST_SYSCALL_ENTRYPOINT = nullptr;
-    static app_pc LAST_GEN_SYSCALL_ENTRYPOINT = nullptr;
+    static uint64_t LAST_SYSCALL_ENTRYPOINT = 0;
+    static uint64_t LAST_GEN_SYSCALL_ENTRYPOINT = 0;
 
 
     /// Generate a system call entry point for the current CPU.
-    app_pc create_syscall_entrypoint(void) throw() {
-        app_pc native_syscall_handler = unsafe_cast<app_pc>(get_msr(MSR_LSTAR));
+    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) throw() {
+        app_pc native_syscall_handler = unsafe_cast<app_pc>(native_msr_lstar);
         cpu_state_handle cpu;
 
-        if(LAST_SYSCALL_ENTRYPOINT == native_syscall_handler) {
+        if(LAST_SYSCALL_ENTRYPOINT == native_msr_lstar) {
+            ASSERT(0 != LAST_GEN_SYSCALL_ENTRYPOINT);
             return LAST_GEN_SYSCALL_ENTRYPOINT;
         }
 
         instruction_list ls;
-        cpu->native_syscall_handler = native_syscall_handler;
-        LAST_SYSCALL_ENTRYPOINT = native_syscall_handler;
+        LAST_SYSCALL_ENTRYPOINT = native_msr_lstar;
 
         for(;;) {
             instruction in(instruction::decode(&native_syscall_handler));
@@ -62,7 +62,9 @@ namespace granary {
 
         ls.encode(native_syscall_handler);
 
-        LAST_GEN_SYSCALL_ENTRYPOINT = native_syscall_handler;
-        return native_syscall_handler;
+        LAST_GEN_SYSCALL_ENTRYPOINT = reinterpret_cast<uint64_t>(
+            native_syscall_handler);
+
+        return LAST_GEN_SYSCALL_ENTRYPOINT;
     }
 }

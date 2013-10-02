@@ -73,8 +73,13 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
         /// Does this basic block look like it might have a user space access
-        /// in it?
-        bool has_user_access:8;
+        /// in it? If so, then this is an offset from the address of this field
+        /// to a pointer to a kernel exception table entry.
+        ///
+        /// TODO: This approach is pretty ugly; it's way more convenient to
+        ///       simply store a pointer to the entry itself directly in this
+        ///       structure, but it's also a waste of space 99% of the time.
+        uint8_t exception_table_entry_pointer_offset;
 #endif
 
         uint32_t:IF_USER_ELSE(24,16);
@@ -153,7 +158,7 @@ namespace granary {
         basic_block(app_pc current_pc_) throw();
 
 
-#if GRANARY_IN_KERNEL
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
         /// Returns true iff this interrupt must be delayed. If the interrupt
         /// must be delayed then the arguments are updated in place with the
         /// range of code that must be copied and re-relativised in order to
@@ -164,10 +169,22 @@ namespace granary {
 #endif
 
 
+#if GRANARY_IN_KERNEL
+        /// If we found any exception table entries in this basic block, then
+        /// we'll need to report them to kernel interrupt handlers that query
+        /// for exception table entries in the code cache. This returns any
+        /// stored exception table entry for the current basic block.
+        void *get_exception_table_entry(void) const throw();
+#endif
+
+
         /// Compute the size of a basic block given an instruction list. This
         /// computes the size of each instruction, the amount of padding, meta
         /// information, etc.
-        static unsigned size(instruction_list &) throw();
+        static unsigned size(
+            instruction_list &ls
+            _IF_KERNEL(bool has_user_access)
+        ) throw();
 
 
         /// Compute the size of an existing basic block.
@@ -231,8 +248,8 @@ namespace granary {
             basic_block_state *block_storage,
             app_pc generating_pc,
             unsigned byte_len,
-            app_pc generated_pc
-            _IF_TEST(app_pc &end_pc)
+            app_pc generated_pc,
+            app_pc &end_pc
         ) throw();
 
 

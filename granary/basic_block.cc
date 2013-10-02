@@ -264,7 +264,7 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
     /// Returns true iff this interrupt must be delayed. If the interrupt
     /// must be delayed then the arguments are updated in place with the
     /// range of code that must be copied and re-relativised in order to
@@ -328,10 +328,30 @@ namespace granary {
 #endif
 
 
+#if GRANARY_IN_KERNEL
+    /// If we found any exception table entries in this basic block, then
+    /// we'll need to report them to kernel interrupt handlers that query
+    /// for exception table entries in the code cache. This returns any
+    /// stored exception table entry for the current basic block.
+    void *basic_block::get_exception_table_entry(void) const throw() {
+        if(!info->exception_table_entry_pointer_offset) {
+            return nullptr;
+        }
+
+        return reinterpret_cast<void *>(
+            reinterpret_cast<uintptr_t>(&(info->exception_table_entry_pointer_offset))
+          + info->exception_table_entry_pointer_offset);
+    }
+#endif
+
+
     /// Compute the size of a basic block given an instruction list. This
     /// computes the size of each instruction, the amount of padding, meta
     /// information, etc.
-    unsigned basic_block::size(instruction_list &ls) throw() {
+    unsigned basic_block::size(
+        instruction_list &ls
+        _IF_KERNEL(bool has_user_access)
+    ) throw() {
 
 #if GRANARY_IN_KERNEL
         unsigned size(0);
@@ -361,6 +381,10 @@ namespace granary {
                 num_instruction_bits, BITS_PER_QWORD);
             size += num_instruction_bits / BITS_PER_BYTE;
         }
+
+        if(has_user_access) {
+            size += sizeof(void *);
+        }
 #endif
 
         return size;
@@ -380,6 +404,10 @@ namespace granary {
             num_instruction_bits += ALIGN_TO(
                 num_instruction_bits, BITS_PER_QWORD);
             size_ += num_instruction_bits / BITS_PER_BYTE;
+        }
+
+        if(info->exception_table_entry_pointer_offset) {
+            size_ += sizeof(void *);
         }
 #endif
         return size_;
@@ -598,6 +626,32 @@ namespace granary {
         }
 
         return false;
+    }
+
+    extern "C" {
+        extern void *kernel_search_exception_tables(void *);
+    }
+
+
+    /// Try to get a kernel exception table entry for any instruction within
+    /// an instruction list.
+    ///
+    /// Note: This is very Linux-specific!!
+    void *get_extable_entry(instruction_list &ls) throw() {
+
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+            app_pc pc(in.pc_or_raw_bytes());
+            if(!pc) {
+                continue;
+            }
+
+            void *ret(kernel_search_exception_tables(pc));
+            if(ret) {
+                return ret;
+            }
+        }
+
+        return nullptr;
     }
 #endif
 
@@ -821,8 +875,12 @@ namespace granary {
         }
 
 #if GRANARY_IN_KERNEL
-        // Look for potential user-space code access.
-        const bool might_touch_user_mem(might_touch_user_address(ls, start_pc));
+        // Look for potential code that accesses user-space data. This type of
+        // code follows some rough binary patterns, so we first search for the
+        // patterns, then verify by invoking the kernel itself.
+        const void * const extable_entry(might_touch_user_address(ls, start_pc)
+            ? get_extable_entry(ls) : nullptr);
+        const bool might_touch_user_mem(nullptr != extable_entry);
 #endif
 
         // Translate loops and resolve local branches into jmps to instructions.
@@ -885,7 +943,9 @@ namespace granary {
         // Re-calculate the size and re-allocate; if our earlier
         // guess was too small then we need to re-instrument the
         // instruction list
-        const unsigned size(basic_block::size(ls));
+        const unsigned size(basic_block::size(
+            ls _IF_KERNEL(might_touch_user_mem)));
+
         generated_pc = cpu->fragment_allocator.allocate_array<uint8_t>(size);
 
 #if CONFIG_ENABLE_ASSERTIONS
@@ -895,12 +955,12 @@ namespace granary {
         }
 #endif
 
-        IF_TEST( app_pc end_pc(nullptr); )
+        app_pc end_pc(nullptr);
         IF_TEST( app_pc emitted_pc = ) emit(
             policy, ls, bb_begin, block_storage,
             start_pc, byte_len,
-            generated_pc
-            _IF_TEST(end_pc));
+            generated_pc,
+            end_pc);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns
@@ -912,9 +972,24 @@ namespace granary {
         basic_block ret(bb_begin.pc());
 
 #if GRANARY_IN_KERNEL
-        ASSERT(!ret.info->has_user_access);
+        // If we've got an exception table entry for anything in the instruction
+        // list, then store it after the basic block.
+        //
+        // Note: This assumes a maximum of one exception table entry per
+        //       basic block.
+        ASSERT(0 == ret.info->exception_table_entry_pointer_offset);
         if(might_touch_user_mem) {
-            ret.info->has_user_access = might_touch_user_mem;
+
+            unsigned offset = reinterpret_cast<uintptr_t>(end_pc)
+                            - reinterpret_cast<uintptr_t>(
+                                  &(ret.info->exception_table_entry_pointer_offset));
+
+            ASSERT(offset <= 256);
+
+            ret.info->exception_table_entry_pointer_offset = offset;
+            *unsafe_cast<const void **>(end_pc) = extable_entry;
+
+            end_pc += sizeof(void *);
         }
 #endif
 
@@ -935,6 +1010,7 @@ namespace granary {
         ASSERT(bb_begin.pc() == ret.cache_pc_start);
 
         IF_PERF( perf::visit_encoded(ret); )
+        UNUSED(end_pc);
 
         return ret;
     }
@@ -952,8 +1028,8 @@ namespace granary {
         basic_block_state *block_storage,
         app_pc generating_pc,
         unsigned byte_len,
-        app_pc pc
-        _IF_TEST(app_pc &end_pc)
+        app_pc pc,
+        app_pc &end_pc
     ) throw() {
 
         pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);

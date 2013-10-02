@@ -101,9 +101,6 @@ extern "C" {
 
 #if CONFIG_RUN_TEST_CASES
         printf("[granary] Running test cases...\n");
-        cpu_state_handle cpu;
-        cpu.free_transient_allocators();
-
         run_tests();
         printf("[granary] All test cases ran.\n");
 #endif
