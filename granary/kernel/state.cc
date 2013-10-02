@@ -98,13 +98,21 @@ namespace granary {
         cpu_state state;
         poison after;
     } __attribute__((aligned(CONFIG_MEMORY_PAGE_SIZE)));
+    
+    
+    struct unaligned_cpu_state {
+        char mem[sizeof(poisoned_cpu_state) + CONFIG_MEMORY_PAGE_SIZE];  
+    };
 
 
     /// Allocate and initialise state for each CPU.
     static void alloc_cpu_state(void) {
         cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
-        poisoned_cpu_state *poisoned_state(
-            allocate_memory<poisoned_cpu_state>());
+        unaligned_cpu_state *state_ptr(
+            allocate_memory<unaligned_cpu_state>());
+        uintptr_t state_addr(reinterpret_cast<uintptr_t>(state_ptr));
+        poisoned_cpu_state *poisoned_state(unsafe_cast<poisoned_cpu_state *>(
+            state_addr + ALIGN_TO(state_addr, CONFIG_MEMORY_PAGE_SIZE)));
 
         *state_ptr = &(poisoned_state->state);
 
