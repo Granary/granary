@@ -588,10 +588,12 @@ namespace granary {
         app_pc original_routine,
         app_pc common_interrupt_routine
     ) throw() {
+        cpu_state_handle cpu;
         instruction_list ls;
-
         const bool vec_has_error_code(has_error_code(vector_num));
-
+    
+        cpu.free_transient_allocators();
+    
         // This makes it convenient to find top of the ISF from the common
         // interrupt handler.
         ls.append(push_(reg::rsp));
@@ -634,6 +636,11 @@ namespace granary {
     /// Emit a common interrupt entry routine. This routine handles the full
     /// interrupt.
     static app_pc emit_common_interrupt_routine(void) throw() {
+        
+        if(COMMON_HANDLER_BEGIN) {
+            return COMMON_HANDLER_BEGIN;
+        }
+        
         instruction_list ls;
         instruction in_kernel(label_());
         operand isf_ptr(reg::arg1);
