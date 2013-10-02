@@ -171,14 +171,22 @@ namespace granary {
 #   endif
             // Create this CPUs IDT and vector entry points.
             flags = granary_disable_interrupts();
-            CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
+            {
+                cpu_state_handle cpu;
+                cpu.free_transient_allocators();
+                CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
+            }
             granary_store_flags(flags);
 #endif
 #if CONFIG_INSTRUMENT_HOST
             // Create this CPUs SYSCALL entry point.
             flags = granary_disable_interrupts();
-            CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
-                CPU_STATES[i]->native_msr_lstar);
+            {
+                cpu_state_handle cpu;
+                cpu.free_transient_allocators();
+                CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
+                    CPU_STATES[i]->native_msr_lstar);
+            }
             granary_store_flags(flags);
 #endif
 
