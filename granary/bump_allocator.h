@@ -343,9 +343,11 @@ namespace granary {
                 first->next = free;
                 first = nullptr;
             }
-
-            free = curr;
-            curr = nullptr;
+            
+            if(curr) {
+                free = curr;
+                curr = nullptr;
+            }
             last_allocation_size = 0;
         }
     };
