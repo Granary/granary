@@ -240,6 +240,7 @@ using namespace client::wp;
 #endif
 
 
+#if 0
 #if defined(CAN_WRAP_mutex_lock) && CAN_WRAP_mutex_lock
 #   ifndef HOST_WRAPPER_FOR_mutex_lock
 #       define HOST_WRAPPER_FOR_mutex_lock
@@ -465,8 +466,9 @@ using namespace client::wp;
     FUNCTION_WRAPPER_DETACH(APP, _cond_resched)
     FUNCTION_WRAPPER_DETACH(HOST, _cond_resched)
 #endif
+#endif
 
-
+#if 0
 #if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
 #   ifndef HOST_WRAPPER_FOR___kmalloc
 #       define HOST_WRAPPER_FOR___kmalloc
@@ -776,6 +778,7 @@ using namespace client::wp;
 #       define HOST_WRAPPER_FOR_mempool_free_pages
         FUNCTION_WRAPPER_DETACH(HOST, mempool_free_pages)
 #   endif
+#endif
 #endif
 
 #endif /* WRAPPERS_H_ */

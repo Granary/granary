@@ -367,22 +367,14 @@ namespace granary {
 
         /// Set this policy to forcibly attach (or not) to some code.
         inline void force_attach(bool val=true) throw() {
-#if CONFIG_INSTRUMENT_HOST
-            (void) val;
-#else
             u.force_attach = val;
-#endif
         }
 
 
         /// Check whether or not some code, regardless of if it's a detach
         /// point, must be instrumented.
         inline bool can_detach(void) throw() {
-#if CONFIG_INSTRUMENT_HOST
-            return true;
-#else
             return !u.force_attach;
-#endif
         }
 
 
