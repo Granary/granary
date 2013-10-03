@@ -448,7 +448,10 @@ namespace granary {
         }
 
         // Detect if an exception or something else is occurring within our
-        // common interrupt handler. This is really bad.
+        // common interrupt handler. This is expected on the emulated IRET path
+        // out of the code cache (when we do a RET). If it doesn't happen
+        // right after the POPF before the RET then it's a likely a serious
+        // issue.
         if(COMMON_HANDLER_BEGIN <= pc && pc < COMMON_HANDLER_END) {
             granary_break_on_interrupt(isf, vector, cpu);
             return INTERRUPT_DEFER;
@@ -712,6 +715,12 @@ namespace granary {
         // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
 
+        //        !! AT THIS POINT ALL OTHER REGISTERS ARE SAVED !!
+        //           BE CAREFUL, USE `insert_after` TO INSERT
+        //           CODE INSIDE THE REGISTER SAVE REGION, AND
+        //           APPEND TO INSERT CODE AFTER THE REGISTER
+        //           RESTORE REGION.
+
         // Switch to the private stack (we might be on the private stack if this
         // is a nested interrupt).
         in = insert_cti_after(
@@ -737,9 +746,13 @@ namespace granary {
             CTI_STEAL_REGISTER, reg::ret,
             CTI_CALL);
 
+        //        !! AT THIS POINT ALL OTHER REGISTERS ARE RESTORED !!
+        //           NOTE THE DIFFERENCE BETWEEN `insert_after` and
+        //           APPEND.
+
         // Check to see if the interrupt was handled or not.
         ls.append(xor_(reg::ret, reg::ret));
-        ls.append(cmp_(reg::ret, isf_ptr));
+        ls.append(cmp_(isf_ptr, reg::ret));
 
         // Restore reg::reg (%rax) to its native state.
         ls.append(pop_(reg::ret));
@@ -821,7 +834,8 @@ namespace granary {
         // the interrupt, and defer to the kernel's interrupt handlers.
         ls.append(defer);
         {
-            ls.append(lea_(reg::rsp, reg::rsp[8])); // arg1
+            // Note: reg::ret (rax) has already been popped.
+            ls.append(lea_(reg::rsp, reg::rsp[8])); // isf_ptr (arg1)
             ls.append(ret_());
         }
 
