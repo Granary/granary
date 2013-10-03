@@ -616,21 +616,20 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
-#if WP_ENABLE_REGISTER_REGIONS
-            region_register_spiller(tracker, ls);
-#endif /* WP_ENABLE_REGISTER_REGIONS */
-
 #if GRANARY_IN_KERNEL && !WP_CHECK_FOR_USER_ADDRESS
-            bool in_user_access_zone(false);
-
             // Quick scan through looking for user space accessing patterns.
-            for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
+            bool in_user_access_zone(false);
+            for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
                 if(wp::match_user_space_pattern(in)) {
                     in_user_access_zone = true;
                     break;
                 }
             }
 #endif
+
+#if WP_ENABLE_REGISTER_REGIONS
+            region_register_spiller(tracker, ls);
+#endif /* WP_ENABLE_REGISTER_REGIONS */
 
             // Backward pass.
             for(instruction in(ls.last()); in.is_valid(); in = prev_in) {
@@ -699,6 +698,8 @@ namespace client {
                 // later generic watchpoint instrumentation.
                 if(tracker.mangle(ls)) {
                     tracker.num_ops = 0;
+                    tracker.reads_from_rsp = false;
+                    tracker.writes_to_rsp = false;
                     in = tracker.in;
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
