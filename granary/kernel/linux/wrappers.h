@@ -206,6 +206,8 @@
         PRE_INOUT {
             ABORT_IF_SUB_FUNCTION_IS_WRAPPED(arg.s_op, alloc_inode);
 
+            IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
+
             PRE_OUT_WRAP(arg.s_op);
             PRE_OUT_WRAP(arg.dq_op);
             PRE_OUT_WRAP(arg.s_qcop);
@@ -247,6 +249,8 @@
     TYPE_WRAPPER(struct file_system_type, {
         NO_PRE_IN
         PRE_OUT {
+            IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
+
             WRAP_FUNCTION(arg.mount);
             WRAP_FUNCTION(arg.kill_sb);
         }

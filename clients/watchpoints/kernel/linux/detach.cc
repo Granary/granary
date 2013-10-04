@@ -10,24 +10,18 @@
 
 using namespace granary;
 
-extern "C" {
-    extern int __get_user_1 ( void ) ;
-    extern int __get_user_2 ( void ) ;
-    extern int __get_user_4 ( void ) ;
-    extern int __get_user_8 ( void ) ;
-    extern void __put_user_1 ( void ) ;
-    extern void __put_user_2 ( void ) ;
-    extern void __put_user_4 ( void ) ;
-    extern void __put_user_8 ( void ) ;
-}
+#ifdef DETACH_ADDR___get_user_1
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___get_user_1)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___get_user_2)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___get_user_4)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___get_user_8)
 
-GRANARY_DETACH_POINT(&__get_user_1)
-GRANARY_DETACH_POINT(&__get_user_2)
-GRANARY_DETACH_POINT(&__get_user_4)
-GRANARY_DETACH_POINT(&__get_user_8)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___put_user_1)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___put_user_2)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___put_user_4)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___put_user_8)
+#endif
 
-GRANARY_DETACH_POINT(&__put_user_1)
-GRANARY_DETACH_POINT(&__put_user_2)
-GRANARY_DETACH_POINT(&__put_user_4)
-GRANARY_DETACH_POINT(&__put_user_8)
-
+#ifdef DETACH_ADDR___clear_user
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___clear_user)
+#endif

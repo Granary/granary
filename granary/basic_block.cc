@@ -878,9 +878,14 @@ namespace granary {
         // Look for potential code that accesses user-space data. This type of
         // code follows some rough binary patterns, so we first search for the
         // patterns, then verify by invoking the kernel itself.
-        const void * const extable_entry(might_touch_user_address(ls, start_pc)
-            ? get_extable_entry(ls) : nullptr);
-        const bool might_touch_user_mem(nullptr != extable_entry);
+        bool touches_user_mem(false);
+        void *extable_entry(nullptr);
+        if(might_touch_user_address(ls, start_pc)
+        || policy.accesses_user_data()) {
+            extable_entry = get_extable_entry(ls);
+            touches_user_mem = nullptr != extable_entry;
+            policy.access_user_data(touches_user_mem);
+        }
 #endif
 
         // Translate loops and resolve local branches into jmps to instructions.
@@ -910,6 +915,14 @@ namespace granary {
                 fall_through_cti.set_pc(*pc);
             }
         }
+
+#if CONFIG_ENABLE_ASSERTIONS
+        // Sanity checking before we begin instrumenting; we don't want to
+        // apply the wrong instrumentation function to the code!
+        if(policy.is_in_host_context()) {
+            ASSERT(!is_app_address(start_pc));
+        }
+#endif
 
         // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect
@@ -944,7 +957,7 @@ namespace granary {
         // guess was too small then we need to re-instrument the
         // instruction list
         const unsigned size(basic_block::size(
-            ls _IF_KERNEL(might_touch_user_mem)));
+            ls _IF_KERNEL(touches_user_mem)));
 
         generated_pc = cpu->fragment_allocator.allocate_array<uint8_t>(size);
 
@@ -978,7 +991,7 @@ namespace granary {
         // Note: This assumes a maximum of one exception table entry per
         //       basic block.
         ASSERT(0 == ret.info->exception_table_entry_pointer_offset);
-        if(might_touch_user_mem) {
+        if(touches_user_mem) {
 
             unsigned offset = reinterpret_cast<uintptr_t>(end_pc)
                             - reinterpret_cast<uintptr_t>(

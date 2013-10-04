@@ -108,7 +108,7 @@ namespace granary {
 
         enum {
             NUM_TEMPORARY_PROPERTIES = 3,
-            NUM_INHERITED_PROERTIES = 2,
+            NUM_INHERITED_PROERTIES = 3,
             NUM_PROPERTIES = NUM_TEMPORARY_PROPERTIES + NUM_INHERITED_PROERTIES
         };
 
@@ -142,6 +142,9 @@ namespace granary {
                 /// Inherited property; this tells us whether we are
                 /// instrumenting host code or app code.
                 bool is_in_host_context:1;
+
+                /// Inherited property; this Potentially accesses user space data.
+                bool accesses_user_data:1;
 
                 /// Policy identifier.
                 uint16_t id:(16 - NUM_PROPERTIES);
@@ -225,8 +228,6 @@ namespace granary {
         }
 #endif
 
-
-
         /// Do not allow default initialisations of policies: require that they
         /// have IDs through some well-defined means.
         inline instrumentation_policy(void) throw() {
@@ -284,6 +285,21 @@ namespace granary {
         }
 
 
+#if GRANARY_IN_KERNEL
+        /// Mark the code instrumented by this policy as accessing user space
+        /// data.
+        inline void access_user_data(bool val=true) throw() {
+            u.accesses_user_data = val;
+        }
+
+
+        /// Does the code instrumented by this policy access user data?
+        inline bool accesses_user_data(void) const throw() {
+            return u.accesses_user_data;
+        }
+#endif
+
+
         /// Update the properties of this policy to be inside of an xmm context.
         inline void return_target(bool val=true) throw() {
             u.is_return_target = val;
@@ -298,7 +314,7 @@ namespace granary {
 
 
         /// Return the "base" policy for this policy. The effect of this is to
-        /// remove temporary policies, but NOT inherited policies.
+        /// remove temporary properties, but NOT inherited properties.
         inline instrumentation_policy base_policy(void) throw() {
             instrumentation_policy policy;
             policy.as_raw_bits = as_raw_bits;

@@ -243,6 +243,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	
 	ifeq ($(KERNEL),1)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
 	endif
 endif
 ifeq ($(GR_CLIENT),watchpoint_stats)
@@ -253,6 +254,7 @@ ifeq ($(GR_CLIENT),watchpoint_stats)
 	
 	ifeq ($(KERNEL),1)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
 	endif
 endif
 ifeq ($(GR_CLIENT),everything_watched)

@@ -33,7 +33,7 @@
 /// kernel-mode instrumentation and can be a useful debugging aid when trying
 /// to see if an instrumentation error might be caused by the presence of a
 /// user space address.
-#define WP_CHECK_FOR_USER_ADDRESS 0
+#define WP_CHECK_FOR_USER_ADDRESS 1
 
 
 /// Size (in bits) of the counter index. This should either be 16.

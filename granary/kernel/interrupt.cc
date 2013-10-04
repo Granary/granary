@@ -498,7 +498,7 @@ namespace granary {
 
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(false);
-        policy.force_attach(true);
+        //policy.force_attach(true);
 
         mangled_address target(isf->instruction_pointer, policy);
         app_pc translated_target(nullptr);

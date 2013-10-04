@@ -460,21 +460,6 @@ namespace client { namespace wp {
     }
 
 
-    /// Mangle something of the form `MOV ...(...), %rsp`.
-    static void mangle_dest_sp(
-        watchpoint_tracker &tracker,
-        instruction_list &ls,
-        instruction in,
-        operand_ref &rsp_op
-    ) throw() {
-        UNUSED(tracker);
-        UNUSED(ls);
-        UNUSED(in);
-        UNUSED(rsp_op);
-        ASSERT(false);
-    }
-
-
     /// Mangle something of the form `MOV %rsp, ...(...)`.
     static void mangle_source_sp(
         watchpoint_tracker &tracker,
@@ -486,7 +471,6 @@ namespace client { namespace wp {
 
         if(spill_reg) {
             tracker.spill_regs.revive(spill_reg);
-
             const operand dead_reg(spill_reg);
             ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
             rsp_op.replace_with(dead_reg);
@@ -509,49 +493,48 @@ namespace client { namespace wp {
         // Mangle a push instruction.
         switch(in.op_code()) {
 
-        case dynamorio::OP_push: {
+        case dynamorio::OP_push:
             ret = mangle_push(*this, ls, in);
             ls.remove(in);
             break;
-        }
 
-        case dynamorio::OP_pop: {
+        case dynamorio::OP_pop:
             ret = mangle_pop(*this, ls, in);
             ls.remove(in);
             break;
-        }
 
         // Emulate an XLAT so there are so many annoying special cases with it
         // in later instrumentation.
-        case dynamorio::OP_xlat: {
+        case dynamorio::OP_xlat:
             ret = mangle_xlat(*this, ls, in);
             ls.remove(in);
             break;
-        }
 
-        // Look for something like `MOV %RSP, ...(%...);` or `CMP %RSP, ...`.
-        default: {
-            // In this case, it doesn't matter if we mangle the instruction
-            // because we are not changing any of the memory operands.
-            mangled = false;
-            if(1 < num_ops) {
-                break;
+        // Something like `MOV (%...), %RSP`, convert it into:
+        //      PUSH (%...);
+        //      POP %RSP;
+        case dynamorio::OP_mov_ld:
+            mangled = writes_to_rsp;
+            if(writes_to_rsp) {
+                instruction push(ls.insert_before(in, push_(*ops[0])));
+                ls.insert_before(in, pop_(reg::rsp));
+                ret = mangle_push(*this, ls, push);
+                ls.remove(push);
+                ls.remove(in);
             }
-
-            operand_ref rsp_op;
-            in.for_each_operand(get_rsp, rsp_op);
-            if(!rsp_op.is_valid()) {
-                break;
-            }
-
-            if(DEST_OPERAND == rsp_op.kind) {
-                mangle_dest_sp(*this, ls, in, rsp_op);
-            } else {
-                mangle_source_sp(*this, ls, in, rsp_op);
-            }
-
             break;
-        } // end default case.
+
+        // Look for something like `CMP %RSP, ...` or `MOV %RSP, ...(%...);`.
+        default:
+            mangled = reads_from_rsp;
+            if(reads_from_rsp) {
+                operand_ref rsp_op;
+                in.for_each_operand(get_rsp, rsp_op);
+                mangle_source_sp(*this, ls, in, rsp_op);
+            } else if(writes_to_rsp) {
+                ASSERT(false); // TODO
+            }
+            break;
         } // end switch
 
         if(mangled) {

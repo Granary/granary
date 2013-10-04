@@ -617,6 +617,11 @@ namespace client {
             bool next_reads_carry_flag(true);
 
 #if GRANARY_IN_KERNEL && !WP_CHECK_FOR_USER_ADDRESS
+            //
+            // TODO: Somehow bring in policy.. perhaps re-structure how policy
+            //       instances actually work so that not all of these methods
+            //       are static (but that they are const)!!!
+            //
             // Quick scan through looking for user space accessing patterns.
             bool in_user_access_zone(false);
             for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
@@ -753,7 +758,7 @@ namespace client {
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
-#if !WP_TRANSITIVE_INSTRUMENT_HOST
+#if !WP_TRANSITIVE_INSTRUMENT_HOST && !CONFIG_INSTRUMENT_HOST
             using namespace granary;
 
             // Force Granary to detach on exiting each basic block.
