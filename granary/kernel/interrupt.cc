@@ -348,6 +348,16 @@ namespace granary {
             USED(cpu);
         }
 
+        DONT_OPTIMISE void granary_break_on_gp_interrupt(
+            granary::interrupt_stack_frame *isf,
+            interrupt_vector vector,
+            cpu_state_handle cpu
+        ) {
+            USED(isf);
+            USED(vector);
+            USED(cpu);
+        }
+
 
         DONT_OPTIMISE void granary_break_on_nested_interrupt(
             granary::interrupt_stack_frame *isf,
@@ -545,6 +555,11 @@ namespace granary {
 
         interrupt_handled_state ret;
 
+        if(VECTOR_GENERAL_PROTECTION == vector){
+            IF_PERF( perf::visit_gp_interrupt(); )
+            granary_break_on_gp_interrupt(isf, vector, cpu);
+        }
+
         // An interrupt that we have no idea how to handle.
         if(!is_valid_address(pc)) {
             granary_break_on_bad_interrupt(isf, vector, cpu);
@@ -594,9 +609,9 @@ namespace granary {
         cpu_state_handle cpu;
         instruction_list ls;
         const bool vec_has_error_code(has_error_code(vector_num));
-    
+
         cpu.free_transient_allocators();
-    
+
         // This makes it convenient to find top of the ISF from the common
         // interrupt handler.
         ls.append(push_(reg::rsp));
@@ -639,11 +654,11 @@ namespace granary {
     /// Emit a common interrupt entry routine. This routine handles the full
     /// interrupt.
     static app_pc emit_common_interrupt_routine(void) throw() {
-        
+
         if(COMMON_HANDLER_BEGIN) {
             return COMMON_HANDLER_BEGIN;
         }
-        
+
         instruction_list ls;
         instruction in_kernel(label_());
         operand isf_ptr(reg::arg1);
