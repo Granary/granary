@@ -30,17 +30,13 @@ namespace granary {
     instrumentation_policy::basic_block_visitor
     instrumentation_policy::APP_VISITORS[
         instrumentation_policy::MAX_NUM_POLICY_IDS
-    ] = {
-        &instrumentation_policy::missing_policy
-    };
+    ];
 
 
     instrumentation_policy::basic_block_visitor
     instrumentation_policy::HOST_VISITORS[
         instrumentation_policy::MAX_NUM_POLICY_IDS
-    ] = {
-        &instrumentation_policy::missing_policy
-    };
+    ];
 
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
@@ -49,9 +45,7 @@ namespace granary {
     instrumentation_policy::interrupt_visitor
     instrumentation_policy::INTERRUPT_VISITORS[
         instrumentation_policy::MAX_NUM_POLICY_IDS
-    ] = {
-        &instrumentation_policy::missing_interrupt
-    };
+    ];
 #endif
 
 
@@ -112,7 +106,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_app_instructions(
+        instrumentation_policy visit_app_instructions(
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
@@ -122,7 +116,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_host_instructions(
+        instrumentation_policy visit_host_instructions(
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
@@ -133,7 +127,7 @@ namespace granary {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,
@@ -144,33 +138,6 @@ namespace granary {
         }
 #endif
     };
-
-
-    /// Function called when a policy is missing (i.e. hasn't been initialised).
-    instrumentation_policy instrumentation_policy::missing_policy(
-        cpu_state_handle,
-        basic_block_state &,
-        instruction_list &
-    ) throw() {
-        granary_break_on_fault();
-        granary_fault();
-        return policy_for<missing_policy_policy>();
-    }
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-    /// A dummy interrupt visitor. This will be invoked if execution
-    /// somehow enters into an invalid policy and is interrupted.
-    interrupt_handled_state instrumentation_policy::missing_interrupt(
-        cpu_state_handle,
-        thread_state_handle,
-        basic_block_state &,
-        interrupt_stack_frame &,
-        interrupt_vector
-    ) throw() {
-        return INTERRUPT_DEFER; // let the kernel handle the interrupt.
-    }
-#endif
 
 
     instrumentation_policy START_POLICY;

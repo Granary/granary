@@ -88,7 +88,7 @@ namespace granary {
         } )
 
         // Add internal dynamic symbols to the detach hash table.
-        IF_USER( for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
+        IF_USER(IF_WRAPPERS( for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
             function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
 
             if(!wrapper.name) {
@@ -115,7 +115,7 @@ namespace granary {
                 RUNNING_AS_HOST,
                 reinterpret_cast<app_pc>(wrapper.host_wrapper_address),
                 dlsym_address);
-        } )
+        } ))
     })
 
 

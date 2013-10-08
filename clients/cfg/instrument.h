@@ -26,21 +26,20 @@ namespace client {
             AUTO_INSTRUMENT_HOST = true
         };
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
-
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,
@@ -59,14 +58,13 @@ namespace client {
             AUTO_INSTRUMENT_HOST = true
         };
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
-
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
@@ -86,20 +84,20 @@ namespace client {
             AUTO_INSTRUMENT_HOST = true
         };
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,

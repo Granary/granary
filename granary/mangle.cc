@@ -1237,17 +1237,15 @@ namespace granary {
             target_policy = policy;
         }
 
-        // Inherit properties that aren't defined by this CTI, e.g. XMM register
-        // usage.
-        target_policy.inherit_properties(policy);
-
         if(dynamorio::OP_iret == in.op_code()) {
             // TODO?
             return;
 
         } else if(in.is_return()) {
+
             ASSERT(dynamorio::OP_ret_far != in.op_code());
 
+            target_policy.inherit_properties(policy, INHERIT_RETURN);
             target_policy.return_target(true);
             target_policy.indirect_cti_target(false);
             target_policy.in_host_context(false);
@@ -1266,6 +1264,12 @@ namespace granary {
 
         } else {
             operand target(in.cti_target());
+
+            if(in.is_call()) {
+                target_policy.inherit_properties(policy, INHERIT_CALL);
+            } else {
+                target_policy.inherit_properties(policy, INHERIT_JMP);
+            }
 
             // Direct CTI.
             if(dynamorio::opnd_is_pc(target)) {

@@ -66,7 +66,7 @@ namespace client {
     /// Policy that applies only to the first basic blocks of app code that are
     /// entry points.
     struct leak_policy_enter : public watchpoint_leak_policy {
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -77,7 +77,7 @@ namespace client {
     /// Policy that applies to all non-entry basic blocks of only the first
     /// entered app code function.
     struct leak_policy_exit : public watchpoint_leak_policy {
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -88,7 +88,7 @@ namespace client {
     /// Policy that applies to all internal app code, i.e. invoked from either
     /// an entry block or a potential exit block.
     struct leak_policy_continue : public watchpoint_leak_policy {
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls

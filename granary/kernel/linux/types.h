@@ -252,6 +252,7 @@
 /* Manual additions */
 #include <linux/workqueue.h>
 void __init_work(struct work_struct *work, int onstack);
+bool __rcu_reclaim(char *rn, struct rcu_head *head);
 
 #if KERNEL_VERSION(3,3,0) <= LINUX_VERSION_CODE
 #   include <uapi/linux/posix_types.h>

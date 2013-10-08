@@ -14,11 +14,10 @@ namespace granary {
 
     /// User space thread-local storage.
     __thread cpu_state *CPU_STATE(nullptr);
-    __thread stack_state STACK_STATE;
 
     extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-        return &(STACK_STATE).depth;
+        return &(cpu_state_handle()->percpu_stack.top[0]);
     }
 
     thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw()

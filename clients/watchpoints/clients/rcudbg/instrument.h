@@ -83,7 +83,9 @@ namespace client {
 
     /// Base case: The maximum depth for rcu read-side critical sections.
     template <>
-    struct read_critical_section<MAX_SECTION_DEPTH> {
+    struct read_critical_section<MAX_SECTION_DEPTH>
+        : public granary::instrumentation_policy
+    {
 
         enum {
             AUTO_INSTRUMENT_HOST = false
@@ -91,7 +93,7 @@ namespace client {
 
         typedef read_critical_section<MAX_SECTION_DEPTH> self_type;
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
@@ -100,7 +102,7 @@ namespace client {
             return granary::policy_for<self_type>();
         }
 
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
@@ -109,7 +111,7 @@ namespace client {
             return granary::policy_for<self_type>();
         }
 
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,
@@ -190,7 +192,7 @@ namespace client {
             return curr_policy;
         }
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -198,7 +200,7 @@ namespace client {
             return visit_instructions(cpu, bb, ls);
         }
 
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -217,19 +219,19 @@ namespace client {
             AUTO_INSTRUMENT_HOST = false
         };
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
 
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
 
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,
@@ -247,19 +249,19 @@ namespace client {
             AUTO_INSTRUMENT_HOST = false
         };
 
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
 
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw();
 
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,

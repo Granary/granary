@@ -36,10 +36,12 @@ namespace granary {
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw();
 
+
     struct stack_state {
         char base[CONFIG_PRIVATE_STACK_SIZE];
         uint64_t top[0];
     } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE), packed));
+
 
     extern "C" {
         uint64_t *granary_get_private_stack_top(void);
@@ -246,8 +248,8 @@ namespace granary {
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
 
-        /// Per-CPU private stack
-        IF_KERNEL( stack_state percpu_stack; )
+        /// CPU-private stack.
+        stack_state percpu_stack;
 
 
         /// Used by granary for early initialisation of the CPU state.

@@ -348,6 +348,7 @@ namespace granary {
             USED(cpu);
         }
 
+
         DONT_OPTIMISE void granary_break_on_gp_interrupt(
             granary::interrupt_stack_frame *isf,
             interrupt_vector vector,
@@ -555,7 +556,7 @@ namespace granary {
 
         interrupt_handled_state ret;
 
-        if(VECTOR_GENERAL_PROTECTION == vector){
+        if(VECTOR_GENERAL_PROTECTION == vector) {
             IF_PERF( perf::visit_gp_interrupt(); )
             granary_break_on_gp_interrupt(isf, vector, cpu);
         }

@@ -58,14 +58,14 @@ namespace client {
         : public client::watchpoints<wp::stats_policy, wp::stats_policy>
     {
         /// Visit app instructions (module, user program)
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
         ) throw();
 
         /// Visit host instructions (module, user program)
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &

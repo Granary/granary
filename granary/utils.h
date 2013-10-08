@@ -94,6 +94,19 @@ namespace granary {
     }
 
 
+    namespace detail {
+        template <
+            typename RetT,
+            typename BaseT,
+            typename... Args
+        >
+        struct method_pointer {
+        public:
+            typedef RetT (BaseT::*type)(Args...);
+        };
+    }
+
+
 #if GRANARY_IN_KERNEL
     FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
         return 0 != (addr & 0x0000800000000000ULL); // && (addr >> 48) != 0xdead;

@@ -440,6 +440,10 @@ namespace granary {
     ///       it ensures that the register remains live, regardless of the
     ///       ordering of the destination operands.
     void register_manager::visit_dests(dynamorio::instr_t *in) throw() {
+        if(dynamorio::instr_is_nop(in)) {
+            return;
+        }
+
         unsigned num_dests(dynamorio::instr_num_dsts(in));
         uint16_t prev_live_64(live);
         uint16_t must_live(FORCE_LIVE);
@@ -534,6 +538,9 @@ namespace granary {
         }
     }
     void register_manager::visit_dests_check(dynamorio::instr_t *in) throw() {
+        if(dynamorio::instr_is_nop(in)) {
+            return;
+        }
         const uint16_t orig_live(live);
         visit_dests(in);
         const uint16_t correct_live_after(live);
@@ -556,13 +563,19 @@ namespace granary {
     /// register sources and revive registers that are used in base/
     /// disp operands.
     void register_manager::visit_sources(dynamorio::instr_t *in) throw() {
-        revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        if(!dynamorio::instr_is_nop(in)) {
+            revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        }
     }
 
 
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
     void register_manager::visit(dynamorio::instr_t *in) throw() {
+
+        if(dynamorio::instr_is_nop(in)) {
+            return;
+        }
 
         // Conservative.
         if(dynamorio::instr_is_cti(in)) {
@@ -578,16 +591,20 @@ namespace granary {
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
     void register_manager::kill(dynamorio::instr_t *in) throw() {
-        kill(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
-        kill(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        if(!dynamorio::instr_is_nop(in)) {
+            kill(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
+            kill(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        }
     }
 
 
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
     void register_manager::revive(dynamorio::instr_t *in) throw() {
-        revive(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
-        revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        if(!dynamorio::instr_is_nop(in)) {
+            revive(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
+            revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
+        }
     }
 
 

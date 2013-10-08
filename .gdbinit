@@ -171,9 +171,9 @@ define p-bb-info
   printf "   Policy ID: %d\n", $__policy->u.id
   printf "   Instrumentation Function: "
   if 1 == $__policy->u.is_in_host_context
-    info sym granary::instrumentation_policy::HOST_VISITORS[$__policy->u.id]
+    info sym (void *) granary::instrumentation_policy::HOST_VISITORS[$__policy->u.id]
   else
-    info sym granary::instrumentation_policy::APP_VISITORS[$__policy->u.id]
+    info sym (void *) granary::instrumentation_policy::APP_VISITORS[$__policy->u.id]
   end
 
   dont-repeat

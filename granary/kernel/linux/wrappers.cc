@@ -50,7 +50,7 @@
 
 /// Wraps memset to try to make sure we never memset over existing code cache
 /// code.
-#if CONFIG_ENABLE_ASSERTIONS && defined(DETACH_ADDR_memset)
+#if CONFIG_ENABLE_ASSERTIONS && defined(DETACH_ADDR_memset) && 0
     extern "C" {
 
         // Defined in module.c, actually as unsigned long long, but for
@@ -65,7 +65,7 @@
         if(addr >= EXEC_START && (addr + size) <= CODE_CACHE_END) {
             bool reported_issue(false);
             for(size_t i(0); i < size; ++i) {
-                if(!reported_issue && 0 != addr[i]) {
+                if(!reported_issue && 0xCC != addr[i]) {
                     granary_break_on_curiosity();
                     reported_issue = true;
                 }

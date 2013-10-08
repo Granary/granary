@@ -28,7 +28,7 @@ namespace client {
 
 
         /// Instrument a basic block.
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &ls
@@ -36,7 +36,7 @@ namespace client {
 
 
         /// Instrument a basic block.
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
@@ -46,7 +46,7 @@ namespace client {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
             granary::basic_block_state &,

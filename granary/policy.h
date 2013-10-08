@@ -35,6 +35,14 @@ namespace granary {
 #endif
 
 
+    enum property_inherit_constraint {
+        INHERIT_ALL,
+        INHERIT_CALL,
+        INHERIT_JMP,
+        INHERIT_RETURN
+    };
+
+
     /// Represents a handle on an instrumentation policy.
     struct instrumentation_policy {
     private:
@@ -49,11 +57,14 @@ namespace granary {
         template <typename> friend struct policy_for;
 
 
-        typedef instrumentation_policy (*basic_block_visitor)(
-            cpu_state_handle cpu,
-            basic_block_state &bb,
-            instruction_list &ls
-        );
+        /// Type of a client-specific instruction visitor.
+        typedef typename detail::method_pointer<
+            instrumentation_policy, // return
+            instrumentation_policy, // base
+            cpu_state_handle, // args...
+            basic_block_state &,
+            instruction_list &
+        >::type basic_block_visitor;
 
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
@@ -66,13 +77,15 @@ namespace granary {
 
 
         /// Type of a client-specific interrupt handler.
-        typedef interrupt_handled_state (*interrupt_visitor)(
-            cpu_state_handle cpu,
-            thread_state_handle thread,
-            basic_block_state &bb,
-            interrupt_stack_frame &isf,
-            interrupt_vector vector
-        );
+        typedef typename detail::method_pointer<
+            interrupt_handled_state, // return
+            instrumentation_policy, // base
+            cpu_state_handle, // args...
+            thread_state_handle,
+            basic_block_state &,
+            interrupt_stack_frame &,
+            interrupt_vector
+        >::type interrupt_visitor;
 
 
         /// Client-specific interrupt handler functions.
@@ -162,15 +175,6 @@ namespace granary {
         };
 
 
-        /// A dummy basic block visitor that faults if invoked. This will be
-        /// invoked if execution somehow enters into an invalid policy.
-        static instrumentation_policy missing_policy(
-            cpu_state_handle,
-            basic_block_state &,
-            instruction_list &
-        ) throw();
-
-
         /// Initialise a policy given a policy id. This policy will be
         /// initialised with no properties.
         inline static instrumentation_policy from_id(uint16_t id) throw() {
@@ -204,11 +208,11 @@ namespace granary {
                 visitor = APP_VISITORS[u.id];
             }
 
-            if(!visitor) {
-                return missing_policy(cpu, bb, ls);
-            }
+            instrumentation_policy self(*this);
 
-            return (visitor)(cpu, bb, ls);
+            ASSERT(as_raw_bits == self.as_raw_bits);
+
+            return (self.*visitor)(cpu, bb, ls);
         }
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
@@ -224,7 +228,9 @@ namespace granary {
             if(!visitor) {
                 return INTERRUPT_DEFER;
             }
-            return (visitor)(cpu, thread, bb, isf, vector);
+
+            instrumentation_policy self(*this);
+            return (self.*visitor)(cpu, thread, bb, isf, vector);
         }
 #endif
 
@@ -269,6 +275,21 @@ namespace granary {
             return !u.id;
         }
 
+#if GRANARY_IN_KERNEL
+        /// Does the code instrumented by this policy access user data?
+        inline bool accesses_user_data(void) const throw() {
+            return u.accesses_user_data;
+        }
+
+    private:
+
+        /// Mark the code instrumented by this policy as accessing user space
+        /// data.
+        inline void access_user_data(bool val=true) throw() {
+            u.accesses_user_data = val;
+        }
+#endif
+
     private:
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
@@ -283,21 +304,6 @@ namespace granary {
         inline bool is_indirect_cti_target(void) const throw() {
             return u.is_indirect_target;
         }
-
-
-#if GRANARY_IN_KERNEL
-        /// Mark the code instrumented by this policy as accessing user space
-        /// data.
-        inline void access_user_data(bool val=true) throw() {
-            u.accesses_user_data = val;
-        }
-
-
-        /// Does the code instrumented by this policy access user data?
-        inline bool accesses_user_data(void) const throw() {
-            return u.accesses_user_data;
-        }
-#endif
 
 
         /// Update the properties of this policy to be inside of an xmm context.
@@ -395,17 +401,29 @@ namespace granary {
 
 
         /// Inherit the properties of another policy.
-        inline void inherit_properties(instrumentation_policy that) throw() {
-            that.u.id = 0;
-            as_raw_bits |= that.as_raw_bits;
+        inline void inherit_properties(
+            instrumentation_policy that,
+            property_inherit_constraint constraint=INHERIT_ALL
+        ) throw() {
+            const uint16_t id(u.id);
+            as_raw_bits = 0;
+            if(INHERIT_ALL == constraint
+            || INHERIT_JMP == constraint
+            || INHERIT_RETURN == constraint) {
+                as_raw_bits |= that.as_raw_bits;
+            } else if(INHERIT_CALL == constraint) {
+                as_raw_bits |= that.as_raw_bits;
+                u.accesses_user_data = false;
+            }
+            u.id = id;
         }
 
 
         /// Clear all properties.
         inline void clear_properties(void) throw() {
-            instrumentation_policy raw;
-            raw.u.id = u.id;
-            as_raw_bits = raw.as_raw_bits;
+            const uint16_t id(u.id);
+            as_raw_bits = 0;
+            u.id = id;
         }
     };
 
@@ -428,6 +446,7 @@ namespace granary {
 
         /// The mangled address in terms of the policy, policy properties, and
         /// address components.
+        ///
         /// Note: order of these fields is significant.
         struct {
             uint16_t policy_bits:NUM_MANGLED_BITS; // low
@@ -463,10 +482,37 @@ namespace granary {
         "`mangled_address` is too big.");
 
 
+    namespace detail {
+        /// One method pointer kind to another.
+        template <
+            typename RetT,
+            typename FromT,
+            typename... Args
+        >
+        FORCE_INLINE
+        typename detail::method_pointer<RetT, instrumentation_policy, Args...>::type
+        unsafe_policy_method_cast(
+            typename detail::method_pointer<RetT, FromT, Args...>::type v
+        ) throw() {
+            typename detail::method_pointer<RetT, instrumentation_policy, Args...>::type ret;
+            void **v_ptr(unsafe_cast<void **>(&v));
+            ret = *unsafe_cast<decltype(&ret)>(v_ptr);
+            return ret;
+        }
+    }
+
+
     /// Gets us the policy for some client policy type.
     template <typename T>
     struct policy_for {
     private:
+
+        static_assert(std::is_convertible<T *, instrumentation_policy *>::value,
+            "Type specified in `policy_for` template must be a derived type "
+            "of `instrumentation_policy`.");
+
+        static_assert(sizeof(T) == sizeof(instrumentation_policy),
+            "Derived type of instrumentation policy is larger than base type.");
 
         friend struct code_cache;
 
@@ -484,17 +530,34 @@ namespace granary {
 #endif
 
             instrumentation_policy::APP_VISITORS[policy_id] = \
-                unsafe_cast<instrumentation_policy::basic_block_visitor>( \
-                    &T::visit_app_instructions);
+                detail::unsafe_policy_method_cast<
+                    instrumentation_policy, // ret
+                    T, // policy class
+                    cpu_state_handle, // args...
+                    basic_block_state &,
+                    instruction_list &
+                >(&T::visit_app_instructions);
 
             instrumentation_policy::HOST_VISITORS[policy_id] = \
-                unsafe_cast<instrumentation_policy::basic_block_visitor>( \
-                    &T::visit_host_instructions);
+                detail::unsafe_policy_method_cast<
+                    instrumentation_policy, // ret
+                    T, // policy class
+                    cpu_state_handle, // args...
+                    basic_block_state &,
+                    instruction_list &
+                >(&T::visit_host_instructions);
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
             instrumentation_policy::INTERRUPT_VISITORS[policy_id] = \
-                unsafe_cast<instrumentation_policy::interrupt_visitor>( \
-                    &T::handle_interrupt);
+                detail::unsafe_policy_method_cast<
+                    interrupt_handled_state, // ret
+                    T, // policy class
+                    cpu_state_handle, // args...
+                    thread_state_handle,
+                    basic_block_state &,
+                    interrupt_stack_frame &,
+                    interrupt_vector
+                >(&T::handle_interrupt);
 #endif
 
             return policy_id;

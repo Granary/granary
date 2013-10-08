@@ -214,19 +214,6 @@ namespace client {
         };
 
 
-#if GRANARY_IN_KERNEL
-        /// Tries to match one of the XCHG instructions that show up in the binary
-        /// pattern associated with user space data accesses. E.g.:
-        ///
-        ///     data32 xchg %ax, %ax
-        ///     <memory instruction>
-        ///     data32 xchg %ax, %ax
-        ///
-        /// If the pattern is matched then `check_bit_47` is set to true.
-        bool match_user_space_pattern(granary::instruction in) throw();
-#endif /* GRANARY_IN_KERNEL */
-
-
         /// Find memory operands that might need to be checked for watchpoints.
         /// If one is found, then num_ops is incremented, and the operand
         /// reference is stored in the passed array.
@@ -604,7 +591,7 @@ namespace client {
 
         /// Instrument a basic block.
         template <typename Watcher>
-        static granary::instrumentation_policy visit_instructions(
+        granary::instrumentation_policy visit_instructions(
             granary::basic_block_state &bb,
             granary::instruction_list &ls
         ) throw() {
@@ -616,21 +603,8 @@ namespace client {
             wp::watchpoint_tracker tracker;
             bool next_reads_carry_flag(true);
 
-#if GRANARY_IN_KERNEL && !WP_CHECK_FOR_USER_ADDRESS
-            //
-            // TODO: Somehow bring in policy.. perhaps re-structure how policy
-            //       instances actually work so that not all of these methods
-            //       are static (but that they are const)!!!
-            //
-            // Quick scan through looking for user space accessing patterns.
-            bool in_user_access_zone(false);
-            for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
-                if(wp::match_user_space_pattern(in)) {
-                    in_user_access_zone = true;
-                    break;
-                }
-            }
-#endif
+            IF_KERNEL( const bool in_user_access_zone(
+                WP_CHECK_FOR_USER_ADDRESS || accesses_user_data()); )
 
 #if WP_ENABLE_REGISTER_REGIONS
             region_register_spiller(tracker, ls);
@@ -669,13 +643,7 @@ namespace client {
                     continue;
                 }
 
-#if GRANARY_IN_KERNEL
-#   if WP_CHECK_FOR_USER_ADDRESS
-                tracker.check_bit_47 = true;
-#   else
-                tracker.check_bit_47 = in_user_access_zone;
-#   endif /* WP_CHECK_FOR_USER_ADDRESS */
-#endif
+                IF_KERNEL( tracker.check_bit_47 = in_user_access_zone; )
 
                 // Try to find memory operations.
                 in.for_each_operand(wp::find_memory_operand, tracker);
@@ -743,7 +711,7 @@ namespace client {
 
 
         /// Visit app instructions (module, user program)
-        static granary::instrumentation_policy visit_app_instructions(
+        granary::instrumentation_policy visit_app_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -753,7 +721,7 @@ namespace client {
 
 
         /// Visit host instructions (module, user program)
-        static granary::instrumentation_policy visit_host_instructions(
+        granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
@@ -794,7 +762,7 @@ namespace client {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Defers to the `Watcher` to decide how it will handle the interrupt.
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle cpu,
             granary::thread_state_handle thread,
             granary::basic_block_state &bb,
@@ -804,40 +772,7 @@ namespace client {
             return AppWatcher::handle_interrupt(cpu, thread, bb, isf, vector);
         }
 #endif
-
     };
-
-
-    /// Never implemented; meant as a convenience and formal specification of
-    /// the watchpoints API. This is here to make it easier for client code to
-    /// declare that they follow the API in a header.
-    struct watchpoint_api {
-
-        static void visit_read(
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls,
-            wp::watchpoint_tracker &tracker,
-            unsigned i
-        ) throw();
-
-
-        static void visit_write(
-            granary::basic_block_state &bb,
-            granary::instruction_list &ls,
-            wp::watchpoint_tracker &tracker,
-            unsigned i
-        ) throw();
-
-
-        static granary::interrupt_handled_state handle_interrupt(
-            granary::cpu_state_handle cpu,
-            granary::thread_state_handle thread,
-            granary::basic_block_state &bb,
-            granary::interrupt_stack_frame &isf,
-            granary::interrupt_vector vector
-        ) throw();
-    };
-
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 }

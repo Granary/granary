@@ -56,10 +56,10 @@ namespace granary {
 
     extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-#if CONFIG_CHECK_CPU_ACCESS_SAFE
+#if CONFIG_CHECK_CPU_ACCESS_SAFE && 0
         check_cpu_access_safety();
 #endif
-        return (uint64_t *) &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top);
+        return &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top[0]);
     }
 
     namespace detail {

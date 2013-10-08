@@ -600,7 +600,6 @@ namespace granary {
             DATA32_XCHG_AX_AX = 0x906666U
         };
 
-        bool might_touch(false);
         const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
 
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
@@ -617,11 +616,7 @@ namespace granary {
             if(nullptr != bytes
             && 3 == in.encoded_size()
             && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
-                if(!might_touch) {
-                    might_touch = true;
-                } else {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -880,11 +875,21 @@ namespace granary {
         // patterns, then verify by invoking the kernel itself.
         bool touches_user_mem(false);
         void *extable_entry(nullptr);
-        if(might_touch_user_address(ls, start_pc)
-        || policy.accesses_user_data()) {
+        if(policy.accesses_user_data()
+        || might_touch_user_address(ls, start_pc)) {
             extable_entry = get_extable_entry(ls);
             touches_user_mem = nullptr != extable_entry;
-            policy.access_user_data(touches_user_mem);
+
+            // We don't un-set the accesses user data policy property, as there
+            // is some value in leaving it set.
+            //
+            // We also don't require that a particular exception table exist.
+            // That is, if we match the binary pattern, then that is sufficient
+            // to trigger future exception table searches which are more
+            // precise.
+            if(!policy.accesses_user_data()) {
+                policy.access_user_data(true);
+            }
         }
 #endif
 

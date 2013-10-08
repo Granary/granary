@@ -487,7 +487,7 @@ static void preallocate_executable(void) {
         granary_fault();
     }
 
-    memset(mem, 0, _100_MB);
+    memset(mem, 0xCC, _100_MB);
 
     EXEC_START = (unsigned long) mem;
     EXEC_END = EXEC_START + _100_MB;

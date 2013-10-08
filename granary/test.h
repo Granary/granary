@@ -33,7 +33,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_app_instructions(
+        instrumentation_policy visit_app_instructions(
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
@@ -41,7 +41,7 @@ namespace granary {
 
 
         /// Instruction a basic block.
-        static instrumentation_policy visit_host_instructions(
+        instrumentation_policy visit_host_instructions(
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
@@ -51,7 +51,7 @@ namespace granary {
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
-        static granary::interrupt_handled_state handle_interrupt(
+        granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle cpu,
             granary::thread_state_handle thread,
             granary::basic_block_state &bb,
