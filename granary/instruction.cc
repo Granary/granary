@@ -53,7 +53,10 @@ namespace granary {
 
 
     /// Copy assignment.
-    void instruction::replace_with(instruction that) throw() {
+    void instruction::replace_with(
+        instruction that,
+        replace_constraint constraint
+    ) throw() {
 
         ASSERT(is_valid_address(instr));
         ASSERT(is_valid_address(that.instr));
@@ -93,8 +96,25 @@ namespace granary {
         instr->next = next_;
         instr->prev = prev_;
 
-        instr->granary_flags = granary_flags;
-        instr->granary_policy = granary_policy;
+        if(REPLACE_WITH_OLD_META_DATA == constraint) {
+            instr->granary_flags = granary_flags;
+            instr->granary_policy = granary_policy;
+
+        } else if(REPLACE_WITH_COMBINED_META_DATA == constraint) {
+            instr->granary_flags |= granary_flags;
+
+            instrumentation_policy old_policy(
+                instrumentation_policy::decode(granary_policy));
+
+            instrumentation_policy new_policy(
+                instrumentation_policy::decode(instr->granary_policy));
+
+            if(old_policy.u.id != new_policy.u.id) {
+                ASSERT(0 == old_policy.u.id || 0 == new_policy.u.id);
+            }
+
+            instr->granary_policy |= granary_policy;
+        }
     }
 
 
@@ -102,17 +122,11 @@ namespace granary {
     app_pc instruction::encode(app_pc pc_) throw() {
 
         ASSERT(instr);
+        ASSERT(pc_);
 
-#if 0
-        // Attempt to work around DR encoding issues.
-        if(!instr->bytes && instr->length && instr->translation) {
-            if(dynamorio::OP_fisttp <= instr->opcode
-            || (dynamorio::OP_fxsave <= instr->opcode
-                && instr->opcode <= dynamorio::OP_prefetchw)) {
-                instr->bytes = instr->translation;
-                dynamorio::instr_set_raw_bits_valid(instr, true);
-            }
-
+#if CONFIG_ENABLE_ASSERTIONS
+        if(is_patchable()) {
+            ASSERT(0 == (reinterpret_cast<uintptr_t>(pc_) % 8));
         }
 #endif
 

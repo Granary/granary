@@ -1160,16 +1160,11 @@ namespace granary {
             dbl_entry_routine(target_policy, in, am) // target of stub
         );
 
-        in.replace_with(jmp_(instr_(stub)));
-        in.set_patchable();
-        in.set_mangled();
+        in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
 
-        const unsigned new_size(in.encoded_size());
-
-        IF_DEBUG(old_size > 8, FAULT)
-        IF_DEBUG(new_size > 8, FAULT)
-
-        (void) new_size;
+        IF_TEST( const unsigned new_size(in.encoded_size()); )
+        ASSERT(old_size <= 8);
+        ASSERT(new_size <= 8);
     }
 
 

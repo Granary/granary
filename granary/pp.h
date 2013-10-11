@@ -115,8 +115,6 @@
 #define USED(var) ASM("" :: "m"(var)); UNUSED(var)
 #define DONT_OPTIMISE __attribute__((noinline, optimize("O0")))
 
-#define IF_DEBUG(cond, expr) {if(cond) { expr; }}
-
 
 #if CONFIG_TRACE_EXECUTION
 #   define IF_TRACE(...) __VA_ARGS__

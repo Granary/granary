@@ -243,6 +243,14 @@ namespace granary {
     };
 
 
+    /// Constraints on how to replace an instruction.
+    enum replace_constraint {
+        REPLACE_WITH_OLD_META_DATA,
+        REPLACE_WITH_NEW_META_DATA,
+        REPLACE_WITH_COMBINED_META_DATA
+    };
+
+
     /// Defines a decoded x86 instruction type. This wraps around DynamoRIO's
     /// Level-3 decoding on x86 instructions.
     struct instruction {
@@ -289,7 +297,10 @@ namespace granary {
 
 
         /// Replace one instruction with another.
-        void replace_with(instruction) throw();
+        void replace_with(
+            instruction,
+            replace_constraint constraint=REPLACE_WITH_COMBINED_META_DATA
+        ) throw();
 
 
         /// Return whether or not this instruction is valid.
