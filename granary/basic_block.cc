@@ -14,6 +14,10 @@
 #include "granary/emit_utils.h"
 #include "granary/code_cache.h"
 
+#if GRANARY_IN_KERNEL
+#   include "granary/detach.h"
+#endif
+
 #include <cstring>
 #include <new>
 
@@ -595,6 +599,13 @@ namespace granary {
         if(unsafe_cast<app_pc>(memcpy) == start_pc) {
             return false;
         }
+
+#   ifdef DETACH_ADDR_csum_partial_copy_generic
+        if(DETACH_ADDR_csum_partial_copy_generic
+        == reinterpret_cast<uintptr_t>(start_pc)) {
+            return true;
+        }
+#   endif
 
         enum {
             DATA32_XCHG_AX_AX = 0x906666U

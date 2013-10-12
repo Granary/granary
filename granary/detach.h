@@ -46,6 +46,19 @@
     })
 
 
+/// Bring in the detach addresses, regardless of whether wrappers are enabled.
+#define WRAP_FOR_DETACH(func)
+#define DETACH(func)
+#define TYPED_DETACH(func)
+#if GRANARY_IN_KERNEL
+#   include "granary/gen/kernel_detach.inc"
+#else
+#   include "granary/gen/user_detach.inc"
+#endif
+#undef WRAP_FOR_DETACH
+#undef DETACH
+#undef TYPED_DETACH
+
 namespace granary {
 
 #if CONFIG_ENABLE_WRAPPERS
