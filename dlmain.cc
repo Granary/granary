@@ -15,28 +15,17 @@
 #include "granary/detach.h"
 #include "granary/perf.h"
 
-#define CATCH_SIGNALS 0
-
-#if CATCH_SIGNALS
-#   include <unistd.h>
-#   include <signal.h>
-#   include <cstdio>
-void granary_signal_handler(int) {
-    std::fprintf(stderr, "Run `sudo gdb attach %d`\n", getpid());
-    for(;;) { /* loop until we manually attach gdb */ }
-}
-#endif
+#include <unistd.h>
+#include <cstdio>
 
 extern "C" {
 
     __attribute__((constructor))
     static void granary_begin_program(void) {
 
-#if CATCH_SIGNALS
-        signal(SIGSEGV, granary_signal_handler);
-        signal(SIGABRT, granary_signal_handler);
-        signal(SIGILL, granary_signal_handler);
-#endif
+        printf("Process ID for attaching GDB: %d\n", (int) getpid());
+        printf("Press enter to continue.\n");
+        getchar();
 
         granary::init();
         granary::attach(granary::START_POLICY);

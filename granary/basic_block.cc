@@ -724,9 +724,9 @@ namespace granary {
                     "Failed to decode instruction at %p in "
                     "block starting at %p\n",
                     in.pc(), start_pc);
-#endif /* CONFIG_ENABLE_ASSERTIONS */
-                granary_fault();
                 USED(in); // To help with debugging.
+#endif /* CONFIG_ENABLE_ASSERTIONS */
+                ls.append(ud2a_());
                 break;
             }
 

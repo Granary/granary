@@ -1,6 +1,8 @@
 # Copyright 2012-2013 Peter Goodman, all rights reserved.
 
-KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
+KERNEL_VERSION = $(shell uname -r)
+DEFAULT_KERNEL_DIR = /lib/modules/$(KERNEL_VERSION)/build
+KERNEL_DIR ?= $(DEFAULT_KERNEL_DIR)
 
 # Source and binary directories for Granary code. This is a pretty big hack that
 # tries to get Granary closer to enabling out-of-source builds. This way of
@@ -515,6 +517,12 @@ else
 	GR_TYPE_INCLUDE = -I$(SOURCE_DIR)/ -isystem $(KERNEL_DIR)/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include/generated 
+	
+	ifeq ($(DEFAULT_KERNEL_DIR),$(KERNEL_DIR))
+		GR_TYPE_INCLUDE += -isystem /usr/src/linux-headers-$(KERNEL_VERSION)/include/
+		GR_TYPE_INCLUDE += -isystem /usr/src/linux-headers-$(KERNEL_VERSION)/arch/x86/include/
+		GR_TYPE_INCLUDE += -isystem /usr/src/linux-headers-$(KERNEL_VERSION)/arch/x86/include/generated/
+	endif
 	
 	define GR_COMPILE_ASM
 endef
