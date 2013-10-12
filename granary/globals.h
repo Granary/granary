@@ -161,8 +161,11 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#define CONFIG_ENABLE_WRAPPERS 0
-
+#if GRANARY_IN_KERNEL
+#   define CONFIG_ENABLE_WRAPPERS 0
+#else
+#   define CONFIG_ENABLE_WRAPPERS 1 // can't change; not re-entrant with malloc.
+#endif
 
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.

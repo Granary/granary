@@ -338,8 +338,6 @@ namespace granary {
 
 
 #if !CONFIG_ENABLE_DIRECT_RETURN
-
-
     /// Forward declaration.
     static void ibl_exit_stub(
         instruction_list &ibl,
@@ -1201,10 +1199,13 @@ namespace granary {
             IF_PERF( perf::visit_mangle_return(); )
 
 #if !CONFIG_ENABLE_DIRECT_RETURN
-            // TODO: handle RETn/RETf with a byte count.
-            ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
-            in.replace_with(
-                mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
+            if(!policy.return_address_is_in_code_cache()) {
+
+                // TODO: handle RETn/RETf with a byte count.
+                ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
+                in.replace_with(
+                    mangled(jmp_(pc_(rbl_entry_routine(target_policy)))));
+            }
 #endif
         } else {
 
@@ -1244,6 +1245,7 @@ namespace granary {
             target_policy.return_target(true);
             target_policy.indirect_cti_target(false);
             target_policy.in_host_context(false);
+            target_policy.return_address_in_code_cache(false);
 
             // Forcibly resolve the policy. Unlike indirect CTIs, we don't
             // mark the target as host auto-instrumented. The protocol here is
@@ -1262,6 +1264,7 @@ namespace granary {
 
             if(in.is_call()) {
                 target_policy.inherit_properties(policy, INHERIT_CALL);
+                target_policy.return_address_in_code_cache(true);
             } else {
                 target_policy.inherit_properties(policy, INHERIT_JMP);
             }

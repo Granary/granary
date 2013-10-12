@@ -121,7 +121,7 @@ namespace granary {
 
         enum {
             NUM_TEMPORARY_PROPERTIES = 3,
-            NUM_INHERITED_PROERTIES = 3,
+            NUM_INHERITED_PROERTIES = 4,
             NUM_PROPERTIES = NUM_TEMPORARY_PROPERTIES + NUM_INHERITED_PROERTIES
         };
 
@@ -156,8 +156,13 @@ namespace granary {
                 /// instrumenting host code or app code.
                 bool is_in_host_context:1;
 
-                /// Inherited property; this Potentially accesses user space data.
+                /// Inherited property; this tells us whether or not we are in a
+                /// basic block that potentially accesses user space data.
                 bool accesses_user_data:1;
+
+                /// Inherited property; this tells us if the last return address
+                /// is back into an instrumentated basic block.
+                bool can_direct_return:1;
 
                 /// Policy identifier.
                 uint16_t id:(16 - NUM_PROPERTIES);
@@ -289,6 +294,28 @@ namespace granary {
             u.accesses_user_data = val;
         }
 #endif
+
+    public:
+        /// Does the code instrumented by this policy access user data?
+        inline bool return_address_is_in_code_cache(void) const throw() {
+#if CONFIG_ENABLE_DIRECT_RETURN
+            return true;
+#else
+            return u.can_direct_return;
+#endif
+        }
+
+    private:
+
+        /// Mark the code instrumented by this policy as accessing user space
+        /// data.
+        inline void return_address_in_code_cache(bool val=true) throw() {
+#if CONFIG_ENABLE_DIRECT_RETURN
+            (void) val;
+#else
+            u.can_direct_return = val;
+#endif
+        }
 
     private:
 

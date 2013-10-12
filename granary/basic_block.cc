@@ -719,9 +719,12 @@ namespace granary {
                 break;
             }
 
-            // Useful to relate back to the kernel's BUG_ON macro.
+            // Useful to relate back to the kernel's BUG_ON macro. We need to
+            // make sure to restore *pc to the address of the UD2 instruction
+            // so that a debugger can see the related source code nicely.
             if(dynamorio::OP_ud2a == in.op_code()
             || dynamorio::OP_ud2b == in.op_code()) {
+                *pc = in.pc();
                 fall_through_detach = true;
                 break;
             }
@@ -785,8 +788,10 @@ namespace granary {
                 // JMP to the next basic block.
                 } else if(in.is_call()) {
 #if !CONFIG_ENABLE_DIRECT_RETURN
-                    fall_through_pc = true;
-                    break;
+                    if(!policy.return_address_is_in_code_cache()) {
+                        fall_through_pc = true;
+                        break;
+                    }
 #endif
 
                 // RET, far RET, and IRET instruction.
