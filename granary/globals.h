@@ -167,7 +167,7 @@
 #   define CONFIG_ENABLE_WRAPPERS 1 // can't change; not re-entrant with malloc.
 #endif
 
-#define CONFIG_ENABLE_MODULE_WRAPPERS 1
+#define CONFIG_ENABLE_MODULE_WRAPPERS 0
 
 /// Enable patch wrappers. If patch wrappers are enabled, then Granary will automatically
 /// find out the kernel functions and patche them with the wrapper function atomically

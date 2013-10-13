@@ -69,6 +69,10 @@
 #define WP_INHERITED_INDEX_GRANULARITY 20
 
 
+#if CONFIG_ENABLE_PATCH_WRAPPERS
+#define WP_USE_PATCH_WRAPPER 1
+#endif
+
 /// Backup for if the inherited index width is set to 0 but the inherited indexes
 /// are left enabled. Don't change.
 #if !WP_INHERITED_INDEX_WIDTH

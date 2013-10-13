@@ -12,6 +12,8 @@
 
 #include "clients/watchpoints/clients/everything_watched/instrument.h"
 
+#if WP_USE_PATCH_WRAPPER
+#include "clients/watchpoints/clients/everything_watched/kernel/linux/patch_wrapper.h"
 
 using namespace client::wp;
 
