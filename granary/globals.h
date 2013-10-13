@@ -167,6 +167,14 @@
 #   define CONFIG_ENABLE_WRAPPERS 1 // can't change; not re-entrant with malloc.
 #endif
 
+#define CONFIG_ENABLE_MODULE_WRAPPERS 1
+
+/// Enable patch wrappers. If patch wrappers are enabled, then Granary will automatically
+/// find out the kernel functions and patche them with the wrapper function atomically
+
+#define CONFIG_ENABLE_PATCH_WRAPPERS 1
+
+
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
 /// restoring those registers.
 #if GRANARY_IN_KERNEL
