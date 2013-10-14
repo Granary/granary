@@ -356,6 +356,25 @@ namespace granary {
     }
 
 
+#if CONFIG_ENABLE_ASSERTIONS
+    static void check_list_consistency(
+        dynamorio::instr_t *first,
+        dynamorio::instr_t *last,
+        unsigned length
+    ) throw() {
+        if(length > 0) {
+            ASSERT(is_valid_address(first));
+            ASSERT(is_valid_address(last));
+
+            if(length > 1) {
+                ASSERT(is_valid_address(first->next));
+                ASSERT(is_valid_address(last->prev));
+            }
+        }
+    }
+#endif
+
+
     /// Adds an element on to the end of the list.
     instruction instruction_list::append(instruction item_) throw() {
 
@@ -367,6 +386,8 @@ namespace granary {
         ASSERT(!item->next);
         ASSERT(!before_item || is_valid_address(before_item));
 
+        IF_TEST( check_list_consistency(first_, last_, length_); )
+
         last_ = item;
         item->prev = before_item;
         item->next = nullptr;
@@ -377,6 +398,8 @@ namespace granary {
         if(1 == ++length_) {
             first_ = item;
         }
+
+        IF_TEST( check_list_consistency(first_, last_, length_); )
 
         return item_;
     }
@@ -391,6 +414,8 @@ namespace granary {
         ASSERT(!item->next);
         ASSERT(!after_item || is_valid_address(after_item));
 
+        IF_TEST( check_list_consistency(first_, last_, length_); )
+
         first_ = item;
         item->next = after_item;
         item->prev = nullptr;
@@ -402,6 +427,8 @@ namespace granary {
         if(1 == ++length_) {
             last_ = item;
         }
+
+        IF_TEST( check_list_consistency(first_, last_, length_); )
 
         return item_;
     }
@@ -476,6 +503,8 @@ namespace granary {
         ASSERT(is_valid_address(instr));
         ASSERT(0 < length_);
 
+        IF_TEST( check_list_consistency(first_, last_, length_); )
+
         dynamorio::instr_t *prev(instr->prev);
         dynamorio::instr_t *next(instr->next);
 
@@ -498,6 +527,8 @@ namespace granary {
         instr->next = nullptr;
 
         --length_;
+
+        IF_TEST( check_list_consistency(first_, last_, length_); )
     }
 
 
@@ -525,6 +556,8 @@ namespace granary {
         item->next = after_item;
         after_item->prev = item;
 
+        IF_TEST( check_list_consistency(first_, last_, length_); )
+
         return instruction(item);
     }
 
@@ -535,11 +568,10 @@ namespace granary {
             return start_pc;
         }
 
-        instruction item(first());
         app_pc pc(start_pc);
         bool has_local_jump(false);
 
-        for(unsigned i = 0, max = length(); i < max; ++i) {
+        for(instruction item(first()); item.is_valid(); item = item.next()) {
 
             dynamorio::instr_t *target_instr(nullptr);
 
@@ -562,23 +594,19 @@ namespace granary {
             }
 
             IF_PERF( perf::visit_encoded(item); )
-
-            item = item.next();
         }
 
         // local jumps within the same basic block might be forward jumps
         // (at least in the case of direct call/jump stubs); re-emit those
         // instructions in place with the now-resolved PCs.
         if(has_local_jump) {
-            item = first();
-            for(unsigned i = 0, max = length(); i < max; ++i) {
+            for(instruction item(first()); item.is_valid(); item = item.next()) {
                 if(item.is_cti()) {
                     operand target(item.cti_target());
                     if(dynamorio::opnd_is_instr(target)) {
                         item.encode(reinterpret_cast<app_pc>(item.instr->note));
                     }
                 }
-                item = item.next();
             }
         }
 
@@ -594,8 +622,7 @@ namespace granary {
             return staged_pc;
         }
 
-        instruction in(first());
-        for(; in.is_valid(); in = in.next()) {
+        for(instruction in(first()); in.is_valid(); in = in.next()) {
             app_pc prev_staged_pc(staged_pc);
             staged_pc = in.stage_encode(staged_pc, final_pc);
             final_pc += staged_pc - prev_staged_pc;

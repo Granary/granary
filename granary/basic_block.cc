@@ -643,7 +643,7 @@ namespace granary {
     /// an instruction list.
     ///
     /// Note: This is very Linux-specific!!
-    void *get_extable_entry(instruction_list &ls) throw() {
+    void *find_exception_table_entry(instruction_list &ls) throw() {
 
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             app_pc pc(in.pc_or_raw_bytes());
@@ -771,6 +771,18 @@ namespace granary {
                         }
                         break;
                     }
+
+#if GRANARY_IN_KERNEL
+                    // We have some native code that has a jump to code cache or
+                    // wrapper code. Normally this sounds weird but actually it
+                    // comes up when we're doing probe-based instrumentation
+                    // with patch wrappers and such.
+                    if(is_code_cache_address(target_pc)
+                    || is_wrapper_address(target_pc)) {
+                        in.set_mangled();
+                        break;
+                    }
+#endif
                 }
 
                 // Unconditional JMP; ends the block, without possibility
@@ -893,7 +905,7 @@ namespace granary {
         void *extable_entry(nullptr);
         if(policy.accesses_user_data()
         || might_touch_user_address(ls, start_pc)) {
-            extable_entry = get_extable_entry(ls);
+            extable_entry = find_exception_table_entry(ls);
             touches_user_mem = nullptr != extable_entry;
 
             // We don't un-set the accesses user data policy property, as there
@@ -944,6 +956,10 @@ namespace granary {
             ASSERT(!is_app_address(start_pc));
         }
 #endif
+
+        if((app_pc)0xffffffff8160f610ull == start_pc) {
+            ASM("nop;");
+        }
 
         // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect

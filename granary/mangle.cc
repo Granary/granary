@@ -811,6 +811,10 @@ namespace granary {
         cpu_state_handle cpu;
         granary::enter(cpu);
 
+        ASSERT(is_valid_address(context->target_address.unmangled_address()));
+        ASSERT(is_valid_address(context->return_address_into_patch_tail));
+        ASSERT(is_code_cache_address(context->return_address_into_patch_tail));
+
         // Get an address into the target basic block using two stage lookup.
         app_pc target_pc(
             cpu->code_cache.find(context->target_address.as_address));
@@ -818,8 +822,6 @@ namespace granary {
         if(!target_pc) {
             target_pc = code_cache::find(cpu, context->target_address);
         }
-
-        ASSERT(is_code_cache_address(context->return_address_into_patch_tail));
 
         // Determine the address to patch; this decodes the *tail* of the patch
         // code in the basic block and looks for a CTI (assumed jmp) and takes

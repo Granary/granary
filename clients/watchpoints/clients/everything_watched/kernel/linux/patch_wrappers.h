@@ -15,7 +15,6 @@
 #ifndef  PATCH_WRAPPER_FOR___kmalloc
 #   define PATCH_WRAPPER_FOR___kmalloc
     PATCH_WRAPPER(__kmalloc, (void *), (size_t size, gfp_t gfp), {
-        void *addr = __builtin_return_address(0);
         void *ret(__kmalloc(size, gfp));
         if(is_valid_address(ret)) {
             add_watchpoint(ret);
@@ -37,9 +36,6 @@
 #   define PATCH_WRAPPER_FOR_kmem_cache_alloc
     PATCH_WRAPPER(kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
         cache = unwatched_address_check(cache);
-
-        void *addr = __builtin_return_address(0);
-
         void *ptr(kmem_cache_alloc(cache, gfp));
         if(!ptr) {
             return ptr;

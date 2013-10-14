@@ -373,13 +373,18 @@ static struct kernel_module *find_internal_module(void *vmod) {
         next_link = &(module->next);
     }
 
-    // we don't care about modules that are being unloaded and that we
+    // We don't care about modules that are being unloaded and that we
     // previously didn't know about.
     if(MODULE_STATE_GOING == mod->state) {
         return NULL;
     }
 
     module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
+
+    // Make sure to convert module pointer into an unwatched address, just
+    // in case we're using watchpoints and patch-wrapping kmalloc return
+    // addresses.
+    module = (struct kernel_module *) ((0xFFFFULL << 48) | ((uintptr_t) module));
 
     // Initialise.
     module->is_granary = is_granary;

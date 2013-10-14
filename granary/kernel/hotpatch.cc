@@ -12,6 +12,8 @@
 
 #if CONFIG_INSTRUMENT_PATCH_WRAPPERS
 #   include "granary/code_cache.h"
+#   include "granary/list.h"
+#   include "granary/detach.h"
 #endif
 
 extern "C" {
@@ -36,25 +38,8 @@ namespace granary {
     }
 
 
-    /// Given a function at address `addr` that occupies no more than `len`
-    /// contiguous bytes, copy the instructions directly from `addr` into a
-    /// new buffer of the same size, re-relativize those instructions, and
-    /// return a pointer to the new instructions.
-    app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw() {
-
-        ASSERT(0 < len);
-
-#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
-        /// TODO: Assume that code doesn't jump back to the beginning.
-        cpu_state_handle cpu;
-
-        instrumentation_policy policy(START_POLICY);
-        policy.force_attach(true);
-
-        mangled_address am(addr, policy);
-        return code_cache::find(cpu, am);
-
-#else
+    /// Create a duplicate version of a function.
+    static app_pc duplicate_function(const app_pc addr, int len) throw() {
         app_pc pc(addr);
         const app_pc end_addr(addr + len);
         const int new_len(len + ALIGN_TO(len, 16));
@@ -106,9 +91,118 @@ namespace granary {
         }
 
         return new_addr;
-#endif
     }
 
+
+    /// Create a fully instrumented version of the function in question.
+    static app_pc instrument_function(const app_pc addr, int len) throw() {
+        list<app_pc> process_bbs;
+        list<app_pc> lookup_bbs;
+        list<app_pc>::handle_type next;
+        hash_set<app_pc> seen;
+        instruction in;
+
+        process_bbs.append(addr);
+
+        // Traverse instructions and find all used registers.
+        while(process_bbs.length()) {
+
+            next = process_bbs.pop();
+            app_pc bb(*next);
+
+            if(seen.contains(bb)) {
+                continue;
+            }
+
+            lookup_bbs.append(bb);
+            seen.add(bb);
+
+            for(; bb; ) {
+
+                in.decode_update(&bb);
+
+                // Done processing this basic block.
+                if(dynamorio::OP_ret == in.op_code()
+                || dynamorio::OP_ret_far == in.op_code()
+                || dynamorio::OP_iret == in.op_code()
+                || dynamorio::OP_sysret == in.op_code()
+                || dynamorio::OP_swapgs == in.op_code()) {
+                    break;
+                }
+
+                // Try to follow CTIs.
+                if(in.is_cti()) {
+
+                    // Assume that a CALL leaves the function.
+                    if(in.is_call()) {
+                        continue;
+                    }
+
+                    operand target(in.cti_target());
+
+                    // Indirect JMP, RET, etc.
+                    if(!dynamorio::opnd_is_pc(target)) {
+                        continue;
+                    }
+
+                    // Add the target only if it stays within the current
+                    // function and if we haven't processed it yet.
+                    app_pc target_pc(dynamorio::opnd_get_pc(target));
+                    if(addr <= target_pc
+                    && target_pc < (addr + len)
+                    && !seen.contains(target_pc)) {
+                        process_bbs.append(target_pc);
+                    }
+
+                    // Terminates the basic block.
+                    if(in.is_unconditional_cti()) {
+                        break;
+
+                    // Add the fall-through.
+                    } else {
+                        if(!seen.contains(bb)) {
+                            process_bbs.append(bb);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        cpu_state_handle cpu;
+
+        // Processes the basic blocks in the reverse order in which they were
+        // discovered from within the original procedure. The hope is that
+        // reverse order will be close to a post-order traversal, and that
+        // the majority of jumps will be resolvable at translation time.
+        while(lookup_bbs.length()) {
+            next = lookup_bbs.pop();
+            app_pc bb(*next);
+            mangled_address am(bb, START_POLICY);
+            cpu.free_transient_allocators();
+            code_cache::find(cpu, am);
+        }
+
+        cpu.free_transient_allocators();
+        mangled_address am(addr, START_POLICY);
+        return code_cache::find(cpu, am);
+    }
+
+
+    /// Given a function at address `addr` that occupies no more than `len`
+    /// contiguous bytes, copy the instructions directly from `addr` into a
+    /// new buffer of the same size, re-relativize those instructions, and
+    /// return a pointer to the new instructions.
+    app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw() {
+        ASSERT(0 < len);
+
+#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
+        if(reinterpret_cast<app_pc>(DETACH_ADDR_search_exception_tables) != addr) {
+            return instrument_function(addr, len);
+        }
+#endif
+        return duplicate_function(addr, len);
+    }
 
     /// Prepare to redirect a function.
     void prepare_redirect_function(app_pc old_address) throw() {
@@ -123,8 +217,9 @@ namespace granary {
 
         uint64_t buff(0);
         uint8_t *buff_ptr(unsafe_cast<uint8_t *>(&buff));
-        instruction in(jmp_(pc_(new_address)));
-        in.stage_encode(buff_ptr, old_address);
+
+        buff_ptr = jmp_(pc_(new_address)).stage_encode(buff_ptr, old_address);
+        int3_().stage_encode(buff_ptr, old_address);
 
         volatile uint64_t *hotpatch_target(unsafe_cast<uint64_t *>(old_address));
         *hotpatch_target = buff;

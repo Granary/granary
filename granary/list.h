@@ -346,6 +346,13 @@ namespace granary {
             return handle_type(last_);
         }
 
+        /// Pop the last element off the list.
+        inline handle_type pop(void) throw() {
+            handle_type ret = last();
+            remove(ret);
+            return ret;
+        }
+
         inline handle_type insert_before(handle_type pos, T val) throw() {
             return insert_before(pos.handle, val);
         }

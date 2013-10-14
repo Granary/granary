@@ -9,6 +9,7 @@
 
 #include "granary/detach.h"
 #include "granary/utils.h"
+#include "granary/state.h"
 #include "granary/cpu_code_cache.h"
 
 #if !GRANARY_IN_KERNEL
@@ -153,6 +154,7 @@ namespace granary {
 
         app_pc redirect_addr(nullptr);
         if(DETACH_HASH_TABLE[context]->load(detach_addr, redirect_addr)) {
+            ASSERT(unsafe_cast<app_pc>(&granary_fault) != redirect_addr);
             return redirect_addr;
         }
 
@@ -166,7 +168,10 @@ namespace granary {
     }
 
 
-    GRANARY_DETACH_POINT(detach)
+    GRANARY_DETACH_POINT(detach);
+    GRANARY_DETACH_POINT_ERROR(enter);
+    GRANARY_DETACH_POINT_ERROR(granary_fault);
+    GRANARY_DETACH_POINT_ERROR(granary_break_on_fault);
 
 #if GRANARY_IN_KERNEL
     extern "C" {

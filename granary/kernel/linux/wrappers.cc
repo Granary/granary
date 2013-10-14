@@ -14,7 +14,7 @@
 /// their functions are executed. This is here because there are ways to get
 /// work structs registered through macros/inline functions, thus bypassing
 /// wrapping.
-#if defined(DETACH_ADDR_process_one_work)
+#if defined(DETACH_ADDR_process_one_work) && CONFIG_ENABLE_WRAPPERS
     PATCH_WRAPPER_VOID(process_one_work, (struct worker *worker, struct work_struct *work), {
         PRE_OUT_WRAP(work);
         process_one_work(worker, work);

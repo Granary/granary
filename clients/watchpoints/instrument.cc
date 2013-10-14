@@ -297,9 +297,12 @@ namespace client { namespace wp {
                 }
 
                 // Might be a signal that a second register should be spilled.
+                USED(in);
                 if(dynamorio::instr_get_eflags(prev_in) & EFLAGS_READ_CF) {
+                    USED(in);
                     reads_carry_flag = true;
                 }
+                USED(in);
 
                 num_memory_ops += tracker.num_ops;
                 live_regs.visit(prev_in);

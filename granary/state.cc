@@ -13,12 +13,23 @@ namespace granary {
 
     /// Notify that we're entering granary.
     void enter(cpu_state_handle cpu) throw() {
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
+        IF_TEST( cpu->in_granary = true; )
     }
 
 
     /// Free up transient CPU state.
     void cpu_state_handle::free_transient_allocators(void) throw() {
+
+        // The typical model for Granary is to free all transiently allocated
+        // state on "entry" to Granary. We consider Granary entrypoints to only
+        // happen after Granary has been initialised. This function is often
+        // useful during Granary's initialisation as it allows us to deallocate
+        // in bulk. After initialisation, we only want one such deallocation
+        // per entry into Granary, because more indicates a misuse.
+        ASSERT(!state->in_granary);
+
         state->transient_allocator.free_all();
         state->instruction_allocator.free_all();
     }

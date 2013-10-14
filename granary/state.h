@@ -212,6 +212,11 @@ namespace granary {
         IF_USER( thread_state thread_data; )
 
 
+        /// Whether or not we're in granary. This is used to detect issues of
+        /// invoking `free_transient_allocators` in unexpected places.
+        IF_TEST( bool in_granary; )
+
+
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::small_allocator_config>
             small_allocator;

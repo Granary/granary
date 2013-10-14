@@ -50,8 +50,10 @@ namespace granary {
 
                 // Done processing this basic block.
                 if(dynamorio::OP_ret == in.op_code()
+                || dynamorio::OP_ret_far == in.op_code()
                 || dynamorio::OP_iret == in.op_code()
-                || dynamorio::OP_sysret == in.op_code()) {
+                || dynamorio::OP_sysret == in.op_code()
+                || dynamorio::OP_swapgs == in.op_code()) {
                     break;
                 }
 
@@ -71,7 +73,7 @@ namespace granary {
                     }
 
                     app_pc target_pc(dynamorio::opnd_get_pc(target));
-                    if(!seen.contains(bb)) {
+                    if(!seen.contains(target_pc)) {
                         process_bbs.append(target_pc);
                     }
 
