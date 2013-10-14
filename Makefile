@@ -232,6 +232,7 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_mov.o
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_cmp.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_xlat.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_arithmetic.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_string.o

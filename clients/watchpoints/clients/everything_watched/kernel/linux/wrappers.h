@@ -6,14 +6,12 @@
  *      Author: Peter Goodman
  */
 
-#ifndef WATCHPOINT_WATCHED_WRAPPERS_H_
-#define WATCHPOINT_WATCHED_WRAPPERS_H_
+#ifndef EVERYTHING_WATCHED_WRAPPERS_H_
+#define EVERYTHING_WATCHED_WRAPPERS_H_
 
 
 #include "clients/watchpoints/clients/everything_watched/instrument.h"
 
-#if WP_USE_PATCH_WRAPPER
-#include "clients/watchpoints/clients/everything_watched/kernel/linux/patch_wrapper.h"
 
 using namespace client::wp;
 
@@ -108,7 +106,7 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kfree) && CAN_WRAP_kfree
 #   define APP_WRAPPER_FOR_kfree
     FUNCTION_WRAPPER_VOID(APP, kfree, (const void *ptr), {
-        return kfree(unwatched_address_check(ptr));
+        kfree(unwatched_address_check(ptr));
     })
 #endif
 
@@ -116,7 +114,7 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kzfree) && CAN_WRAP_kzfree
 #   define APP_WRAPPER_FOR_kzfree
     FUNCTION_WRAPPER_VOID(APP, kzfree, (const void *ptr), {
-        return kzfree(unwatched_address_check(ptr));
+        kzfree(unwatched_address_check(ptr));
     })
 #endif
 
@@ -287,4 +285,4 @@ namespace client { namespace wp {
 #endif
 
 
-#endif /* WATCHPOINT_WATCHED_WRAPPERS_H_ */
+#endif /* EVERYTHING_WATCHED_WRAPPERS_H_ */

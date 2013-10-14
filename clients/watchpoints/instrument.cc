@@ -154,6 +154,7 @@ namespace client { namespace wp {
             case dynamorio::OP_sar:
             case dynamorio::OP_shr:
             case dynamorio::OP_shl:
+            case dynamorio::OP_cmp:
                 tracker.can_replace[tracker.num_ops] = true;
                 break;
             default:
@@ -636,6 +637,58 @@ namespace client { namespace wp {
     }
 
 
+#if CONFIG_ENABLE_ASSERTIONS
+    static void record_source_regs(
+        const operand_ref &op,
+        register_manager &mem_regs,
+        register_manager &reg_regs
+    ) throw() {
+        if(SOURCE_OPERAND != op.kind) {
+            return;
+        }
+        if(dynamorio::REG_kind == op->kind) {
+            reg_regs.kill(op->value.reg);
+        } else if(dynamorio::BASE_DISP_kind == op->kind) {
+            mem_regs.kill(op->value.base_disp.base_reg);
+            mem_regs.kill(op->value.base_disp.index_reg);
+        }
+    }
+
+
+    /// Here we're looking for a bad case where we can show that we definitely
+    /// need to change an operand but our heuristic doesn't allow us. An example
+    /// case is that our heuristic for operand replacement doesn't determine
+    /// that `CMP %rbx, (%rbx)` can have its memory operand changed, and so
+    /// that instruction will be incorrectly translated to potentially compare
+    /// an unwatched `%rbx` to a watched version of `%rbx` stored in memory.
+    static bool must_change_regs_but_cant(instruction in) throw() {
+
+        register_manager mem_regs;
+        register_manager reg_regs;
+
+        if(dynamorio::OP_ins <= in.op_code()
+        && dynamorio::OP_repne_scas >= in.op_code()) {
+            return false;
+        }
+
+        mem_regs.revive_all();
+        reg_regs.revive_all();
+        in.for_each_operand(record_source_regs, mem_regs, reg_regs);
+
+        for(dynamorio::reg_id_t reg(mem_regs.get_zombie());
+            dynamorio::DR_REG_NULL != reg;
+            reg = mem_regs.get_zombie()) {
+
+            if(reg_regs.is_dead(reg)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+#endif
+
+
     /// Replace/update operands around the memory instruction. This will
     /// update the `labels` field of the `operand_tracker` with labels in
     /// instruction stream so that a `Watcher` can inject its own specific
@@ -688,6 +741,9 @@ namespace client { namespace wp {
             const operand original_op(*op);
             const bool can_change(can_replace[i]);
             bool addr_reg_was_spilled(false);
+
+            // Make sure we're not walking into a trap!
+            ASSERT(can_change || !must_change_regs_but_cant(in));
 
             // Try to figure out if this operand is a base/disp type that is
             // "simple", i.e. `(R)`, or `(,R,1)`. This is used for later

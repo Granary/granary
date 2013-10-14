@@ -10,6 +10,9 @@
 #include "granary/state.h"
 #include "granary/instruction.h"
 
+#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
+#   include "granary/code_cache.h"
+#endif
 
 extern "C" {
     void kernel_make_memory_writeable(void *addr);
@@ -41,6 +44,17 @@ namespace granary {
 
         ASSERT(0 < len);
 
+#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
+        /// TODO: Assume that code doesn't jump back to the beginning.
+        cpu_state_handle cpu;
+
+        instrumentation_policy policy(START_POLICY);
+        policy.force_attach(true);
+
+        mangled_address am(addr, policy);
+        return code_cache::find(cpu, am);
+
+#else
         app_pc pc(addr);
         const app_pc end_addr(addr + len);
         const int new_len(len + ALIGN_TO(len, 16));
@@ -92,6 +106,7 @@ namespace granary {
         }
 
         return new_addr;
+#endif
     }
 
 

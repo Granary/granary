@@ -1130,6 +1130,7 @@ namespace granary {
         struct type_wrapper<type_name> : public type_wrapper<aliased_type_name> { }; \
     }
 
+#if CONFIG_ENABLE_WRAPPERS
 
 #define FUNCTION_WRAPPER_DETACH(context, function_name) \
     namespace granary { \
@@ -1208,6 +1209,12 @@ namespace granary {
             } \
         }; \
     }
+
+#else /* !CONFIG_ENABLE_WRAPPERS */
+#   define FUNCTION_WRAPPER_DETACH(context, function_name)
+#   define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code)
+#   define FUNCTION_WRAPPER_VOID(context, function_name, arg_list, wrapper_code)
+#endif /* CONFIG_ENABLE_WRAPPERS */
 
 #if GRANARY_IN_KERNEL
 #   define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \

@@ -21,53 +21,53 @@
 /// Prototypes of exported symbols.
 #include "granary/detach.h"
 
-#if CONFIG_ENABLE_WRAPPERS
 
 /// Wrapper templates.
-#   include "granary/wrapper.h"
+#include "granary/wrapper.h"
+
 
 /// Needed for C-style variadic functions.
-#   include <cstdarg>
+#include <cstdarg>
 
 
 /// Wrappers (potentially auto-generated) that are specialized to specific
 /// functions (by means of IDs) or to types, all contained in types.h.
-#   if defined(__clang__)
-#       pragma clang diagnostic push
-#       pragma clang diagnostic ignored "-Wshadow"
-#       pragma clang diagnostic ignored "-Wunused-variable"
-#       pragma clang diagnostic ignored "-Wunused-parameter"
-#   elif defined(GCC_VERSION) || defined(__GNUC__)
-#       pragma GCC diagnostic push
-#       pragma GCC diagnostic ignored "-Wshadow"
-#       pragma GCC diagnostic ignored "-Wunused-variable"
-#       pragma GCC diagnostic ignored "-Wunused-parameter"
-#   else
-#       error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
-#   endif
-
-
-/// Order of wrapper inclusion allows clients to take precedence over context,
-/// and context to take precedence over auto-generated.
-#   if GRANARY_IN_KERNEL
-#       include "clients/kernel/linux/wrappers.h"
-#if CONFIG_ENABLE_MODULE_WRAPPERS
-#       include "granary/kernel/linux/wrappers.h"
-#       include "granary/gen/kernel_wrappers.h"
+#if defined(__clang__)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wshadow"
+#   pragma clang diagnostic ignored "-Wunused-variable"
+#   pragma clang diagnostic ignored "-Wunused-parameter"
+#elif defined(GCC_VERSION) || defined(__GNUC__)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wshadow"
+#   pragma GCC diagnostic ignored "-Wunused-variable"
+#   pragma GCC diagnostic ignored "-Wunused-parameter"
+#else
+#   error "Can't disable compiler warnings around `(user/kernel)_types.h` include."
 #endif
-#   else
-#       include "clients/user/posix/wrappers.h"
-#       include "granary/user/posix/wrappers.h"
-#       include "granary/gen/user_wrappers.h"
-#   endif
-#   include "granary/wrappers.h"
 
 
-#   if defined(__clang__)
-#       pragma clang diagnostic pop
-#   elif defined(GCC_VERSION) || defined(__GNUC__)
-#       pragma GCC diagnostic pop
-#   endif
+/// Order of wrapper inclusion allows clients to take precedence over app/host,
+/// and app/host to take precedence over auto-generated.
+#if GRANARY_IN_KERNEL
+#   include "clients/kernel/linux/wrappers.h"
+#   include "granary/kernel/linux/wrappers.h"
+#   include "granary/gen/kernel_wrappers.h"
+#else
+#   include "clients/user/posix/wrappers.h"
+#   include "granary/user/posix/wrappers.h"
+#   include "granary/gen/user_wrappers.h"
+#endif
+#include "granary/wrappers.h"
+
+
+#if defined(__clang__)
+#   pragma clang diagnostic pop
+#elif defined(GCC_VERSION) || defined(__GNUC__)
+#   pragma GCC diagnostic pop
+#endif
+
+#if CONFIG_ENABLE_WRAPPERS
 
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specialisations from
@@ -75,8 +75,8 @@
 namespace granary {
 
     function_wrapper FUNCTION_WRAPPERS[] = {
-#if CONFIG_ENABLE_MODULE_WRAPPERS
-    // first, generate detach entries for wrappers
+
+    // First, generate detach entries for wrappers.
 #   define WRAP_FOR_DETACH(func) \
     {   (uintptr_t) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
         (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \
@@ -93,8 +93,8 @@ namespace granary {
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
 #   undef TYPED_DETACH
-#endif
-    // now, generate detach entries for dynamic symbols which must be
+
+    // Now, generate detach entries for dynamic symbols which must be
     // looked up using dlsym.
 #   define WRAP_FOR_DETACH(func)
 #   define DETACH(func)  \

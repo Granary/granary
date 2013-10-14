@@ -125,6 +125,10 @@ namespace granary {
         ASSERT(pc_);
 
 #if CONFIG_ENABLE_ASSERTIONS
+        if(dynamorio::OP_int3 == op_code()) {
+            granary_do_break_on_translate = true;
+        }
+
         if(is_patchable()) {
             ASSERT(0 == (reinterpret_cast<uintptr_t>(pc_) % 8));
         }

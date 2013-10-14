@@ -32,13 +32,16 @@
 #   define GRANARY_IN_KERNEL 1
 #endif
 
+
 #ifndef GRANARY_USE_PIC
 #   define GRANARY_USE_PIC 0
 #endif
 
+
 #ifndef GRANARY_WHOLE_KERNEL
 #   define GRANARY_WHOLE_KERNEL 0
 #endif
+
 
 /// Should Granary interpose on any interrupts? If this is disabled then any
 /// faults caused by the kernel invoking unwrapped module code will not be
@@ -162,17 +165,20 @@
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
 #if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_WRAPPERS 0
+#   define CONFIG_ENABLE_WRAPPERS (!CONFIG_INSTRUMENT_HOST)
 #else
 #   define CONFIG_ENABLE_WRAPPERS 1 // can't change; not re-entrant with malloc.
 #endif
 
-#define CONFIG_ENABLE_MODULE_WRAPPERS 0
 
-/// Enable patch wrappers. If patch wrappers are enabled, then Granary will automatically
-/// find out the kernel functions and patche them with the wrapper function atomically
-
-#define CONFIG_ENABLE_PATCH_WRAPPERS 1
+/// If we're using patch wrappers, the this will tell us whether or not we
+/// should instrument the actual patch wrapper code, or just copy it whole-sale.
+///
+/// This is type of option comes up with full-kernel instrumentation and
+/// watchpoints, where we might patch-wrap some code to wrap it, but at the
+/// same time, it might try to de-reference watched memory, so we want to
+/// make sure it doesn't fault.
+#define CONFIG_INSTRUMENT_PATCH_WRAPPERS CONFIG_INSTRUMENT_HOST
 
 
 /// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and

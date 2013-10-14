@@ -25,15 +25,17 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/leak_detector/kernel/wrappers.h"
 #endif
 
+
 /// Leak detector watchpoint policy wrappers.
 #ifdef CLIENT_WATCHPOINT_PROFILE
 #   include "clients/watchpoints/clients/profiler/kernel/wrappers.h"
 #endif
 
 
-/// Null policy that taints addresses.
+/// Null policy that taints all addresses.
 #ifdef CLIENT_WATCHPOINT_WATCHED
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
+#   include "clients/watchpoints/clients/everything_watched/kernel/linux/patch_wrappers.h"
 #endif
 
 
@@ -42,10 +44,14 @@ using namespace client::wp;
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
 #endif
 
+
+/// Shadow memory watchpoints tool.
 #ifdef CLIENT_SHADOW_MEMORY
 #   include "clients/watchpoints/clients/shadow_memory/kernel/linux/wrappers.h"
 #endif
 
+
+/// RCU Debugging watchpoints tool.
 #ifdef CLIENT_RCUDBG
 #   include "clients/watchpoints/clients/rcudbg/kernel/linux/wrappers.h"
 #endif
