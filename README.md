@@ -8,7 +8,7 @@ Granary's three key novelties are:
   1. Mixed-mode execution. Granary is able to quickly "attach" and "detach" instrumentation.
      Under normal operation, Granary controls and instruments the execution of module code,
      while leaving the kernel to execute natively.
-  2. Policy-driven instrumentation. Granary is able to runtime code specialisation by allowing
+  2. Policy-driven instrumentation. Granary is able to do runtime code specialisation by allowing
      tool authors to explicitly recognize different execution contexts, and associate different
      instrumentation to code running in those contexts using "instrumentation policies". Policy-
      driven instrumentation lets Granary do things like instrument the code running inside an

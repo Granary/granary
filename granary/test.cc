@@ -111,6 +111,7 @@ namespace granary {
             if(test->func) {
                 IF_KERNEL( eflags flags = granary_disable_interrupts(); )
                 cpu_state_handle cpu;
+                IF_TEST( cpu->in_granary = false; )
                 cpu.free_transient_allocators();
                 printf("Running test '%s'\n", test->desc);
                 test->func();
