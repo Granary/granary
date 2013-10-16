@@ -23,10 +23,10 @@
 
 /// Enable if %RBP should be treated as a frame pointer and not as a potential
 /// watched address. The upside of this is that it's likely that more code
-/// (especially leaf functions) will behave correctly. The downside is that
+/// (especially leaf functions) will behave correctly. The down-side is that
 /// a lot of code will have extra, potentially unneeded instrumentation,
 /// especially where frame pointers are concerned.
-#define WP_IGNORE_FRAME_POINTER 0
+#define WP_IGNORE_FRAME_POINTER 1
 
 
 /// Check for user space addresses. This adds an extra two instructions to

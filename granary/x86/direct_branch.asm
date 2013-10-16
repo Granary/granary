@@ -6,6 +6,9 @@
 
 START_FILE
 
+    .extern SYMBOL(granary_enter_private_stack)
+    .extern SYMBOL(granary_exit_private_stack)
+
 /// Defines a "template" for direct branches. This template is decoded and re-
 /// encoded so as to generate many different direct branch stubs (one for each
 /// direct jump instruction and policy).

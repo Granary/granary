@@ -8,6 +8,9 @@
 #include "granary/globals.h"
 #include "granary/code_cache.h"
 
+#include "granary/x86/asm_defines.asm"
+#include "granary/x86/asm_helpers.asm"
+
 #include "clients/init.h"
 
 namespace granary {
@@ -82,9 +85,9 @@ namespace granary {
 
             ASM(
                 "movq %0, %%rdi;"
-                "callq granary_enter_private_stack;"
-                "callq granary_do_init_on_private_stack;"
-                "callq granary_exit_private_stack;"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_enter_private_stack)) ";"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_do_init_on_private_stack)) ";"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_exit_private_stack)) ";"
                 :
                 : "m"(init)
                 : "%rdi"
@@ -129,9 +132,9 @@ namespace granary {
 
             ASM(
                 "movq %0, %%rdi;"
-                "callq granary_enter_private_stack;"
-                "callq granary_do_init_on_private_stack;"
-                "callq granary_exit_private_stack;"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_enter_private_stack)) ";"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_do_init_on_private_stack)) ";"
+                "callq " TO_STRING(SHARED_SYMBOL(granary_exit_private_stack)) ";"
                 :
                 : "m"(init)
                 : "%rdi"

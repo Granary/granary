@@ -9,6 +9,7 @@
 
 #include "granary/test.h"
 #include "granary/register.h"
+#include "granary/x86/asm_helpers.asm"
 
 extern "C" {
 
@@ -130,9 +131,9 @@ namespace granary {
 
                 ASM(
                     "movq %0, %%rdi;"
-                    "callq granary_enter_private_stack;"
-                    "callq granary_do_test_on_private_stack;"
-                    "callq granary_exit_private_stack;"
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_enter_private_stack)) ";"
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_do_test_on_private_stack)) ";"
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_exit_private_stack)) ";"
                     :
                     : "m"(test)
                     : "%rdi"

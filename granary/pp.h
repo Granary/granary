@@ -267,7 +267,8 @@
     macro(jmp_far_ind, 12, ##__VA_ARGS__) \
     macro(jecxz, 6, ##__VA_ARGS__)
 
-#define TO_STRING_(x) #x
+#define TO_STRING__(x) #x
+#define TO_STRING_(x) TO_STRING__(x)
 #define TO_STRING(x) TO_STRING_(x)
 
 
