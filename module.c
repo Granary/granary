@@ -162,8 +162,8 @@ void kernel_run_synchronised(void (*func)(void)) {
 /// when interrupts are disabled.
 __attribute__((hot))
 void kernel_preempt_disable(void) {
-    inc_preempt_count();
-    barrier();
+    //inc_preempt_count();
+    //barrier();
 }
 
 
@@ -173,8 +173,8 @@ void kernel_preempt_disable(void) {
 /// the pre-emption state) until it re-enabled interrupts.
 __attribute__((hot))
 void kernel_preempt_enable(void) {
-    barrier();
-    dec_preempt_count();
+    //barrier();
+    //dec_preempt_count();
 }
 
 
@@ -285,6 +285,7 @@ int is_app_address(uintptr_t addr) {
 }
 
 
+/// Helper function for setting the page permissions of some pages.
 static void set_page_perms(
     int (*set_memory_)(unsigned long, int),
     void *begin,
@@ -347,9 +348,14 @@ void kernel_make_page_read_only(void *addr) {
 }
 
 
-/// Mark a page as being executable.
+/// Mark a page as being executable. Add PAGE_SIZE here so it will likely cover
+/// two adjacent pages.
 void kernel_make_page_executable(void *addr) {
-    set_page_perms(set_memory_x, addr, (void *) (((uintptr_t) addr) + PAGE_SIZE));
+    set_page_perms(
+        set_memory_x,
+        addr,
+        (void *) (((uintptr_t) addr) + PAGE_SIZE)
+    );
 }
 
 
@@ -639,8 +645,8 @@ static struct dentry *create_relay_file_handler(
     int *is_global
 ) {
     struct dentry *buf_file;
-    buf_file = debugfs_create_file(filename, mode, parent, buf,
-    &relay_file_operations);
+    buf_file = debugfs_create_file(
+        filename, mode, parent, buf, &relay_file_operations);
     *is_global = 1;
     return buf_file;
 }

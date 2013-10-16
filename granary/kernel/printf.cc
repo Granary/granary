@@ -10,7 +10,7 @@
 #include "granary/kernel/printf.h"
 #include "granary/types.h"
 
-#define LOG 1
+#define LOG 0
 
 namespace granary {
 #if LOG

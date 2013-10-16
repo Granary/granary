@@ -104,17 +104,40 @@ namespace granary {
     }
 
 
+    extern "C" {
+
+        void granary_do_test_on_private_stack(static_test_list *test) {
+            test->func();
+        }
+
+
+        extern void granary_enter_private_stack(void);
+        extern void granary_exit_private_stack(void);
+    }
+
+
     void run_tests(void) throw() {
 
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {
             if(test->func) {
+                printf("Running test '%s'\n", test->desc);
+
                 IF_KERNEL( eflags flags = granary_disable_interrupts(); )
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
                 cpu.free_transient_allocators();
-                printf("Running test '%s'\n", test->desc);
-                test->func();
+
+                ASM(
+                    "movq %0, %%rdi;"
+                    "callq granary_enter_private_stack;"
+                    "callq granary_do_test_on_private_stack;"
+                    "callq granary_exit_private_stack;"
+                    :
+                    : "m"(test)
+                    : "%rdi"
+                );
+
                 IF_KERNEL( granary_store_flags(flags); )
             }
         }

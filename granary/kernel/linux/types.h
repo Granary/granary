@@ -262,6 +262,10 @@ bool __rcu_reclaim(char *rn, struct rcu_head *head);
 #include <linux/rcupdate.h>
 #include <linux/rcutree.h>
 
+#if KERNEL_VERSION(3,7,0) <= LINUX_VERSION_CODE
+#   include <linux/netfilter/nf_conntrack_common.h>
+#endif
+
 /* Granary-specific linux kernel file! */
 #ifdef GRANARY_KERNEL_ANNOTATIONS
 #   include <linux/granary.h>

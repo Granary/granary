@@ -515,7 +515,11 @@ else
 	GR_CC_FLAGS += $(GR_COMMON_KERNEL_FLAGS) -S
 	GR_CXX_FLAGS += $(GR_COMMON_KERNEL_FLAGS) -S
 	
-	GR_TYPE_INCLUDE = -I$(SOURCE_DIR)/ -isystem $(KERNEL_DIR)/include
+	GR_TYPE_INCLUDE = -I$(SOURCE_DIR)/ 
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/include
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/include/uapi
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/include/generated
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/include/generated/uapi
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include/generated 
 	

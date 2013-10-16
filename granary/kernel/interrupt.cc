@@ -546,10 +546,6 @@ namespace granary {
             granary_break_on_nested_interrupt(isf, vector, cpu);
         }
 
-        // Linux specific; always re-initialise this just in case.
-        cpu->last_exception_instruction_pointer = nullptr;
-        cpu->last_exception_table_entry = nullptr;
-
         app_pc pc(isf->instruction_pointer);
 
         IF_PERF( perf::visit_interrupt(); )

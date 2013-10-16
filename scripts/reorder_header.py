@@ -184,6 +184,24 @@ def should_include_unit(unit_decls, unit_toks, is_typedef):
     if name and not isinstance(ctype.base_type(), CTypeFunction):
       return False
 
+    # Try not to include forward definitions of enums.
+    base_ctype = ctype.base_type()
+    if not isinstance(base_ctype, CTypeEnum):
+      continue
+
+    #if base_ctype.original_name == "ip_conntrack_infoip_conntrack_info":
+    #  print unit_toks
+    #  exit(ip_conntrack_infoip_conntrack_info)
+
+    is_forward_decl = True
+    for tok in unit_toks:
+      if "{" == tok.str:
+        is_forward_decl = False
+        break
+
+    if is_forward_decl:
+      return False
+
   return True
 
 

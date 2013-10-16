@@ -28,7 +28,7 @@ set-user-detect
 
 # Kernel setup
 if !$in_user_space
-  file ~/Code/linux-3.9.7/vmlinux
+  file ~/Code/linux/vmlinux
   target remote : 9999
   source ~/Code/Granary/granary.syms
 end
@@ -44,10 +44,10 @@ b granary_break_on_curiosity
 
 # Kernel breakpoints
 if !$in_user_space
-  b granary_break_on_interrupt
+  #b granary_break_on_interrupt
   b granary_break_on_nested_interrupt
-  #b granary_break_on_nested_task
-  #b granary_break_on_gs_zero
+  b granary_break_on_nested_task
+  b granary_break_on_gs_zero
   b panic
   b show_fault_oops
   b do_invalid_op
@@ -56,6 +56,7 @@ if !$in_user_space
   b __stack_chk_fail
   b do_spurious_interrupt_bug
   b report_bug
+  #b kernel/hung_task.c:101
 end
 
 

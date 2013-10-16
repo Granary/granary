@@ -49,7 +49,19 @@ namespace granary {
 
         STATIC_INIT_LIST_SYNC_TAIL = &entry;
     }
-#endif
+#endif /* GRANARY_IN_KERNEL */
+
+
+    extern "C" {
+
+        void granary_do_init_on_private_stack(static_init_list *init) {
+            init->exec();
+        }
+
+
+        extern void granary_enter_private_stack(void);
+        extern void granary_exit_private_stack(void);
+    }
 
 
     /// Initialise granary.
@@ -60,15 +72,25 @@ namespace granary {
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
         for(; init; init = init->next) {
-            if(init->exec) {
-                IF_KERNEL( eflags flags = granary_disable_interrupts(); )
-
-                cpu_state_handle cpu;
-                cpu.free_transient_allocators();
-
-                init->exec();
-                IF_KERNEL( granary_store_flags(flags); )
+            if(!init->exec) {
+                continue;
             }
+
+            IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+            cpu_state_handle cpu;
+            cpu.free_transient_allocators();
+
+            ASM(
+                "movq %0, %%rdi;"
+                "callq granary_enter_private_stack;"
+                "callq granary_do_init_on_private_stack;"
+                "callq granary_exit_private_stack;"
+                :
+                : "m"(init)
+                : "%rdi"
+            );
+
+            IF_KERNEL( granary_store_flags(flags); )
         }
 
         IF_KERNEL( cpu_state::init_late(); )
@@ -94,17 +116,28 @@ namespace granary {
         static_init_list *init(STATIC_INIT_LIST_SYNC_HEAD.next);
 
         for(; init; init = init->next) {
-            if(init->exec) {
-
-                // Free up temporary resources before executing a CPU-specific
-                // Thing.
-                IF_KERNEL( eflags flags = granary_disable_interrupts(); )
-                cpu_state_handle cpu;
-                cpu->in_granary = false;
-                cpu.free_transient_allocators();
-                init->exec();
-                IF_KERNEL( granary_store_flags(flags); )
+            if(!init->exec) {
+                continue;
             }
+
+            // Free up temporary resources before executing a CPU-specific
+            // Thing.
+            IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+            cpu_state_handle cpu;
+            cpu->in_granary = false;
+            cpu.free_transient_allocators();
+
+            ASM(
+                "movq %0, %%rdi;"
+                "callq granary_enter_private_stack;"
+                "callq granary_do_init_on_private_stack;"
+                "callq granary_exit_private_stack;"
+                :
+                : "m"(init)
+                : "%rdi"
+            );
+
+            IF_KERNEL( granary_store_flags(flags); )
         }
     }
 #endif /* GRANARY_IN_KERNEL */

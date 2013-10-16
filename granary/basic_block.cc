@@ -608,10 +608,12 @@ namespace granary {
 #   endif
 
         enum {
-            DATA32_XCHG_AX_AX = 0x906666U
+            DATA32_XCHG_AX_AX = 0x906666U,
+            DATA32_DATA32_XCHG_AX_AX = 0x90666666U
         };
 
         const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
+        const unsigned data32_data32_xchg_ax_ax(DATA32_DATA32_XCHG_AX_AX);
 
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             const app_pc bytes(in.pc_or_raw_bytes());
@@ -624,10 +626,18 @@ namespace granary {
                 return true;
             }
 
-            if(nullptr != bytes
-            && 3 == in.encoded_size()
-            && 0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
-                return true;
+            if(nullptr == bytes) {
+                continue;
+            }
+
+            if(3 == in.encoded_size()) {
+                if(0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
+                    return true;
+                }
+            } else if(4 == in.encoded_size()) {
+                if(0 == memcmp(bytes, &data32_data32_xchg_ax_ax, 4)) {
+                    return true;
+                }
             }
         }
 
@@ -956,10 +966,6 @@ namespace granary {
             ASSERT(!is_app_address(start_pc));
         }
 #endif
-
-        if((app_pc)0xffffffff8160f610ull == start_pc) {
-            ASM("nop;");
-        }
 
         // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect

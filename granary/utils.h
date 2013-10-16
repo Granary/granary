@@ -108,8 +108,12 @@ namespace granary {
 
 
 #if GRANARY_IN_KERNEL
+
+    /// Returns true if the 47th bit is 1. This is also a good distinguisher
+    /// between user and kernel addresses, and user space addresses will appear
+    /// invalid.
     FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
-        return 0 != (addr & 0x0000800000000000ULL); // && (addr >> 48) != 0xdead;
+        return 0 != (addr & 0x0000800000000000ULL);
     }
 
 
