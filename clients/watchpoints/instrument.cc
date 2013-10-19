@@ -378,8 +378,7 @@ namespace client { namespace wp {
             const operand dead_reg(tracker.spill_regs.get_zombie());
 
             // Don't need to protect from the userspace redzone on a push.
-            ret = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
-            ret.set_pc(in.pc());
+            ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
             ls.insert_before(in, push_(dead_reg));
             ret = ls.insert_before(in, mov_ld_(dead_reg, op));
             ls.insert_before(in, mov_st_(reg::rsp[8], dead_reg));
@@ -542,7 +541,6 @@ namespace client { namespace wp {
         } // end switch
 
         if(mangled) {
-            ret.set_pc(in.pc());
             in = ret;
         }
 

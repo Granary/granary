@@ -90,6 +90,17 @@ namespace granary {
         ) throw();
 
 
+        /// Look-up an entry in the code cache. This will not do translation.
+        ///
+        /// Note: This must be invoked with interrupts disabled (if called
+        ///       from kernel space).
+        ///
+        /// Note: This is a sister function of `code_cache::add`, where together
+        ///       one can directly add and find entries in the global code
+        ///       cache.
+        static app_pc lookup(app_pc) throw();
+
+
         /// Force add an entry into the code cache.
         static void add(app_pc, app_pc) throw();
     };

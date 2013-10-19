@@ -717,8 +717,10 @@ namespace granary {
         /// The encoded size of the instruction list.
         unsigned encoded_size(void) throw();
 
-        /// encodes an instruction list into a sequence of bytes
-        app_pc encode(app_pc pc) throw();
+        /// Encodes an instruction list into a sequence of bytes. The user of
+        /// this API is required to know in advance the exact size of the
+        /// instruction list, so that a good allocation discipline is followed.
+        app_pc encode(app_pc pc, unsigned exact_size) throw();
 
         /// Performs a staged encoding of an instruction list into a sequence
         /// of bytes.

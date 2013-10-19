@@ -66,7 +66,10 @@ namespace granary {
 
             // Alignment within the slab for the first allocated
             // memory
-            FIRST_ALLOCATION_ALIGN = IS_EXECUTABLE ? PAGE_SIZE : 16
+            FIRST_ALLOCATION_ALIGN = IS_EXECUTABLE ? PAGE_SIZE : 16,
+
+            // Value to default-initialize the memory with.
+            MEMSET_VALUE = IS_EXECUTABLE ? 0xCC : 0
         };
 
 
@@ -90,11 +93,14 @@ namespace granary {
 
 
         /// Lock used to serialise allocations.
-        opt_atomic<bool, IS_SHARED> lock;
+        opt_atomic<bool, IF_TEST_ELSE(true, IS_SHARED)> lock;
 
 
         /// The size of the last allocation.
         unsigned last_allocation_size;
+
+        /// The last person who allocated.
+        IF_TEST( const void *last_allocator; )
 
 #if CONFIG_PRECISE_ALLOCATE
         void *staged_addr;
@@ -103,17 +109,33 @@ namespace granary {
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
+#if CONFIG_ENABLE_ASSERTIONS
+            if(IS_SHARED) {
+                while(lock.load() || lock.exchange(true)) { }
+            } else {
+                ASSERT(!lock.exchange(true));
+            }
+#else
             if(IS_SHARED) {
                 while(lock.load() || lock.exchange(true)) { }
             }
+#endif
         }
 
 
         /// Release the lock on the allocator.
         inline void release(void) throw() {
+#if CONFIG_ENABLE_ASSERTIONS
+            if(IS_SHARED) {
+                lock.store(false);
+            } else {
+                ASSERT(lock.exchange(false));
+            }
+#else
             if(IS_SHARED) {
                 lock.store(false);
             }
+#endif
         }
 
 
@@ -250,16 +272,15 @@ namespace granary {
             , first(nullptr)
             , free(nullptr)
             , last_allocation_size(0)
+            _IF_TEST( last_allocator(nullptr) )
         {
             lock.store(false);
         }
 
         ~bump_pointer_allocator(void) throw() {
-            // de-allocate the free list
             free_slab_list(free);
             free = nullptr;
 
-            // de-allocate the active list
             free_slab_list(curr);
             curr = nullptr;
         }
@@ -270,18 +291,37 @@ namespace granary {
                 ALIGN = (unsigned) alignof(T),
                 MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
             };
+
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+
             acquire();
+            IF_TEST( last_allocator = allocator; )
             T *ptr(new (allocate_bare(MIN_ALIGN_, sizeof(T))) T(args...));
             release();
             return ptr;
         }
 
         void *allocate_untyped(unsigned align, unsigned num_bytes) throw() {
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+
             acquire();
+            IF_TEST( last_allocator = allocator; )
             uint8_t *arena(allocate_bare(align, num_bytes));
             release();
             ASSERT(is_valid_address(arena));
-            memset(arena, 0, num_bytes);
+
+#if CONFIG_ENABLE_ASSERTIONS
+            if(IS_EXECUTABLE) {
+                for(unsigned i(0); i < num_bytes; ++i) {
+                    ASSERT(MEMSET_VALUE == arena[i]);
+                }
+            } else {
+                memset(arena, MEMSET_VALUE, num_bytes);
+            }
+#else
+            memset(arena, MEMSET_VALUE, num_bytes);
+#endif
+
             return arena;
         }
 
@@ -294,7 +334,12 @@ namespace granary {
                 return unsafe_cast<T *>(allocate_bare(16, 1));
             }
 #else
-            return unsafe_cast<T *>(allocate_bare(MIN_ALIGN, 0));
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+            acquire();
+            IF_TEST( last_allocator = allocator; )
+            void *ret(allocate_bare(MIN_ALIGN, 0));
+            release();
+            return unsafe_cast<const T *>(ret);
 #endif
         }
 
@@ -304,7 +349,12 @@ namespace granary {
                 ALIGN = (unsigned) alignof(T),
                 MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
             };
+
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+            acquire();
+            IF_TEST( last_allocator = allocator; )
             uint8_t *arena(allocate_bare(MIN_ALIGN_, sizeof(T) * length));
+            release();
 
             // Initialise each element using placement new syntax; C++ standard
             // allows for placement new[] to introduce array length overhead.
@@ -323,14 +373,20 @@ namespace granary {
                 FAULT;
             }
 
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+            acquire();
             if(curr && last_allocation_size) {
+                IF_TEST( last_allocator = allocator; )
                 ASSERT(last_allocation_size < SLAB_SIZE);
                 curr->bump_ptr -= last_allocation_size;
                 curr->remaining += last_allocation_size;
                 ASSERT(curr->bump_ptr >= curr->data_ptr);
+
+                memset(curr->bump_ptr, MEMSET_VALUE, last_allocation_size);
             }
 
             last_allocation_size = 0;
+            release();
         }
 
         /// Free all allocated objects.
@@ -339,6 +395,9 @@ namespace granary {
                 FAULT;
             }
 
+            IF_TEST( const void *allocator(__builtin_return_address(0)); )
+            acquire();
+            IF_TEST( last_allocator = allocator; )
             if(first) {
                 first->next = free;
                 first = nullptr;
@@ -349,6 +408,7 @@ namespace granary {
                 curr = nullptr;
             }
             last_allocation_size = 0;
+            release();
         }
     };
 }

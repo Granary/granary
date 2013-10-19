@@ -475,7 +475,6 @@ namespace granary {
                 instruction do_loop(ls.insert_before(try_loop, label_()));
                 ls.insert_before(try_loop, jmp_(target));
 
-                jmp_try_loop.set_pc(in.pc());
                 in.set_cti_target(instr_(do_loop));
                 in.set_pc(nullptr);
                 in.set_mangled();
@@ -940,8 +939,7 @@ namespace granary {
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
-            instruction fall_through_cti(ls.append(jmp_(pc_(*pc))));
-            fall_through_cti.set_pc(*pc);
+            ls.append(jmp_(pc_(*pc)));
 
         /// Add in a trailing (emulated) jmp or ret if we are detaching.
         } else if(fall_through_detach) {
@@ -955,7 +953,6 @@ namespace granary {
                 ));
 
                 fall_through_cti.set_mangled();
-                fall_through_cti.set_pc(*pc);
             }
         }
 
@@ -1005,11 +1002,16 @@ namespace granary {
         generated_pc = cpu->fragment_allocator.allocate_array<uint8_t>(size);
 
 #if CONFIG_ENABLE_ASSERTIONS
-        // Double check that the allocator has given us zerod memory.
+        // Double check that the allocator has given us memory that we think
+        // looks like uninitialized code memory.
         for(unsigned i(0); i < size; ++i) {
-            ASSERT(0 == generated_pc[i]);
+            ASSERT(0xCC == generated_pc[i]);
         }
 #endif
+
+        // Zero out the memory, just in case things aren't correctly
+        // initialised somewhere.
+        memset(generated_pc, 0, size);
 
         app_pc end_pc(nullptr);
         IF_TEST( app_pc emitted_pc = ) emit(
@@ -1092,7 +1094,15 @@ namespace granary {
 
         // Add in the instructions.
         const app_pc start_pc(pc);
-        pc = ls.encode(pc);
+        const unsigned size(ls.encoded_size());
+
+        // By this point we've already verified that the memory we've gotten
+        // had it's correct default initialisation, but then we also went ahead
+        // and zero'd it. In test mode, `instruction_list::encode` double checks
+        // that the memory being written to contains `0xCC`.
+        IF_TEST( memset(start_pc, 0xCC, size); )
+
+        pc = ls.encode(pc, size);
 
         uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));
         app_pc pc_aligned(pc + ALIGN_TO(pc_uint, BB_INFO_BYTE_ALIGNMENT));

@@ -86,6 +86,16 @@ namespace granary {
     }
 
 
+    /// Look-up an entry in the code cache. This will not do translation.
+    app_pc code_cache::lookup(app_pc addr) throw() {
+        app_pc target_addr(nullptr);
+        if(CODE_CACHE->load(addr, target_addr)) {
+            IF_PERF( perf::visit_address_lookup_hit(); )
+        }
+        return target_addr;
+    }
+
+
     /// Perform both lookup and insertion (basic block translation) into
     /// the code cache.
     app_pc code_cache::find(

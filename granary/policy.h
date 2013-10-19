@@ -286,8 +286,6 @@ namespace granary {
             return u.accesses_user_data;
         }
 
-    private:
-
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
         inline void access_user_data(bool val=true) throw() {
@@ -295,7 +293,6 @@ namespace granary {
         }
 #endif
 
-    public:
         /// Does the code instrumented by this policy access user data?
         inline bool return_address_is_in_code_cache(void) const throw() {
 #if CONFIG_ENABLE_DIRECT_RETURN

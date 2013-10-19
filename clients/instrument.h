@@ -45,9 +45,17 @@
 #endif
 
 
-/// Null and watched watchpoint policy.
+/// Policy where every allocation is watched.
 #ifdef CLIENT_WATCHPOINT_WATCHED
 #   include "clients/watchpoints/clients/everything_watched/instrument.h"
+#endif
+
+
+/// Policy where every allocation is watched, but where the default
+/// instrumentation strategy is to instrument using a NULL policy, and then
+/// augment basic blocks that fault into a watchpoint policy.
+#ifdef CLIENT_WATCHPOINT_AUGMENT
+#   include "clients/watchpoints/clients/everything_watched_aug/instrument.h"
 #endif
 
 
@@ -80,7 +88,7 @@
 
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY
-#   include "clients/null/instrument.h"
+#   error "`GRANARY_INIT_POLICY` not defined; did you forget to include a file in `clients/instrument.h`?"
 #endif
 
 

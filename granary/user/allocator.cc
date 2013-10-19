@@ -71,11 +71,11 @@ namespace granary { namespace detail {
 
     void *global_allocate_executable(unsigned long size, int) throw() {
 
-        // shared map just in case we manage to get user space instrumentation
-        // working in a more general case.
+        size = size + ALIGN_TO(size, PAGE_SIZE);
+
         void *allocated(mmap(
             nullptr,
-            size + ALIGN_TO(size, PAGE_SIZE),
+            size,
             PROT_READ | PROT_WRITE | PROT_EXEC,
             MAP_ANONYMOUS | MAP_PRIVATE,
             -1,
@@ -85,6 +85,8 @@ namespace granary { namespace detail {
             granary_break_on_fault();
             granary_fault();
         }
+
+        IF_TEST( memset(allocated, 0xCC, size); )
 
         return allocated;
     }

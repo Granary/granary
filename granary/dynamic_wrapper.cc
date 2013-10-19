@@ -76,9 +76,10 @@ namespace granary {
             CTI_JMP);
 
         // Encode the wrapper.
+        const unsigned size(ls.encoded_size());
         target_wrapper = global_state::WRAPPER_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size());
-        ls.encode(target_wrapper);
+            allocate_array<uint8_t>(size);
+        ls.encode(target_wrapper, size);
 
         // Store it for later and return.
         wrappers->store(wrappee, target_wrapper);

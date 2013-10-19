@@ -39,6 +39,14 @@ using namespace client::wp;
 #endif
 
 
+/// Null policy that augments to a watchpoints null policy. Uses everything_watched's
+/// wrappers.
+#ifdef CLIENT_WATCHPOINT_AUGMENT
+#   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"
+#   include "clients/watchpoints/clients/everything_watched/kernel/linux/patch_wrappers.h"
+#endif
+
+
 /// Stats tracking policy that taints addresses.
 #ifdef CLIENT_WATCHPOINT_STATS
 #   include "clients/watchpoints/clients/everything_watched/kernel/linux/wrappers.h"

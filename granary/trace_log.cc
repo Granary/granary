@@ -137,9 +137,10 @@ namespace granary {
         ls.append(ret_());
 
         // Encode.
+        const unsigned size(ls.encoded_size());
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>( ls.encoded_size()));
-        ls.encode(temp);
+            allocate_array<uint8_t>(size));
+        ls.encode(temp, size);
 
         BARRIER;
 

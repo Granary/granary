@@ -84,10 +84,11 @@ namespace client {
         }
         ls.append(ret_());
 
+        const unsigned size(ls.encoded_size());
         app_pc ret(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
-            ls.encoded_size()));
+            size));
 
-        ls.encode(ret);
+        ls.encode(ret, size);
         WATCHED_VISITORS[reg_id][is_read] = ret;
 
         return ret;
@@ -256,7 +257,6 @@ namespace client {
 
                 in = ls.append(jmp_(pc_(fall_through_pc)));
                 in.set_policy(curr_policy);
-                in.set_pc(fall_through_pc);
                 break;
             }
 
@@ -289,7 +289,8 @@ namespace client {
     app_pc rcu_watched_tail(
         cpu_state_handle cpu,
         granary::basic_block_state &bb,
-        app_pc cache_pc
+        app_pc cache_pc,
+        instrumentation_policy policy
     ) throw() {
         instruction_list ls;
         for(;;) {
@@ -305,14 +306,13 @@ namespace client {
         }
 
         // Run the watchpoints instrumentation on the tail.
-        client::watchpoints<
-            wp::rcu_read_policy, wp::rcu_read_policy
-        >::visit_app_instructions(cpu, bb, ls);
+        policy.instrument(cpu, bb, ls);
 
         // Emit as gencode.
+        const unsigned size(ls.encoded_size());
         app_pc tail_pc(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size()));
-        ls.encode(tail_pc);
+            allocate_array<uint8_t>(size));
+        ls.encode(tail_pc, size);
 
         return tail_pc;
     }
@@ -339,13 +339,17 @@ namespace client {
             basic_block faulting_bb(isf.instruction_pointer);
             instrumentation_policy policy = policy_for<rcu_watched>();
             policy.force_attach(true);
+            policy.access_user_data(faulting_bb.policy.accesses_user_data());
+            policy.in_host_context(faulting_bb.policy.is_in_host_context());
+            policy.in_xmm_context(faulting_bb.policy.is_in_xmm_context());
 
             // Figure out the location of the hot-patchable entry-point. If the
             // trace logger is being used then we need to shift by 8 bytes.
             // Double check that we find a short/near JMP instruction.
             app_pc patch_pc(faulting_bb.cache_pc_start);
 #if CONFIG_TRACE_EXECUTION
-            patch_pc += 8;
+            patch_pc += 5; // Size of a `CALL`.
+            patch_pc += ALIGN_TO(reinterpret_cast<uintptr_t>(patch_pc), 8);
 #endif
             ASSERT(0xEB == *patch_pc || 0xE9 == *patch_pc);
 
@@ -371,7 +375,7 @@ namespace client {
                 isf.instruction_pointer = upgraded_bb_pc;
             } else {
                 isf.instruction_pointer = rcu_watched_tail(
-                    cpu, bb, isf.instruction_pointer);
+                    cpu, bb, isf.instruction_pointer, policy);
             }
 
             return INTERRUPT_IRET;

@@ -600,14 +600,15 @@ namespace granary {
         insert_restore_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
         ibl.append(pop_(reg::rax));
 
-        // jump to the target. The target in this case is an IBL exit routine,
+        // Jump to the target. The target in this case is an IBL exit routine,
         // which is responsible for cleaning up the stack.
         ibl.append(jmp_ind_(reg_target_addr));
 
-        // encode
+        // Encode.
+        const unsigned size(ibl.encoded_size());
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>( ibl.encoded_size()));
-        ibl.encode(temp);
+            allocate_array<uint8_t>(size));
+        ibl.encode(temp, size);
 
         IF_PERF( perf::visit_ibl(ibl); )
 
@@ -647,12 +648,14 @@ namespace granary {
     ) {
         instruction_list ibl;
         ibl_exit_stub(ibl, target_pc);
+
+        const unsigned size(ibl.encoded_size());
         app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
-            ibl.encoded_size()));
+            size));
+        ibl.encode(routine, size);
 
         IF_PERF( perf::visit_ibl_exit(ibl); )
 
-        ibl.encode(routine);
         return routine;
     }
 
@@ -722,10 +725,11 @@ namespace granary {
         ibl.insert_before(hit_or_fail, pop_(reg_predict_ptr));
         ibl.insert_before(hit_or_fail, jmp_ind_(reg_compare_addr));
 
-        // encode
+        // Encode.
+        const unsigned size(ibl.encoded_size());
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>( ibl.encoded_size()));
-        ibl.encode(temp);
+            allocate_array<uint8_t>(size));
+        ibl.encode(temp, size);
         routine = temp;
         return temp;
     }
@@ -907,12 +911,13 @@ namespace granary {
             }
         }
 
+        const unsigned size(ls.encoded_size());
         app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size()));
+            allocate_array<uint8_t>(size));
+        ls.encode(dest_pc, size);
 
         IF_PERF( perf::visit_dbl_patch(ls); )
 
-        ls.encode(dest_pc);
         return dest_pc;
     }
 
@@ -992,10 +997,10 @@ namespace granary {
         // tail-call out to the patcher/mangler.
         dbl.append(mangled(jmp_(pc_(patcher_for_opcode))));
 
+        const unsigned size(dbl.encoded_size());
         app_pc routine(cpu->fragment_allocator.allocate_array<uint8_t>(
-            dbl.encoded_size()));
-
-        dbl.encode(routine);
+            size));
+        dbl.encode(routine, size);
 
         IF_PERF( perf::visit_dbl(dbl); )
 

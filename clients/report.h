@@ -32,6 +32,9 @@
 #   define CLIENT_report
 #endif
 
+#ifdef CLIENT_WATCHPOINT_AUGMENT
+#   define CLIENT_report
+#endif
 
 #ifdef CLIENT_report
 namespace client {

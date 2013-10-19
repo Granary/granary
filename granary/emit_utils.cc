@@ -445,10 +445,10 @@ namespace granary {
             ls.append(popf_());
             ls.append(ret_());
 
+            const unsigned size(ls.encoded_size());
             app_pc entry_point_pc(global_state::FRAGMENT_ALLOCATOR->\
-                allocate_array<uint8_t>(ls.encoded_size()));
-
-            ls.encode(entry_point_pc);
+                allocate_array<uint8_t>(size));
+            ls.encode(entry_point_pc, size);
 
             return entry_point_pc;
         }

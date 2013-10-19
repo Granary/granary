@@ -25,22 +25,24 @@ namespace client {
         interrupt_stack_frame &isf,
         interrupt_vector vector
     ) throw() {
-        if(VECTOR_GENERAL_PROTECTION == vector && !isf.error_code) {
-
-            instrumentation_policy policy(START_POLICY);
-            policy.in_host_context(true);
-            policy.force_attach(true);
-
-            mangled_address target(isf.instruction_pointer, policy);
-            app_pc translated_target(nullptr);
-            if(!cpu->code_cache.load(target.as_address, translated_target)) {
-                translated_target = code_cache::find(cpu, target);
-            }
-
-            isf.instruction_pointer = translated_target;
-            return INTERRUPT_IRET;
+        if(VECTOR_GENERAL_PROTECTION != vector || isf.error_code) {
+            return INTERRUPT_DEFER;
         }
-        return INTERRUPT_DEFER;
+
+        instrumentation_policy policy(START_POLICY);
+        policy.in_host_context(true);
+        policy.force_attach(true);
+        policy.access_user_data(true); // Can't know for sure, so assume it.
+        // TODO: Can't know xmm for sure.
+
+        mangled_address target(isf.instruction_pointer, policy);
+        app_pc translated_target(nullptr);
+        if(!cpu->code_cache.load(target.as_address, translated_target)) {
+            translated_target = code_cache::find(cpu, target);
+        }
+
+        isf.instruction_pointer = translated_target;
+        return INTERRUPT_IRET;
     }
 }
 

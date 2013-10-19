@@ -57,10 +57,10 @@ namespace granary {
             CTI_DONT_STEAL_REGISTER, operand(),
             CTI_JMP);
 
+        const unsigned size(ls.encoded_size());
         native_syscall_handler = global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size());
-
-        ls.encode(native_syscall_handler);
+            allocate_array<uint8_t>(size);
+        ls.encode(native_syscall_handler, size);
 
         LAST_GEN_SYSCALL_ENTRYPOINT = reinterpret_cast<uint64_t>(
             native_syscall_handler);

@@ -139,7 +139,8 @@ namespace granary {
             eflags mask;
             mask.value = 0ULL;
             mask.interrupt = true;
-            instruction first(ls.append(push_(reg::rax)));
+            instruction first(ls.append(label_()));
+            ls.append(push_(reg::rax));
             ls.append(mov_imm_(reg::rax, int64_(~(mask.value))));
             ls.append(and_(reg::rsp[8], reg::rax));
             ls.append(pop_(reg::rax));
@@ -319,7 +320,7 @@ namespace granary {
         // jump to the interrupt handler
         ls.append(jmp_(pc_(VECTOR_HANDLER[vector])));
 
-        ls.encode(cpu->interrupt_delay_handler);
+        ls.encode(cpu->interrupt_delay_handler, ls.encoded_size());
 
         return delay_in.pc();
     }
@@ -550,12 +551,7 @@ namespace granary {
 
         IF_PERF( perf::visit_interrupt(); )
 
-        interrupt_handled_state ret;
-
-        if(VECTOR_GENERAL_PROTECTION == vector) {
-            IF_PERF( perf::visit_gp_interrupt(); )
-            granary_break_on_gp_interrupt(isf, vector, cpu);
-        }
+        interrupt_handled_state ret(INTERRUPT_DEFER);
 
         // An interrupt that we have no idea how to handle.
         if(!is_valid_address(pc)) {
@@ -632,11 +628,12 @@ namespace granary {
             CTI_DONT_STEAL_REGISTER, operand(),
             CTI_JMP);
 
+        const unsigned size(ls.encoded_size());
         app_pc routine(reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
-                allocate_untyped(CACHE_LINE_SIZE, ls.encoded_size())));
+                allocate_untyped(CACHE_LINE_SIZE, size)));
+        ls.encode(routine, size);
 
-        ls.encode(routine);
         return routine;
     }
 
@@ -857,7 +854,7 @@ namespace granary {
             global_state::FRAGMENT_ALLOCATOR-> \
                 allocate_untyped(CACHE_LINE_SIZE, size)));
 
-        ls.encode(routine);
+        ls.encode(routine, size);
 
         COMMON_HANDLER_BEGIN = routine;
         COMMON_HANDLER_END = routine + size;

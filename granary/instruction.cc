@@ -70,7 +70,7 @@ namespace granary {
         //dynamorio::byte *bytes(instr->bytes);
         //dynamorio::uint eflags(instr->eflags);
 
-        app_pc translation(instr->translation);
+        //app_pc translation(instr->translation);
         void *note(instr->note);
         dynamorio::instr_t *next_(instr->next);
         dynamorio::instr_t *prev_(instr->prev);
@@ -91,7 +91,7 @@ namespace granary {
         // restore key info
         //instr->bytes = bytes;
         //instr->eflags = eflags;
-        instr->translation = translation;
+        //instr->translation = translation;
         instr->note = note;
         instr->next = next_;
         instr->prev = prev_;
@@ -563,10 +563,19 @@ namespace granary {
 
 
     /// encodes an instruction list into a sequence of bytes
-    app_pc instruction_list::encode(app_pc start_pc) throw() {
+    app_pc instruction_list::encode(
+        app_pc start_pc,
+        unsigned exact_size
+    ) throw() {
         if(!length()) {
             return start_pc;
         }
+
+#if CONFIG_ENABLE_ASSERTIONS
+        for(unsigned i(0); i < exact_size; ++i) {
+            ASSERT(start_pc[i] == 0xCC);
+        }
+#endif
 
         app_pc pc(start_pc);
         bool has_local_jump(false);
@@ -609,6 +618,9 @@ namespace granary {
                 }
             }
         }
+
+        ASSERT((start_pc + exact_size) == pc);
+        UNUSED(exact_size);
 
         return pc;
     }
@@ -664,7 +676,7 @@ namespace granary {
         app_pc *pc_,
         instruction_decode_constraint constraint
     ) throw() {
-        if(true || !instr) {
+        if(true || !instr) { // TODO!!! Double check this, try to remove 'true'.
             instr = make_instr();
         } else {
             // TODO: Improve this for the future.
@@ -687,7 +699,7 @@ namespace granary {
         *pc_ = dynamorio::decode_raw(DCONTEXT, byte_pc, instr);
         dynamorio::decode(DCONTEXT, byte_pc, instr);
 
-        // keep these associations around
+        // Keep these associations around.
         instr->translation = byte_pc;
         instr->bytes = byte_pc;
 
@@ -706,7 +718,7 @@ namespace granary {
         app_pc *pc,
         instruction_decode_constraint constraint
     ) throw() {
-        instruction self(make_instr());
+        instruction self(nullptr);
         self.decode_update(pc, constraint);
         return self;
     }

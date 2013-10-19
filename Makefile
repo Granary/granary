@@ -272,6 +272,22 @@ ifeq ($(GR_CLIENT),everything_watched)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
 	endif
 endif
+ifeq ($(GR_CLIENT),everything_watched_aug)
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_AUGMENT
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/report.o
+	
+	# Note: augmenting doesn't use the default handle_kernel_interrupt function
+	#       because if we know we're faulting, then we don't want to go to the
+	# 		"null" policy and want to immediately go to the augmented "watched"
+	# 		policy.	
+	ifeq ($(KERNEL),1)
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
+	else
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
+	endif
+endif
 ifeq ($(GR_CLIENT),bounds_checker)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
@@ -684,6 +700,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/leak_detector > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/leak_detector/kernel > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/everything_watched > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/bounds_checker > /dev/null 2>&1 ||:
 	
 	@-mkdir $(BIN_DIR)/tests > /dev/null 2>&1 ||:

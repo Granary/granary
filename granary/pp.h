@@ -181,11 +181,13 @@
 
 #if !CONFIG_ENABLE_ASSERTIONS
 #   define IF_TEST(...)
+#   define IF_TEST_ELSE(a,b) b
 #   define _IF_TEST(...)
 #   define ADD_TEST(func, desc)
 #   define ASSERT(...)
 #else
 #   define IF_TEST(...) __VA_ARGS__
+#   define IF_TEST_ELSE(a,b) a
 #   define _IF_TEST(...) , __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
     STATIC_INITIALISE___(test_func, { \

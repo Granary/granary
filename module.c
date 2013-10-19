@@ -498,6 +498,7 @@ static void preallocate_executable(void) {
         granary_fault();
     }
 
+    // Memset all module code to be int3 instructions.
     memset(mem, 0xCC, _100_MB);
 
     EXEC_START = (unsigned long) mem;
@@ -530,6 +531,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_CODE_CACHE:
         mem = __sync_fetch_and_add(&CODE_CACHE_END, size);
         if((mem + size) > GEN_CODE_START) {
+            granary_break_on_fault();
             granary_fault();
         }
         break;
@@ -538,6 +540,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_GEN_CODE:
         mem = __sync_sub_and_fetch(&GEN_CODE_START, size);
         if(mem < CODE_CACHE_END) {
+            granary_break_on_fault();
             granary_fault();
         }
         break;
@@ -546,16 +549,18 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_WRAPPER:
         mem = __sync_fetch_and_add(&WRAPPER_END, size);
         if((mem + size) > EXEC_END) {
+            granary_break_on_fault();
             granary_fault();
         }
         break;
 
     default:
+        granary_break_on_fault();
         granary_fault();
         break;
     }
 
-    return memset((void *) mem, 0, size);
+    return (void *) mem; // Should all already be memset to 0xCC.
 }
 
 

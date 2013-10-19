@@ -52,10 +52,11 @@ extern "C" {
         ls.append(call_(pc_(unsafe_cast<app_pc>(granary_before_module_init))));
         ls.append(jmp_(pc_(init_cc)));
 
-        // encode it
+        // Encode.
+        const unsigned size(ls.encoded_size());
         app_pc wrapped_init_pc = global_state::WRAPPER_ALLOCATOR-> \
-            allocate_array<uint8_t>(ls.encoded_size());
-        ls.encode(wrapped_init_pc);
+            allocate_array<uint8_t>(size);
+        ls.encode(wrapped_init_pc, size);
 
         return unsafe_cast<int (*)(void)>(wrapped_init_pc);
     }
