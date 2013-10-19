@@ -469,9 +469,7 @@ namespace granary {
 
                 operand target(in.cti_target());
                 instruction try_loop(ls.insert_before(in, label_()));
-                instruction jmp_try_loop(ls.insert_before(try_loop,
-                    mangled(jmp_(instr_(try_loop)))));
-
+                ls.insert_before(try_loop, mangled(jmp_(instr_(try_loop))));
                 instruction do_loop(ls.insert_before(try_loop, label_()));
                 ls.insert_before(try_loop, jmp_(target));
 

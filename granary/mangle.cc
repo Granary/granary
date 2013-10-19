@@ -438,9 +438,10 @@ namespace granary {
         IF_PERF( perf::visit_rbl(ibl); )
 
         // encode
+        const unsigned size(ibl.encoded_size());
         app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>( ibl.encoded_size()));
-        ibl.encode(temp);
+            allocate_array<uint8_t>(size));
+        ibl.encode(temp, size);
         routine[target_policy_bits] = temp;
 
         return temp;
