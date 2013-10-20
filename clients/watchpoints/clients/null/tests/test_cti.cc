@@ -33,9 +33,14 @@ namespace test {
 
     /// Test that the targets of indirect calls are correctly resolved.
     static void indirect_cti_watched_correctly(void) {
+
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc call((granary::app_pc) indirect_call);
         granary::basic_block call_call(granary::code_cache::find(
-            call, granary::policy_for<client::watchpoint_null_policy>()));
+            call, policy));
 
         thunk foo;
         foo.func = &granary_test_return_true;

@@ -57,9 +57,13 @@ namespace test {
         (void) WP_CMP_VAL;
         (void) WP_CMP_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc cmp((granary::app_pc) watched_cmp_through_self);
         granary::basic_block call_cmp(granary::code_cache::find(
-            cmp, granary::policy_for<client::watchpoint_null_policy>()));
+            cmp, policy));
 
         ASSERT(1 == call_cmp.call<int>());
     }

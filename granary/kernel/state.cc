@@ -171,6 +171,11 @@ namespace granary {
                 unsafe_cast<char *>(CPU_STATES[i]) + POS_OFFSET);
 
 #if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+
+            // Make sure that we can read the kernel's IDT.
+            kernel_make_page_read_only(
+                unsafe_cast<char *>(CPU_STATES[i]->native_idtr.base));
+
 #   if CONFIG_ENABLE_INTERRUPT_DELAY
             // Allocate space for interrupt delay handlers.
             CPU_STATES[i]->interrupt_delay_handler = reinterpret_cast<app_pc>(

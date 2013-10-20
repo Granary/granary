@@ -46,10 +46,11 @@ b granary_break_on_curiosity
 if !$in_user_space
   #b granary_break_on_interrupt
   b granary_break_on_nested_interrupt
-  b granary_break_on_nested_task
+  #b granary_break_on_nested_task
   b granary_break_on_gs_zero
   b panic
   b show_fault_oops
+  b invalid_op
   b do_invalid_op
   b do_general_protection
   b __schedule_bug
@@ -522,6 +523,7 @@ set $__reg_rdx = 0
 set $__reg_rcx = 0
 set $__reg_rax = 0
 set $__reg_rsp = 0
+set $__reg_eflags = 0
 
 set $__regs_saved = 0
 
@@ -545,6 +547,7 @@ define save-regs
   set $__reg_rcx = $rcx
   set $__reg_rax = $rax
   set $__reg_rsp = $rsp
+  set $__reg_eflags = $eflags
   dont-repeat
 end
 
@@ -568,6 +571,7 @@ define restore-regs
   set $rcx = $__reg_rcx
   set $rax = $__reg_rax
   set $rsp = $__reg_rsp
+  set $eflags = $__reg_eflags
   dont-repeat
 end
 
@@ -589,49 +593,56 @@ define restore-interrupted-state
   set $rip = $__isf->instruction_pointer
 
   # Okay, now we need to find where we saved the other registers.
-  set $__top = (uint64_t *) &($__isf->instruction_pointer)
-  set $__top = $__top + 2
-
-  set $rdi = *$__top
-  set $__top = $__top + 1
-
-  set $rsi = *$__top
-  set $__top = $__top + 4
-  # skip over rsi, the flags, the return address of the common
-  # interrupt routine, the re-saved %rdi (holding the ISF pointer)
-
-  # Saved independently so that the common interrupt handler can
-  # handle the interrupt according to the return value of
-  # `handle_interrupt`.
-  set $rax = *$__top
-  set $__top = $__top + 1
-
-  # Saved by `save_and_restore_registers`.
-  set $rcx = *$__top
-  set $__top = $__top + 1
-  set $rdx = *$__top
-  set $__top = $__top + 1
-  set $rbx = *$__top
-  set $__top = $__top + 1
-  set $rbp = *$__top
-  set $__top = $__top + 1
-  set $r8 = *$__top
-  set $__top = $__top + 1
-  set $r9 = *$__top
-  set $__top = $__top + 1
-  set $r10 = *$__top
-  set $__top = $__top + 1
-  set $r11 = *$__top
-  set $__top = $__top + 1
-  set $r12 = *$__top
-  set $__top = $__top + 1
-  set $r13 = *$__top
-  set $__top = $__top + 1
-  set $r14 = *$__top
-  set $__top = $__top + 1
-  set $r15 = *$__top
-  set $__top = $__top + 1
-
+  set $__top = (uint64_t *) $__isf
+  
+  set $rdi = *($__top - 2)
+  set $rsi = *($__top - 3)
+  set $eflags = (uint32_t) (*($__top - 4) & 0xFFFF)
+  set $rax = *($__top - 7)
+  set $rcx = *($__top - 8)
+  set $rdx = *($__top - 9)
+  set $rbx = *($__top - 10)
+  set $rbp = *($__top - 11)
+  set $r8  = *($__top - 12)
+  set $r9  = *($__top - 13)
+  set $r10 = *($__top - 14)
+  set $r11 = *($__top - 15)
+  set $r12 = *($__top - 16)
+  set $r13 = *($__top - 17)
+  set $r14 = *($__top - 18)
+  set $r15 = *($__top - 19)
 
   dont-repeat
+end
+
+
+# restore-regs-state <kernel regs pointer>
+#
+# Restore the machine state described by the Linux kernel `struct pt_regs`.
+define restore-regs-state
+  set $__regs = (struct pt_regs *) $arg0
+
+  # Save the current register state so that if we want to, we can
+  # restore it later on to continue execution.
+  if !$__regs_saved
+    save-regs
+  end
+
+  set $r15 = $__regs->r15
+  set $r14 = $__regs->r14
+  set $r13 = $__regs->r13
+  set $r12 = $__regs->r12
+  set $r11 = $__regs->r11
+  set $r10 = $__regs->r10
+  set $r9  = $__regs->r9
+  set $r8  = $__regs->r8
+  set $rdi = $__regs->di
+  set $rsi = $__regs->si
+  set $rbp = $__regs->bp
+  set $rbx = $__regs->bx
+  set $rdx = $__regs->dx
+  set $rcx = $__regs->cx
+  set $rax = $__regs->ax
+  set $rsp = $__regs->sp
+  set $eflags = $__regs->flags
 end

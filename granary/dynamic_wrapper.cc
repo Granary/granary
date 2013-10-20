@@ -35,9 +35,6 @@ namespace granary {
         app_pc wrappee
     ) throw() {
 
-        // Notify the kernel that pre-emption is disabled.
-        IF_KERNEL( kernel_preempt_disable(); )
-
         // Enter Granary.
         cpu_state_handle cpu;
         enter(cpu);
@@ -46,7 +43,6 @@ namespace granary {
 
         // Fast path: we've already wrapped this.
         if(wrappers->load(wrappee, target_wrapper)) {
-            IF_KERNEL( kernel_preempt_enable(); )
             return target_wrapper;
         }
 
@@ -93,9 +89,6 @@ namespace granary {
         //       invoked when host code is instrumented.
         mangled_address mangled_wrappee(wrappee, policy);
         code_cache::add(mangled_wrappee.as_address, target_wrapper);
-
-        // Notify the kernel that pre-emption is enabled.
-        IF_KERNEL( kernel_preempt_enable(); )
 
         return target_wrapper;
     }

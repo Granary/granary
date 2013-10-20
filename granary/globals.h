@@ -208,7 +208,7 @@
 /// Set the 1 iff we should run test cases (before doing anything else).
 #define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
-#   define CONFIG_RUN_TEST_CASES 1
+#   define CONFIG_RUN_TEST_CASES 0
 #else
 #   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC)
 #endif
@@ -449,8 +449,6 @@ extern "C" {
     extern uintptr_t granary_get_fs_base(void);
 
 #if GRANARY_IN_KERNEL
-    extern void kernel_preempt_disable(void);
-    extern void kernel_preempt_enable(void);
     extern void kernel_log(const char *, size_t);
 
     // This is a pretty evil way of getting around issues like `memcpy` being

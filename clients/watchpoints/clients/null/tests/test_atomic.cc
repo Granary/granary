@@ -101,9 +101,13 @@ namespace test {
         (void) WP_ATOMIC_FOO_32;
         (void) WP_ATOMIC_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc cmpxchg((granary::app_pc) unwatched_cmpxchg);
         granary::basic_block call_cmpxchg(granary::code_cache::find(
-            cmpxchg, granary::policy_for<client::watchpoint_null_policy>()));
+            cmpxchg, policy));
 
         WP_ATOMIC_FOO_32 = 0;
         call_cmpxchg.call<void>();
@@ -111,7 +115,7 @@ namespace test {
 
         granary::app_pc wcmpxchg((granary::app_pc) watched_cmpxchg);
         granary::basic_block call_wcmpxchg(granary::code_cache::find(
-            wcmpxchg, granary::policy_for<client::watchpoint_null_policy>()));
+            wcmpxchg, policy));
 
         WP_ATOMIC_FOO_32 = 0;
         call_wcmpxchg.call<void>();
@@ -120,7 +124,7 @@ namespace test {
 
         granary::app_pc cmpxchg8b((granary::app_pc) unwatched_cmpxchg8b);
         granary::basic_block call_cmpxchg8b(granary::code_cache::find(
-            cmpxchg8b, granary::policy_for<client::watchpoint_null_policy>()));
+            cmpxchg8b, policy));
 
         WP_ATOMIC_FOO = 0;
         call_cmpxchg8b.call<void>();
@@ -128,7 +132,7 @@ namespace test {
 
         granary::app_pc wcmpxchg8b((granary::app_pc) watched_cmpxchg8b);
         granary::basic_block call_wcmpxchg8b(granary::code_cache::find(
-            wcmpxchg8b, granary::policy_for<client::watchpoint_null_policy>()));
+            wcmpxchg8b, policy));
 
         WP_ATOMIC_FOO = 0;
         call_wcmpxchg8b.call<void>();

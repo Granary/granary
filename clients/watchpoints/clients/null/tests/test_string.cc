@@ -205,9 +205,13 @@ namespace test {
     static void string_watched_correctly(void) {
         (void) WP_STRING_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc stos((granary::app_pc) unwatched_stos);
         granary::basic_block call_stos(granary::code_cache::find(
-            stos, granary::policy_for<client::watchpoint_null_policy>()));
+            stos, policy));
 
         WP_STRING_FOO = 0;
         call_stos.call<void>();
@@ -215,7 +219,7 @@ namespace test {
 
         granary::app_pc wstos((granary::app_pc) watched_stos);
         granary::basic_block call_wstos(granary::code_cache::find(
-            wstos, granary::policy_for<client::watchpoint_null_policy>()));
+            wstos, policy));
 
         WP_STRING_FOO = 0;
         call_wstos.call<void>();
@@ -223,7 +227,7 @@ namespace test {
 
         granary::app_pc stos_dep((granary::app_pc) unwatched_stos_dep);
         granary::basic_block call_stos_dep(granary::code_cache::find(
-            stos_dep, granary::policy_for<client::watchpoint_null_policy>()));
+            stos_dep, policy));
 
         WP_STRING_FOO = 0;
         call_stos_dep.call<void>();
@@ -231,7 +235,7 @@ namespace test {
 
         granary::app_pc wstos_dep((granary::app_pc) watched_stos_dep);
         granary::basic_block call_wstos_dep(granary::code_cache::find(
-            wstos_dep, granary::policy_for<client::watchpoint_null_policy>()));
+            wstos_dep, policy));
 
         WP_STRING_FOO = 0;
         call_wstos_dep.call<void>();
@@ -241,7 +245,7 @@ namespace test {
 
         granary::app_pc rep_stos((granary::app_pc) unwatched_rep_stos);
         granary::basic_block call_rep_stos(granary::code_cache::find(
-                rep_stos, granary::policy_for<client::watchpoint_null_policy>()));
+                rep_stos, policy));
 
         WP_STRING_FOO_ARRAY[0] = 0;
         WP_STRING_FOO_ARRAY[1] = 0;
@@ -250,7 +254,7 @@ namespace test {
 
         granary::app_pc rep_wstos((granary::app_pc) watched_rep_stos);
         granary::basic_block call_rep_wstos(granary::code_cache::find(
-            rep_wstos, granary::policy_for<client::watchpoint_null_policy>()));
+            rep_wstos, policy));
 
         WP_STRING_FOO_ARRAY[0] = 0;
         WP_STRING_FOO_ARRAY[1] = 0;
@@ -259,7 +263,7 @@ namespace test {
 
         granary::app_pc rep_stos_dep((granary::app_pc) unwatched_rep_stos_dep);
         granary::basic_block call_rep_stos_dep(granary::code_cache::find(
-            rep_stos_dep, granary::policy_for<client::watchpoint_null_policy>()));
+            rep_stos_dep, policy));
 
         WP_STRING_FOO_ARRAY[0] = 0;
         WP_STRING_FOO_ARRAY[1] = 0;
@@ -268,7 +272,7 @@ namespace test {
 
         granary::app_pc rep_wstos_dep((granary::app_pc) watched_rep_stos_dep);
         granary::basic_block call_rep_wstos_dep(granary::code_cache::find(
-            rep_wstos_dep, granary::policy_for<client::watchpoint_null_policy>()));
+            rep_wstos_dep, policy));
 
         WP_STRING_FOO_ARRAY[0] = 0;
         WP_STRING_FOO_ARRAY[1] = 0;
@@ -278,7 +282,7 @@ namespace test {
 
         granary::app_pc rep_movs((granary::app_pc) unwatched_rep_movs);
         granary::basic_block call_rep_movs(granary::code_cache::find(
-            rep_movs, granary::policy_for<client::watchpoint_null_policy>()));
+            rep_movs, policy));
 
         WP_STRING_FOO_ARRAY[0] = ~0ULL;
         WP_STRING_FOO_ARRAY[1] = ~0ULL;
@@ -292,7 +296,7 @@ namespace test {
 
         granary::app_pc rep_movs_memmove((granary::app_pc) unwatched_rep_movs_memmove);
         granary::basic_block call_rep_movs_memmove(granary::code_cache::find(
-            rep_movs_memmove, granary::policy_for<client::watchpoint_null_policy>()));
+            rep_movs_memmove, policy));
 
         WP_STRING_FOO_ARRAY[0] = ~0ULL;
         WP_STRING_FOO_ARRAY[1] = ~0ULL;

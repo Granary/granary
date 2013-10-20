@@ -320,6 +320,8 @@ namespace granary {
         // jump to the interrupt handler
         ls.append(jmp_(pc_(VECTOR_HANDLER[vector])));
 
+        IF_TEST( memset(
+            cpu->interrupt_delay_handler, 0xCC, INTERRUPT_DELAY_CODE_SIZE); )
         ls.encode(cpu->interrupt_delay_handler, ls.encoded_size());
 
         return delay_in.pc();
@@ -530,7 +532,6 @@ namespace granary {
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
-        kernel_preempt_disable();
 
         cpu_state_handle cpu;
         thread_state_handle thread(cpu);
@@ -584,9 +585,6 @@ namespace granary {
         } else {
             ret = handle_kernel_interrupt(cpu, thread, isf, vector);
         }
-
-        // Tell the kernel that pre-emption is enabled again.
-        kernel_preempt_enable();
 
         return ret;
     }
@@ -868,9 +866,26 @@ namespace granary {
     static system_table_register_t PREV_IDTR_GEN;
 
 
+    extern "C" {
+        descriptor_t *kernel_get_idt_table(void);
+    }
+
+
     /// Create a Granary version of the interrupt descriptor table. This
     /// assumes that the IDT for all CPUs is the same.
     system_table_register_t create_idt(system_table_register_t native) throw() {
+
+        // Unusual; seem to be re-creating based on our own IDT.
+        if(native.base == PREV_IDTR_GEN.base) {
+            return PREV_IDTR_GEN;
+        }
+
+        // A bit of defensive programming here; we're concerned that the kernel
+        // has loaded the IDTR with a fixed, read-only address so as to not
+        // leak the kernel's base address.
+        if(!is_host_address(native.base)) {
+            native.base = kernel_get_idt_table();
+        }
 
         if(native.base == PREV_IDTR.base && native.limit == PREV_IDTR.limit) {
             return PREV_IDTR_GEN;
@@ -884,7 +899,10 @@ namespace granary {
             unsafe_cast<detail::interrupt_descriptor_table *>(native.base));
 
         memset(idt, 0, sizeof *idt);
-        memcpy(idt, kernel_idt, native.limit + 1);
+
+        if(kernel_idt) {
+            memcpy(idt, kernel_idt, native.limit + 1);
+        }
 
         app_pc common_vector_handler(emit_common_interrupt_routine());
 

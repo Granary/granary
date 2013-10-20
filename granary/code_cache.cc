@@ -57,9 +57,6 @@ namespace granary {
         mangled_address addr,
         prediction_table **IF_IBL_PREDICT(predict_table)
     ) throw() {
-
-        IF_KERNEL( kernel_preempt_disable(); )
-
         cpu_state_handle cpu;
         app_pc ret(cpu->code_cache.find(addr.as_address));
 
@@ -71,8 +68,6 @@ namespace granary {
                 predict_table, cpu, addr.unmangled_address(), ret);
         }
 #endif
-
-        IF_KERNEL( kernel_preempt_enable(); )
 
         return ret;
     }

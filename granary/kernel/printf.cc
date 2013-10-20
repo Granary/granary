@@ -7,10 +7,11 @@
  *     Version: $Id$
  */
 
+#include "granary/globals.h"
 #include "granary/kernel/printf.h"
 #include "granary/types.h"
 
-#define LOG 0
+#define LOG !CONFIG_INSTRUMENT_HOST
 
 namespace granary {
 #if LOG

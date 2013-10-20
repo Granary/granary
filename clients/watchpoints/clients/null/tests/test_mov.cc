@@ -231,11 +231,15 @@ namespace test {
     static void mov_watched_correctly(void) {
         (void) WP_MOV_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         // Simple un/watched, no flags dependencies, no register dependencies.
 
         granary::app_pc mov((granary::app_pc) unwatched_mov_to_mem);
         granary::basic_block call_mov(granary::code_cache::find(
-            mov, granary::policy_for<client::watchpoint_null_policy>()));
+            mov, policy));
 
         WP_MOV_FOO = 0;
         call_mov.call<void>();
@@ -243,7 +247,7 @@ namespace test {
 
         granary::app_pc wmov((granary::app_pc) watched_mov_to_mem);
         granary::basic_block call_wmov(granary::code_cache::find(
-            wmov, granary::policy_for<client::watchpoint_null_policy>()));
+            wmov, policy));
 
         WP_MOV_FOO = 0;
         call_wmov.call<void>();
@@ -253,7 +257,7 @@ namespace test {
 
         granary::app_pc dmov((granary::app_pc) unwatched_mov_to_mem_dep);
         granary::basic_block call_dmov(granary::code_cache::find(
-            dmov, granary::policy_for<client::watchpoint_null_policy>()));
+            dmov, policy));
 
         WP_MOV_FOO = 0;
         call_dmov.call<void>();
@@ -261,7 +265,7 @@ namespace test {
 
         granary::app_pc wdmov((granary::app_pc) watched_mov_to_mem_dep);
         granary::basic_block call_wdmov(granary::code_cache::find(
-            wdmov, granary::policy_for<client::watchpoint_null_policy>()));
+            wdmov, policy));
 
         WP_MOV_FOO = 0;
         call_wdmov.call<void>();
@@ -271,7 +275,7 @@ namespace test {
 
         granary::app_pc cmov((granary::app_pc) unwatched_mov_to_mem_cf);
         granary::basic_block call_cmov(granary::code_cache::find(
-            cmov, granary::policy_for<client::watchpoint_null_policy>()));
+            cmov, policy));
 
         WP_MOV_FOO = 0;
         call_cmov.call<void>();
@@ -279,7 +283,7 @@ namespace test {
 
         granary::app_pc wcmov((granary::app_pc) watched_mov_to_mem_cf);
         granary::basic_block call_wcmov(granary::code_cache::find(
-            wcmov, granary::policy_for<client::watchpoint_null_policy>()));
+            wcmov, policy));
 
         WP_MOV_FOO = 0;
         call_wcmov.call<void>();
@@ -290,7 +294,7 @@ namespace test {
 
         granary::app_pc dcmov((granary::app_pc) unwatched_mov_to_mem_cf_dep);
         granary::basic_block call_dcmov(granary::code_cache::find(
-            dcmov, granary::policy_for<client::watchpoint_null_policy>()));
+            dcmov, policy));
 
         WP_MOV_FOO = 0;
         call_dcmov.call<void>();
@@ -298,7 +302,7 @@ namespace test {
 
         granary::app_pc wdcmov((granary::app_pc) watched_mov_to_mem_cf_dep);
         granary::basic_block call_wdcmov(granary::code_cache::find(
-            wdcmov, granary::policy_for<client::watchpoint_null_policy>()));
+            wdcmov, policy));
 
         WP_MOV_FOO = 0;
         call_wdcmov.call<void>();
@@ -307,7 +311,7 @@ namespace test {
         // Test that a dead register is not restored at a bad time.
         granary::app_pc mov_dead((granary::app_pc) unwatched_mov_from_mem_dead);
         granary::basic_block call_mov_dead(granary::code_cache::find(
-            mov_dead, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_dead, policy));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead.call<uint64_t>());
@@ -317,7 +321,7 @@ namespace test {
         // works when the memory is watched.
         granary::app_pc wmov_dead((granary::app_pc) watched_mov_from_mem_dead);
         granary::basic_block call_wmov_dead(granary::code_cache::find(
-            wmov_dead, granary::policy_for<client::watchpoint_null_policy>()));
+            wmov_dead, policy));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_wmov_dead.call<uint64_t>());
@@ -326,14 +330,14 @@ namespace test {
         // Test that a dead register is not restored at a bad time.
         granary::app_pc mov_dead8((granary::app_pc) unwatched_mov_from_mem_dead_8);
         granary::basic_block call_mov_dead8(granary::code_cache::find(
-            mov_dead8, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_dead8, policy));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead8.call<uint64_t>());
 
         granary::app_pc mov_index((granary::app_pc) unwatched_mov_to_mem_index);
         granary::basic_block call_mov_index(granary::code_cache::find(
-            mov_index, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_index, policy));
 
         WP_MOV_FOO = 0;
         call_mov_index.call<void>();
@@ -341,7 +345,7 @@ namespace test {
 
         granary::app_pc wmov_index((granary::app_pc) watched_mov_to_mem_index);
         granary::basic_block call_wmov_index(granary::code_cache::find(
-            wmov_index, granary::policy_for<client::watchpoint_null_policy>()));
+            wmov_index, policy));
 
         WP_MOV_FOO = 0;
         call_wmov_index.call<void>();
@@ -349,21 +353,21 @@ namespace test {
 
         granary::app_pc mov_dead_index((granary::app_pc) unwatched_mov_from_mem_dead_index);
         granary::basic_block call_mov_dead_index(granary::code_cache::find(
-            mov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_dead_index, policy));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_mov_dead_index.call<uint64_t>());
 
         granary::app_pc wmov_dead_index((granary::app_pc) watched_mov_from_mem_dead_index);
         granary::basic_block call_wmov_dead_index(granary::code_cache::find(
-            wmov_dead_index, granary::policy_for<client::watchpoint_null_policy>()));
+            wmov_dead_index, policy));
 
         WP_MOV_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_wmov_dead_index.call<uint64_t>());
 
         granary::app_pc mov_base_index((granary::app_pc) unwatched_mov_to_mem_base_index);
         granary::basic_block call_mov_base_index(granary::code_cache::find(
-            mov_base_index, granary::policy_for<client::watchpoint_null_policy>()));
+            mov_base_index, policy));
 
         WP_MOV_FOO = 0;
         call_mov_base_index.call<void>();
@@ -371,7 +375,7 @@ namespace test {
 
         granary::app_pc wmov_base_index((granary::app_pc) watched_mov_to_mem_base_index);
         granary::basic_block call_wmov_base_index(granary::code_cache::find(
-            wmov_base_index, granary::policy_for<client::watchpoint_null_policy>()));
+            wmov_base_index, policy));
 
         WP_MOV_FOO = 0;
         call_wmov_base_index.call<void>();

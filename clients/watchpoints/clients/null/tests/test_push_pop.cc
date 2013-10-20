@@ -88,16 +88,20 @@ namespace test {
         (void) WP_PP_FOO;
         (void) WP_PP_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc push((granary::app_pc) unwatched_push);
         granary::basic_block call_push(granary::code_cache::find(
-                push, granary::policy_for<client::watchpoint_null_policy>()));
+            push, policy));
 
         WP_PP_FOO = 0xDEADBEEF;
         ASSERT(0xDEADBEEF == call_push.call<uint64_t>());
 
         granary::app_pc wpush((granary::app_pc) watched_push);
         granary::basic_block call_wpush(granary::code_cache::find(
-            wpush, granary::policy_for<client::watchpoint_null_policy>()));
+            wpush, policy));
 
         WP_PP_FOO = 0xBEEFDEAD;
         ASSERT(0xBEEFDEAD == call_wpush.call<uint64_t>());
@@ -105,7 +109,7 @@ namespace test {
 
         granary::app_pc pop((granary::app_pc) unwatched_pop);
         granary::basic_block call_pop(granary::code_cache::find(
-            pop, granary::policy_for<client::watchpoint_null_policy>()));
+            pop, policy));
 
         WP_PP_FOO = 0;
         call_pop.call<void>();
@@ -113,7 +117,7 @@ namespace test {
 
         granary::app_pc wpop((granary::app_pc) watched_pop);
         granary::basic_block call_wpop(granary::code_cache::find(
-            wpop, granary::policy_for<client::watchpoint_null_policy>()));
+            wpop, policy));
 
         WP_PP_FOO = 0;
         call_wpop.call<void>();

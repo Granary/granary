@@ -35,6 +35,7 @@
 #include <asm/page.h>
 #include <asm/cacheflush.h>
 #include <asm/thread_info.h>
+#include <asm/desc.h>
 
 #define LINUX_MAJOR_VERSION ((LINUX_VERSION_CODE >> 16) & 0xFF)
 #define LINUX_MINOR_VERSION ((LINUX_VERSION_CODE >> 8)  & 0xFF)
@@ -69,6 +70,12 @@ MODULE_LICENSE("GPL");
 #define SUBBUF_SIZE 262144
 #define N_SUBBUFS 4
 struct rchan *GRANARY_RELAY_CHANNEL = NULL;
+
+
+/// Get the base of the kernel's interrupt descriptor table.
+void *kernel_get_idt_table(void) {
+    return (void *) DETACH_ADDR_idt_table;
+}
 
 
 /// Get access to per-CPU Granary state.
@@ -155,26 +162,6 @@ static int do_init_sync(void *func) {
 /// Call a function where all CPUs are synchronised.
 void kernel_run_synchronised(void (*func)(void)) {
     stop_machine(do_init_sync, (void *) func, NULL);
-}
-
-
-/// Notify the kernel that pre-emption is disabled. Granary does this even
-/// when interrupts are disabled.
-__attribute__((hot))
-void kernel_preempt_disable(void) {
-    //inc_preempt_count();
-    //barrier();
-}
-
-
-/// Notify the kernel that pre-emption is re-enabled. Granary does this even
-/// when interrupts remain disabled, with the understanding that Granary won't
-/// do anything "interesting" (i.e. call kernel functions that might inspect
-/// the pre-emption state) until it re-enabled interrupts.
-__attribute__((hot))
-void kernel_preempt_enable(void) {
-    //barrier();
-    //dec_preempt_count();
 }
 
 

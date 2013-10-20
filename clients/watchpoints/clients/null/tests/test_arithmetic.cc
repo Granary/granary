@@ -86,11 +86,15 @@ namespace test {
         (void) WP_ARITH_FOO;
         (void) WP_ARITH_MASK;
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         // Simple un/watched, no flags dependencies, no register dependencies.
 
         granary::app_pc add((granary::app_pc) unwatched_add);
         granary::basic_block call_add(granary::code_cache::find(
-            add, granary::policy_for<client::watchpoint_null_policy>()));
+            add, policy));
 
         WP_ARITH_FOO = 0;
         call_add.call<void>();
@@ -98,7 +102,7 @@ namespace test {
 
         granary::app_pc wadd((granary::app_pc) watched_add);
         granary::basic_block call_wadd(granary::code_cache::find(
-            wadd, granary::policy_for<client::watchpoint_null_policy>()));
+            wadd, policy));
 
         WP_ARITH_FOO = 0;
         call_wadd.call<void>();
@@ -106,7 +110,7 @@ namespace test {
 
         granary::app_pc xadd((granary::app_pc) unwatched_xadd);
         granary::basic_block call_xadd(granary::code_cache::find(
-            xadd, granary::policy_for<client::watchpoint_null_policy>()));
+            xadd, policy));
 
         WP_ARITH_FOO = 0;
         call_xadd.call<void>();
@@ -114,7 +118,7 @@ namespace test {
 
         granary::app_pc wxadd((granary::app_pc) watched_xadd);
         granary::basic_block call_wxadd(granary::code_cache::find(
-            wxadd, granary::policy_for<client::watchpoint_null_policy>()));
+            wxadd, policy));
 
         WP_ARITH_FOO = 0;
         call_wxadd.call<void>();
@@ -122,7 +126,7 @@ namespace test {
 
         granary::app_pc inc((granary::app_pc) unwatched_inc);
         granary::basic_block call_inc(granary::code_cache::find(
-            inc, granary::policy_for<client::watchpoint_null_policy>()));
+            inc, policy));
 
         WP_ARITH_FOO = 0;
         call_inc.call<void>();
@@ -130,7 +134,7 @@ namespace test {
 
         granary::app_pc winc((granary::app_pc) unwatched_inc);
         granary::basic_block call_winc(granary::code_cache::find(
-            winc, granary::policy_for<client::watchpoint_null_policy>()));
+            winc, policy));
 
         WP_ARITH_FOO = 0;
         call_winc.call<void>();

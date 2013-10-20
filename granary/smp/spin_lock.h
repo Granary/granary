@@ -11,13 +11,6 @@
 
 #include <atomic>
 
-#if GRANARY_IN_KERNEL
-extern "C" {
-    extern void kernel_preempt_disable(void);
-    extern void kernel_preempt_enable(void);
-}
-#endif
-
 namespace granary { namespace smp {
 
     /// Simple implementation of a spin lock.
@@ -37,8 +30,12 @@ namespace granary { namespace smp {
             : is_locked(ATOMIC_VAR_INIT(false))
         { }
 
+        /// Acquire the spin lock.
+        ///
+        /// TODO: Probably want things so that the person acquiring a spin
+        ///       lock needs to disable interrupts.
         inline void acquire(void) throw() {
-            IF_KERNEL( kernel_preempt_disable(); )
+            IF_KERNEL( eflags flags = granary_disable_interrupts(); )
 
             for(;;) {
                 if(is_locked.load(std::memory_order_acquire)) {
@@ -52,11 +49,12 @@ namespace granary { namespace smp {
 
                 ASM("pause;");
             }
+
+            IF_KERNEL( granary_store_flags(flags); )
         }
 
         inline void release(void) throw() {
             is_locked.store(false, std::memory_order_release);
-            IF_KERNEL( kernel_preempt_enable(); )
         }
     };
 

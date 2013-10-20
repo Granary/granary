@@ -810,8 +810,6 @@ namespace granary {
     static void
     find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
 
-        IF_KERNEL( kernel_preempt_disable(); )
-
         // Notify Granary that we're entering!
         cpu_state_handle cpu;
         granary::enter(cpu);
@@ -864,8 +862,6 @@ namespace granary {
         granary_atomic_write8(
             staged_code_,
             reinterpret_cast<uint64_t *>(patch_address));
-
-        IF_KERNEL( kernel_preempt_enable(); )
     }
 
 

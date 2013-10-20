@@ -9,12 +9,13 @@
 #include "granary/globals.h"
 #include "granary/state.h"
 #include "granary/instruction.h"
+#include "granary/list.h"
+#include "granary/code_cache.h"
 
 #if CONFIG_INSTRUMENT_PATCH_WRAPPERS
-#   include "granary/code_cache.h"
-#   include "granary/list.h"
 #   include "granary/detach.h"
 #endif
+
 
 extern "C" {
     void kernel_make_memory_writeable(void *addr);

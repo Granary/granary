@@ -237,7 +237,7 @@ namespace granary {
     {
         // Round our search address down to `BB_INFO_BYTE_ALIGNMENT` before we
         // search for the meta info magic value.
-        uintptr_t addr(reinterpret_cast<uint64_t>(current_pc_));
+        uintptr_t addr(reinterpret_cast<uintptr_t>(current_pc_));
         addr -= (addr % BB_INFO_BYTE_ALIGNMENT);
 
         // Go search for the basic block info by finding potential

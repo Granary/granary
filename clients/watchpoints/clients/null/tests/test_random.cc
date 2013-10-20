@@ -37,15 +37,20 @@ namespace test {
         return ret;
     }
 
+
     /// Test that MOV instructions are correctly watched.
     static void random_tests_watched_correctly(void) {
         (void) WP_R_TEST;
 
         // Simple un/watched, no flags dependencies, no register dependencies.
 
+        granary::instrumentation_policy policy =
+            granary::policy_for<client::watchpoint_null_policy>();
+        policy.force_attach(true);
+
         granary::app_pc movzbl((granary::app_pc) test_movzbl);
         granary::basic_block call_movzbl(granary::code_cache::find(
-            movzbl, granary::policy_for<client::watchpoint_null_policy>()));
+            movzbl, policy));
 
         ASSERT(0xFF == call_movzbl.call<uint32_t>());
     }

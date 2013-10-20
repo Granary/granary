@@ -44,16 +44,11 @@ namespace granary {
         inline static app_pc find(
             mangled_address addr
         ) throw() {
-            IF_KERNEL( kernel_preempt_disable(); )
-
+            IF_KERNEL( eflags flags(granary_disable_interrupts()); )
             cpu_state_handle cpu;
-
             enter(cpu);
-
             app_pc ret(find(cpu, addr));
-
-            IF_KERNEL( kernel_preempt_enable(); )
-
+            IF_KERNEL( granary_store_flags(flags); )
             return ret;
         }
 
@@ -66,9 +61,7 @@ namespace granary {
             app_pc addr,
             instrumentation_policy policy
         ) throw() {
-
             IF_KERNEL( eflags flags(granary_disable_interrupts()); )
-            IF_KERNEL( kernel_preempt_disable(); )
 
             cpu_state_handle cpu;
             enter(cpu);
@@ -76,7 +69,6 @@ namespace granary {
             mangled_address mangled_addr(addr, policy);
             app_pc ret(find(cpu, mangled_addr));
 
-            IF_KERNEL( kernel_preempt_enable(); )
             IF_KERNEL( granary_store_flags(flags); )
             return ret;
         }
