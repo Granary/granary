@@ -747,18 +747,6 @@ namespace granary {
                 break;
             }
 
-            switch(in.op_code()) {
-            case dynamorio::OP_swapgs:
-            case dynamorio::OP_sysexit:
-            case dynamorio::OP_sysret:
-            case dynamorio::OP_iret:
-            case dynamorio::OP_ret_far:
-                granary_do_break_on_translate = true;
-                break;
-            default:
-                break;
-            }
-
             byte_len += in.instr->length;
             ls.append(in);
 

@@ -871,8 +871,9 @@ namespace granary {
     }
 
 
-    /// Create a Granary version of the interrupt descriptor table. This
-    /// assumes that the IDT for all CPUs is the same.
+    /// Create a Granary version of the interrupt descriptor table. This does
+    /// not assume that all CPUs share the same IDT, but benefits from sharing
+    /// if it's true.
     system_table_register_t create_idt(system_table_register_t native) throw() {
 
         // Unusual; seem to be re-creating based on our own IDT.
@@ -928,7 +929,6 @@ namespace granary {
                     continue;
                 }
 
-                // Ignore user space system call handlers.
                 app_pc target(native_handler);
 
 #if !CONFIG_CLIENT_HANDLE_INTERRUPT && !CONFIG_ENABLE_INTERRUPT_DELAY
@@ -939,8 +939,13 @@ namespace granary {
                 // If clients are handling interrupts, or we want to be able to
                 // delay interrupts.
                 //
-                // Magic number 0xfe: This covers most Linux x86 and ia64 IPI
+                // Magic number 0xf0: This covers most Linux x86 and ia64 IPI
                 // interrupt vectors (as well as a few others, but whatever).
+                //
+                // TODO: If CONFIG_INSTRUMENT_HOST, deal with VECTOR_SYSCALL.
+                //       For the time being this might not be necessary because
+                //       `INT 0x80` is used for 32-bit applications (similar to
+                //       `SYSENTER`).
                 if(VECTOR_SYSCALL != i
                 && VECTOR_NMI != i
                 && i <= 0xf0) {

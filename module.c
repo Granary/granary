@@ -81,7 +81,7 @@ void *kernel_get_idt_table(void) {
 /// Get access to per-CPU Granary state.
 __attribute__((hot, optimize("O3")))
 void **kernel_get_cpu_state(void *ptr[]) {
-    return &(ptr[smp_processor_id()]);
+    return &(ptr[raw_smp_processor_id()]);
 }
 
 
