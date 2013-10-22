@@ -186,7 +186,7 @@ namespace granary {
             flags = granary_disable_interrupts();
             {
                 cpu_state_handle cpu;
-                cpu->in_granary = false;
+                IF_TEST( cpu->in_granary = false; )
                 cpu.free_transient_allocators();
                 CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
             }
@@ -197,7 +197,7 @@ namespace granary {
             flags = granary_disable_interrupts();
             {
                 cpu_state_handle cpu;
-                cpu->in_granary = false;
+                IF_TEST( cpu->in_granary = false; )
                 cpu.free_transient_allocators();
                 CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
                     CPU_STATES[i]->native_msr_lstar);

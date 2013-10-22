@@ -1167,7 +1167,7 @@ namespace granary {
         pc += sizeof(basic_block_info);
         IF_KERNEL( pc += initialise_state_bytes(info, ls.first(), pc); )
 
-        IF_TEST( end_pc = pc; )
+        end_pc = pc;
 
         return start_pc;
     }

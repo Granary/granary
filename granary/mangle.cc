@@ -1151,7 +1151,7 @@ namespace granary {
             return;
         }
 
-        const unsigned old_size(in.encoded_size());
+        IF_TEST( const unsigned old_size(in.encoded_size()); )
 
         // Set the policy-fied target.
         instruction stub(ls->prepend(label_()));

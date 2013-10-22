@@ -127,7 +127,7 @@ namespace granary {
             // Thing.
             IF_KERNEL( eflags flags = granary_disable_interrupts(); )
             cpu_state_handle cpu;
-            cpu->in_granary = false;
+            IF_TEST( cpu->in_granary = false; )
             cpu.free_transient_allocators();
 
             ASM(
