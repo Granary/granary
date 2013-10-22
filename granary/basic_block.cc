@@ -585,6 +585,63 @@ namespace granary {
 
 
 #if GRANARY_IN_KERNEL
+
+
+    /// Special case ranges of kernel code that have been observed to access
+    /// user space data. Some/all? of these don't *appear* to use the correct
+    /// APIs, and so the pattern matching fails on them.
+    ///
+    /// TODO: Do further investigation and potentially report these functions
+    ///       as having bugs.
+    static const app_pc USER_ACCESS_CODE[][2] = {
+#   ifdef DETACH_ADDR_memcpy
+        {(app_pc) DETACH_ADDR_memcpy,
+         (app_pc) DETACH_ADDR_memcpy + DETACH_LENGTH_memcpy},
+#   endif
+#   ifdef DETACH_ADDR_csum_partial_copy_generic
+        {(app_pc) DETACH_ADDR_csum_partial_copy_generic,
+         (app_pc) DETACH_ADDR_csum_partial_copy_generic + DETACH_LENGTH_csum_partial_copy_generic},
+#   endif
+#   ifdef DETACH_ADDR_rcu_process_callbacks
+        {(app_pc) DETACH_ADDR_rcu_process_callbacks,
+         (app_pc) DETACH_ADDR_rcu_process_callbacks + DETACH_LENGTH_rcu_process_callbacks},
+#   endif
+#   ifdef DETACH_ADDR_flush_tlb_mm_range
+        {(app_pc) DETACH_ADDR_flush_tlb_mm_range,
+         (app_pc) DETACH_ADDR_flush_tlb_mm_range + DETACH_LENGTH_flush_tlb_mm_range},
+#   endif
+#   ifdef DETACH_ADDR___kmalloc
+        {(app_pc) DETACH_ADDR___kmalloc,
+         (app_pc) DETACH_ADDR___kmalloc + DETACH_LENGTH___kmalloc},
+#   endif
+#   ifdef DETACH_ADDR___kmalloc_node
+        {(app_pc) DETACH_ADDR___kmalloc_node,
+         (app_pc) DETACH_ADDR___kmalloc_node + DETACH_LENGTH___kmalloc_node},
+#   endif
+#   ifdef DETACH_ADDR_kmem_cache_alloc
+        {(app_pc) DETACH_ADDR_kmem_cache_alloc,
+         (app_pc) DETACH_ADDR_kmem_cache_alloc + DETACH_LENGTH_kmem_cache_alloc},
+#   endif
+#   ifdef DETACH_ADDR___kmalloc_node_track_caller
+        {(app_pc) DETACH_ADDR___kmalloc_node_track_caller,
+         (app_pc) DETACH_ADDR___kmalloc_node_track_caller + DETACH_LENGTH___kmalloc_node_track_caller},
+#   endif
+#   ifdef DETACH_ADDR___kmalloc_track_caller
+        {(app_pc) DETACH_ADDR___kmalloc_track_caller,
+         (app_pc) DETACH_ADDR___kmalloc_track_caller + DETACH_LENGTH___kmalloc_track_caller},
+#   endif
+#   ifdef DETACH_ADDR_kmem_cache_alloc_node
+        {(app_pc) DETACH_ADDR_kmem_cache_alloc_node,
+         (app_pc) DETACH_ADDR_kmem_cache_alloc_node + DETACH_LENGTH_kmem_cache_alloc_node},
+#   endif
+#   ifdef DETACH_ADDR_release_sock
+        {(app_pc) DETACH_ADDR_release_sock,
+         (app_pc) DETACH_ADDR_release_sock + DETACH_LENGTH_release_sock},
+#   endif
+        {nullptr, nullptr}
+    };
+
+
     /// Try to detect if the basic block contains a specific binary instruction
     /// pattern that makes it look like it could contain and exception table
     /// entry.
@@ -593,16 +650,13 @@ namespace granary {
         app_pc start_pc
     ) throw() {
 
-        if(unsafe_cast<app_pc>(memcpy) == start_pc) {
-            return false;
+        // Go through the array of exceptions.
+        for(unsigned i(0); USER_ACCESS_CODE[i][0]; ++i) {
+            if(USER_ACCESS_CODE[i][0] <= start_pc
+            && start_pc < USER_ACCESS_CODE[i][1]) {
+                return true;
+            }
         }
-
-#   ifdef DETACH_ADDR_csum_partial_copy_generic
-        if(DETACH_ADDR_csum_partial_copy_generic
-        == reinterpret_cast<uintptr_t>(start_pc)) {
-            return true;
-        }
-#   endif
 
         enum {
             DATA32_XCHG_AX_AX = 0x906666U,

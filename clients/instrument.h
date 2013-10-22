@@ -39,6 +39,12 @@
 #endif
 
 
+/// Null-like policy that detects when we're accessing user data.
+#ifdef CLIENT_WATCHPOINT_USER
+#   include "clients/watchpoints/clients/user/instrument.h"
+#endif
+
+
 /// Stats policy.
 #ifdef CLIENT_WATCHPOINT_STATS
 #   include "clients/watchpoints/clients/stats/instrument.h"
@@ -70,9 +76,11 @@
 #   include "clients/watchpoints/clients/leak_detector/instrument.h"
 #endif
 
+
 #ifdef CLIENT_WATCHPOINT_PROFILE
 #   include "clients/watchpoints/clients/profiler/instrument.h"
 #endif
+
 
 /// Shadow memory watchpoints tool.
 #ifdef CLIENT_SHADOW_MEMORY

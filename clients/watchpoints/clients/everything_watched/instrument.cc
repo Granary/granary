@@ -11,40 +11,10 @@
 
 using namespace granary;
 
-namespace client { namespace wp {
-
-
-    void watched_policy::visit_read(
-        granary::basic_block_state &,
-        instruction_list &,
-        watchpoint_tracker &,
-        unsigned
-    ) throw() { }
-
-
-    void watched_policy::visit_write(
-        granary::basic_block_state &,
-        instruction_list &,
-        watchpoint_tracker &,
-        unsigned
-    ) throw() { }
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-    interrupt_handled_state watched_policy::handle_interrupt(
-        cpu_state_handle,
-        thread_state_handle,
-        granary::basic_block_state &,
-        interrupt_stack_frame &,
-        interrupt_vector
-    ) throw() {
-        return INTERRUPT_DEFER;
-    }
-} /* wp namespace */
-#else
-} /* wp namespace */
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
-
+namespace client {
+    DEFINE_READ_VISITOR(watched_policy, {})
+    DEFINE_WRITE_VISITOR(watched_policy, {})
+    DEFINE_INTERRUPT_VISITOR(watched_policy, {})
 } /* client namespace */
 
 

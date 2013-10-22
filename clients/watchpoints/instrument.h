@@ -122,42 +122,54 @@ namespace client {
 
             /// Current instruction
             granary::instruction in;
+            granary::instrumentation_policy policy;
+
 
             /// True if this instruction reads from or writes to RSP.
             bool reads_from_rsp;
             bool writes_to_rsp;
+
 
             /// Represents the set of instructions that we can legally save and
             /// restore around the instrumented instruction without breaking
             /// things.
             granary::register_manager live_regs;
 
+
             /// Represents the set of registers that have already been spilled.
             granary::register_manager spill_regs;
+
 
             /// Represents the set of registers that are actually live after
             /// whatever instruction we're currently instrumenting.
             granary::register_manager live_regs_after;
 
+
             /// Direct references to the operands within an instruction.
             granary::operand_ref ops[MAX_NUM_OPERANDS];
+
 
             /// Instruction labels where specific watchpoint implementations
             /// can add in their code. If no code is added before/after these
             /// labels, then the net effect is that the code will just "mask"
             /// out all watchpoint accesses to behave as normal.
+            granary::instruction pre_labels[MAX_NUM_OPERANDS];
             granary::instruction labels[MAX_NUM_OPERANDS];
+
 
             /// Conveniences for specific watchpoint implementations so that
             /// they can know where the watchpoint info is stored.
             granary::operand regs[MAX_NUM_OPERANDS];
 
+
             /// True iff the ith operand (in `ops`) can be modified, or if it
             /// must be left as-is.
             bool can_replace[MAX_NUM_OPERANDS];
 
+
             /// The operand sizes of each of the memory operands.
             operand_size sizes[MAX_NUM_OPERANDS];
+
 
             /// Kernel space:
             ///     Applies if we detect a specific binary pattern, or if we
@@ -169,8 +181,10 @@ namespace client {
             ///     We assume that indexes with bit 47 set to 1 are unwatched.
             bool check_bit_47;
 
+
             /// The number of operands that need to be instrumented.
             unsigned num_ops;
+
 
             /// Track the carry flag.
             bool restore_carry_flag_before;
@@ -616,6 +630,7 @@ namespace client {
 
                 memset(&tracker, 0, sizeof tracker);
                 tracker.in = in;
+                tracker.policy = *this;
                 tracker.live_regs = next_live_regs;
                 tracker.live_regs_after = next_live_regs;
 
@@ -773,9 +788,127 @@ namespace client {
         }
 #endif
     };
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+    /// Handle an interrupt in kernel code.
+    granary::interrupt_handled_state handle_kernel_interrupt(
+        granary::cpu_state_handle,
+        granary::thread_state_handle,
+        granary::interrupt_stack_frame &,
+        granary::interrupt_vector
+    ) throw();
+#endif
+
+
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
-}
+} /* namespace client */
 
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...) __VA_ARGS__
+#else
+#   define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...)
+#endif
+
+
+/// Used to declare a simple read/write instrumentation policy.
+#define DECLARE_READ_WRITE_POLICY(name, auto_instrument) \
+    namespace wp { \
+        struct name { \
+            \
+            enum { \
+                AUTO_INSTRUMENT_HOST = auto_instrument \
+            }; \
+            \
+            static void visit_read( \
+                granary::basic_block_state &bb, \
+                granary::instruction_list &ls, \
+                watchpoint_tracker &tracker, \
+                unsigned i \
+            ) throw(); \
+            \
+            static void visit_write( \
+                granary::basic_block_state &bb, \
+                granary::instruction_list &ls, \
+                watchpoint_tracker &tracker, \
+                unsigned i \
+            ) throw(); \
+            \
+            IF_CONFIG_CLIENT_HANDLE_INTERRUPT( \
+            static granary::interrupt_handled_state handle_interrupt( \
+                granary::cpu_state_handle cpu, \
+                granary::thread_state_handle thread, \
+                granary::basic_block_state &bb, \
+                granary::interrupt_stack_frame &isf, \
+                granary::interrupt_vector vector \
+            ) throw(); ) \
+        }; \
+    }
+
+
+#define DEFINE_READ_VISITOR(rw_policy_name, ...) \
+    namespace wp { \
+        void rw_policy_name::visit_read( \
+            granary::basic_block_state &bb, \
+            instruction_list &ls, \
+            watchpoint_tracker &tracker, \
+            unsigned i \
+        ) throw() { \
+            const operand &op(tracker.regs[i]); \
+            const instruction &label(tracker.labels[i]); \
+            const instruction &pre_label(tracker.pre_labels[i]); \
+            (void) bb; (void) ls; (void) op; (void) label; (void) pre_label; \
+            __VA_ARGS__ \
+        } \
+    }
+
+
+#define DEFINE_WRITE_VISITOR(rw_policy_name, ...) \
+    namespace wp { \
+        void rw_policy_name::visit_write( \
+            granary::basic_block_state &bb, \
+            instruction_list &ls, \
+            watchpoint_tracker &tracker, \
+            unsigned i \
+        ) throw() { \
+            const operand &op(tracker.regs[i]); \
+            const instruction &label(tracker.labels[i]); \
+            const instruction &pre_label(tracker.pre_labels[i]); \
+            (void) bb; (void) ls; (void) op; (void) label; (void) pre_label; \
+            __VA_ARGS__ \
+        } \
+    }
+
+
+#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   define DEFINE_INTERRUPT_VISITOR(rw_policy_name, ...) \
+        namespace wp { \
+            interrupt_handled_state rw_policy_name::handle_interrupt( \
+                cpu_state_handle cpu, \
+                thread_state_handle thread, \
+                granary::basic_block_state &bb, \
+                interrupt_stack_frame &isf, \
+                interrupt_vector vector \
+            ) throw() { \
+                (void) cpu; (void) thread; (void) bb; (void) isf; (void) vector; \
+                { __VA_ARGS__ } \
+                return INTERRUPT_DEFER; \
+            } \
+        }
+#else
+#   define DEFINE_INTERRUPT_VISITOR(rw_policy_name, ...)
+#endif
+
+
+
+
+/// Used to declare a simple watchpoints policy based on a host and app
+/// read/write policy.
+#define DECLARE_INSTRUMENTATION_POLICY(policy_name, read_policy_name, write_policy_name, ...) \
+    struct policy_name \
+        : public watchpoints<wp::read_policy_name, wp::write_policy_name> \
+    __VA_ARGS__ ;
 
 #endif /* WATCHPOINT_INSTRUMENT_H_ */

@@ -14,7 +14,8 @@
  || defined(CLIENT_SHADOW_MEMORY) \
  || defined(CLIENT_RCUDBG) \
  || defined(CLIENT_WATCHPOINT_WATCHED) \
- || defined(CLIENT_WATCHPOINT_PROFILE)
+ || defined(CLIENT_WATCHPOINT_PROFILE) \
+ || defined(CLIENT_WATCHPOINT_USER)
 #   include "clients/watchpoints/state.h"
 #endif
 
@@ -22,6 +23,7 @@
 #ifdef CLIENT_CFG
 #   include "clients/cfg/state.h"
 #endif
+
 
 #ifdef CLIENT_WATCHPOINT_STATS
 #   include "clients/watchpoints/clients/stats/state.h"

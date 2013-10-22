@@ -155,6 +155,12 @@ namespace client { namespace wp {
             case dynamorio::OP_shr:
             case dynamorio::OP_shl:
             case dynamorio::OP_cmp:
+            case dynamorio::OP_prefetch:
+            case dynamorio::OP_prefetchnta:
+            case dynamorio::OP_prefetcht0:
+            case dynamorio::OP_prefetcht1:
+            case dynamorio::OP_prefetcht2:
+            case dynamorio::OP_prefetchw:
                 tracker.can_replace[tracker.num_ops] = true;
                 break;
             default:
@@ -847,6 +853,9 @@ namespace client { namespace wp {
                     const_cast<operand_ref &>(op).replace_with(op_replacement);
                 }
             }
+
+            // Add a label in before we even test the operand.
+            this->pre_labels[i] = ls.insert_before(before, label_());
 
             // Test for a watched address. This sets the carry flag, and lets
             // us go ahead and re-purpose `addr` if necessary for later

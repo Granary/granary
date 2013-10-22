@@ -83,8 +83,9 @@ namespace client {
         };
 
 
-#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-
+#ifdef GRANARY_DONT_INCLUDE_CSTDLIB
+    } /* wp namespace */
+#else
 
         void visit_overflow(
             uintptr_t watched_addr,
@@ -93,65 +94,19 @@ namespace client {
         ) throw();
 
 
-        /// Policy for bounds-checking allocated memory in app and host code.
-        struct bound_policy {
+    } /* namespace wp */
 
-            enum {
-                AUTO_INSTRUMENT_HOST = false
-            };
+    DECLARE_READ_WRITE_POLICY(
+        bound_policy /* name */,
+        false /* auto-instrument */)
 
-            static void visit_read(
-                granary::basic_block_state &,
-                granary::instruction_list &,
-                watchpoint_tracker &,
-                unsigned
-            ) throw();
-
-
-            static void visit_write(
-                granary::basic_block_state &,
-                granary::instruction_list &,
-                watchpoint_tracker &,
-                unsigned
-            ) throw();
-
-
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
-            static granary::interrupt_handled_state handle_interrupt(
-                granary::cpu_state_handle cpu,
-                granary::thread_state_handle thread,
-                granary::basic_block_state &bb,
-                granary::interrupt_stack_frame &isf,
-                granary::interrupt_vector vector
-            ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
-        };
+    DECLARE_INSTRUMENTATION_POLICY(
+        watchpoint_bound_policy,
+        bound_policy /* app read/write policy */,
+        bound_policy /* host read/write policy */,
+        { /* override declarations */ })
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
-    }
-
-
-#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-    struct watchpoint_bound_policy
-        : public client::watchpoints<
-              wp::bound_policy,
-              wp::bound_policy
-          >
-    { };
-
-
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
-    /// Handle an interrupt in kernel code. Returns true iff the client handles
-    /// the interrupt.
-    granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle,
-        granary::thread_state_handle,
-        granary::interrupt_stack_frame &,
-        granary::interrupt_vector
-    ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
-
-#endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
-}
+} /* namespace client */
 
 #endif /* WATCHPOINT_BOUND_POLICY_H_ */

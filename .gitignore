@@ -24,6 +24,9 @@
 *.core
 core
 
+# Logs
+bug.txt
+
 # Random things
 .settings
 .project

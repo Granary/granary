@@ -227,9 +227,12 @@ ifeq ($(GR_CLIENT),cfg)
 	GR_OBJS += $(BIN_DIR)/clients/cfg/events.o
 	GR_OBJS += $(BIN_DIR)/clients/cfg/report.o
 endif
+
+GR_WP_INCLUDE_DEFAULT = 0
+
 ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
-	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+	GR_WP_INCLUDE_DEFAULT = 1
 	
 	ifeq ($(KERNEL),1)
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/instrument.o
@@ -245,31 +248,27 @@ ifeq ($(GR_CLIENT),watchpoint_null)
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_frame_pointer.o
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_auto_data.o
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_auto.o
-	
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
 	endif
 endif
+
+ifeq ($(GR_CLIENT),watchpoint_user)
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_USER
+	GR_WP_INCLUDE_DEFAULT = 1
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/user/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/user/report.o
+endif
 ifeq ($(GR_CLIENT),watchpoint_stats)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_STATS 
-	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_STATS
+	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/stats/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/stats/report.o
-	
-	ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	endif
 endif
 ifeq ($(GR_CLIENT),everything_watched)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
-	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched/instrument.o
 	
-	ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	else
+	ifeq ($(KERNEL),0)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
 	endif
 endif
@@ -291,29 +290,24 @@ ifeq ($(GR_CLIENT),everything_watched_aug)
 endif
 ifeq ($(GR_CLIENT),bounds_checker)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
-	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
-	GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
+	GR_WP_INCLUDE_DEFAULT = 1
+	
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/bounds_checker/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/bounds_checker/bounds_checkers.o
 	
-	ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	else
+	ifeq ($(KERNEL),0)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
 	endif
 endif
 ifeq ($(GR_CLIENT),leak_detector)
     GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+    GR_WP_INCLUDE_DEFAULT = 1
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/access_descriptor.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/instrument.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/descriptor.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/thread.o
     
     ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
 		GR_MOD_OBJS += clients/watchpoints/clients/leak_detector/kernel/leakpolicy_scan.o
 	else
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
@@ -321,28 +315,17 @@ ifeq ($(GR_CLIENT),leak_detector)
 endif
 ifeq ($(GR_CLIENT),shadow_memory)
     GR_CXX_FLAGS += -DCLIENT_SHADOW_MEMORY
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+    GR_WP_INCLUDE_DEFAULT = 1
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/shadow_update.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/instrument.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/descriptor.o
     GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/thread.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/shadow_report.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
-    
-    ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	else
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
-	endif
+    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/shadow_report.o    
 endif
 ifeq ($(GR_CLIENT),rcudbg)
 	ifeq ($(KERNEL),1)
         GR_CXX_FLAGS += -DCLIENT_RCUDBG
-        GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
-        GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
-        GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
+        GR_WP_INCLUDE_DEFAULT = 1
 		
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/carat.o
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/descriptor.o
@@ -354,6 +337,17 @@ ifeq ($(GR_CLIENT),rcudbg)
     else
     	$(error Can't use the rcudbg tool in user space.)
 	endif
+endif
+
+# "Default" files to include when compiling watchpoints code.
+ifeq ($(GR_WP_INCLUDE_DEFAULT),1)
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
+	ifeq ($(KERNEL),1)
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
+	endif
+	# TODO: `else` for user and signals.
 endif
 
 # Client-generated C++ files.
@@ -695,6 +689,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/null/ > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/null/tests > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/stats/ > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/user/ > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/shadow_memory > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/rcudbg > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients/rcudbg/tests > /dev/null 2>&1 ||:

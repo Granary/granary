@@ -36,7 +36,7 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-        HEAP_SIZE = _1_MB * 30,
+        HEAP_SIZE = _1_MB * 40,
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(unsigned long) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),

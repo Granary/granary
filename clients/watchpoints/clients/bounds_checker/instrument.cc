@@ -211,12 +211,6 @@ namespace client { namespace wp {
         const unsigned reg_index = register_to_index(tracker.regs[i].value.reg);
         const unsigned size_index = operand_size_order(tracker.sizes[i]);
 
-        /* Issue #6 : the check avoids the case of memory corruption for tracker
-         *            should be removed once fixed                               */
-        if((size_index & 0xffffffff) == 0xffffffff) {
-            return;
-        }
-
         ASSERT(reg_index < 16);
         ASSERT(size_index < 5);
 

@@ -9,30 +9,17 @@
 #ifndef CLIENT_REPORT_H_
 #define CLIENT_REPORT_H_
 
-
 /// How to use an init function:
 ///     1)  Define the `CLIENT_report` macro in here on a per-client basis.
 ///     2)  Define the `void report(void) throw()` function within the `client`
 ///         namespace within your client code.
 
-#ifdef CLIENT_CFG
-#   define CLIENT_report
-#endif
-
-
-#ifdef CLIENT_WATCHPOINT_STATS
-#   define CLIENT_report
-#endif
-
-#ifdef CLIENT_WATCHPOINT_PROFILE
-#   define CLIENT_report
-#endif
-
-#ifdef CLIENT_RCUDBG
-#   define CLIENT_report
-#endif
-
-#ifdef CLIENT_WATCHPOINT_AUGMENT
+#if defined(CLIENT_CFG) \
+ || defined(CLIENT_WATCHPOINT_STATS) \
+ || defined(CLIENT_WATCHPOINT_PROFILE) \
+ || defined(CLIENT_WATCHPOINT_AUGMENT) \
+ || defined(CLIENT_WATCHPOINT_USER) \
+ || defined(CLIENT_RCUDBG)
 #   define CLIENT_report
 #endif
 

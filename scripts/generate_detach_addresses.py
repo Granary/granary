@@ -26,7 +26,8 @@ if "__main__" == __name__:
   
   # special function that we need!
   EXTRA_SYMBOLS = set([
-    "module_alloc_update_bounds", "process_one_work", "idt_table"
+    "module_alloc_update_bounds", "process_one_work", "idt_table",
+    "rcu_process_callbacks", "flush_tlb_mm_range",
   ])
   MISSING_EXTRA_SYMBOLS = set()
   for sym in EXTRA_SYMBOLS:

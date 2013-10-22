@@ -18,57 +18,15 @@
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 namespace client {
 
-    namespace wp {
-        struct null_policy {
+    DECLARE_READ_WRITE_POLICY(
+        null_policy /* name */,
+        false /* auto-instrument */)
 
-            enum {
-                AUTO_INSTRUMENT_HOST = false
-            };
-
-            static void visit_read(
-                granary::basic_block_state &bb,
-                granary::instruction_list &ls,
-                watchpoint_tracker &tracker,
-                unsigned i
-            ) throw();
-
-
-            static void visit_write(
-                granary::basic_block_state &bb,
-                granary::instruction_list &ls,
-                watchpoint_tracker &tracker,
-                unsigned i
-            ) throw();
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-            static granary::interrupt_handled_state handle_interrupt(
-                granary::cpu_state_handle cpu,
-                granary::thread_state_handle thread,
-                granary::basic_block_state &bb,
-                granary::interrupt_stack_frame &isf,
-                granary::interrupt_vector vector
-            ) throw();
-#endif
-        };
-    }
-
-    struct watchpoint_null_policy
-        : public client::watchpoints<wp::null_policy, wp::null_policy>
-    { };
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-    /// Handle an interrupt in kernel code. Returns true iff the client handles
-    /// the interrupt.
-    granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle,
-        granary::thread_state_handle,
-        granary::interrupt_stack_frame &,
-        granary::interrupt_vector
-    ) throw();
-#endif
+    DECLARE_INSTRUMENTATION_POLICY(
+        watchpoint_null_policy,
+        null_policy /* app read/write policy */,
+        null_policy /* host read/write policy */,
+        { /* override declarations */ })
 }
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
-
 #endif /* WATCHPOINT_NULL_POLICY_H_ */
