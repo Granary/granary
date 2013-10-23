@@ -185,8 +185,7 @@ def process_lines(lines):
     if "typedef" in strip_line and "wchar_t;" in strip_line:
       continue
 
-    if "typedef K_Bool K_bool" not in strip_line:
-      O(strip_line)
+    O(strip_line)
 
 
 process_lines(get_lines())
