@@ -655,7 +655,6 @@ namespace client {
                 || dynamorio::OP_enter == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
-                //|| in.op_code() < 396) {
                     continue;
                 }
 
