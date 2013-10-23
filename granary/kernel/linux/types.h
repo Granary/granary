@@ -250,6 +250,10 @@
 /* taken from ext3/ext2*/
 
 /* Manual additions */
+#ifdef __ASSEMBLY__
+#   undef __ASSEMBLY__
+#endif
+#include <asm/fixmap.h>
 #include <linux/workqueue.h>
 void __init_work(struct work_struct *work, int onstack);
 bool __rcu_reclaim(char *rn, struct rcu_head *head);

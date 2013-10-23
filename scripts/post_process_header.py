@@ -143,6 +143,12 @@ def process_lines(lines):
     or "always_inline" in strip_line \
     or ("static " in strip_line and "(" in strip_line): # uuugh
 
+      # static variable definition
+      if ";" == strip_line[-1] \
+      and "{" not in strip_line \
+      and "=" in strip_line:
+        continue
+
       output_line = strip_line
       def_lines = []
       old_i = i
@@ -179,7 +185,8 @@ def process_lines(lines):
     if "typedef" in strip_line and "wchar_t;" in strip_line:
       continue
 
-    O(strip_line)
+    if "typedef K_Bool K_bool" not in strip_line:
+      O(strip_line)
 
 
 process_lines(get_lines())
