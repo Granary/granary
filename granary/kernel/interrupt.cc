@@ -392,7 +392,7 @@ namespace granary {
         // We don't need to do anything specific for interrupts.
         return INTERRUPT_DEFER;
 #else
-
+#   if CONFIG_ENABLE_INTERRUPT_DELAY
         // We might need to do something specific for interrupts.
         basic_block bb(isf->instruction_pointer);
         app_pc delay_begin(nullptr);
@@ -400,14 +400,14 @@ namespace granary {
 
         // We need to delay. After the delay has occurred, we re-issue the
         // interrupt.
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
+
         if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
             isf->instruction_pointer = emit_delayed_interrupt(
                 cpu, isf, vector, delay_begin, delay_end);
 
             return INTERRUPT_RETURN;
         }
-#   endif
+#   endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
 
         // Try to prepare for us being in a place where the kernel can
         // validly take a page fault.
