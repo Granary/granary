@@ -451,6 +451,7 @@ namespace granary {
     ) throw() {
         const app_pc pc(isf->instruction_pointer);
 
+#if CONFIG_ENABLE_INTERRUPT_DELAY
         // Detect an exception within a delayed interrupt handler. This
         // is really bad.
         //
@@ -463,6 +464,7 @@ namespace granary {
             granary_break_on_interrupt(isf, vector, cpu);
             return INTERRUPT_IRET;
         }
+#endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
 
         // Detect if an exception or something else is occurring within our
         // common interrupt handler. This is expected on the emulated IRET path
