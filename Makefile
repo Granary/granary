@@ -217,6 +217,11 @@ ifeq ($(GR_CLIENT),null_plus)
 	GR_CXX_FLAGS += -DCLIENT_NULL_PLUS
 	GR_OBJS += $(BIN_DIR)/clients/null_plus/instrument.o
 endif
+ifeq ($(GR_CLIENT),instr_dist)
+	GR_CXX_FLAGS += -DCLIENT_INSTR_DIST
+	GR_OBJS += $(BIN_DIR)/clients/instr_dist/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/instr_dist/report.o
+endif
 ifeq ($(GR_CLIENT),track_entry_exit)
 	GR_CXX_FLAGS += -DCLIENT_ENTRY
 	GR_OBJS += $(BIN_DIR)/clients/track_entry_exit/instrument.o
@@ -678,6 +683,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/gen > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/null > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/null_plus > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/instr_dist > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/cfg > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints > /dev/null 2>&1 ||:

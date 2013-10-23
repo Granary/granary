@@ -6,12 +6,19 @@
  *      Author: pag
  */
 
-#ifndef INSTRUMENT_H_
-#define INSTRUMENT_H_
+#ifndef GRANARY_INSTRUMENT_H_
+#define GRANARY_INSTRUMENT_H_
+
 
 /// Null policy.
 #ifdef CLIENT_NULL
 #   include "clients/null/instrument.h"
+#endif
+
+
+/// Instruction distribution policy
+#ifdef CLIENT_INSTR_DIST
+#   include "clients/instr_dist/instrument.h"
 #endif
 
 
@@ -100,4 +107,4 @@
 #endif
 
 
-#endif /* INSTRUMENT_H_ */
+#endif /* GRANARY_INSTRUMENT_H_ */

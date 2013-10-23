@@ -227,16 +227,16 @@ namespace granary {
                 // Leave as is.
 
             // Normal relative/absolute address.
-            } else if(dynamorio::REL_ADDR_kind == target.kind
-            || dynamorio::opnd_is_abs_addr(target)) {
+            } else if(dynamorio::opnd_is_rel_addr(target)
+                   || dynamorio::opnd_is_abs_addr(target)) {
 
                 app_pc target_addr(target.value.pc);
 
                 // Do an indirect load using abs address.
                 if(is_far_away(target_addr, estimator_pc)) {
-                    tail_bb.append(mov_imm_(
+                    tail_bb.append(mangled(mov_imm_(
                         reg_target_addr,
-                        int64_(reinterpret_cast<uint64_t>(target_addr))));
+                        int64_(reinterpret_cast<uint64_t>(target_addr)))));
                     target = *reg_target_addr;
                     mangled_target = true;
                 }

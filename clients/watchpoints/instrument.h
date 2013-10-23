@@ -655,6 +655,7 @@ namespace client {
                 || dynamorio::OP_enter == in.op_code()
                 || in.is_mangled()
                 || in.is_cti()) {
+                //|| in.op_code() < 396) {
                     continue;
                 }
 
@@ -789,28 +790,9 @@ namespace client {
 #endif
     };
 
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-    /// Handle an interrupt in kernel code.
-    granary::interrupt_handled_state handle_kernel_interrupt(
-        granary::cpu_state_handle,
-        granary::thread_state_handle,
-        granary::interrupt_stack_frame &,
-        granary::interrupt_vector
-    ) throw();
-#endif
-
-
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 } /* namespace client */
-
-
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
-#   define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...) __VA_ARGS__
-#else
-#   define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...)
-#endif
 
 
 /// Used to declare a simple read/write instrumentation policy.

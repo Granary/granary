@@ -161,6 +161,11 @@ namespace client { namespace wp {
             case dynamorio::OP_prefetcht1:
             case dynamorio::OP_prefetcht2:
             case dynamorio::OP_prefetchw:
+            case dynamorio::OP_clflush:
+            case dynamorio::OP_xsave32:
+            case dynamorio::OP_xsave64:
+            case dynamorio::OP_xrstor64:
+            case dynamorio::OP_xsaveopt64:
                 tracker.can_replace[tracker.num_ops] = true;
                 break;
             default:

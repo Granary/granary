@@ -15,6 +15,7 @@
 ///         namespace within your client code.
 
 #if defined(CLIENT_CFG) \
+ || defined(CLIENT_INSTR_DIST) \
  || defined(CLIENT_WATCHPOINT_STATS) \
  || defined(CLIENT_WATCHPOINT_PROFILE) \
  || defined(CLIENT_WATCHPOINT_AUGMENT) \
