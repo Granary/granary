@@ -392,15 +392,18 @@ namespace granary {
         // We don't need to do anything specific for interrupts.
         return INTERRUPT_DEFER;
 #else
+
+        // Need to access the basic block's info for both interrupt delaying and
+        // checking if we might need to deal with an exception table entry.
+        basic_block bb(isf->instruction_pointer);
+
 #   if CONFIG_ENABLE_INTERRUPT_DELAY
         // We might need to do something specific for interrupts.
-        basic_block bb(isf->instruction_pointer);
         app_pc delay_begin(nullptr);
         app_pc delay_end(nullptr);
 
         // We need to delay. After the delay has occurred, we re-issue the
         // interrupt.
-
         if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
             isf->instruction_pointer = emit_delayed_interrupt(
                 cpu, isf, vector, delay_begin, delay_end);
