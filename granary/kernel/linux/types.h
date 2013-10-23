@@ -158,7 +158,7 @@
 #include <linux/if_vlan.h>
 
 #include <net/iw_handler.h>
-#if KERNEL_VERSION(3,3,0) <= LINUX_VERSION_CODE
+#if KERNEL_VERSION(3,6,0) <= LINUX_VERSION_CODE
 #   include <uapi/linux/nl80211.h>
 #else
 #   include <linux/nl80211.h>
@@ -254,7 +254,7 @@
 void __init_work(struct work_struct *work, int onstack);
 bool __rcu_reclaim(char *rn, struct rcu_head *head);
 
-#if KERNEL_VERSION(3,3,0) <= LINUX_VERSION_CODE
+#if KERNEL_VERSION(3,6,0) <= LINUX_VERSION_CODE
 #   include <uapi/linux/posix_types.h>
 #else
 #   include <linux/posix_types.h>
