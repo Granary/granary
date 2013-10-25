@@ -16,6 +16,12 @@
 #endif
 
 
+/// Even/odd swithcing policy.
+#ifdef CLIENT_EVEN_ODD
+#   include "clients/even_odd/instrument.h"
+#endif
+
+
 /// Instruction distribution policy
 #ifdef CLIENT_INSTR_DIST
 #   include "clients/instr_dist/instrument.h"

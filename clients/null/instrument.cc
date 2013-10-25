@@ -32,8 +32,7 @@ namespace client {
 
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
 
-    /// Handle an interrupt in module code. Returns true iff the client
-    /// handles the interrupt.
+    /// Handle an interrupt in module code.
     granary::interrupt_handled_state null_policy::handle_interrupt(
         granary::cpu_state_handle,
         granary::thread_state_handle,
@@ -45,8 +44,7 @@ namespace client {
     }
 
 
-    /// Handle an interrupt in kernel code. Returns true iff the client handles
-    /// the interrupt.
+    /// Handle an interrupt in kernel code.
     granary::interrupt_handled_state handle_kernel_interrupt(
         granary::cpu_state_handle,
         granary::thread_state_handle,
