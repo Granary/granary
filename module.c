@@ -472,7 +472,7 @@ static void preallocate_executable(void) {
 
     enum {
         _1_MB = 1048576,
-        _100_MB = 100 * _1_MB,
+        _100_MB = 30 * _1_MB,
         _1_P = 4096
     };
 

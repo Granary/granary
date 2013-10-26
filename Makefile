@@ -217,6 +217,10 @@ ifeq ($(GR_CLIENT),even_odd)
 	GR_CXX_FLAGS += -DCLIENT_EVEN_ODD
 	GR_OBJS += $(BIN_DIR)/clients/even_odd/instrument.o
 endif
+ifeq ($(GR_CLIENT),single_even_odd)
+	GR_CXX_FLAGS += -DCLIENT_SINGLE_EVEN_ODD
+	GR_OBJS += $(BIN_DIR)/clients/single_even_odd/instrument.o
+endif
 ifeq ($(GR_CLIENT),null_plus)
 	GR_CXX_FLAGS += -DCLIENT_NULL_PLUS
 	GR_OBJS += $(BIN_DIR)/clients/null_plus/instrument.o
@@ -688,6 +692,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/null > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/null_plus > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/even_odd > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/single_even_odd > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/instr_dist > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/cfg > /dev/null 2>&1 ||:

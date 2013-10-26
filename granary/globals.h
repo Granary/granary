@@ -78,7 +78,7 @@
 /// interrupts, this will affect performance because if both are disabled then
 /// Granary will mostly get out of the way
 #if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_INTERRUPT_DELAY 1
+#   define CONFIG_ENABLE_INTERRUPT_DELAY 0
 #else
 #   define CONFIG_ENABLE_INTERRUPT_DELAY 0 // can't change in user space
 #endif
@@ -88,12 +88,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_CHECK_INSTRUCTION_ENCODE 1
+#define CONFIG_CHECK_INSTRUCTION_ENCODE 0
 
 
 /// Should Granary double check that any time CPU private data is accessed, that
 /// interrupts are disabled?
-#define CONFIG_CHECK_CPU_ACCESS_SAFE 1
+#define CONFIG_CHECK_CPU_ACCESS_SAFE 0
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -101,7 +101,7 @@
 /// which goes into an interrupt handler which tries the same thing over again,
 /// which faults again, etc. The current mechanism for debugging this problem
 /// assumes that Granary is compiled with frame pointers.
-#define CONFIG_DEBUG_CPU_RESET 1
+#define CONFIG_DEBUG_CPU_RESET 0
 
 
 /// Should the direct return optimisation be enabled? This is not available for
@@ -118,13 +118,6 @@
 
 /// Do pre-mangling of instructions with the REP prefix?
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
-
-
-/// Is instrumentation using only one policy? If so, there are some optimisation
-/// opportunities that involve looking for places where direct control-flow
-/// transfers don't need to be dynamically resolved / hot patched if we have
-/// already seen them.
-#define CONFIG_USE_ONLY_ONE_POLICY 0
 
 
 /// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch
@@ -150,7 +143,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically

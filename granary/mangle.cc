@@ -210,7 +210,7 @@ namespace granary {
 
         // Make a "fake" basic block so that we can also instrument / mangle
         // the memory loads needed to complete this indirect call or jump.
-        instruction_list tail_bb;
+        instruction_list tail_bb(INSTRUCTION_LIST_STUB);
 
         // Load the target address into `reg_target_addr`. This might be a
         // normal base/disp kind, or a relative address, or an absolute

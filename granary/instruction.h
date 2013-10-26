@@ -318,6 +318,8 @@ namespace granary {
             return instruction(instr->next);
         }
 
+        instruction clone(void) throw();
+
 
         inline operator bool(void) const throw() {
             return nullptr != instr;
@@ -639,7 +641,26 @@ namespace granary {
     }
 
 
-    /// represents a generic list of T, where the properties of the list are
+    /// Different kinds of instruction lists.
+    enum instruction_list_kind {
+
+        /// Instructions being translated.
+        INSTRUCTION_LIST_TRANSLATED,
+
+        /// Instructions that have been manually created by Granary code and
+        /// are treated as "generated code" to get stuff done. An example of
+        /// this would be an IBL entry point, interrupt handler, etc.
+        INSTRUCTION_LIST_GENCODE,
+
+        /// Instructions that exist to pass control to a wrapper.
+        INSTRUCTION_LIST_WRAPPER,
+
+        /// Instructions that belong to a stub.
+        INSTRUCTION_LIST_STUB
+    };
+
+
+    /// Represents a generic list of T, where the properties of the list are
     /// configured by specializing list_meta<T>.
     struct instruction_list {
     public:
@@ -651,14 +672,18 @@ namespace granary {
         dynamorio::instr_t *first_;
         dynamorio::instr_t *last_;
         unsigned length_;
+        instruction_list_kind kind_;
 
     public:
 
         /// Initialise an empty list.
-        inline instruction_list(void) throw()
+        inline instruction_list(
+            instruction_list_kind kind=INSTRUCTION_LIST_TRANSLATED
+        ) throw()
             : first_(nullptr)
             , last_(nullptr)
             , length_(0U)
+            , kind_(kind)
         { }
 
 
@@ -670,6 +695,14 @@ namespace granary {
         /// Returns the number of elements in the list.
         inline unsigned length(void) const throw() {
             return length_;
+        }
+
+
+        /// Returns true if this instruction list is actually part of a stub
+        /// (e.g. for recursively instrumenting memory operations in indirect
+        /// CTIs at mangle time).
+        inline bool is_stub(void) const throw() {
+            return INSTRUCTION_LIST_STUB == kind_;
         }
 
 
@@ -736,7 +769,8 @@ namespace granary {
             dynamorio::instr_t *item,
             dynamorio::instr_t *after_item
         ) throw();
-    };
+
+    } __attribute__((packed));
 
 
     /// Registers

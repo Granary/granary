@@ -16,10 +16,18 @@
 #endif
 
 
-/// Even/odd swithcing policy.
+/// Even/odd switching policy.
 #ifdef CLIENT_EVEN_ODD
 #   include "clients/even_odd/instrument.h"
 #endif
+
+
+/// Even/odd switching policy, but emulated with a single policy and a runtime
+/// check.
+#ifdef CLIENT_SINGLE_EVEN_ODD
+#   include "clients/single_even_odd/instrument.h"
+#endif
+
 
 
 /// Instruction distribution policy

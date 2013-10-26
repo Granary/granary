@@ -201,6 +201,21 @@ namespace granary {
     }
 
 
+    /// Creates a copy / clone of an existing instructions.
+    instruction instruction::clone(void) throw() {
+        ASSERT(nullptr != instr);
+        instruction ret;
+        ret.instr = dynamorio::instr_clone(DCONTEXT, instr);
+
+        ret.instr->granary_flags = instr->granary_flags;
+        ret.instr->granary_policy = instr->granary_policy;
+        ret.instr->next = nullptr;
+        ret.instr->prev = nullptr;
+
+        return ret;
+    }
+
+
     /// Encodes an instruction into a sequence of bytes, but where the staging
     /// ground is not necessarily the instruction's final location.
     app_pc instruction::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
