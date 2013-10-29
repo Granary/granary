@@ -22,6 +22,10 @@
 
 namespace granary {
 
+
+    extern instrumentation_policy TEST_POLICY;
+
+
     /// Instrumentation policy for basic blocks using tests.
     struct test_policy : public instrumentation_policy {
     public:

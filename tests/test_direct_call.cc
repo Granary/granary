@@ -48,11 +48,11 @@ namespace test {
     static void direct_call_patched_correctly(void) {
         granary::app_pc call_direct_short((granary::app_pc) direct_call_short);
         granary::basic_block bb_call_direct_short(granary::code_cache::find(
-            call_direct_short, granary::policy_for<granary::test_policy>()));
+            call_direct_short, granary::TEST_POLICY));
 
         granary::app_pc call_direct_far((granary::app_pc) direct_call_far);
         granary::basic_block bb_call_direct_far(granary::code_cache::find(
-            call_direct_far, granary::policy_for<granary::test_policy>()));
+            call_direct_far, granary::TEST_POLICY));
 
         ASSERT(bb_call_direct_short.call<bool>());
         ASSERT(bb_call_direct_far.call<bool>());

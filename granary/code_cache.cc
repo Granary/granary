@@ -15,7 +15,6 @@
 #include "granary/emit_utils.h"
 #include "granary/detach.h"
 #include "granary/mangle.h"
-#include "granary/predict.h"
 
 
 #if CONFIG_ENABLE_ASSERTIONS
@@ -36,39 +35,89 @@ extern "C" {
 }
 #endif /* CONFIG_ENABLE_ASSERTIONS */
 
+
 namespace granary {
 
-    namespace {
 
-        /// The globally shared code cache. This maps policy-mangled code
-        /// code addresses to translated addresses.
-        static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
+    extern "C" {
+        /// Hash an address and return the associated IBL code cache entry.
+        extern ibl_code_cache_table_entry *granary_ibl_hash(
+            ibl_code_cache_table_entry *base, app_pc address
+        );
     }
+
+
+    /// The globally shared code cache. This maps policy-mangled code
+    /// code addresses to translated addresses.
+    static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
+
+
+    enum {
+        NUM_ACTUAL_IBL_CODE_CACHE_ENTRIES = NUM_IBL_CODE_CACHE_ENTRIES
+                                          + CONFIG_NUM_IBL_HASH_TABLE_CHECKS
+    };
+
+    /// The globally shared, fixed-sized, atomic code cache hash table that
+    /// is used for indirect branch lookups.
+    ibl_code_cache_table_entry IBL_CODE_CACHE[NUM_ACTUAL_IBL_CODE_CACHE_ENTRIES];
 
 
     STATIC_INITIALISE_ID(code_cache, {
         CODE_CACHE.construct();
+
+        memset(
+            &(IBL_CODE_CACHE[0]),
+            0,
+            sizeof(ibl_code_cache_table_entry) * NUM_ACTUAL_IBL_CODE_CACHE_ENTRIES);
     })
+
+
+    /// Update the IBL hash table to add an entry.
+    static bool update_ibl_hash_table(
+        app_pc addr,
+        app_pc mangled_addr,
+        app_pc target_addr
+    ) throw() {
+        ibl_code_cache_table_entry *entry(
+            granary_ibl_hash(&(IBL_CODE_CACHE[0]), addr));
+
+        for(unsigned i(0); i < CONFIG_NUM_IBL_HASH_TABLE_CHECKS; ++i, ++entry) {
+
+            // Entry is already there.
+            if(entry->mangled_address->load(std::memory_order_relaxed) == addr) {
+                return true;
+            }
+
+            if(!entry->instrumented_address->load(std::memory_order_relaxed)) {
+                app_pc expected(nullptr);
+                const bool changed(entry->instrumented_address-> \
+                    compare_exchange_strong(expected, target_addr));
+
+                // We own this entry now.
+                if(changed) {
+                    IF_PERF( perf::visit_ibl_add_entry(); )
+                    entry->mangled_address->store(mangled_addr);
+                    return true;
+
+                // Changed out from under us, but to the desired value.
+                } else if(expected == target_addr) {
+                    return true;
+                }
+            }
+        }
+
+        IF_PERF( perf::visit_ibl_cant_add_entry(addr); )
+
+        return false;
+    }
 
 
     /// Find fast. This looks in the cpu-private cache first, and failing
     /// that, defaults to the global code cache.
-    app_pc code_cache::find_on_cpu(
-        mangled_address addr,
-        prediction_table **IF_IBL_PREDICT(predict_table)
-    ) throw() {
+    app_pc code_cache::find_on_cpu(mangled_address addr) throw() {
         cpu_state_handle cpu;
         app_pc ret(cpu->code_cache.find(addr.as_address));
-
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
-
-#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        if(ret && predict_table) {
-            prediction_table::instrument(
-                predict_table, cpu, addr.unmangled_address(), ret);
-        }
-#endif
-
         return ret;
     }
 
@@ -95,7 +144,7 @@ namespace granary {
     /// the code cache.
     app_pc code_cache::find(
         cpu_state_handle cpu,
-        mangled_address addr
+        const mangled_address addr
     ) throw() {
         IF_PERF( perf::visit_address_lookup(); )
 
@@ -239,7 +288,21 @@ namespace granary {
                 CODE_CACHE->load(addr.as_address, target_addr);
             }
 
-            cpu->code_cache.store(addr.as_address, target_addr);
+            bool store_in_cpu_private(true);
+
+            // Update the global IBL hash table.
+            if(policy.is_indirect_cti_target()) {
+                store_in_cpu_private = update_ibl_hash_table(
+                    addr.unmangled_address(),
+                    addr.as_address,
+                    target_addr
+                );
+            }
+
+            // Don't store redundant entries into the CPU-private hash table.
+            if(store_in_cpu_private) {
+                cpu->code_cache.store(addr.as_address, target_addr);
+            }
         }
 
         return target_addr;

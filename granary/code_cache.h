@@ -17,6 +17,20 @@
 namespace granary {
 
 
+    struct ibl_code_cache_table_entry {
+        unsafe_static_data<std::atomic<app_pc>> mangled_address;
+        unsafe_static_data<std::atomic<app_pc>> instrumented_address;
+    } __attribute__((packed, aligned (32)));
+
+
+    enum {
+        NUM_IBL_CODE_CACHE_ENTRIES = (1 << 16) / sizeof(ibl_code_cache_table_entry)
+    };
+
+
+    extern ibl_code_cache_table_entry IBL_CODE_CACHE[];
+
+
     /// Represents a policy-specific code cache. A single client can be wholly
     /// represented by a policy, apply many policies (in the form of an
     /// aggregate policy), or dynamically switch between instrumentation
@@ -31,10 +45,7 @@ namespace granary {
         /// that, defaults to the global code cache.
         GRANARY_ENTRYPOINT
         __attribute__((hot, optimize("Os")))
-        static app_pc find_on_cpu(
-            mangled_address addr,
-            prediction_table **IF_IBL_PREDICT(predict_table)
-        ) throw();
+        static app_pc find_on_cpu(mangled_address addr) throw();
 
 
         /// Perform both lookup and insertion (basic block translation) into
@@ -78,7 +89,7 @@ namespace granary {
         __attribute__((hot))
         static app_pc find(
             cpu_state_handle cpu,
-            mangled_address addr
+            const mangled_address addr
         ) throw();
 
 

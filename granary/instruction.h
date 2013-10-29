@@ -656,7 +656,10 @@ namespace granary {
         INSTRUCTION_LIST_WRAPPER,
 
         /// Instructions that belong to a stub.
-        INSTRUCTION_LIST_STUB
+        INSTRUCTION_LIST_STUB,
+
+        /// Instruction list that is being staged in a temporary location.
+        INSTRUCTION_LIST_STAGED
     };
 
 

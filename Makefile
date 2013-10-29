@@ -189,7 +189,6 @@ GR_OBJS += $(BIN_DIR)/granary/hash_table.o
 GR_OBJS += $(BIN_DIR)/granary/cpu_code_cache.o
 GR_OBJS += $(BIN_DIR)/granary/register.o
 GR_OBJS += $(BIN_DIR)/granary/policy.o
-GR_OBJS += $(BIN_DIR)/granary/predict.o
 GR_OBJS += $(BIN_DIR)/granary/perf.o
 GR_OBJS += $(BIN_DIR)/granary/trace_log.o
 GR_OBJS += $(BIN_DIR)/granary/dynamic_wrapper.o
@@ -373,11 +372,15 @@ GR_OBJS += $(BIN_DIR)/deps/icxxabi/icxxabi.o
 # Granary tests.
 GR_OBJS += $(BIN_DIR)/granary/test.o
 ifeq (1,$(GR_TESTS))
+	GR_OBJS += $(BIN_DIR)/tests/test_direct_call.o
     GR_OBJS += $(BIN_DIR)/tests/test_direct_cbr.o
-    GR_OBJS += $(BIN_DIR)/tests/test_direct_call.o
-    GR_OBJS += $(BIN_DIR)/tests/test_lock_inc.o
+    GR_OBJS += $(BIN_DIR)/tests/test_direct_detach_call.o
     GR_OBJS += $(BIN_DIR)/tests/test_direct_rec.o
     GR_OBJS += $(BIN_DIR)/tests/test_indirect_cti.o
+    GR_OBJS += $(BIN_DIR)/tests/test_lock_inc.o
+	GR_OBJS += $(BIN_DIR)/tests/test_mat_mul.o
+	GR_OBJS += $(BIN_DIR)/tests/test_md5.o
+	#GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
 endif
 
 # User space.
@@ -414,11 +417,6 @@ ifeq ($(KERNEL),0)
 			GR_LD_PREFIX_FLAGS += -shared 
 		endif
 	endif
-
-	# Granary tests.
-	GR_OBJS += $(BIN_DIR)/tests/test_mat_mul.o
-	GR_OBJS += $(BIN_DIR)/tests/test_md5.o
-	GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
 
 	# Figure out how to link in various libraries that might be OS-specific.
 	GR_LD_PREFIX_SPECIFIC =

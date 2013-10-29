@@ -269,6 +269,45 @@ namespace granary {
     }
 
 
+    instruction insert_save_arithmetic_flags_after(
+        instruction_list &ls,
+        instruction in,
+        flag_save_constraint constraint
+    ) throw() {
+        if(REG_AH_IS_LIVE == constraint) {
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, lahf_());
+            in = ls.insert_after(in, mov_st_(reg::rsp[8], reg::rax));
+            in = ls.insert_after(in, pop_(reg::rax));
+        } else {
+            in = ls.insert_after(in, lahf_());
+            in = ls.insert_after(in, push_(reg::rax));
+        }
+        return in;
+    }
+
+
+    /// Add the instructions to restore the flags from the top of the stack.
+    instruction insert_restore_arithmetic_flags_after(
+        instruction_list &ls,
+        instruction in,
+        flag_save_constraint constraint
+    ) throw() {
+        if(REG_AH_IS_LIVE == constraint) {
+            in = ls.insert_after(in, push_(reg::rax));
+            in = ls.insert_after(in, mov_ld_(reg::rax, reg::rsp[8]));
+            in = ls.insert_after(in, sahf_());
+            in = ls.insert_after(in, pop_(reg::rax));
+            in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
+        } else {
+            in = ls.insert_after(in, pop_(reg::rax));
+            in = ls.insert_after(in, sahf_());
+        }
+        return in;
+    }
+
+
     /// Add the instructions to save the flags onto the top of the stack.
     instruction insert_save_flags_after(
         instruction_list &ls,
@@ -282,16 +321,7 @@ namespace granary {
 #elif CONFIG_IBL_SAVE_ALL_FLAGS
         in = ls.insert_after(in, pushf_());
 #else
-        if(REG_AH_IS_LIVE == constraint) {
-            in = ls.insert_after(in, push_(reg::rax));
-            in = ls.insert_after(in, push_(reg::rax));
-            in = ls.insert_after(in, lahf_());
-            in = ls.insert_after(in, mov_st_(reg::rsp[8], reg::rax));
-            in = ls.insert_after(in, pop_(reg::rax));
-        } else {
-            in = ls.insert_after(in, lahf_());
-            in = ls.insert_after(in, push_(reg::rax));
-        }
+        in = insert_save_arithmetic_flags_after(ls, in, constraint);
 #endif
         return in;
     }
@@ -309,16 +339,7 @@ namespace granary {
 #elif CONFIG_IBL_SAVE_ALL_FLAGS
         in = ls.insert_after(in, popf_());
 #else
-        if(REG_AH_IS_LIVE == constraint) {
-            in = ls.insert_after(in, push_(reg::rax));
-            in = ls.insert_after(in, mov_ld_(reg::rax, reg::rsp[8]));
-            in = ls.insert_after(in, sahf_());
-            in = ls.insert_after(in, pop_(reg::rax));
-            in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
-        } else {
-            in = ls.insert_after(in, pop_(reg::rax));
-            in = ls.insert_after(in, sahf_());
-        }
+        in = insert_restore_arithmetic_flags_after(ls, in, constraint);
 #endif
         return in;
     }

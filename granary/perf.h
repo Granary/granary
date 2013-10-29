@@ -35,6 +35,9 @@ namespace granary {
         static void visit_ibl(instruction_list &) throw();
         static void visit_ibl_exit(instruction_list &) throw();
 
+        static void visit_ibl_add_entry(void) throw();
+        static void visit_ibl_cant_add_entry(app_pc) throw();
+
         static void visit_dbl(instruction_list &) throw();
         static void visit_dbl_patch(instruction_list &) throw();
         static void visit_dbl_stub(unsigned) throw();
@@ -43,11 +46,12 @@ namespace granary {
 
         static void visit_mem_ref(unsigned) throw();
 
-        static void visit_align_nop(void) throw();
+        static void visit_align_nop(unsigned) throw();
 
         static void visit_address_lookup(void) throw();
         static void visit_address_lookup_hit(void) throw();
         static void visit_address_lookup_cpu(bool) throw();
+        static void visit_address_lookup_cpu_mispredict(app_pc) throw();
 
 #if GRANARY_IN_KERNEL
         static void visit_interrupt(void) throw();

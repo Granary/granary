@@ -58,7 +58,7 @@ namespace test {
 
         granary::app_pc func((granary::app_pc) jmp_loc);
         granary::basic_block bb_func(granary::code_cache::find(
-            func, granary::policy_for<granary::test_policy>()));
+            func, granary::TEST_POLICY));
 
         bb_func.call<void>();
 

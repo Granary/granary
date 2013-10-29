@@ -32,9 +32,9 @@ GLOBAL_LABEL(granary_asm_xmm_safe_direct_branch_template:)
 
     PUSHA_XMM
 
-    ENTER_PRIVATE_STACK()
+    IF_KERNEL( ENTER_PRIVATE_STACK() )
     callq *%rax // Replaced by `make_direct_cti_patch_func`.
-    EXIT_PRIVATE_STACK()
+    IF_KERNEL( EXIT_PRIVATE_STACK() )
 
     POPA_XMM
 
@@ -79,9 +79,9 @@ GLOBAL_LABEL(granary_asm_direct_branch_template:)
     movaps %xmm1, (%rsp);
 #endif
 
-    ENTER_PRIVATE_STACK()
+    IF_KERNEL( ENTER_PRIVATE_STACK() )
     callq *%rax // Replaced by `make_direct_cti_patch_func`.
-    EXIT_PRIVATE_STACK()
+    IF_KERNEL( EXIT_PRIVATE_STACK() )
 
 #if !GRANARY_IN_KERNEL
     movaps (%rsp), %xmm1;

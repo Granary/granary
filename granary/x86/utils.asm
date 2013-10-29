@@ -21,6 +21,23 @@ GLOBAL_LABEL(granary_get_fs_base:)
 END_FUNC(granary_get_fs_base)
 
 
+/// Hash function for an address going into the IBL. Takes in the base address
+/// of the table in ARG1 and the address to hash in ARG2 and returns the address
+/// of the entry.
+DECLARE_FUNC(granary_ibl_hash)
+GLOBAL_LABEL(granary_ibl_hash:)
+    movq %ARG2, %rax;
+
+    rcr $4, %al;
+    xchg %al, %ah;
+    shl $4, %ax;
+
+    movzwl %ax, %eax;
+    add %ARG1, %rax;
+    ret
+END_FUNC(granary_ibl_hash)
+
+
 /// Get the current processor's APIC ID. This assumes that interrupts
 /// are disabled.
 DECLARE_FUNC(granary_asm_apic_id)

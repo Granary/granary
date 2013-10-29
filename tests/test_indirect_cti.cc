@@ -33,7 +33,7 @@ namespace test {
         granary::app_pc indirect_call_pc((granary::app_pc) indirect_call);
 
         granary::basic_block bb_indirect_call(granary::code_cache::find(
-                indirect_call_pc, granary::policy_for<granary::test_policy>()));
+            indirect_call_pc, granary::TEST_POLICY));
 
         // call it a few times, ideally to exercise both slow path (global
         // lookup) and for the fast path (local lookup).

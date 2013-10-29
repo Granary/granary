@@ -129,9 +129,7 @@ namespace granary {
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup table.
-        instruction ibl_entry_stub(
-            instruction_list &ibl,
-            instruction in,
+        app_pc ibl_pre_entry_routine(
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind
@@ -149,16 +147,6 @@ namespace granary {
         ) throw();
 
 
-#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        /// Return the IBL entry routine that first looks in a prediction table
-        /// for its target address. On failing this, it falls over to the last
-        /// entry in the table, whose destination (`dest`) field is the address
-        /// of the corresponding IBL entry routine, or a specialized entry
-        /// routine.
-        static app_pc ibl_predict_entry_routine(void) throw();
-#endif
-
-
         /// Return or generate the IBL exit routine for a particular jump target.
         /// The target can either be code cache or native code.
         static app_pc ibl_exit_routine(
@@ -169,7 +157,7 @@ namespace granary {
     public:
 
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
+#if 0 && !CONFIG_ENABLE_DIRECT_RETURN
         /// Checks to see if a return address is in the code cache. If so, it
         /// RETs to the address, otherwise it JMPs to the IBL entry routine.
         app_pc rbl_entry_routine(

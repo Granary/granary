@@ -44,10 +44,12 @@ namespace granary {
     static std::atomic<unsigned> NUM_RETURNS(ATOMIC_VAR_INIT(0U));
 
 
-    /// Performance counters for tracking IBL, RBL, and DBL instruction counts.
+    /// Performance counters for tracking IBL, and DBL instruction counts.
     static std::atomic<unsigned> NUM_IBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_ENTRY_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_EXIT_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_IBL_HTABLE_ENTRIES(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_MISSING_IBL_HTABLE_ENTRIES(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_STUB_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_PATCH_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
@@ -68,6 +70,8 @@ namespace granary {
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUP_HITS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_HIT(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_MISS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_MISPREDICT(ATOMIC_VAR_INIT(0U));
+
 
 #if GRANARY_IN_KERNEL
     static std::atomic<unsigned long> NUM_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
@@ -89,9 +93,25 @@ namespace granary {
         }
     }
 
+
+    enum {
+        NUM_MISPREDICT_CACHE = 4096
+    };
+
+
+    static app_pc MISPREDICTED_ADDRESS_CACHE[NUM_MISPREDICT_CACHE] = {nullptr};
+
+
+    void perf::visit_address_lookup_cpu_mispredict(app_pc addr) throw() {
+        unsigned i(NUM_ADDRESS_LOOKUPS_CPU_MISPREDICT.fetch_add(1));
+        MISPREDICTED_ADDRESS_CACHE[i % NUM_MISPREDICT_CACHE] = addr;
+    }
+
+
     void perf::visit_address_lookup_hit(void) throw() {
         NUM_ADDRESS_LOOKUP_HITS.fetch_add(1);
     }
+
 
     void perf::visit_decoded(instruction in) throw() {
         if(in.instr) {
@@ -146,6 +166,16 @@ namespace granary {
     }
 
 
+    void perf::visit_ibl_add_entry(void) throw() {
+        NUM_IBL_HTABLE_ENTRIES.fetch_add(1);
+    }
+
+
+    void perf::visit_ibl_cant_add_entry(app_pc) throw() {
+        NUM_MISSING_IBL_HTABLE_ENTRIES.fetch_add(1);
+    }
+
+
     void perf::visit_dbl(instruction_list &ls) throw() {
         NUM_DBL_INSTRUCTIONS.fetch_add(ls.length());
     }
@@ -161,18 +191,13 @@ namespace granary {
     }
 
 
-    void perf::visit_rbl(instruction_list &ls) throw() {
-        NUM_RBL_INSTRUCTIONS.fetch_add(ls.length());
-    }
-
-
     void perf::visit_mem_ref(unsigned num) throw() {
         NUM_MEM_REF_INSTRUCTIONS.fetch_add(num);
     }
 
 
-    void perf::visit_align_nop(void) throw() {
-        NUM_ALIGN_NOP_INSTRUCTIONS.fetch_add(1);
+    void perf::visit_align_nop(unsigned num) throw() {
+        NUM_ALIGN_NOP_INSTRUCTIONS.fetch_add(num);
     }
 
 
@@ -200,6 +225,13 @@ namespace granary {
     }
 #endif
 
+    // If we're in the kernel, and regardless of
+#if GRANARY_IN_KERNEL && defined(DETACH_ADDR_printk)
+    extern "C" {
+        extern int printk(const char *, ...);
+    }
+#   define printf printk
+#endif
 
     void perf::report(void) throw() {
 
@@ -229,6 +261,11 @@ namespace granary {
         printf("Number of RETs: %u\n\n",
             NUM_RETURNS.load());
 
+        printf("Number of entries in the global IBL hash table: %u\n",
+            NUM_IBL_HTABLE_ENTRIES.load());
+        printf("Number of entries that were omitted from the global IBL hash table: %u\n\n",
+            NUM_MISSING_IBL_HTABLE_ENTRIES.load());
+
         printf("Number of IBL entry instructions: %u\n",
             NUM_IBL_ENTRY_INSTRUCTIONS.load());
         printf("Number of IBL instructions: %u\n",
@@ -243,9 +280,6 @@ namespace granary {
         printf("Number of DBL patch-setup instructions: %u\n\n",
             NUM_DBL_PATCH_INSTRUCTIONS.load());
 
-        printf("Number of RBL instructions: %u\n\n",
-            NUM_RBL_INSTRUCTIONS.load());
-
         printf("Number of extra instructions to mangle memory refs: %u\n\n",
             NUM_MEM_REF_INSTRUCTIONS.load());
         printf("Number of alignment NOPs: %u\n\n",
@@ -257,7 +291,7 @@ namespace granary {
             NUM_ADDRESS_LOOKUP_HITS.load());
         printf("Number hits in the cpu private code cache(s): %u\n",
             NUM_ADDRESS_LOOKUPS_CPU_HIT.load());
-        printf("Number misses in the cpu code cache(s): %u\n\n",
+        printf("Number misses in the cpu code cache(s): %u\n",
             NUM_ADDRESS_LOOKUPS_CPU_MISS.load());
 
 #if GRANARY_IN_KERNEL
@@ -269,6 +303,21 @@ namespace granary {
             NUM_RECURSIVE_INTERRUPTS.load());
         printf("Number of interrupts due to insufficient wrapping: %lu\n",
             NUM_BAD_MODULE_EXECS.load());
+#endif
+
+#if 0
+        // Print out the buffer of mis-predicted addresses. This can help us
+        // to find the best bits for hashing (especially in kernel space).
+        for(unsigned i(0); i < NUM_MISPREDICT_CACHE - 4; i += 4) {
+            if(!MISPREDICTED_ADDRESS_CACHE[i]) {
+                break;
+            }
+            printf("%p %p %p %p\n",
+                MISPREDICTED_ADDRESS_CACHE[i],
+                MISPREDICTED_ADDRESS_CACHE[i+1],
+                MISPREDICTED_ADDRESS_CACHE[i+2],
+                MISPREDICTED_ADDRESS_CACHE[i+3]);
+        }
 #endif
     }
 }

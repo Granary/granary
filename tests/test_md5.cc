@@ -444,7 +444,7 @@ namespace test {
     static void test_md5_digest(void) {
         granary::app_pc func((granary::app_pc) md5::md5_digest);
         granary::basic_block bb_func(granary::code_cache::find(
-            func, granary::policy_for<granary::test_policy>()));
+            func, granary::TEST_POLICY));
 
         char str[INPUT_STRING_LEN + 1];
         md5::md5_byte_t digest_native[16];
@@ -483,7 +483,7 @@ namespace test {
 
         granary::app_pc func((granary::app_pc) md5::md5);
         granary::basic_block bb_func(granary::code_cache::find(
-            func, granary::policy_for<granary::test_policy>()));
+            func, granary::TEST_POLICY));
 
         // tests approximately the same thing, but also brings in some
         // potential dynamic linking with sprintf, etc.

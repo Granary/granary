@@ -163,7 +163,7 @@ namespace granary {
     /// instrumented in user space.
     template <typename T>
     struct static_data {
-        char memory[sizeof(T)];
+        alignas(T) unsigned char memory[sizeof(T)];
         T *self;
 
         template <typename... Args>
@@ -174,8 +174,23 @@ namespace granary {
         inline T *operator->(void) throw() {
             return self;
         }
-    } __attribute__((aligned (16)));
+    };
 
+
+    /// Unsafe version of static data that forces
+    template <typename T>
+    struct unsafe_static_data {
+        alignas(T) unsigned char memory[sizeof(T)];
+
+        template <typename... Args>
+        void construct(Args... args) throw() {
+            new (&(memory[0])) T(args...);
+        }
+
+        inline T *operator->(void) throw() {
+            return unsafe_cast<T *>(&(memory[0]));
+        }
+    };
 
     /// Represents a fixed-size set of elements, where each entry in the set is
     /// uniquely identified by an ID. The type of element in the set (`KV`) must

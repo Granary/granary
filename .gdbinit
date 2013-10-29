@@ -38,7 +38,6 @@ end
 catch throw
 b granary_fault
 b granary_break_on_fault
-b granary_break_on_predict
 b granary_break_on_translate
 b granary_break_on_curiosity
 

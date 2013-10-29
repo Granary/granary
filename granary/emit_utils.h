@@ -152,6 +152,22 @@ namespace granary {
     ) throw();
 
 
+    /// Add the instructions to save the flags onto the top of the stack.
+    instruction insert_save_arithmetic_flags_after(
+        instruction_list &ls,
+        instruction in,
+        flag_save_constraint constraint
+    ) throw();
+
+
+    /// Add the instructions to restore the flags from the top of the stack.
+    instruction insert_restore_arithmetic_flags_after(
+        instruction_list &ls,
+        instruction in,
+        flag_save_constraint constraint
+    ) throw();
+
+
     /// Add instructions to align the stack (to the top of the stack) to a 16
     /// byte boundary.
     instruction insert_align_stack_after(

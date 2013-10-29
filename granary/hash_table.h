@@ -147,6 +147,7 @@ namespace granary {
         K default_key_;
         bool growing_;
 
+
         /// Insert an entry into the hash table. Returns true iff an element
         /// with the key didn't previously exist in the hash table.
         hash_store_state insert(

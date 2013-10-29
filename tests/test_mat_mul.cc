@@ -48,7 +48,7 @@ namespace test {
     static void test_mat_mul(void) {
         granary::app_pc func((granary::app_pc) multiply_matrices);
         granary::basic_block bb_func(granary::code_cache::find(
-            func, granary::policy_for<granary::test_policy>()));
+            func, granary::TEST_POLICY));
 
         int x[DIM][DIM];
         int y[DIM][DIM];

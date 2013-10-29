@@ -117,7 +117,14 @@ namespace granary {
     }
 
 
+    instrumentation_policy TEST_POLICY;
+
+
     void run_tests(void) throw() {
+
+        TEST_POLICY = granary::policy_for<granary::test_policy>();
+        TEST_POLICY.force_attach(true);
+        TEST_POLICY.return_address_in_code_cache(true);
 
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {

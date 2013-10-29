@@ -302,8 +302,6 @@ namespace granary {
 #endif
         }
 
-    private:
-
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
         inline void return_address_in_code_cache(bool val=true) throw() {

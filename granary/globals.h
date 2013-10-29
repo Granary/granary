@@ -110,40 +110,25 @@
 
 
 /// Should execution be traced?
-#define CONFIG_TRACE_EXECUTION 1
+#define CONFIG_TRACE_EXECUTION 0
 #define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
+
+
+/// How many entries should be unrolled / checked in the global IBL hash table?
+#define CONFIG_NUM_IBL_HASH_TABLE_CHECKS 6
 
 
 /// Do pre-mangling of instructions with the REP prefix?
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
 
-/// Enable IBL entry stubs. IBL entry stubs make use of a form of "branch
-/// prediction" to try to reduce the cost of looking things up in the CPU
-/// private hash table. If IBL entry stubs are not used, then generic IBL
-/// entries are used.
-#define CONFIG_ENABLE_IBL_PREDICTION_STUBS 1
-#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-
-    /// Should single overwrite prediction tables be used? If set to zero, then
-    /// the prediction tables (if used) will default to starting with the next
-    /// used prediction method.
-#   define CONFIG_ENABLE_IBL_OVERWRITE_TABLE 1
-
-
-    /// Should linear prediction tables be used?
-#   define CONFIG_ENABLE_IBL_LINEAR_TABLE 1
-
-#endif /* CONFIG_ENABLE_IBL_PREDICTION_STUBS */
-
-
 /// Enable performance counters and reporting. Performance counters measure
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -199,11 +184,11 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
+#define CONFIG_ENABLE_ASSERTIONS 0
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
-#   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC)
+#   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_ENABLE_ASSERTIONS)
 #endif
 
 
@@ -278,10 +263,6 @@ namespace granary {
         MAX_PRE_WRAP_DEPTH = CONFIG_MAX_PRE_WRAP_DEPTH,
         MAX_POST_WRAP_DEPTH = CONFIG_MAX_POST_WRAP_DEPTH,
         MAX_RETURN_WRAP_DEPTH = CONFIG_MAX_RETURN_WRAP_DEPTH,
-
-#if CONFIG_ENABLE_IBL_PREDICTION_STUBS
-        MAX_IBL_PREDICT_SLOTS = 4,
-#endif
 
         /// Number of bytes in *every* hot patched call. This allows us to say
         /// that a return address into code cache must always satisfy:
