@@ -11,7 +11,7 @@
 #include "granary/state.h"
 #include "granary/allocator.h"
 #include "granary/globals.h"
-#include "granary/smp/spin_lock.h"
+#include "granary/spin_lock.h"
 
 
 #define ENABLE_SPLITTING 1
@@ -53,7 +53,7 @@ namespace granary { namespace detail {
 
     /// Free list.
     struct free_list {
-        granary::smp::atomic_spin_lock lock;
+        granary::atomic_spin_lock lock;
         std::atomic<free_object *> head;
     };
 

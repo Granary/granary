@@ -35,7 +35,7 @@ namespace granary {
 
 
     struct free_object_list {
-        granary::smp::atomic_spin_lock lock;
+        granary::atomic_spin_lock lock;
         std::atomic<free_object *> head;
     };
 

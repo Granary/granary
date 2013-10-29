@@ -310,61 +310,6 @@ namespace granary {
 #endif
 
 
-    /// Represents a simple boxed array type. This is mostly means to more
-    /// easily pass transiently-allocated arrays around as arguments/return
-    /// values.
-    template <typename T>
-    struct array {
-    private:
-
-        T *elms;
-        unsigned num_elms;
-
-    public:
-
-        array(void) throw()
-            : elms(nullptr)
-            , num_elms(0U)
-        { }
-
-        array(T *elms_, unsigned num_elms_) throw()
-            : elms(elms_)
-            , num_elms(num_elms_)
-        { }
-
-        array(array<T> &&that) throw()
-            : elms(that.elms)
-            , num_elms(that.num_elms)
-        { }
-
-        array<T> &operator=(array<T> &&that) throw() {
-            elms = that.elms;
-            num_elms = that.num_elms;
-            return *this;
-        }
-
-        inline operator T *(void) throw() {
-            return elms;
-        }
-
-        inline T &operator[](unsigned i) throw() {
-            return elms[i];
-        }
-
-        inline const T &operator[](unsigned i) const throw() {
-            return elms[i];
-        }
-
-        inline T *begin(void) throw() {
-            return elms;
-        }
-
-        inline T *end(void) throw() {
-            return elms + num_elms;
-        }
-    };
-
-
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
     template <typename T, typename V>
     size_t sizeof_trailing_vla(unsigned array_size) throw() {

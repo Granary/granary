@@ -14,7 +14,7 @@
 #define CLIENT_commit_to_basic_block_state
 
 #include "granary/register.h"
-#include "granary/smp/spin_lock.h"
+#include "granary/spin_lock.h"
 
 namespace client {
 
@@ -129,7 +129,7 @@ namespace client {
 
 
         /// Lock that is acquired when updating the edges of any of the graphs.
-        granary::smp::atomic_spin_lock edge_lock;
+        granary::atomic_spin_lock edge_lock;
 
 #if GRANARY_IN_KERNEL
         /// Name of the module being instrumented.

@@ -10,7 +10,7 @@
 #define HASH_TABLE_H_
 
 #include "granary/globals.h"
-#include "granary/smp/spin_lock.h"
+#include "granary/spin_lock.h"
 
 #include "deps/murmurhash/murmurhash.h"
 
@@ -379,7 +379,7 @@ namespace granary {
     struct locked_hash_table {
     private:
 
-        mutable smp::spin_lock lock;
+        mutable spin_lock lock;
         hash_table<K, V, meta_type> table;
 
     public:

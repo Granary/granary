@@ -11,7 +11,7 @@
 
 #include <atomic>
 
-namespace granary { namespace smp {
+namespace granary {
 
     /// Simple implementation of a spin lock.
     struct atomic_spin_lock {
@@ -53,23 +53,39 @@ namespace granary { namespace smp {
             IF_KERNEL( granary_store_flags(flags); )
         }
 
+
+        /// Try to acquire the spin lock.
+        inline bool try_acquire(void) throw() {
+            if(is_locked.load(std::memory_order_relaxed)) {
+                return false;
+            }
+
+            IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+            const bool acquired(
+                !is_locked.exchange(true, std::memory_order_seq_cst));
+            IF_KERNEL( granary_store_flags(flags); )
+
+            return acquired;
+        }
+
         inline void release(void) throw() {
             is_locked.store(false, std::memory_order_release);
         }
     };
 
-}}
+}
 
-#if GRANARY_IN_KERNEL
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   if GRANARY_IN_KERNEL
 
-namespace granary { namespace smp {
+namespace granary {
     typedef atomic_spin_lock spin_lock;
-}}
+}
 
-#else
-#   include <pthread.h>
+#   else
+#       include <pthread.h>
 
-namespace granary { namespace smp {
+namespace granary {
 
     /// Simple implementation of lock using pthread mutexes.
     struct spin_lock {
@@ -98,8 +114,9 @@ namespace granary { namespace smp {
             pthread_mutex_unlock(&mutex);
         }
     };
-}}
+}
 
-#endif
+#   endif /* GRANARY_IN_KERNEL */
+#endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 #endif /* SPIN_LOCK_H_ */

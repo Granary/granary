@@ -6,7 +6,6 @@
  *      Author: pag
  */
 
-
 #include "granary/mangle.h"
 #include "granary/basic_block.h"
 #include "granary/code_cache.h"
@@ -713,8 +712,9 @@ namespace granary {
     /// N-2 ud2 instructions, or a single 1-byte NOP is only 1 byte of NOPs is
     /// desired.
     ///
-    /// Note: this will propagate delay regions.
-    void instruction_list_mangler::inject_mangled_nops(
+    /// Note: this does not need to propagate a delay region as it would only
+    ///       propagate the *end* of a delay region, which is redundant.
+    void instruction_list_mangler::insert_nops_after(
         instruction_list &ls,
         instruction in,
         unsigned num_nops
@@ -723,24 +723,20 @@ namespace granary {
             return;
         } else if(1 == num_nops) {
             instruction nop(ls.insert_after(in, nop1byte_()));
-            propagate_delay_region(in, instruction(), nop);
         } else if(2 == num_nops) {
             instruction nop(ls.insert_after(in, nop2byte_()));
-            propagate_delay_region(in, instruction(), nop);
         } else if(3 == num_nops) {
             instruction nop(ls.insert_after(in, nop3byte_()));
-            propagate_delay_region(in, instruction(), nop);
-        } else {
-            instruction last(label_());
-            instruction jmp(ls.insert_after(
-                in, mangled(jmp_short_(instr_(last)))));
-            ls.insert_after(jmp, last);
+        } else if(8 >= num_nops) {
+            instruction after_nops(ls.insert_after(in, label_()));
+            instruction jmp_to_after(
+                ls.insert_after(in, mangled(jmp_short_(instr_(after_nops)))));
 
             for(num_nops -= 2; num_nops; --num_nops) {
-                ls.insert_after(jmp, nop1byte_());
+                ls.insert_after(jmp_to_after, nop1byte_());
             }
-
-            propagate_delay_region(in, instruction(), last);
+        } else {
+            ASSERT(false);
         }
     }
 
@@ -758,14 +754,14 @@ namespace granary {
     ) throw() {
         instruction_list ls(INSTRUCTION_LIST_STAGED);
         if(offset) {
-            inject_mangled_nops(ls, ls.first(), offset);
+            insert_nops_after(ls, ls.first(), offset);
         }
 
         ls.append(in);
 
         const unsigned size(in.encoded_size());
-        if((size + offset) < 8) {
-            inject_mangled_nops(ls, ls.first(), HOTPATCH_ALIGN - (size + offset));
+        if((size + offset) < HOTPATCH_ALIGN) {
+            insert_nops_after(ls, ls.first(), HOTPATCH_ALIGN - (size + offset));
         }
 
         ls.stage_encode(stage, dest);
@@ -1693,7 +1689,7 @@ namespace granary {
 #endif /* CONFIG_ENABLE_DIRECT_RETURN */
 
                 IF_PERF( perf::visit_align_nop(forward_align); )
-                inject_mangled_nops(*ls, prev_in, forward_align);
+                insert_nops_after(*ls, prev_in, forward_align);
                 align += forward_align;
             }
 
@@ -1704,7 +1700,7 @@ namespace granary {
             // 8-byte block.
             if(is_hot_patchable) {
                 uint64_t forward_align(ALIGN_TO(align, HOTPATCH_ALIGN));
-                inject_mangled_nops(ls_, prev_in, forward_align);
+                insert_nops_after(ls_, prev_in, forward_align);
                 align += forward_align;
             }
         }

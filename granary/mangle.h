@@ -73,7 +73,7 @@ namespace granary {
 
     public:
 
-        static void inject_mangled_nops(
+        static void insert_nops_after(
             instruction_list &ls,
             instruction in,
             unsigned num_nops

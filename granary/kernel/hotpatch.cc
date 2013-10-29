@@ -11,6 +11,7 @@
 #include "granary/instruction.h"
 #include "granary/list.h"
 #include "granary/code_cache.h"
+#include "granary/hash_table.h"
 
 #if CONFIG_INSTRUMENT_PATCH_WRAPPERS
 #   include "granary/detach.h"

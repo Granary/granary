@@ -9,7 +9,6 @@
 #define granary_STATE_H_
 
 #include "granary/globals.h"
-#include "granary/hash_table.h"
 #include "granary/cpu_code_cache.h"
 #include "granary/state_handle.h"
 

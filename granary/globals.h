@@ -177,12 +177,6 @@
 #endif
 
 
-/// Use "precise" memory allocation, i.e. no pool allocators. This makes it
-/// easier to find misuses of memory when Granary does something wrong (e.g.
-/// buffer overflow within a slab).
-#define CONFIG_PRECISE_ALLOCATE 0
-
-
 /// Set the 1 iff we should run test cases (before doing anything else).
 #define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL

@@ -246,7 +246,13 @@ namespace granary {
         for(; ; ++ints) {
             if(basic_block_info::HEADER == *ints) {
                 break;
-            } else if(basic_block_info::UNALLOCATED == *ints) {
+
+            // Check to see if it looks like we're inspecting uninitialised
+            // code cache memory. We check 3 consecutive double-words just in
+            // case one does a 64-bit MOVABS where the number is all 0xCC.
+            } else if(basic_block_info::UNALLOCATED == *ints
+                   && basic_block_info::UNALLOCATED == *(ints + 1)
+                   && basic_block_info::UNALLOCATED == *(ints + 2)) {
                 ASSERT(false);
                 cache_pc_current = nullptr;
                 return;
@@ -580,14 +586,6 @@ namespace granary {
     }
 
 
-    /// Try to decode a `RDRAND` instruction.
-    static bool decode_rdrand(instruction in, app_pc pc) throw() {
-        UNUSED(in);
-        UNUSED(pc);
-        return false;
-    }
-
-
 #if GRANARY_IN_KERNEL
 
 
@@ -771,18 +769,11 @@ namespace granary {
                 break;
             }
 
-            app_pc decoded_pc(*pc);
             in = instruction::decode(pc);
 
             // TODO: curiosity.
             if(dynamorio::OP_INVALID == in.op_code()
             || dynamorio::OP_UNDECODED == in.op_code()) {
-
-                // TODO: DynamoRIO currently does not support `RDRAND`, so see
-                //       if we can special case it for the time being.
-                if(decode_rdrand(in, decoded_pc)) {
-
-                }
 
 #if CONFIG_ENABLE_ASSERTIONS
                 printf(

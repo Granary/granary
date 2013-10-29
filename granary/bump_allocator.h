@@ -13,15 +13,38 @@
 #include "granary/atomic.h"
 #include "granary/type_traits.h"
 #include "granary/utils.h"
+#include "granary/spin_lock.h"
 
 namespace granary {
+
+
+    /// Represents a single bump_pointer_slab of bump-pointer allocatable memory.
+    /// No attempt is made to pack as much into the bump_pointer_slabs as possible.
+    struct bump_pointer_slab {
+        bump_pointer_slab *next;
+        uint8_t *memory;
+        unsigned index;
+        unsigned remaining;
+        unsigned size;
+
+        /// Return a pointer to a next pointer that we can use to connect
+        /// two slab lists together.
+        bump_pointer_slab **connect(void) throw() {
+            bump_pointer_slab *curr(this);
+            for(; curr->next; curr = curr->next) {
+                // La la la...
+            }
+
+            return &(curr->next);
+        }
+    };
 
 
     /// Defines a generic bump pointer allocator. The allocator is configured
     /// by the Config type.
     ///
     /// The following config options must be present:
-    ///     SLAB_SIZE:      A low bound on the number of bytes to allocate per slab
+    ///     SLAB_SIZE:      A low bound on the number of bytes to allocate per bump_pointer_slab
     ///                     of memory. This is a lower bound because allocation of
     ///                     executable memory might require more memory to be
     ///                     allocated.
@@ -39,7 +62,7 @@ namespace granary {
     ///
     /// The allocator also has the property that it's greedy, i.e. even if the
     /// memory allocated is considered transient, the allocator will still hold on
-    /// to all allocated slabs in its free list so that it can re-use it in later
+    /// to all allocated bump_pointer_slabs in its free list so that it can re-use it in later
     /// (transient) allocations. Obviously, if the memory is not transient, then
     /// the default greediness is desirable.
     template <typename Config>
@@ -54,7 +77,7 @@ namespace granary {
             // Minimum alignment for all allocated objects.
             MIN_ALIGN = Config::MIN_ALIGN,
 
-            // Adjusted slab size for allocating executable memory.
+            // Adjusted bump_pointer_slab size for allocating executable memory.
             SLAB_SIZE_ = Config::SLAB_SIZE,
             SLAB_SIZE = IF_KERNEL_ELSE(
                     SLAB_SIZE_,
@@ -64,7 +87,7 @@ namespace granary {
 
             EXEC_WHERE = Config::EXEC_WHERE,
 
-            // Alignment within the slab for the first allocated
+            // Alignment within the bump_pointer_slab for the first allocated
             // memory
             FIRST_ALLOCATION_ALIGN = IS_EXECUTABLE ? PAGE_SIZE : 16,
 
@@ -73,24 +96,18 @@ namespace granary {
         };
 
 
-        /// Represents a single slab of bump-pointer allocatable memory.
-        /// No attempt is made to pack as much into the slabs as possible.
-        struct slab {
-            slab *next;
-            uint8_t *data_ptr;
-            uint8_t *bump_ptr;
-            unsigned remaining;
-        };
+        /// The next bump_pointer_slab from which we can allocate.
+        bump_pointer_slab *curr;
+        bump_pointer_slab *first;
 
 
-        /// The next slab from which we can allocate.
-        slab *curr;
-        slab *first;
+        /// A free list of bump_pointer_slabs.
+        bump_pointer_slab *free;
 
 
-        /// A free list of slabs.
-        slab *free;
-
+        /// A global free list of bump_pointer_slabs.
+        static bump_pointer_slab *global_free;
+        static atomic_spin_lock global_free_lock;
 
         /// Lock used to serialise allocations.
         opt_atomic<bool, IF_TEST_ELSE(true, IS_SHARED)> lock;
@@ -98,170 +115,196 @@ namespace granary {
 
         /// The size of the last allocation.
         unsigned last_allocation_size;
+        bump_pointer_slab *last_allocation_slab;
+
 
         /// The last person who allocated.
         IF_TEST( const void *last_allocator; )
 
-#if CONFIG_PRECISE_ALLOCATE
-        void *staged_addr;
-#endif
-
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
-#if CONFIG_ENABLE_ASSERTIONS
-            if(IS_SHARED) {
-                while(lock.load() || lock.exchange(true)) { }
-            } else {
-                ASSERT(!lock.exchange(true));
-            }
-#else
             if(IS_SHARED) {
                 while(lock.load() || lock.exchange(true)) { }
             }
-#endif
         }
 
 
         /// Release the lock on the allocator.
         inline void release(void) throw() {
-#if CONFIG_ENABLE_ASSERTIONS
-            if(IS_SHARED) {
-                lock.store(false);
-            } else {
-                ASSERT(lock.exchange(false));
-            }
-#else
             if(IS_SHARED) {
                 lock.store(false);
             }
-#endif
         }
 
 
-        /// Allocate a slab and a corresponding memory arena.
-        slab *allocate_slab(void) throw() {
-            slab *next_slab(free);
+        /// Search for a slab in a slab list.
+        bump_pointer_slab *slab_search(
+            bump_pointer_slab **unlink_ptr,
+            bump_pointer_slab *found,
+            unsigned size
+        ) throw() {
 
-            // take from the free list
-            if(next_slab) {
-                free = next_slab->next;
+            bump_pointer_slab **bigger_unlink_ptr(nullptr);
+            bump_pointer_slab *bigger_found(nullptr);
 
-            // allocate a new slab and a new arena for the memory
+            // Try to find a slab of exact size.
+            for(; found;) {
+                if(found->size == size) {
+                    goto found_exact_slab;
+                } else if(found->size > size) {
+                    if(!bigger_found
+                    || (bigger_found && bigger_found->size > found->size)) {
+                        bigger_found = found;
+                        bigger_unlink_ptr = unlink_ptr;
+                    }
+                }
+
+                unlink_ptr = &(found->next);
+                found = found->next;
+            }
+
+            if(bigger_found) {
+                *bigger_unlink_ptr = bigger_found->next;
+                return bigger_found;
             } else {
+                return nullptr;
+            }
 
-                next_slab = allocate_memory<slab>();
+        found_exact_slab:
+            *unlink_ptr = found->next;
+            return found;
+        }
 
-                if(IS_EXECUTABLE) {
-                    next_slab->data_ptr = unsafe_cast<uint8_t *>(
-                        detail::global_allocate_executable(
-                            SLAB_SIZE, EXEC_WHERE));
-                } else {
-                    next_slab->data_ptr = allocate_memory<uint8_t>(SLAB_SIZE);
+
+        /// Allocate a new slab, either by finding it in a free list, or by
+        /// manually allocating it.
+        bump_pointer_slab *allocate_slab(unsigned size) throw() {
+            bump_pointer_slab *found(nullptr);
+
+            // Try to find one in the free list.
+            if(free) {
+                found = slab_search(&free, free, size);
+                if(found) {
+                    goto initialise;
                 }
             }
 
-            next_slab->next = curr;
-            next_slab->bump_ptr = next_slab->data_ptr;
-            next_slab->remaining = SLAB_SIZE;
-
-            return next_slab;
-        }
-
-
-        /// Allocate a large slab of memory specific to only one allocation
-        /// request.
-        void allocate_custom_slab(unsigned size) throw() {
-            slab *next_slab = allocate_memory<slab>();
-            if(IS_EXECUTABLE) {
-                next_slab->data_ptr = unsafe_cast<uint8_t *>(
-                    detail::global_allocate_executable(size, EXEC_WHERE));
-            } else {
-                next_slab->data_ptr = allocate_memory<uint8_t>(SLAB_SIZE);
+            // See if we might be able to search in the global free list.
+            if(!IS_SHARED && global_free && global_free_lock.try_acquire()) {
+                found = slab_search(&global_free, global_free, size);
+                global_free_lock.release();
+                if(found) {
+                    goto initialise;
+                }
             }
-            next_slab->next = curr;
-            curr = next_slab;
-            curr->bump_ptr = curr->data_ptr;
-            curr->remaining = size;
+
+            // Need to allocate a new one.
+            found = allocate_memory<bump_pointer_slab>();
+            if(IS_EXECUTABLE) {
+                found->memory = unsafe_cast<uint8_t *>(
+                    detail::global_allocate_executable(size, EXEC_WHERE));
+                found->size = size;
+            } else {
+                found->memory = allocate_memory<uint8_t>(SLAB_SIZE);
+                found->size = size;
+            }
+
+        initialise:
+            found->index = 0;
+            found->remaining = found->size;
+            found->next = nullptr;
+            return found;
         }
 
 
         /// Allocate `size` bytes of memory with alignment `align`.
-        uint8_t *allocate_bare(const unsigned align, unsigned size) throw() {
-#if CONFIG_PRECISE_ALLOCATE
-            (void) align;
-            uint8_t *ret(nullptr);
-            if(IS_EXECUTABLE) {
-                ret = unsafe_cast<uint8_t *>(
-                    detail::global_allocate_executable(
-                        size + ALIGN_TO(size, PAGE_SIZE)));
-            } else {
-                ret = allocate_memory<uint8_t>(size);
+        uint8_t *allocate_bare(
+            const unsigned align,
+            const unsigned size
+        ) throw() {
+
+            unsigned slab_size(size + ALIGN_TO(size, SLAB_SIZE));
+            if(!slab_size) {
+                slab_size = SLAB_SIZE;
             }
 
-            staged_addr = ret;
+            ASSERT(slab_size >= SLAB_SIZE);
+            IF_TEST( int i(0); )
+            for(; IF_TEST(i < 3); IF_TEST(++i)) {
+
+                // Allocate a slab if we're missing one or if this slab appears
+                // to be unable to service out current request.
+                if(!curr || curr->remaining < size) {
+                    bump_pointer_slab *new_curr(allocate_slab(slab_size));
+                    new_curr->next = curr;
+                    curr = new_curr;
+                    last_allocation_size = 0;
+                    last_allocation_slab = nullptr;
+                    if(!first) {
+                        first = curr;
+                    }
+                }
+
+                // Handle a staged allocation.
+                if(!size) {
+                    return &(curr->memory[curr->index]);
+                }
+
+                ASSERT(curr->index <= curr->size);
+                ASSERT(curr->remaining <= curr->size);
+
+                // Figure out how we need to align the memory returned from
+                // the slab.
+                const uintptr_t mem_addr(reinterpret_cast<uintptr_t>(
+                    &(curr->memory[curr->index])));
+                const unsigned align_offset(ALIGN_TO(mem_addr, align));
+                const unsigned aligned_size(size + align_offset);
+
+                if(curr->remaining >= aligned_size) {
+                    curr->index += align_offset;
+                    curr->remaining -= align_offset;
+                    break;
+
+                // Make this slab unusable, and maintain the invariant that
+                // `size == (index + remaining)`.
+                } else {
+                    curr->remaining = 0;
+                    curr->index = curr->size;
+                    continue;
+                }
+            }
+
+            ASSERT(2 >= i);
+            ASSERT(curr->remaining >= size);
+
+            uint8_t *ret(&(curr->memory[curr->index]));
+            last_allocation_size = size;
+            last_allocation_slab = curr;
+            curr->index += size;
+            curr->remaining -= size;
+
+            ASSERT((curr->index + curr->remaining) == curr->size);
+            ASSERT(0 == (reinterpret_cast<uintptr_t>(ret) % align));
 
             return ret;
-#else
-
-            // very big allocation; requires a custom slab.
-            if(size > SLAB_SIZE) {
-                allocate_custom_slab(size + ALIGN_TO(size, SLAB_SIZE));
-            }
-
-            last_allocation_size = size;
-
-            if(nullptr == curr) {
-                first = curr = allocate_slab();
-
-            } else if(curr->remaining < size) {
-                curr = allocate_slab();
-
-            } else {
-                uint64_t next_address(
-                    reinterpret_cast<uint64_t>(curr->bump_ptr));
-                unsigned align_offset(ALIGN_TO(next_address, align));
-                unsigned aligned_size(size + align_offset);
-
-                if(curr->remaining < aligned_size) {
-                    curr = allocate_slab();
-
-                } else {
-                    curr->bump_ptr += align_offset;
-                    last_allocation_size += align_offset;
-                }
-            }
-
-            uint8_t *bumped_ptr(curr->bump_ptr);
-
-            curr->bump_ptr += size;
-            curr->remaining -= last_allocation_size;
-            return bumped_ptr;
-#endif
         }
 
-        /// Free a list of slabs.
-        static void free_slab_list(slab *list) throw() {
-            for(slab *next(nullptr); list; list = next) {
+        /// Free a list of bump_pointer_slabs.
+        static void free_slab_list(bump_pointer_slab *list) throw() {
+            for(bump_pointer_slab *next(nullptr); list; list = next) {
                 next = list->next;
-                if(list->data_ptr) {
-
-                    unsigned slab_size(list->remaining);
-                    if(list->bump_ptr > list->data_ptr) {
-                        slab_size += (list->bump_ptr - list->data_ptr);
-                    }
-
+                if(list->memory) {
                     if(IS_EXECUTABLE) {
                         detail::global_free_executable(
-                            list->data_ptr, slab_size);
+                            list->memory, list->size);
                     } else {
-                        free_memory<uint8_t>(list->data_ptr, slab_size);
+                        free_memory<uint8_t>(list->memory, list->size);
                     }
-                    list->data_ptr = nullptr;
-                    list->bump_ptr = nullptr;
+                    list->memory = nullptr;
                 }
 
-                free_memory<slab>(list);
+                free_memory<bump_pointer_slab>(list);
             }
         }
 
@@ -327,24 +370,16 @@ namespace granary {
 
         template <typename T>
         inline const T *allocate_staged(void) throw() {
-#if CONFIG_PRECISE_ALLOCATE
-            if(staged_addr) {
-                return unsafe_cast<T *>(staged_addr);
-            } else {
-                return unsafe_cast<T *>(allocate_bare(16, 1));
-            }
-#else
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
             void *ret(allocate_bare(MIN_ALIGN, 0));
             release();
             return unsafe_cast<const T *>(ret);
-#endif
         }
 
         template <typename T>
-        array<T> allocate_array(unsigned length) throw() {
+        T *allocate_array(unsigned length) throw() {
             enum {
                 ALIGN = (unsigned) alignof(T),
                 MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
@@ -364,10 +399,12 @@ namespace granary {
                     new (ptr) T;
                 }
             }
-            return array<T>(unsafe_cast<T *>(arena), length);
+
+            return unsafe_cast<T *>(arena);
         }
 
-        /// Free the last thing allocated.
+        /// Free the last thing allocated. If that thing needed to be aligned
+        /// then the alignment space is not freed.
         void free_last(void) throw() {
             if(IS_SHARED) {
                 FAULT;
@@ -375,17 +412,22 @@ namespace granary {
 
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
-            if(curr && last_allocation_size) {
+            if(curr && last_allocation_size && curr == last_allocation_slab) {
                 IF_TEST( last_allocator = allocator; )
-                ASSERT(last_allocation_size < SLAB_SIZE);
-                curr->bump_ptr -= last_allocation_size;
-                curr->remaining += last_allocation_size;
-                ASSERT(curr->bump_ptr >= curr->data_ptr);
 
-                memset(curr->bump_ptr, MEMSET_VALUE, last_allocation_size);
+                ASSERT((curr->index + curr->remaining) == curr->size);
+                curr->index -= last_allocation_size;
+                curr->remaining += last_allocation_size;
+                ASSERT((curr->index + curr->remaining) == curr->size);
+
+                memset(
+                    &(curr->memory[curr->index]),
+                    MEMSET_VALUE,
+                    last_allocation_size);
             }
 
             last_allocation_size = 0;
+            last_allocation_slab = nullptr;
             release();
         }
 
@@ -398,7 +440,10 @@ namespace granary {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
+
             if(first) {
+                ASSERT(!(first->next));
+                ASSERT(curr);
                 first->next = free;
                 first = nullptr;
             }
@@ -407,10 +452,27 @@ namespace granary {
                 free = curr;
                 curr = nullptr;
             }
+
+            if(!IS_SHARED && free && global_free_lock.try_acquire()) {
+                *(free->connect()) = global_free;
+                global_free = free;
+                global_free_lock.release();
+
+                free = nullptr;
+            }
+
             last_allocation_size = 0;
+            last_allocation_slab = nullptr;
+
             release();
         }
     };
+
+    template <typename Config>
+    bump_pointer_slab *bump_pointer_allocator<Config>::global_free = nullptr;
+
+    template <typename Config>
+    atomic_spin_lock bump_pointer_allocator<Config>::global_free_lock;
 }
 
 
