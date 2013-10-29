@@ -155,7 +155,9 @@ namespace granary {
 
         // Try to load the target address from the global code cache.
         if(CODE_CACHE->load(addr.as_address, target_addr)) {
-            cpu->code_cache.store(addr.as_address, target_addr);
+            if(policy.is_indirect_cti_target() || policy.is_return_target()) {
+                cpu->code_cache.store(addr.as_address, target_addr);
+            }
             IF_PERF( perf::visit_address_lookup_hit(); )
             return target_addr;
         }
