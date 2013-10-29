@@ -40,6 +40,7 @@ namespace granary {
     public:
 
         enum {
+            UNALLOCATED = 0xCCCCCCCC,
             HEADER = 0xD4D5D682
         };
 

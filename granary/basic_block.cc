@@ -246,6 +246,10 @@ namespace granary {
         for(; ; ++ints) {
             if(basic_block_info::HEADER == *ints) {
                 break;
+            } else if(basic_block_info::UNALLOCATED == *ints) {
+                ASSERT(false);
+                cache_pc_current = nullptr;
+                return;
             }
         }
 
@@ -1064,6 +1068,8 @@ namespace granary {
         // overflow. This assumes that the fragment allocator always aligns
         // executable code on a 16 byte boundary.
         ASSERT(generated_pc == emitted_pc);
+        ASSERT(generated_pc <= bb_begin.pc());
+        ASSERT(bb_begin.pc() < end_pc);
 
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.

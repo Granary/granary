@@ -472,7 +472,7 @@ static void preallocate_executable(void) {
 
     enum {
         _1_MB = 1048576,
-        _100_MB = 30 * _1_MB,
+        CODE_CACHE_SIZE = 30 * _1_MB,
         _1_P = 4096
     };
 
@@ -480,16 +480,16 @@ static void preallocate_executable(void) {
     module_alloc_t *module_alloc_update_bounds  =
         (module_alloc_t *) DETACH_ADDR_module_alloc_update_bounds;
 
-    void *mem = module_alloc_update_bounds(_100_MB);
+    void *mem = module_alloc_update_bounds(CODE_CACHE_SIZE);
     if(!mem) {
         granary_fault();
     }
 
     // Memset all module code to be int3 instructions.
-    memset(mem, 0xCC, _100_MB);
+    memset(mem, 0xCC, CODE_CACHE_SIZE);
 
     EXEC_START = (unsigned long) mem;
-    EXEC_END = EXEC_START + _100_MB;
+    EXEC_END = EXEC_START + CODE_CACHE_SIZE;
 
     set_page_perms(
         set_memory_x,
@@ -518,7 +518,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_CODE_CACHE:
         mem = __sync_fetch_and_add(&CODE_CACHE_END, size);
         if((mem + size) > GEN_CODE_START) {
-            granary_break_on_fault();
+            printk("[granary] Unable to allocate fragment code!\n\n");
             granary_fault();
         }
         break;
@@ -527,7 +527,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_GEN_CODE:
         mem = __sync_sub_and_fetch(&GEN_CODE_START, size);
         if(mem < CODE_CACHE_END) {
-            granary_break_on_fault();
+            printk("[granary] Unable to allocate gencode!\n\n");
             granary_fault();
         }
         break;
@@ -536,13 +536,13 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_WRAPPER:
         mem = __sync_fetch_and_add(&WRAPPER_END, size);
         if((mem + size) > EXEC_END) {
-            granary_break_on_fault();
+            printk("[granary] Unable to allocate wrapper code!\n\n");
             granary_fault();
         }
         break;
 
     default:
-        granary_break_on_fault();
+        printk("[granary] Unknown executable allocation type!\n\n");
         granary_fault();
         break;
     }

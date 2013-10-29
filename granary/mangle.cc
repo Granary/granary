@@ -982,7 +982,7 @@ namespace granary {
         dbl.append(mangled(jmp_(pc_(patcher_for_opcode))));
 
         const unsigned size(dbl.encoded_size());
-        app_pc routine(cpu->fragment_allocator.allocate_array<uint8_t>(
+        app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
             size));
         dbl.encode(routine, size);
 
@@ -1110,7 +1110,7 @@ namespace granary {
                 //       conditional branch.
                 ASSERT(in.is_call() || in.is_jump());
 
-                app_pc *slot = cpu->fragment_allocator.allocate<app_pc>();
+                app_pc *slot = global_state::FRAGMENT_ALLOCATOR->allocate<app_pc>();
                 *slot = detach_target_pc;
 
                 // Regardless of return address transparency, a direct call to

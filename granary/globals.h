@@ -184,7 +184,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 0
+#define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
@@ -436,9 +436,6 @@ extern "C" {
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
 #endif /* CONFIG_RUN_TEST_CASES */
-
-    /// Get the APIC ID of the current processor.
-    extern int granary_asm_apic_id(void);
 
 
     /// Perform an 8-byte atomic write.
