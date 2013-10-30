@@ -1026,7 +1026,21 @@ namespace granary {
         // policy.
         instruction_list_mangler mangler(
             cpu, block_storage, client_policy);
-        mangler.mangle(ls);
+
+        instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
+        mangler.mangle(ls, patch_stubs);
+
+        // Calculate the size of the stubs and then encode the stubs.
+        const unsigned stub_size(patch_stubs.encoded_size());
+        app_pc stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
+#if CONFIG_ENABLE_ASSERTIONS
+        // Double check that the allocator has given us memory that we think
+        // looks like uninitialized code memory.
+        for(unsigned i(0); i < stub_size; ++i) {
+            ASSERT(0xCC == stub_pc[i]);
+        }
+#endif
+        patch_stubs.encode(stub_pc, stub_size);
 
         // Re-calculate the size and re-allocate; if our earlier
         // guess was too small then we need to re-instrument the
@@ -1054,6 +1068,10 @@ namespace granary {
             start_pc, byte_len,
             generated_pc,
             end_pc);
+
+        // Re-encode the instruction list to resolve the circular dependencies.
+        IF_TEST( memset(stub_pc, 0xCC, stub_size); )
+        patch_stubs.encode(stub_pc, stub_size);
 
         // If this isn't the case, then there there was likely a buffer
         // overflow. This assumes that the fragment allocator always aligns

@@ -34,14 +34,13 @@ namespace granary {
         basic_block_state *bb;
         const instrumentation_policy policy;
         instruction_list *ls;
+        instruction_list *stub_ls;
 
         // used to estimate if an address is too far away from the code cache
         // to use relative addressing.
         const const_app_pc estimator_pc;
 
-        void dbl_entry_stub(
-            instruction_list &patch_ls,
-            instruction patch,
+        instruction dbl_entry_stub(
             instruction patched_in,
             app_pc dbl_routine
         ) throw();
@@ -172,7 +171,8 @@ namespace granary {
             instrumentation_policy &policy_
         ) throw();
 
-        void mangle(instruction_list &ls);
+
+        void mangle(instruction_list &ls, instruction_list &stub_ls);
     };
 }
 

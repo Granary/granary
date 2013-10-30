@@ -286,7 +286,7 @@ namespace granary {
             tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
 
             tail_policy.instrument(cpu, *bb, tail_bb);
-            mangle(tail_bb);
+            mangle(tail_bb, *stub_ls);
         }
 
         // Add the instructions back into the stub.
@@ -317,7 +317,6 @@ namespace granary {
         ibl.append(rcr_(reg::al, int8_(4)));
         ibl.append(xchg_(reg::ah, reg::al));
         ibl.append(shl_(reg::ax, int8_(4)));
-
         ibl.append(movzx_(reg::eax, reg::ax));
 
         // Mangle the target address with the policy. This corresponds to the
@@ -787,7 +786,7 @@ namespace granary {
 
         ASSERT(is_valid_address(context->target_address.unmangled_address()));
         ASSERT(is_valid_address(context->return_address_into_patch_tail));
-        ASSERT(is_code_cache_address(context->return_address_into_patch_tail));
+        ASSERT(is_gencode_address(context->return_address_into_patch_tail));
 
         // Get an address into the target basic block using two stage lookup.
         app_pc ret_pc(context->return_address_into_patch_tail);
@@ -991,41 +990,39 @@ namespace granary {
     /// Make a direct CTI patch stub. This is used both for mangling direct CTIs
     /// and for emulating policy inheritance/scope when transparent return
     /// addresses are used.
-    void instruction_list_mangler::dbl_entry_stub(
-        instruction_list &patch_ls,
-        instruction patch,
+    instruction instruction_list_mangler::dbl_entry_stub(
         instruction patched_in,
         app_pc dbl_routine
     ) throw() {
-        IF_PERF( const unsigned old_num_ins(patch_ls.length()); )
+        instruction ret(stub_ls->append(label_()));
+
+        IF_PERF( const unsigned old_num_ins(stub_ls->length()); )
 
         int redzone_size(patched_in.is_call() ? 0 : REDZONE_SIZE);
 
         // We add REDZONE_SIZE + 8 because we make space for the policy-mangled
         // address. The
         if(redzone_size) {
-            patch = patch_ls.insert_after(patch,
-                lea_(reg::rsp, reg::rsp[-redzone_size]));
+            stub_ls->append(lea_(reg::rsp, reg::rsp[-redzone_size]));
         }
 
-        patch = patch_ls.insert_after(patch,
-            mangled(call_(pc_(dbl_routine))));
+        stub_ls->append(mangled(call_(pc_(dbl_routine))));
 
         if(redzone_size) {
-            patch = patch_ls.insert_after(patch,
-                lea_(reg::rsp, reg::rsp[redzone_size]));
+            stub_ls->append(lea_(reg::rsp, reg::rsp[redzone_size]));
         }
 
-        // the address to be mangled is implicitly encoded in the target of this
-        // jmp instruction, which will later be decoded by the direct cti
+        // The address to be mangled is implicitly encoded in the target of
+        // this JMP instruction, which will later be decoded by the direct cti
         // patch function. There are two reasons for this approach of jumping
         // around:
         //      i)  Doesn't screw around with the return address predictor.
         //      ii) Works with user space red zones.
-        patch_ls.insert_after(patch,
-            mangled(jmp_(instr_(mangled(patched_in)))));
+        stub_ls->append(mangled(jmp_(instr_(mangled(patched_in)))));
 
-        IF_PERF( perf::visit_dbl_stub(patch_ls.length() - old_num_ins); )
+        IF_PERF( perf::visit_dbl_stub(stub_ls->length() - old_num_ins); )
+
+        return ret;
     }
 
 
@@ -1137,13 +1134,10 @@ namespace granary {
         IF_TEST( const unsigned old_size(in.encoded_size()); )
 
         // Set the policy-fied target.
-        instruction stub(ls->prepend(label_()));
-        dbl_entry_stub(
-            *ls,                                     // list to patch
-            stub,                                    // patch label
+        instruction stub(dbl_entry_stub(
             in,                                      // patched instruction
             dbl_entry_routine(target_policy, in, am) // target of stub
-        );
+        ));
 
         in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
 
@@ -1597,10 +1591,14 @@ namespace granary {
 
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
-    void instruction_list_mangler::mangle(instruction_list &ls_) throw() {
+    void instruction_list_mangler::mangle(
+        instruction_list &ls_,
+        instruction_list &stub_ls_
+    ) throw() {
         instruction_list *prev_ls(ls);
 
         ls = &ls_;
+        stub_ls = &stub_ls_;
 
         instruction in(ls->first());
         instruction next_in;

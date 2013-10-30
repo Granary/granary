@@ -81,6 +81,19 @@ namespace granary {
         };
 
 
+        /// CPU-private fragment stub allocators.
+        struct stub_allocator_config {
+            enum {
+                SLAB_SIZE = PAGE_SIZE,
+                EXECUTABLE = true,
+                TRANSIENT = false,
+                SHARED = false,
+                EXEC_WHERE = EXEC_GEN_CODE,
+                MIN_ALIGN = 16
+            };
+        };
+
+
         /// For transiently allocated instructions that are meant to appear
         /// "close enough" in memory with the rest of the code cache. This
         /// allocator feeds the DynamoRIO side of things.
@@ -224,6 +237,11 @@ namespace granary {
         /// The code cache allocator for this CPU.
         bump_pointer_allocator<detail::fragment_allocator_config>
             fragment_allocator;
+
+
+        /// The stub allocator for this CPU.
+        bump_pointer_allocator<detail::stub_allocator_config>
+            stub_allocator;
 
 
         /// Allocator for instructions in process.

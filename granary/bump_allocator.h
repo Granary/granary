@@ -211,6 +211,7 @@ namespace granary {
             }
 
         initialise:
+            memset(found->memory, MEMSET_VALUE, found->size);
             found->index = 0;
             found->remaining = found->size;
             found->next = nullptr;

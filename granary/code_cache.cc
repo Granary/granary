@@ -267,6 +267,7 @@ namespace granary {
             if(!stored_base_addr && created_bb) {
                 client::discard_basic_block(*created_bb_state);
 
+                cpu->stub_allocator.free_last();
                 cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
 
@@ -286,7 +287,6 @@ namespace granary {
         if(policy.is_indirect_cti_target() || policy.is_return_target()) {
             target_addr = instruction_list_mangler::ibl_exit_routine(target_addr);
             if(!CODE_CACHE->store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
-                cpu->fragment_allocator.free_last();
                 CODE_CACHE->load(addr.as_address, target_addr);
             }
 
