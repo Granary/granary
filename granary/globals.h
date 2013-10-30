@@ -110,14 +110,14 @@
 
 
 /// Should execution be traced?
-#define CONFIG_TRACE_EXECUTION 1
+#define CONFIG_TRACE_EXECUTION 0
 #define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
 
 /// How many entries should be unrolled / checked in the global IBL hash table?
-#define CONFIG_NUM_IBL_HASH_TABLE_CHECKS 6
+#define CONFIG_NUM_IBL_HASH_TABLE_CHECKS 8
 
 
 /// Do pre-mangling of instructions with the REP prefix?
@@ -128,7 +128,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -178,7 +178,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
+#define CONFIG_ENABLE_ASSERTIONS 0
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
@@ -212,15 +212,6 @@
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
 #   define CONFIG_MAX_RETURN_WRAP_DEPTH 1
-#endif
-
-
-/// Translate `%rip`-relative addresses to absolute addresses in user space.
-/// On some 64-bit systems (e.g. Max OS X), the heap tends to be located > 4GB
-/// away from the memory region that contains the code. As a result, translated
-/// `%rip`-relative addresses cannot fit in 32-bits.
-#ifndef CONFIG_TRANSLATE_FAR_ADDRESSES
-#   define CONFIG_TRANSLATE_FAR_ADDRESSES 1
 #endif
 
 

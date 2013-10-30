@@ -472,7 +472,7 @@ static void preallocate_executable(void) {
 
     enum {
         _1_MB = 1048576,
-        CODE_CACHE_SIZE = 30 * _1_MB,
+        CODE_CACHE_SIZE = 40 * _1_MB,
         _1_P = 4096
     };
 
@@ -518,7 +518,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_CODE_CACHE:
         mem = __sync_fetch_and_add(&CODE_CACHE_END, size);
         if((mem + size) > GEN_CODE_START) {
-            printk("[granary] Unable to allocate fragment code!\n\n");
+            //printk("[granary] Unable to allocate fragment code!\n\n");
             granary_fault();
         }
         break;
@@ -527,7 +527,7 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_GEN_CODE:
         mem = __sync_sub_and_fetch(&GEN_CODE_START, size);
         if(mem < CODE_CACHE_END) {
-            printk("[granary] Unable to allocate gencode!\n\n");
+            //printk("[granary] Unable to allocate gencode!\n\n");
             granary_fault();
         }
         break;
@@ -536,13 +536,13 @@ void *kernel_alloc_executable(unsigned long size, int where) {
     case EXEC_WRAPPER:
         mem = __sync_fetch_and_add(&WRAPPER_END, size);
         if((mem + size) > EXEC_END) {
-            printk("[granary] Unable to allocate wrapper code!\n\n");
+            //printk("[granary] Unable to allocate wrapper code!\n\n");
             granary_fault();
         }
         break;
 
     default:
-        printk("[granary] Unknown executable allocation type!\n\n");
+        //printk("[granary] Unknown executable allocation type!\n\n");
         granary_fault();
         break;
     }

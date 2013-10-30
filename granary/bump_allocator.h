@@ -249,6 +249,8 @@ namespace granary {
 
                 // Handle a staged allocation.
                 if(!size) {
+                    last_allocation_size = 0;
+                    last_allocation_slab = nullptr;
                     return &(curr->memory[curr->index]);
                 }
 

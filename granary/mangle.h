@@ -87,8 +87,6 @@ namespace granary {
 
     private:
 
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
-
         void mangle_lea(instruction in) throw();
 
         void mangle_far_memory_refs(instruction in) throw();
@@ -108,7 +106,7 @@ namespace granary {
             dynamorio::reg_id_t spill_reg_id,
             uint64_t addr
         ) throw();
-#endif
+
 
         /// Get the direct branch lookip (DBL) entry point for a direct operand.
         app_pc dbl_entry_routine(

@@ -796,8 +796,8 @@ namespace granary {
         if(!target_pc) {
             target_pc = code_cache::find(cpu, context->target_address);
 
-            // Have observed from freaky compiler WTF.
-            // Seems to be related to stack switching.
+            // Have observed from freaky compiler WTF. Seems to be related
+            // to stack switching.
             //
             // TODO: Turn stack switching back on (in user space) and
             //       investigate this.
@@ -1289,7 +1289,6 @@ namespace granary {
     }
 
 
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
     void instruction_list_mangler::mangle_lea(
         instruction in
     ) throw() {
@@ -1305,7 +1304,6 @@ namespace granary {
                 int64_(reinterpret_cast<uint64_t>(target_pc))));
         }
     }
-#endif
 
 
     /// Propagate a delay region across mangling. If we have mangled a single
@@ -1329,9 +1327,6 @@ namespace granary {
         }
 #endif
     }
-
-
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
 
 
     /// Find a far memory operand and its size. If we've already found one in
@@ -1546,7 +1541,6 @@ namespace granary {
         // propagate interrupt delaying.
         propagate_delay_region(in, first_in, last_in);
     }
-#endif
 
 
     /// Mangle a bit scan to check for a 0 input. If the input is zero, the ZF
@@ -1629,7 +1623,6 @@ namespace granary {
                 }
                 mangle_sti(in);
 
-#if CONFIG_TRANSLATE_FAR_ADDRESSES
             // Look for cases where an `LEA` loads from a memory address that is
             // too far away and fix it.
             } else if(dynamorio::OP_lea == in.op_code()) {
@@ -1645,7 +1638,6 @@ namespace granary {
                 IF_PERF( const unsigned old_num_ins(ls->length()); )
                 mangle_far_memory_refs(in);
                 IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
-#endif
             }
         }
 
