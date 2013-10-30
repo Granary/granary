@@ -15,6 +15,17 @@
 namespace granary {
 
 
+    /// Injects the equivalent of N bytes of NOPs.
+    ///
+    /// Note: this does not need to propagate a delay region as it would only
+    ///       propagate the *end* of a delay region, which is redundant.
+    instruction insert_nops_after(
+        instruction_list &ls,
+        instruction in,
+        unsigned num_nops
+    ) throw();
+
+
     /// Returns true iff the two values are very far (>= 4GB) away.
     template <typename P1, typename P2>
     inline bool is_far_away(P1 p1, P2 p2) throw() {

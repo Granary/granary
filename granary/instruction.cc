@@ -8,6 +8,7 @@
 #include "granary/globals.h"
 #include "granary/state.h"
 #include "granary/instruction.h"
+#include "granary/emit_utils.h"
 #include "granary/gen/instruction.h"
 
 namespace granary {
@@ -130,7 +131,9 @@ namespace granary {
         }
 
         if(is_patchable()) {
-            ASSERT(0 == (reinterpret_cast<uintptr_t>(pc_) % 8));
+            const uintptr_t addr(reinterpret_cast<uintptr_t>(pc_));
+            ASSERT(((addr % CONFIG_MIN_CACHE_LINE_SIZE) + 5)
+                    <= CONFIG_MIN_CACHE_LINE_SIZE);
         }
 #endif
 
@@ -580,14 +583,14 @@ namespace granary {
     /// encodes an instruction list into a sequence of bytes
     app_pc instruction_list::encode(
         app_pc start_pc,
-        unsigned exact_size
+        unsigned max_size
     ) throw() {
         if(!length()) {
             return start_pc;
         }
 
 #if CONFIG_ENABLE_ASSERTIONS
-        for(unsigned i(0); i < exact_size; ++i) {
+        for(unsigned i(0); i < max_size; ++i) {
             ASSERT(start_pc[i] == 0xCC);
         }
 #endif
@@ -598,11 +601,10 @@ namespace granary {
         for(instruction item(first()); item.is_valid(); item = item.next()) {
 
             dynamorio::instr_t *target_instr(nullptr);
-
             if(item.is_cti()) {
                 operand target(item.cti_target());
 
-                // temporarily point to itself.
+                // Temporarily point to itself.
                 if(dynamorio::opnd_is_instr(target)) {
                     target_instr = target.value.instr;
                     item.instr->u.o.src0.value.instr = item.instr;
@@ -612,7 +614,7 @@ namespace granary {
 
             pc = item.encode(pc);
 
-            // restore its correct target for later jump resolution.
+            // Restore its correct target for later jump resolution.
             if(target_instr) {
                 item.instr->u.o.src0.value.instr = target_instr;
             }
@@ -620,7 +622,7 @@ namespace granary {
             IF_PERF( perf::visit_encoded(item); )
         }
 
-        // local jumps within the same basic block might be forward jumps
+        // Local jumps within the same basic block might be forward jumps
         // (at least in the case of direct call/jump stubs); re-emit those
         // instructions in place with the now-resolved PCs.
         if(has_local_jump) {
@@ -634,8 +636,14 @@ namespace granary {
             }
         }
 
-        ASSERT((start_pc + exact_size) == pc);
-        UNUSED(exact_size);
+        // Note: We won't always be at our max_size because of our potential
+        ///      aligning NOPs.
+        ASSERT(pc <= (start_pc + max_size));
+        UNUSED(max_size);
+
+        USED(pc);
+        USED(start_pc);
+        USED(max_size);
 
         return pc;
     }

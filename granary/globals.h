@@ -11,7 +11,6 @@
 /// guard on including the standard library so that its included types don't
 /// interact with the generated types of user/kernel_types in detach.cc.
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-#   include <cstring>
 #   include <cstddef>
 #   include <new>
 #endif
@@ -128,7 +127,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -407,14 +406,16 @@ extern "C" {
     extern uintptr_t granary_get_gs_base(void);
     extern uintptr_t granary_get_fs_base(void);
 
+    extern void *granary_memcpy(void *, const void *, size_t);
+    extern void *granary_memset(void *, int, size_t);
+    extern int granary_memcmp(const void *, const void *, size_t);
+
+#   define memcpy granary_memcpy
+#   define memset granary_memset
+#   define memcmp granary_memcmp
+
 #if GRANARY_IN_KERNEL
     extern void kernel_log(const char *, size_t);
-
-    // This is a pretty evil way of getting around issues like `memcpy` being
-    // substituted by things like `__memcpy_chk`.
-    extern void *__memcpy(void *, const void *, size_t);
-#   define memcpy __memcpy
-
 #endif /* GRANARY_IN_KERNEL */
 
 #if CONFIG_RUN_TEST_CASES

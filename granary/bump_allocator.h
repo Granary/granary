@@ -356,18 +356,6 @@ namespace granary {
             release();
             ASSERT(is_valid_address(arena));
 
-#if CONFIG_ENABLE_ASSERTIONS
-            if(IS_EXECUTABLE) {
-                for(unsigned i(0); i < num_bytes; ++i) {
-                    ASSERT(MEMSET_VALUE == arena[i]);
-                }
-            } else {
-                memset(arena, MEMSET_VALUE, num_bytes);
-            }
-#else
-            memset(arena, MEMSET_VALUE, num_bytes);
-#endif
-
             return arena;
         }
 

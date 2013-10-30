@@ -361,6 +361,14 @@ extern dcontext_t *get_thread_private_dcontext(void);
 extern void granary_break_on_fault(void);
 extern int granary_fault(void);
 
+extern void *granary_memcpy(void *, const void *, size_t);
+extern void *granary_memset(void *, int, size_t);
+extern int granary_memcmp(const void *, const void *, size_t);
+
+#define memcpy granary_memcpy
+#define memset granary_memset
+#define memcmp granary_memcmp
+
 #ifdef __cplusplus
 }
 #endif

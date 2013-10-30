@@ -14,6 +14,36 @@
 namespace granary {
 
 
+    /// Injects the equivalent of N bytes of NOPs.
+    ///
+    /// Note: this does not need to propagate a delay region as it would only
+    ///       propagate the *end* of a delay region, which is redundant.
+    instruction insert_nops_after(
+        instruction_list &ls,
+        instruction in,
+        unsigned num_nops
+    ) throw() {
+        if(!num_nops) {
+            return in;
+        } else if(1 == num_nops) {
+            return ls.insert_after(in, nop1byte_());
+        } else if(2 == num_nops) {
+            return ls.insert_after(in, nop2byte_());
+        } else if(3 == num_nops) {
+            return ls.insert_after(in, nop3byte_());
+        } else {
+            instruction after_nops(ls.insert_after(in, label_()));
+            instruction jmp_to_after(
+                ls.insert_after(in, mangled(jmp_short_(instr_(after_nops)))));
+
+            for(num_nops -= 2; num_nops; --num_nops) {
+                ls.insert_after(jmp_to_after, nop1byte_());
+            }
+            return after_nops;
+        }
+    }
+
+
     /// Traverse through the instruction control-flow graph and look for used
     /// registers.
     ///

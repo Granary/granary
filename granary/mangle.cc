@@ -707,66 +707,6 @@ namespace granary {
     }
 
 
-    /// Injects the equivalent of N bytes of NOPs, encoded as a short JMP around
-    /// N-2 ud2 instructions, or a single 1-byte NOP is only 1 byte of NOPs is
-    /// desired.
-    ///
-    /// Note: this does not need to propagate a delay region as it would only
-    ///       propagate the *end* of a delay region, which is redundant.
-    void instruction_list_mangler::insert_nops_after(
-        instruction_list &ls,
-        instruction in,
-        unsigned num_nops
-    ) throw() {
-        if(!num_nops) {
-            return;
-        } else if(1 == num_nops) {
-            instruction nop(ls.insert_after(in, nop1byte_()));
-        } else if(2 == num_nops) {
-            instruction nop(ls.insert_after(in, nop2byte_()));
-        } else if(3 == num_nops) {
-            instruction nop(ls.insert_after(in, nop3byte_()));
-        } else if(8 >= num_nops) {
-            instruction after_nops(ls.insert_after(in, label_()));
-            instruction jmp_to_after(
-                ls.insert_after(in, mangled(jmp_short_(instr_(after_nops)))));
-
-            for(num_nops -= 2; num_nops; --num_nops) {
-                ls.insert_after(jmp_to_after, nop1byte_());
-            }
-        } else {
-            ASSERT(false);
-        }
-    }
-
-
-    /// Stage an 8-byte hot patch. This will encode the instruction `in` into
-    /// the `stage` location (as if it were going to be placed at the `dest`
-    /// location, and then encodes however many NOPs are needed to fill in 8
-    /// bytes. If offset is non-zero, then `offset` number of NOP bytes will be
-    /// encoded before the instruction `in`.
-    void instruction_list_mangler::stage_8byte_hot_patch(
-        instruction in,
-        app_pc stage,
-        app_pc dest,
-        unsigned offset
-    ) throw() {
-        instruction_list ls(INSTRUCTION_LIST_STAGED);
-        if(offset) {
-            insert_nops_after(ls, ls.first(), offset);
-        }
-
-        ls.append(in);
-
-        const unsigned size(in.encoded_size());
-        if((size + offset) < HOTPATCH_ALIGN) {
-            insert_nops_after(ls, ls.first(), HOTPATCH_ALIGN - (size + offset));
-        }
-
-        ls.stage_encode(stage, dest);
-    }
-
-
     /// Patch the code by regenerating the original instruction.
     ///
     /// Note: in kernel mode, this function executes with interrupts
@@ -813,8 +753,6 @@ namespace granary {
             if(maybe_jmp.is_cti()) {
                 ASSERT(dynamorio::OP_jmp == maybe_jmp.op_code());
                 patch_address = maybe_jmp.cti_target().value.pc;
-                ASSERT(0 == (reinterpret_cast<uint64_t>(patch_address)
-                             % HOTPATCH_ALIGN));
                 goto ready_to_patch;
             }
         }
@@ -823,27 +761,84 @@ namespace granary {
 
     ready_to_patch:
 
-        // create the patch code
-        uint64_t staged_code_(0xCCCCCCCCCCCCCCCCULL);
-        app_pc staged_code(reinterpret_cast<app_pc>(&staged_code_));
+        // Make sure that the patch target will fit on one cache line. We will
+        // use `5` as the magic number for instruction size, as that's typical
+        // for a RIP-relative CTI.
 
-        // make the cti instruction, and try to widen it if necessary.
-        instruction cti(make_opcode(pc_(target_pc)));
-        cti.widen_if_cti();
+        // Get the original code. Note: We get the code before we decode the
+        // instruction, which means that the decoded instruction *could* see
+        // a newer version of the code. We accept this as it will allow us to
+        // detect whether or not the code was patched (because the decoded old
+        // CTI will no longer point into gencode).
+        uint64_t *code_to_patch(reinterpret_cast<uint64_t *>(patch_address));
+        uint64_t original_code(*code_to_patch);
+        uint64_t staged_code(original_code);
+        app_pc staged_data(reinterpret_cast<app_pc>(&staged_code));
 
-        unsigned offset(0);
-        if(cti.is_call()) {
-            ASSERT(cti.encoded_size() <= RETURN_ADDRESS_OFFSET);
-            offset = RETURN_ADDRESS_OFFSET - cti.encoded_size();
+        // The old instruction that we think is there.
+        app_pc decode_address(patch_address);
+        instruction old_cti(instruction::decode(&decode_address));
+        unsigned old_cti_len(old_cti.encoded_size());
+
+        // Make the new CTI instruction, widen it if possible.
+        instruction new_cti(make_opcode(pc_(target_pc)));
+        new_cti.widen_if_cti();
+
+        // This is kind of a hack; see later in this file. `Jcc rel32` takes
+        // 6 bytes, whereas `JMP rel32` and `CALL rel32` take 5 bytes.
+        if(!new_cti.is_unconditional_cti()) {
+            old_cti_len += 1;
         }
 
-        instruction_list_mangler::stage_8byte_hot_patch(
-            cti, staged_code, patch_address, offset);
+        ASSERT(old_cti_len <= sizeof(uintptr_t));
+        ASSERT(new_cti.encoded_size() <= old_cti_len);
 
-        // apply the patch
-        granary_atomic_write8(
-            staged_code_,
-            reinterpret_cast<uint64_t *>(patch_address));
+        // Double check that the instruction to patch transfers control into
+        // gencode. If not then it's already been patched.
+        ASSERT(old_cti.is_cti());
+        operand old_cti_target(old_cti.cti_target());
+        ASSERT(dynamorio::opnd_is_pc(old_cti_target));
+        if(!is_gencode_address(old_cti_target.value.pc)) {
+            return;
+        }
+
+        // Create a bitmask that will allow us to diagnose why a compare&swap
+        // might fail. Under normal circumstances (e.g. null tool), we wouldn't
+        // actually need to check whether the compare&swap succeeds because
+        // control cannot jump over a patch. However, it's entirely possible for
+        // another tool to place two hot-patchable CTIs side-by-side, and
+        // conditionally jump to one or another.
+        uint64_t code_mask(0ULL);
+        memset(&code_mask, 0xFF, old_cti_len);
+        const uint64_t masked_head(original_code & code_mask);
+
+        IF_TEST( int i(0); )
+        for(; IF_TEST(i < 2); IF_TEST(++i)) {
+
+            // Fill the staged code with NOPs where the old CTI was.
+            memset(staged_data, 0x90, old_cti_len);
+            new_cti.stage_encode(staged_data, patch_address);
+
+            // Apply the patch.
+            const bool applied_patch(__sync_bool_compare_and_swap(
+                code_to_patch, original_code, staged_code));
+
+            if(applied_patch) {
+                break;
+            }
+
+            // Get the new version of the code.
+            original_code = *code_to_patch;
+            staged_code = original_code;
+
+            // Ignorable failure; the instruction was concurrently patched by
+            // another thread/core.
+            if(masked_head != (original_code & code_mask)) {
+                break;
+            }
+        }
+
+        ASSERT(2 > i);
     }
 
 
@@ -1122,12 +1117,6 @@ namespace granary {
                 in.set_mangled();
             }
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
-            if(!in.next().is_valid() || in.is_call()) {
-                in.set_patchable();
-            }
-#endif
-
             return;
         }
 
@@ -1139,7 +1128,12 @@ namespace granary {
             dbl_entry_routine(target_policy, in, am) // target of stub
         ));
 
+        const bool was_unconditional(in.is_unconditional_cti());
         in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
+
+        if(!was_unconditional) {
+            in.instr->granary_flags |= instruction::COND_CTI_PLACEHOLDER;
+        }
 
         IF_TEST( const unsigned new_size(in.encoded_size()); )
         ASSERT(old_size <= 8);
@@ -1643,10 +1637,8 @@ namespace granary {
 
 
         // Do a second-pass over all instructions, looking for any hot-patchable
-        // instructions, and aligning them nicely.
-        //
-        // Extra alignment/etc needs to be done here instead of in encoding
-        // because of how basic block allocation works.
+        // instructions, and aligning all hot-patchable instructions
+        // accordingly.
         unsigned align(0);
         instruction prev_in;
 
@@ -1654,45 +1646,37 @@ namespace granary {
 
             next_in = in.next();
             const bool is_hot_patchable(in.is_patchable());
-            const unsigned in_size(in.encoded_size());
+            unsigned in_size(in.encoded_size());
 
-            // x86-64 guarantees quadword atomic writes so long as the memory
-            // location is aligned on an 8-byte boundary; we will assume that
-            // we are never patching an instruction longer than 8 bytes.
-            if(is_hot_patchable) {
-                ASSERT(HOTPATCH_ALIGN >= in_size);
+            // This is a hack: `Jcc rel32` takes 6 bytes to encode, whereas
+            // `CALL rel32` and `JMP rel32` take only 5 bytes.
+            //
+            // We add the NOP here so that we can take it into account when
+            // figuring out the forward alignment requirements of the patchable
+            // instruction.
+            if(is_hot_patchable
+            && (in.instr->granary_flags & instruction::COND_CTI_PLACEHOLDER)) {
+                in.instr->granary_flags &= ~instruction::COND_CTI_PLACEHOLDER;
+                ls->insert_after(in, nop1byte_());
+                in_size += 1;
+            }
 
-                uint64_t forward_align(ALIGN_TO(align, HOTPATCH_ALIGN));
+            const unsigned cache_line_offset(align % CONFIG_MIN_CACHE_LINE_SIZE);
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
-                // This will make sure that even indirect calls have their
-                // return addresses aligned at `RETURN_ADDRESS_OFFSET`. The
-                // purpose of this is that in some Granary configurations, we
-                // inspect (return address + 16 - RETURN_ADDRESS_OFFSET) to
-                // try to find the basic block meta info magic number. We mark
-                // both direct and indirect calls as hot-patchable, which
-                // introduces some inefficiency, but enables uniformity at this
-                // step.
-                if(in.is_call() && RETURN_ADDRESS_OFFSET > in_size) {
-                    forward_align += RETURN_ADDRESS_OFFSET - in_size;
-                }
-#endif /* CONFIG_ENABLE_DIRECT_RETURN */
-
-                IF_PERF( perf::visit_align_nop(forward_align); )
-                insert_nops_after(*ls, prev_in, forward_align);
-                align += forward_align;
+            // Make sure that hot-patchable instructions don't cross cache
+            // line boundaries.
+            if(is_hot_patchable
+            && CONFIG_MIN_CACHE_LINE_SIZE < (cache_line_offset + in_size)) {
+                ASSERT(in.prev().is_valid());
+                const unsigned forward_align(
+                    CONFIG_MIN_CACHE_LINE_SIZE - cache_line_offset);
+                insert_nops_after(*ls, in.prev(), forward_align);
+                IF_PERF( perf::visit_align_nop(forward_align); );
+                in_size += forward_align;
             }
 
             prev_in = in;
             align += in_size;
-
-            // Make sure that the instruction is the only "useful" one in it's
-            // 8-byte block.
-            if(is_hot_patchable) {
-                uint64_t forward_align(ALIGN_TO(align, HOTPATCH_ALIGN));
-                insert_nops_after(ls_, prev_in, forward_align);
-                align += forward_align;
-            }
         }
 
         ls = prev_ls;

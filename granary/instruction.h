@@ -278,7 +278,11 @@ namespace granary {
             TARGETED_BY_CTI     = (1 << 3),
 
             /// Mark this instruction as hot-patchable.
-            HOT_PATCHABLE       = (1 << 4)
+            HOT_PATCHABLE       = (1 << 4),
+
+            /// If this is a hot-patchable instruction, then this is set of
+            /// this instruction stands in for a conditional JMP.
+            COND_CTI_PLACEHOLDER= (1 << 5)
         };
 
         typename dynamorio::instr_t *instr;

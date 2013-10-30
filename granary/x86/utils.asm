@@ -13,6 +13,56 @@ GLOBAL_LABEL(granary_get_gs_base:)
 END_FUNC(granary_get_gs_base)
 
 
+/// Declare a Granary-version of memcpy. This is not equivalent to the
+/// generalized memcpy: it does not care about alignment or overlaps.
+DECLARE_FUNC(granary_memcpy)
+GLOBAL_LABEL(granary_memcpy:)
+    movq %ARG3, %rcx; // number of bytes to set.
+    movq %ARG1, %rdx; // store for return.      Note: ARG3 == rdx.
+    rep movsb;
+    movq %rdx, %rax;
+    ret;
+END_FUNC(granary_memcpy)
+
+
+/// Declare a Granary-version of memset. This is not equivalent to the
+/// generalized memcpy: it does not care about alignment or overlaps.
+DECLARE_FUNC(granary_memset)
+GLOBAL_LABEL(granary_memset:)
+    movq %ARG2, %rax; // value to set.
+    movq %ARG3, %rcx; // number of bytes to set.
+    movq %ARG1, %rdx; // store for return.      Note: ARG3 == rdx.
+    rep stosb; // mov %AL into (RDI), RCX times
+    movq %rdx, %rax;
+    ret;
+END_FUNC(granary_memset)
+
+
+/// Declare a Granary-version of memcmp. This is not equivalent to the
+/// generalized memcpy: it does not care about alignment or overlaps.
+DECLARE_FUNC(granary_memcmp)
+GLOBAL_LABEL(granary_memcmp:)
+.granary_memcmp_next_byte:
+    test %ARG3, %ARG3;
+    movq $0, %rax;
+    jz .granary_memcmp_done;
+
+    movb (%ARG1), %al;
+    subb (%ARG2), %al;
+    jnz .granary_memcmp_done;
+
+    // Go to the next byte.
+    sub $1, %ARG3;
+    add $1, %ARG1;
+    add $1, %ARG2;
+    jmp .granary_memcmp_next_byte; // tail-call to next byte.
+
+    // No more bytes to compare, or we found a difference.
+.granary_memcmp_done:
+    ret;
+END_FUNC(granary_memcmp)
+
+
 /// Returns %fs:0.
 DECLARE_FUNC(granary_get_fs_base)
 GLOBAL_LABEL(granary_get_fs_base:)

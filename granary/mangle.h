@@ -70,21 +70,6 @@ namespace granary {
             instruction last
         ) throw();
 
-    public:
-
-        static void insert_nops_after(
-            instruction_list &ls,
-            instruction in,
-            unsigned num_nops
-        ) throw();
-
-        static void stage_8byte_hot_patch(
-            instruction in,
-            app_pc stage,
-            app_pc dest,
-            unsigned offset=0
-        ) throw();
-
     private:
 
         void mangle_lea(instruction in) throw();

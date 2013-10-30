@@ -37,10 +37,6 @@
 #ifndef Granary_DYNAMORIO_H_
 #define Granary_DYNAMORIO_H_
 
-#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-#   include <string.h>
-#endif
-
 #ifndef X64
 #   define X64 1
 #endif

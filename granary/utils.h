@@ -14,7 +14,6 @@
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <stdint.h>
-#   include <cstring>
 #   include "granary/allocator.h"
 #   include "granary/type_traits.h"
 #   include <atomic>

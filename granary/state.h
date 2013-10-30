@@ -71,12 +71,12 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 16,
+                SLAB_SIZE = PAGE_SIZE * 8,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
-                MIN_ALIGN = 16
+                MIN_ALIGN = CONFIG_MIN_CACHE_LINE_SIZE
             };
         };
 

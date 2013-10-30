@@ -18,9 +18,7 @@
 #   include "granary/detach.h"
 #endif
 
-#include <cstring>
 #include <new>
-
 
 namespace granary {
 
@@ -28,7 +26,7 @@ namespace granary {
 
         BB_PADDING              = 0xEA,
         BB_PADDING_LONG         = 0xEAEAEAEAEAEAEAEA,
-        BB_ALIGN                = 16,
+        BB_ALIGN                = CONFIG_MIN_CACHE_LINE_SIZE,
 
         /// Maximum size in bytes of a decoded basic block. This relates to
         /// *decoding* only and not the resulting size of a basic block after
@@ -40,7 +38,7 @@ namespace granary {
         BB_BYTE_STATES_PER_BYTE = 4,
 
         /// byte and 32-bit alignment of basic block info structs in memory
-        BB_INFO_BYTE_ALIGNMENT  = 8,
+        BB_INFO_BYTE_ALIGNMENT  = 4,
         BB_INFO_INT32_ALIGNMENT = 2,
 
         /// misc.
@@ -1055,6 +1053,9 @@ namespace granary {
         // looks like uninitialized code memory.
         for(unsigned i(0); i < size; ++i) {
             ASSERT(0xCC == generated_pc[i]);
+            USED(generated_pc);
+            USED(size);
+            USED(i);
         }
 #endif
 
@@ -1105,17 +1106,9 @@ namespace granary {
             end_pc += sizeof(void *);
         }
 #endif
-
-#if CONFIG_ENABLE_ASSERTIONS
-        // Check the validity of our basic block sizing.
-        ASSERT((generated_pc + size) >= end_pc);
-
-        // Double check the validity of our basic block sizing against the
-        // allocator itself.
-        const const_app_pc staged_end_pc(
-            cpu->fragment_allocator.allocate_staged<uint8_t>());
-        ASSERT(staged_end_pc >= end_pc);
-#endif
+        // Check the validity of our basic block sizing. `size` might over-
+        // estimate the actual instruction list's size, which is okay.
+        ASSERT((generated_pc + size) <= end_pc);
 
         // Quick double check to make sure that we can properly resolve the
         // basic block info later. If this isn't the case, then we likely need
@@ -1144,8 +1137,7 @@ namespace granary {
         app_pc pc,
         app_pc &end_pc
     ) throw() {
-
-        pc += ALIGN_TO(reinterpret_cast<uint64_t>(pc), BB_ALIGN);
+        ASSERT(0 == (reinterpret_cast<uint64_t>(pc) % BB_ALIGN));
 
         // Add in the instructions.
         const app_pc start_pc(pc);
