@@ -304,6 +304,16 @@ static void module_set_exec_perms(struct kernel_module *module) {
 }
 
 
+/// Set a module's text to be read-only.
+void granary_before_module_bootstrap(struct kernel_module *module) {
+    set_page_perms(
+        set_memory_ro,
+        module->text_begin,
+        module->text_end
+    );
+}
+
+
 /// A callback that is invoked *immediately* before the module's init function
 /// is invoked.
 void granary_before_module_init(struct kernel_module *module) {

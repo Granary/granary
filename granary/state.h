@@ -55,26 +55,14 @@ namespace granary {
     namespace detail {
 
 
-        /// For small allocations.
-        struct small_allocator_config {
-            enum {
-                SLAB_SIZE = PAGE_SIZE,
-                EXECUTABLE = false,
-                TRANSIENT = false,
-                SHARED = false,
-                EXEC_WHERE = EXEC_NONE,
-                MIN_ALIGN = 1
-            };
-        };
-
-
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 8,
+                SLAB_SIZE = PAGE_SIZE * 4,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
+                SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
                 MIN_ALIGN = CONFIG_MIN_CACHE_LINE_SIZE
             };
@@ -88,6 +76,7 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
+                SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
                 MIN_ALIGN = 16
             };
@@ -103,6 +92,7 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = true,
                 SHARED = false,
+                SHARE_DEAD_SLABS = true,
                 EXEC_WHERE = EXEC_GEN_CODE,
                 MIN_ALIGN = 1
             };
@@ -116,6 +106,7 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = true,
+                SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_WRAPPER,
                 MIN_ALIGN = 16
             };
@@ -129,6 +120,7 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = false,
                 SHARED = false,
+                SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_NONE,
                 MIN_ALIGN = 16
             };
@@ -142,6 +134,7 @@ namespace granary {
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = true,
+                SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
                 MIN_ALIGN = 16
             };
@@ -155,6 +148,7 @@ namespace granary {
                 EXECUTABLE = false,
                 TRANSIENT = true,
                 SHARED = false,
+                SHARE_DEAD_SLABS = true,
                 EXEC_WHERE = EXEC_NONE,
                 MIN_ALIGN = 1
             };
@@ -227,11 +221,6 @@ namespace granary {
         /// Whether or not we're in granary. This is used to detect issues of
         /// invoking `free_transient_allocators` in unexpected places.
         IF_TEST( bool in_granary; )
-
-
-        /// The code cache allocator for this CPU.
-        bump_pointer_allocator<detail::small_allocator_config>
-            small_allocator;
 
 
         /// The code cache allocator for this CPU.

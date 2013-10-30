@@ -271,7 +271,9 @@ namespace granary {
                 cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
 
+                IF_TEST( target_addr = nullptr; );
                 CODE_CACHE->load(base_addr.as_address, target_addr);
+                ASSERT(target_addr);
 
             // Commit to the basic block state.
             } else if(stored_base_addr && created_bb) {

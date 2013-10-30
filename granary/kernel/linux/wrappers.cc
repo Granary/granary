@@ -31,6 +31,38 @@
 #endif
 
 
+/// For debugging purposes because we don't want to bring an int3 into the
+/// code cache.
+#if defined(DETACH_ADDR_panic)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_panic);
+#endif
+#if defined(DETACH_ADDR_show_fault_oops)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_show_fault_oops);
+#endif
+#if defined(DETACH_ADDR_invalid_op)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_invalid_op);
+#endif
+#if defined(DETACH_ADDR_do_invalid_op)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_do_invalid_op);
+#endif
+#if defined(DETACH_ADDR_do_general_protection)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_do_general_protection);
+#endif
+#if defined(DETACH_ADDR___schedule_bug)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___schedule_bug);
+#endif
+#if defined(DETACH_ADDR___stack_chk_fail)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR___stack_chk_fail);
+#endif
+#if defined(DETACH_ADDR_do_spurious_interrupt_bug)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_do_spurious_interrupt_bug);
+#endif
+#if defined(DETACH_ADDR_report_bug)
+    GRANARY_DETACH_ADDR_POINT(DETACH_ADDR_report_bug);
+#endif
+
+
+
 /// Wraps the exception table search mechanism (queried during page faults).
 /// We implement an unsafe "pacification" mechanism whereby we look for code
 /// patterns that look like they might dereference user space addresses and

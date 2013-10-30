@@ -5,6 +5,23 @@
 START_FILE
 
 
+/// Hash function for an address going into the IBL. Takes in the base address
+/// of the table in ARG1 and the address to hash in ARG2 and returns the address
+/// of the entry.
+DECLARE_FUNC(granary_ibl_hash)
+GLOBAL_LABEL(granary_ibl_hash:)
+    movq %ARG2, %rax;
+
+    rcr $4, %al;
+    xchg %al, %ah;
+    shl $4, %ax;
+
+    movzwl %ax, %eax;
+    add %ARG1, %rax;
+    ret
+END_FUNC(granary_ibl_hash)
+
+
 /// Returns %gs:0.
 DECLARE_FUNC(granary_get_gs_base)
 GLOBAL_LABEL(granary_get_gs_base:)
@@ -27,8 +44,10 @@ END_FUNC(granary_memcpy)
 
 /// Declare a Granary-version of memset. This is not equivalent to the
 /// generalized memcpy: it does not care about alignment or overlaps.
+    .extern memset;
 DECLARE_FUNC(granary_memset)
 GLOBAL_LABEL(granary_memset:)
+    jmp memset;
     movq %ARG2, %rax; // value to set.
     movq %ARG3, %rcx; // number of bytes to set.
     movq %ARG1, %rdx; // store for return.      Note: ARG3 == rdx.
@@ -69,23 +88,6 @@ GLOBAL_LABEL(granary_get_fs_base:)
     movq %fs:0, %rax;
     ret;
 END_FUNC(granary_get_fs_base)
-
-
-/// Hash function for an address going into the IBL. Takes in the base address
-/// of the table in ARG1 and the address to hash in ARG2 and returns the address
-/// of the entry.
-DECLARE_FUNC(granary_ibl_hash)
-GLOBAL_LABEL(granary_ibl_hash:)
-    movq %ARG2, %rax;
-
-    rcr $4, %al;
-    xchg %al, %ah;
-    shl $4, %ax;
-
-    movzwl %ax, %eax;
-    add %ARG1, %rax;
-    ret
-END_FUNC(granary_ibl_hash)
 
 
 /// Atomically write 8 bytes to memory.

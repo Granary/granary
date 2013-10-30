@@ -882,8 +882,10 @@ namespace granary {
                 // Conditional CTI, end the block with the ability to fall-
                 // through.
                 } else {
-                    fall_through_pc = true;
-                    break;
+                    if(true || BB_ELIDE_JMP_MIN_INSTRUCTIONS < ls.length()) {
+                        fall_through_pc = true;
+                        break;
+                    }
                 }
 
 #if GRANARY_IN_KERNEL
@@ -1053,9 +1055,6 @@ namespace granary {
         // looks like uninitialized code memory.
         for(unsigned i(0); i < size; ++i) {
             ASSERT(0xCC == generated_pc[i]);
-            USED(generated_pc);
-            USED(size);
-            USED(i);
         }
 #endif
 

@@ -125,6 +125,8 @@ namespace granary {
 
 
     /// Nice names for registers used by the IBL and RBL.
+    static operand reg_table_entry_addr; // rax
+    static operand reg_table_entry_addr_16; // ax
     static operand reg_target_addr; // arg1, rdi
     static operand reg_target_addr_16;
     static operand reg_compare_addr; // rcx
@@ -147,6 +149,8 @@ namespace granary {
 
 
     STATIC_INITIALISE_ID(ibl_registers, {
+        reg_table_entry_addr = reg::rax;
+        reg_table_entry_addr_16 = reg::ax;
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
         reg_compare_addr = reg::rcx;
@@ -157,7 +161,7 @@ namespace granary {
 
     /// Make an IBL pre-entry routine. This is responsible for looking up
     /// indirect CTI targets. It operates on a global, 256-way hash table.
-    app_pc instruction_list_mangler::ibl_pre_entry_routine(
+    app_pc instruction_list_mangler::ibl_pre_lookup_routine(
         instrumentation_policy target_policy,
         operand target,
         ibl_entry_kind ibl_kind
@@ -303,21 +307,14 @@ namespace granary {
             ibl.append(tail_in);
         }
 
-        // Spill rax (reg_table_entry_addr) and then save the flags onto the
+        // Spill RAX (reg_table_entry_addr) and then save the flags onto the
         // stack now that rax can be killed.
-        const operand reg_table_entry_addr(reg::rax);
-        const operand reg_table_entry_addr_16(reg::ax);
         ibl.append(push_(reg_table_entry_addr));
         insert_save_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
 
         // Hash function for IBL table. Make sure to keep this consistent
         // with `granary_ibl_hash` located in granary/x86/utils.asm.
         ibl.append(mov_ld_(reg_table_entry_addr, reg_target_addr));
-
-        ibl.append(rcr_(reg::al, int8_(4)));
-        ibl.append(xchg_(reg::ah, reg::al));
-        ibl.append(shl_(reg::ax, int8_(4)));
-        ibl.append(movzx_(reg::eax, reg::ax));
 
         // Mangle the target address with the policy. This corresponds to the
         // `mangled_address` argument to the `code_cache::find*` functions.
@@ -327,66 +324,15 @@ namespace granary {
         ibl.append(shl_(reg_target_addr, int8_(mangled_address::NUM_MANGLED_BITS)));
         ibl.append(add_(reg_target_addr_16, int16_(target_policy.encode())));
 
-        operand reg_zero(reg::rcx);
-        ibl.append(push_(reg_zero));
-
-        // Find the entry of the hash table that we should look at.
-        app_pc table_base(unsafe_cast<app_pc>(&(IBL_CODE_CACHE[0])));
-        ibl.append(mov_imm_(
-            reg_zero,
-            int64_(unsafe_cast<uint64_t>(table_base))));
-        ibl.append(add_(reg_table_entry_addr, reg_zero));
-        ibl.append(xor_(reg_zero, reg_zero));
-
-        instruction ibl_hit(label_());
-        instruction ibl_miss(label_());
-
-        // Unrolled searches of the hash table.
-        for(unsigned i(0); i < CONFIG_NUM_IBL_HASH_TABLE_CHECKS; ++i) {
-            ibl.append(cmp_(
-                reg_target_addr,
-                reg_table_entry_addr[
-                    offsetof(ibl_code_cache_table_entry, mangled_address)]));
-            ibl.append(jz_(instr_(ibl_hit)));
-            ibl.append(cmp_(
-                reg_zero,
-                reg_table_entry_addr[
-                    offsetof(ibl_code_cache_table_entry, mangled_address)]));
-            ibl.append(jz_(instr_(ibl_miss)));
-            ibl.append(add_(
-                reg_table_entry_addr,
-                int8_(sizeof(ibl_code_cache_table_entry))));
-        }
-
-        // Fall-through to a miss; jumps into the IBL entry routine.
-        ibl.append(ibl_miss);
-        ibl.append(pop_(reg_zero));
-#if GRANARY_IN_KERNEL || CONFIG_IBL_SAVE_ALL_FLAGS
-        insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-#endif
-        // Leave RAX on the stack for the IBL entry routine.
-        ibl.append(mangled(jmp_(pc_(ibl_entry_routine(target_policy)))));
-
-        // Target of a hit, cleans up everything but the redzone and the
-        // reg_target_addr, then jumps into the ibl exit routine, which we
-        // will store into the reg_target_addr.
-        ibl.append(ibl_hit);
-        ibl.append(pop_(reg_zero));
-        ibl.append(mov_ld_(
-            reg_target_addr,
-            reg_table_entry_addr[
-                offsetof(ibl_code_cache_table_entry, instrumented_address)]));
-
-        insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-        ibl.append(pop_(reg_table_entry_addr));
-        ibl.append(jmp_ind_(reg_target_addr));
-
-        IF_PERF( perf::visit_ibl_stub(ibl.length() - num_instruction); )
+        // Jump off to the more heavy-weight lookup routines.
+        ibl.append(jmp_(pc_(ibl_lookup_routine(target_policy))));
 
         // Double-check before encoding.
         if(IBL_STUBS->load(key, ret)) {
             return ret;
         }
+
+        IF_PERF( perf::visit_ibl_stub(ibl.length() - num_instruction); )
 
         // Encode.
         const unsigned size(ibl.encoded_size());
@@ -528,11 +474,84 @@ namespace granary {
     })
 
 
+    /// Generates the instructions needed to look up an address in the
+    /// fixed-size, global IBL hash table.
+    void instruction_list_mangler::ibl_query_hash_table(
+        instruction_list &ibl
+    ) throw() {
+        // Note: reg_target_addr is mangled.
+
+        // Note: rax/eax/al/ah are reg_table_entry_addr
+        ibl.append(rcr_(reg::al, int8_(4)));
+        ibl.append(xchg_(reg::ah, reg::al));
+        ibl.append(shl_(reg::ax, int8_(4)));
+        ibl.append(movzx_(reg::eax, reg::ax));
+
+        operand reg_zero(reg::rcx);
+        ibl.append(push_(reg_zero));
+
+        // Find the entry of the hash table that we should look at.
+        app_pc table_base(unsafe_cast<app_pc>(&(IBL_CODE_CACHE[0])));
+        ibl.append(mov_imm_(
+            reg_zero,
+            int64_(unsafe_cast<uint64_t>(table_base))));
+        ibl.append(add_(reg_table_entry_addr, reg_zero));
+        ibl.append(xor_(reg_zero, reg_zero));
+
+        instruction ibl_hit(label_());
+        instruction ibl_miss(label_());
+
+        // Unrolled searches of the hash table.
+        for(unsigned i(0); i < CONFIG_NUM_IBL_HASH_TABLE_CHECKS; ++i) {
+            ibl.append(cmp_(
+                reg_target_addr,
+                reg_table_entry_addr[
+                    offsetof(ibl_code_cache_table_entry, mangled_address)]));
+            ibl.append(jz_(instr_(ibl_hit)));
+            ibl.append(cmp_(
+                reg_zero,
+                reg_table_entry_addr[
+                    offsetof(ibl_code_cache_table_entry, mangled_address)]));
+            ibl.append(jz_(instr_(ibl_miss)));
+            ibl.append(add_(
+                reg_table_entry_addr,
+                int8_(sizeof(ibl_code_cache_table_entry))));
+        }
+
+        // Fall-through to a miss; jumps into the IBL entry routine.
+        ibl.append(ibl_miss);
+        ibl.append(pop_(reg_zero));
+
+#if GRANARY_IN_KERNEL
+        insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
+#endif
+        instruction next_level_lookup(label_());
+        // Leave RAX on the stack for the IBL entry routine.
+        ibl.append(jmp_short_(instr_(next_level_lookup)));
+
+        // Target of a hit, cleans up everything but the redzone and the
+        // reg_target_addr, then jumps into the ibl exit routine, which we
+        // will store into the reg_target_addr.
+        ibl.append(ibl_hit);
+        ibl.append(pop_(reg_zero));
+        ibl.append(mov_ld_(
+            reg_target_addr,
+            reg_table_entry_addr[
+                offsetof(ibl_code_cache_table_entry, instrumented_address)]));
+
+        insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
+        ibl.append(pop_(reg_table_entry_addr));
+        ibl.append(jmp_ind_(reg_target_addr));
+
+        ibl.append(next_level_lookup);
+    }
+
+
     /// Return the IBL entry routine. The IBL entry routine is responsible
     /// for looking to see if an address (stored in reg::arg1) is located
     /// in the CPU-private code cache or in the global code cache. If the
     /// address is in the CPU-private code cache.
-    app_pc instruction_list_mangler::ibl_entry_routine(
+    app_pc instruction_list_mangler::ibl_lookup_routine(
         instrumentation_policy target_policy
     ) throw() {
         static volatile app_pc routine[MAX_NUM_POLICIES] = {nullptr};
@@ -541,14 +560,17 @@ namespace granary {
             return routine[target_policy_bits];
         }
 
+        instruction_list ibl;
+
+        // Add in the hash table.
+        ibl_query_hash_table(ibl);
+
         // on the stack:
         //      redzone
         //      reg_target_addr         (saved: arg1, mangled)
-        //      rax                     (save by ibl_pre_entry_routine)
+        //      rax                     (saved by ibl_query_hash_table)
 
-        instruction_list ibl;
-
-#if GRANARY_IN_KERNEL || CONFIG_IBL_SAVE_ALL_FLAGS
+#if GRANARY_IN_KERNEL
         insert_save_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
 #endif
 
@@ -655,15 +677,24 @@ namespace granary {
         // which is responsible for cleaning up the stack.
         ibl.append(jmp_ind_(reg_target_addr));
 
-        // Encode.
-        const unsigned size(ibl.encoded_size());
-        app_pc temp(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(size));
-        ibl.encode(temp, size);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        app_pc temp(routine[target_policy_bits]);
+        std::atomic_thread_fence(std::memory_order_release);
 
-        IF_PERF( perf::visit_ibl(ibl); )
+        // Encode only if we need to.
+        if(!temp) {
+            const unsigned size(ibl.encoded_size());
+            temp = global_state::FRAGMENT_ALLOCATOR-> \
+                allocate_array<uint8_t>(size);
+            ibl.encode(temp, size);
 
-        routine[target_policy_bits] = temp;
+            IF_PERF( perf::visit_ibl(ibl); )
+
+            std::atomic_thread_fence(std::memory_order_acquire);
+            routine[target_policy_bits] = temp;
+            std::atomic_thread_fence(std::memory_order_release);
+        }
+
         return temp;
     }
 
@@ -730,19 +761,7 @@ namespace granary {
 
         // Get an address into the target basic block using two stage lookup.
         app_pc ret_pc(context->return_address_into_patch_tail);
-        app_pc target_pc(
-            cpu->code_cache.find(context->target_address.as_address));
-
-        if(!target_pc) {
-            target_pc = code_cache::find(cpu, context->target_address);
-
-            // Have observed from freaky compiler WTF. Seems to be related
-            // to stack switching.
-            //
-            // TODO: Turn stack switching back on (in user space) and
-            //       investigate this.
-            ASSERT(ret_pc == context->return_address_into_patch_tail);
-        }
+        app_pc target_pc(code_cache::find(cpu, context->target_address));
 
         // Determine the address to patch; this decodes the *tail* of the patch
         // code in the basic block and looks for a CTI (assumed jmp) and takes
@@ -1034,12 +1053,11 @@ namespace granary {
         app_pc detach_target_pc(nullptr);
         mangled_address am(target_pc, target_policy);
 
-        // If we already know the target, then forgo a stub.
-        detach_target_pc = cpu->code_cache.find(am.as_address);
-
 #if GRANARY_IN_KERNEL
-        if(!detach_target_pc
-        && (is_code_cache_address(target_pc) || is_wrapper_address(target_pc))) {
+        // Keep the target as-is.
+        if(is_code_cache_address(target_pc)
+        || is_wrapper_address(target_pc)
+        || is_gencode_address(target_pc)) {
             detach_target_pc = target_pc;
         }
 #endif
@@ -1150,7 +1168,7 @@ namespace granary {
         if(in.is_call()) {
 
             IF_PERF( perf::visit_mangle_indirect_call(); )
-            app_pc routine(ibl_pre_entry_routine(
+            app_pc routine(ibl_pre_lookup_routine(
                 target_policy, target, IBL_ENTRY_CALL));
             in.replace_with(mangled(call_(pc_(routine))));
 
@@ -1163,7 +1181,7 @@ namespace granary {
                 // TODO: handle RETn/RETf with a byte count.
                 ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
 
-                app_pc routine(ibl_pre_entry_routine(
+                app_pc routine(ibl_pre_lookup_routine(
                     target_policy, target, IBL_ENTRY_RETURN));
                 in.replace_with(mangled(jmp_(pc_(routine))));
 
@@ -1174,7 +1192,7 @@ namespace granary {
         } else {
 
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
-            app_pc routine(ibl_pre_entry_routine(
+            app_pc routine(ibl_pre_lookup_routine(
                 target_policy, target, IBL_ENTRY_JMP));
             in.replace_with(mangled(jmp_(pc_(routine))));
         }

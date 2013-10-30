@@ -111,10 +111,17 @@ namespace granary {
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup table.
-        app_pc ibl_pre_entry_routine(
+        app_pc ibl_pre_lookup_routine(
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind
+        ) throw();
+
+
+        /// Generates the instructions needed to look up an address in the
+        /// fixed-size, global IBL hash table.
+        static void ibl_query_hash_table(
+            instruction_list &ibl
         ) throw();
 
 
@@ -124,7 +131,7 @@ namespace granary {
         /// address is in the CPU-private code cache, and if IBL prediction is
         /// enabled, then the CPU-private lookup function might add a prediction
         /// entry to the CTI.
-        static app_pc ibl_entry_routine(
+        static app_pc ibl_lookup_routine(
             instrumentation_policy target_policy
         ) throw();
 

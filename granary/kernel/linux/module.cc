@@ -27,9 +27,12 @@
 #   undef GRANARY_DONT_INCLUDE_CSTDLIB
 #endif
 
+using namespace granary;
+
 extern "C" {
 
 
+    extern void granary_before_module_bootstrap(struct kernel_module *module);
     extern void granary_before_module_init(struct kernel_module *module);
 
 
@@ -70,12 +73,15 @@ extern "C" {
             return;
         }
 
-        printf("[granary] Notified about module (%s) state change.\n",
-            module->name);
-
         switch(module->state) {
         case kernel_module::STATE_COMING: {
-            *(module->init) = make_init_func(*(module->init), module);
+            printf("[granary] Notified about module (%s) state change: COMING.\n",
+                module->name);
+            granary_before_module_bootstrap(module);
+
+            if(module->init) {
+                *(module->init) = make_init_func(*(module->init), module);
+            }
             if(module->exit) {
                 *(module->exit) = dynamic_wrapper_of(*(module->exit));
             }
@@ -83,9 +89,13 @@ extern "C" {
         }
 
         case kernel_module::STATE_LIVE:
+            printf("[granary] Notified about module (%s) state change: LIVE.\n",
+                module->name);
             break;
 
         case kernel_module::STATE_GOING:
+            printf("[granary] Notified about module (%s) state change: GOING.\n",
+                module->name);
             break;
         }
     }
@@ -94,23 +104,16 @@ extern "C" {
     /// Initialise Granary. This is the bridge between the C module code and
     /// the C++ Granary code.
     void granary_initialise(void) {
-        using namespace granary;
 
         printf("[granary] Initialising Granary...\n");
         init();
         printf("[granary] Initialised.\n");
-
-#if CONFIG_RUN_TEST_CASES
-        printf("[granary] Running test cases...\n");
-        run_tests();
-        printf("[granary] All test cases ran.\n");
-#endif
     }
 
 
     /// Report on Granary's activities.
     void granary_report(void) {
-        IF_PERF( granary::perf::report(); )
+        IF_PERF( perf::report(); )
 
 #ifdef CLIENT_report
         client::report();

@@ -74,6 +74,8 @@ namespace granary {
             IS_TRANSIENT = !!Config::TRANSIENT,
             IS_SHARED = !!Config::SHARED,
 
+            SHARE_DEAD_SLABS = !IS_SHARED && !!Config::SHARE_DEAD_SLABS,
+
             // Minimum alignment for all allocated objects.
             MIN_ALIGN = Config::MIN_ALIGN,
 
@@ -191,7 +193,8 @@ namespace granary {
             }
 
             // See if we might be able to search in the global free list.
-            if(!IS_SHARED && global_free && global_free_lock.try_acquire()) {
+            if(SHARE_DEAD_SLABS
+            && global_free && global_free_lock.try_acquire()) {
                 found = slab_search(&global_free, global_free, size);
                 global_free_lock.release();
                 if(found) {
@@ -224,6 +227,8 @@ namespace granary {
             const unsigned align,
             const unsigned size
         ) throw() {
+            last_allocation_size = 0;
+            last_allocation_slab = nullptr;
 
             unsigned slab_size(size + ALIGN_TO(size, SLAB_SIZE));
             if(!slab_size) {
@@ -240,8 +245,6 @@ namespace granary {
                     bump_pointer_slab *new_curr(allocate_slab(slab_size));
                     new_curr->next = curr;
                     curr = new_curr;
-                    last_allocation_size = 0;
-                    last_allocation_slab = nullptr;
                     if(!first) {
                         first = curr;
                     }
@@ -249,8 +252,6 @@ namespace granary {
 
                 // Handle a staged allocation.
                 if(!size) {
-                    last_allocation_size = 0;
-                    last_allocation_slab = nullptr;
                     return &(curr->memory[curr->index]);
                 }
 
@@ -318,6 +319,7 @@ namespace granary {
             , first(nullptr)
             , free(nullptr)
             , last_allocation_size(0)
+            , last_allocation_slab(nullptr)
             _IF_TEST( last_allocator(nullptr) )
         {
             lock.store(false);
@@ -326,7 +328,8 @@ namespace granary {
         ~bump_pointer_allocator(void) throw() {
             free_slab_list(free);
             free = nullptr;
-
+            last_allocation_size = 0;
+            last_allocation_slab = nullptr;
             free_slab_list(curr);
             curr = nullptr;
         }
@@ -403,14 +406,23 @@ namespace granary {
 
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
-            if(curr && last_allocation_size && curr == last_allocation_slab) {
-                IF_TEST( last_allocator = allocator; )
+            IF_TEST( last_allocator = allocator; )
+
+            if(curr
+            && last_allocation_size
+            && curr == last_allocation_slab) {
 
                 ASSERT((curr->index + curr->remaining) == curr->size);
+                ASSERT(curr->index >= last_allocation_size);
                 curr->index -= last_allocation_size;
                 curr->remaining += last_allocation_size;
+                ASSERT(curr->index <= curr->size);
                 ASSERT((curr->index + curr->remaining) == curr->size);
 
+                // Make sure that something is actually being destroyed.
+                ASSERT(!IS_EXECUTABLE
+                    || (IS_EXECUTABLE
+                            && MEMSET_VALUE != curr->memory[curr->index]));
                 memset(
                     &(curr->memory[curr->index]),
                     MEMSET_VALUE,
@@ -431,6 +443,8 @@ namespace granary {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
+            last_allocation_size = 0;
+            last_allocation_slab = nullptr;
 
             if(first) {
                 ASSERT(!(first->next));
@@ -444,16 +458,14 @@ namespace granary {
                 curr = nullptr;
             }
 
-            if(!IS_SHARED && free && global_free_lock.try_acquire()) {
+            if(SHARE_DEAD_SLABS
+            && free && global_free_lock.try_acquire()) {
                 *(free->connect()) = global_free;
                 global_free = free;
                 global_free_lock.release();
 
                 free = nullptr;
             }
-
-            last_allocation_size = 0;
-            last_allocation_slab = nullptr;
 
             release();
         }

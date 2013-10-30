@@ -166,18 +166,9 @@
 #   define CONFIG_TRACK_XMM_REGS 1
 #endif
 
-/// Save only the arithmetic flags instead of all flags when doing indirect
-/// branch lookup. This only affects user space because in kernel space all
-/// flags will be saved in order to disable interrupts.
-#if GRANARY_IN_KERNEL
-#   define CONFIG_IBL_SAVE_ALL_FLAGS 1 // can't change in kernel space.
-#else
-#   define CONFIG_IBL_SAVE_ALL_FLAGS 0
-#endif
-
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 0
+#define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else

@@ -348,8 +348,6 @@ namespace granary {
 #if GRANARY_IN_KERNEL
         in = ls.insert_after(in, pushf_());
         in = ls.insert_after(in, cli_());
-#elif CONFIG_IBL_SAVE_ALL_FLAGS
-        in = ls.insert_after(in, pushf_());
 #else
         in = insert_save_arithmetic_flags_after(ls, in, constraint);
 #endif
@@ -365,8 +363,6 @@ namespace granary {
     ) throw() {
         (void) constraint;
 #if GRANARY_IN_KERNEL
-        in = ls.insert_after(in, popf_());
-#elif CONFIG_IBL_SAVE_ALL_FLAGS
         in = ls.insert_after(in, popf_());
 #else
         in = insert_restore_arithmetic_flags_after(ls, in, constraint);
