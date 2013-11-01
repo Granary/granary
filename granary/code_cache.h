@@ -17,20 +17,6 @@
 namespace granary {
 
 
-    struct ibl_code_cache_table_entry {
-        unsafe_static_data<std::atomic<app_pc>> mangled_address;
-        unsafe_static_data<std::atomic<app_pc>> instrumented_address;
-    } __attribute__((packed, aligned (32)));
-
-
-    enum {
-        NUM_IBL_CODE_CACHE_ENTRIES = (1 << 16) / sizeof(ibl_code_cache_table_entry)
-    };
-
-
-    extern ibl_code_cache_table_entry IBL_CODE_CACHE[];
-
-
     /// Represents a policy-specific code cache. A single client can be wholly
     /// represented by a policy, apply many policies (in the form of an
     /// aggregate policy), or dynamically switch between instrumentation

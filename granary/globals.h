@@ -115,10 +115,6 @@
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
 
-/// How many entries should be unrolled / checked in the global IBL hash table?
-#define CONFIG_NUM_IBL_HASH_TABLE_CHECKS 8
-
-
 /// Do pre-mangling of instructions with the REP prefix?
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
@@ -127,7 +123,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -158,17 +154,8 @@
 #define CONFIG_INSTRUMENT_PATCH_WRAPPERS CONFIG_INSTRUMENT_HOST
 
 
-/// Track usage of the SSE/SSE2 XMM register so that we can avoid saving and
-/// restoring those registers.
-#if GRANARY_IN_KERNEL
-#   define CONFIG_TRACK_XMM_REGS 0 // can't change in kernel space.
-#else
-#   define CONFIG_TRACK_XMM_REGS 1
-#endif
-
-
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
+#define CONFIG_ENABLE_ASSERTIONS 0
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
@@ -400,10 +387,14 @@ extern "C" {
     extern void *granary_memcpy(void *, const void *, size_t);
     extern void *granary_memset(void *, int, size_t);
     extern int granary_memcmp(const void *, const void *, size_t);
+    extern size_t granary_strlen(const char *);
+    extern char *granary_strncpy(char *destination, const char *source, size_t num);
 
 #   define memcpy granary_memcpy
 #   define memset granary_memset
 #   define memcmp granary_memcmp
+#   define strlen granary_strlen
+#   define strncpy granary_strncpy
 
 #if GRANARY_IN_KERNEL
     extern void kernel_log(const char *, size_t);

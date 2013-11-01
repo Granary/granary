@@ -353,14 +353,15 @@ namespace granary {
         }
 
 
+    public:
+
+
         /// Get the mangled bits that would represent this policy when an
         /// address is extended to include a policy (and its properties).
         inline uint16_t encode(void) const throw() {
             return as_raw_bits;
         }
 
-
-    public:
 
         /// Get the detach context for this policy.
         inline runtime_context context(void) const throw() {
@@ -471,8 +472,8 @@ namespace granary {
         ///
         /// Note: order of these fields is significant.
         struct {
-            uint16_t policy_bits:NUM_MANGLED_BITS; // low
-            uint64_t _:(64 - NUM_MANGLED_BITS); // high
+            uint64_t _:(64 - NUM_MANGLED_BITS); // low
+            uint16_t policy_bits:NUM_MANGLED_BITS; // high
         } as_policy_address __attribute__((packed));
 
     public:

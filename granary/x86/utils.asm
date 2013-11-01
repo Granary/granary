@@ -5,21 +5,55 @@
 START_FILE
 
 
-/// Hash function for an address going into the IBL. Takes in the base address
-/// of the table in ARG1 and the address to hash in ARG2 and returns the address
-/// of the entry.
+/// Hash function for an address going into the IBL. Takes in an address and
+/// returns an index.
 DECLARE_FUNC(granary_ibl_hash)
 GLOBAL_LABEL(granary_ibl_hash:)
-    movq %ARG2, %rax;
+    xor %eax, %eax;
+    mov %di, %ax;
 
-    rcr $4, %al;
-    xchg %al, %ah;
+    // Begin hash! Keep these consistent with `granary/ibl.cc`!!
+    shr $4, %ax;
     shl $4, %ax;
+    xchg %al, %ah;
+    rol $3, %ah;
+    rol $4, %ax;
+    // End hash!
 
-    movzwl %ax, %eax;
-    add %ARG1, %rax;
+    shr $3, %ax; // To make this into an index!!
     ret
 END_FUNC(granary_ibl_hash)
+
+
+/// Function that swaps the bytes of its argument.
+DECLARE_FUNC(granary_bswap64)
+GLOBAL_LABEL(granary_bswap64:)
+    xor %eax, %eax;
+    movq %ARG1, %rax;
+    bswap %rax;
+    ret
+END_FUNC(granary_bswap64)
+
+
+/// Function that swaps the bytes of its argument.
+DECLARE_FUNC(granary_bswap32)
+GLOBAL_LABEL(granary_bswap32:)
+    xor %eax, %eax;
+    mov %edi, %eax;
+    movq %ARG1, %rax;
+    bswap %eax;
+    ret
+END_FUNC(granary_bswap32)
+
+
+/// Function that swaps the bytes of its argument.
+DECLARE_FUNC(granary_bswap16)
+GLOBAL_LABEL(granary_bswap16:)
+    xor %eax, %eax;
+    mov %di, %ax;
+    xchg %al, %ah;
+    ret
+END_FUNC(granary_bswap16)
 
 
 /// Returns %gs:0.
@@ -44,10 +78,8 @@ END_FUNC(granary_memcpy)
 
 /// Declare a Granary-version of memset. This is not equivalent to the
 /// generalized memcpy: it does not care about alignment or overlaps.
-    .extern memset;
 DECLARE_FUNC(granary_memset)
 GLOBAL_LABEL(granary_memset:)
-    jmp memset;
     movq %ARG2, %rax; // value to set.
     movq %ARG3, %rcx; // number of bytes to set.
     movq %ARG1, %rdx; // store for return.      Note: ARG3 == rdx.

@@ -181,8 +181,17 @@ def should_include_unit(unit_decls, unit_toks, is_typedef):
     return True
 
   for ctype, name in unit_decls:
-    if name and not isinstance(ctype.base_type(), CTypeFunction):
-      return False
+    if name:
+      base_type = ctype.base_type()
+      if not isinstance(base_type, CTypeFunction):
+        return False
+
+      # Don't include functions returning floating point values.
+      else:
+        base_return_type = base_type.ret_type.base_type()
+        if isinstance(base_return_type, CTypeBuiltIn) \
+        and base_return_type.is_float:
+          return False
 
     # Try not to include forward definitions of enums.
     base_ctype = ctype.base_type()

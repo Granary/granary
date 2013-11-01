@@ -742,10 +742,7 @@ namespace granary {
             block_storage = cpu->block_allocator.allocate<basic_block_state>();
         }
 
-#if CONFIG_TRACK_XMM_REGS
         bool uses_xmm(policy.is_in_xmm_context());
-#endif
-
         bool fall_through_detach(false);
         bool detach_tail_call(false);
         const app_pc detach_app_pc(unsafe_cast<app_pc>(&detach));
@@ -852,12 +849,7 @@ namespace granary {
                 // aren't supported then we need to support a fall-through
                 // JMP to the next basic block.
                 } else if(in.is_call()) {
-#if !CONFIG_ENABLE_DIRECT_RETURN
-                    if(!policy.return_address_is_in_code_cache()) {
-                        fall_through_pc = true;
-                        break;
-                    }
-#endif
+                    // Nothing to do.
 
                 // RET, far RET, and IRET instruction.
                 } else if(in.is_return()) {
@@ -931,13 +923,11 @@ namespace granary {
             // Some other instruction.
             } else {
 
-#if CONFIG_TRACK_XMM_REGS
                 // update the policy to be in an xmm context.
                 if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
                     policy.in_xmm_context();
                     uses_xmm = true;
                 }
-#endif /* CONFIG_TRACK_XMM_REGS */
             }
         }
 

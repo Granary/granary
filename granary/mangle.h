@@ -95,7 +95,6 @@ namespace granary {
 
         /// Get the direct branch lookip (DBL) entry point for a direct operand.
         app_pc dbl_entry_routine(
-            instrumentation_policy target_policy,
             instruction in,
             mangled_address am
         ) throw();
@@ -110,49 +109,15 @@ namespace granary {
 
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
-        /// canonical way for entry into the indirect branch lookup table.
-        app_pc ibl_pre_lookup_routine(
+        /// canonical way for entry into the indirect branch lookup routine.
+        app_pc ibl_entry_routine(
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind
         ) throw();
 
 
-        /// Generates the instructions needed to look up an address in the
-        /// fixed-size, global IBL hash table.
-        static void ibl_query_hash_table(
-            instruction_list &ibl
-        ) throw();
-
-
-        /// Return the IBL entry routine. The IBL entry routine is responsible
-        /// for looking to see if an address (stored in reg::arg1) is located
-        /// in the CPU-private code cache or in the global code cache. If the
-        /// address is in the CPU-private code cache, and if IBL prediction is
-        /// enabled, then the CPU-private lookup function might add a prediction
-        /// entry to the CTI.
-        static app_pc ibl_lookup_routine(
-            instrumentation_policy target_policy
-        ) throw();
-
-
-        /// Return or generate the IBL exit routine for a particular jump target.
-        /// The target can either be code cache or native code.
-        static app_pc ibl_exit_routine(
-            app_pc target_pc
-        );
-
-
     public:
-
-
-#if 0 && !CONFIG_ENABLE_DIRECT_RETURN
-        /// Checks to see if a return address is in the code cache. If so, it
-        /// RETs to the address, otherwise it JMPs to the IBL entry routine.
-        app_pc rbl_entry_routine(
-            instrumentation_policy target_policy
-        ) throw();
-#endif
 
 
         instruction_list_mangler(

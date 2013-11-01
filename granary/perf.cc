@@ -17,6 +17,11 @@
 #include "granary/atomic.h"
 #include "granary/printf.h"
 #include "granary/detach.h"
+#include "granary/ibl.h"
+
+extern "C" {
+    int sprintf(char *, const char *, ...);
+}
 
 namespace granary {
 
@@ -49,7 +54,8 @@ namespace granary {
     static std::atomic<unsigned> NUM_IBL_ENTRY_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_EXIT_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_HTABLE_ENTRIES(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_MISSING_IBL_HTABLE_ENTRIES(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_IBL_MISSES(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_IBL_CONFLICTS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_STUB_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_DBL_PATCH_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
@@ -94,40 +100,28 @@ namespace granary {
     }
 
 
-    enum {
-        NUM_MISPREDICT_CACHE = 4096
-    };
-
-
-    static app_pc MISPREDICTED_ADDRESS_CACHE[NUM_MISPREDICT_CACHE] = {nullptr};
-
-
-    void perf::visit_address_lookup_cpu_mispredict(app_pc addr) throw() {
-        unsigned i(NUM_ADDRESS_LOOKUPS_CPU_MISPREDICT.fetch_add(1));
-        MISPREDICTED_ADDRESS_CACHE[i % NUM_MISPREDICT_CACHE] = addr;
-    }
-
-
     void perf::visit_address_lookup_hit(void) throw() {
         NUM_ADDRESS_LOOKUP_HITS.fetch_add(1);
     }
 
 
-    void perf::visit_decoded(instruction in) throw() {
-        if(in.instr) {
+    void perf::visit_decoded(const instruction in) throw() {
+        if(in.is_valid()) {
             NUM_DECODED_INSTRUCTIONS.fetch_add(1);
             NUM_DECODED_BYTES.fetch_add(in.instr->length);
         }
     }
 
 
-    void perf::visit_encoded(instruction in) throw() {
-        NUM_ENCODED_INSTRUCTIONS.fetch_add(1);
-        NUM_ENCODED_BYTES.fetch_add(in.encoded_size());
+    void perf::visit_encoded(const instruction in) throw() {
+        if(in.is_valid()) {
+            NUM_ENCODED_INSTRUCTIONS.fetch_add(1);
+            NUM_ENCODED_BYTES.fetch_add(in.instr->length);
+        }
     }
 
 
-    void perf::visit_encoded(basic_block &bb) throw() {
+    void perf::visit_encoded(const basic_block &bb) throw() {
         NUM_BBS.fetch_add(1);
         NUM_BB_INSTRUCTION_BYTES.fetch_add(
             bb.info->num_bytes - bb.info->num_patch_bytes);
@@ -151,7 +145,7 @@ namespace granary {
     }
 
 
-    void perf::visit_ibl(instruction_list &ls) throw() {
+    void perf::visit_ibl(const instruction_list &ls) throw() {
         NUM_IBL_INSTRUCTIONS.fetch_add(ls.length());
     }
 
@@ -161,27 +155,36 @@ namespace granary {
     }
 
 
-    void perf::visit_ibl_exit(instruction_list &ls) throw() {
+    void perf::visit_ibl_exit(const instruction_list &ls) throw() {
         NUM_IBL_EXIT_INSTRUCTIONS.fetch_add(ls.length());
     }
 
+    static std::atomic<uint8_t> IB_USE_COUNT[
+        NUM_IBL_JUMP_TABLE_ENTRIES
+    ] = {ATOMIC_VAR_INIT(0)};
 
-    void perf::visit_ibl_add_entry(void) throw() {
+    void perf::visit_ibl_add_entry(app_pc pc) throw() {
         NUM_IBL_HTABLE_ENTRIES.fetch_add(1);
+        IB_USE_COUNT[granary_ibl_hash(pc)].fetch_add(1);
     }
 
 
-    void perf::visit_ibl_cant_add_entry(app_pc) throw() {
-        NUM_MISSING_IBL_HTABLE_ENTRIES.fetch_add(1);
+    void perf::visit_ibl_miss(app_pc) throw() {
+        NUM_IBL_MISSES.fetch_add(1);
     }
 
 
-    void perf::visit_dbl(instruction_list &ls) throw() {
+    void perf::visit_ibl_conflict(app_pc) throw() {
+        NUM_IBL_CONFLICTS.fetch_add(1);
+    }
+
+
+    void perf::visit_dbl(const instruction_list &ls) throw() {
         NUM_DBL_INSTRUCTIONS.fetch_add(ls.length());
     }
 
 
-    void perf::visit_dbl_patch(instruction_list &ls) throw() {
+    void perf::visit_dbl_patch(const instruction_list &ls) throw() {
         NUM_DBL_PATCH_INSTRUCTIONS.fetch_add(ls.length());
     }
 
@@ -263,8 +266,10 @@ namespace granary {
 
         printf("Number of entries in the global IBL hash table: %u\n",
             NUM_IBL_HTABLE_ENTRIES.load());
-        printf("Number of entries that were omitted from the global IBL hash table: %u\n\n",
-            NUM_MISSING_IBL_HTABLE_ENTRIES.load());
+        printf("Number of misses in the IBL hash/jump table: %u\n",
+            NUM_IBL_MISSES.load());
+        printf("Number of conflicts in the IBL hash/jump table: %u\n\n",
+            NUM_IBL_CONFLICTS.load());
 
         printf("Number of IBL entry instructions: %u\n",
             NUM_IBL_ENTRY_INSTRUCTIONS.load());
@@ -291,7 +296,7 @@ namespace granary {
             NUM_ADDRESS_LOOKUP_HITS.load());
         printf("Number hits in the cpu private code cache(s): %u\n",
             NUM_ADDRESS_LOOKUPS_CPU_HIT.load());
-        printf("Number misses in the cpu code cache(s): %u\n",
+        printf("Number misses in the cpu code cache(s): %u\n\n",
             NUM_ADDRESS_LOOKUPS_CPU_MISS.load());
 
 #if GRANARY_IN_KERNEL
@@ -299,26 +304,39 @@ namespace granary {
             NUM_INTERRUPTS.load());
         printf("Number of delayed interrupts: %lu\n",
             NUM_DELAYED_INTERRUPTS.load());
-        printf("Number of recursive interrupts (these are bad): %u\n\n",
+        printf("Number of recursive interrupts (these are bad): %u\n",
             NUM_RECURSIVE_INTERRUPTS.load());
-        printf("Number of interrupts due to insufficient wrapping: %lu\n",
+        printf("Number of interrupts due to insufficient wrapping: %lu\n\n",
             NUM_BAD_MODULE_EXECS.load());
 #endif
 
-#if 0
-        // Print out the buffer of mis-predicted addresses. This can help us
-        // to find the best bits for hashing (especially in kernel space).
-        for(unsigned i(0); i < NUM_MISPREDICT_CACHE - 4; i += 4) {
-            if(!MISPREDICTED_ADDRESS_CACHE[i]) {
-                break;
+        if(NUM_IBL_CONFLICTS.load()) {
+            printf("IBL usage:\n");
+            const char *sep("");
+            char buff[100] = {'\0'};
+            int j(0);
+            int k(0);
+
+            for(unsigned i(0); i < NUM_IBL_JUMP_TABLE_ENTRIES;) {
+                j += sprintf(&(buff[j]), "%s%d", sep, IB_USE_COUNT[i].load());
+                sep = ",";
+
+                ++i;
+                if(!(i % 8)) {
+                    printf("%d: %s\n", k, buff);
+                    k++;
+                    j = 0;
+                    sep = "";
+                }
             }
-            printf("%p %p %p %p\n",
-                MISPREDICTED_ADDRESS_CACHE[i],
-                MISPREDICTED_ADDRESS_CACHE[i+1],
-                MISPREDICTED_ADDRESS_CACHE[i+2],
-                MISPREDICTED_ADDRESS_CACHE[i+3]);
+
+            if(j) {
+                printf("%d: %s\n", k, buff);
+                printf("%d: %s\n", k, buff);
+            }
+
+            printf("\n\n");
         }
-#endif
     }
 }
 

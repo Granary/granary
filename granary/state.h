@@ -173,6 +173,8 @@ namespace granary {
     struct cpu_state : public client::cpu_state {
     public:
 
+        IF_TEST( void *last_find_address; )
+
 #if GRANARY_IN_KERNEL
 #   if CONFIG_INSTRUMENT_HOST || CONFIG_HANDLE_INTERRUPTS
 

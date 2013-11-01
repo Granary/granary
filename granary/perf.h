@@ -23,26 +23,27 @@ namespace granary {
 
     struct perf {
 
-        static void visit_decoded(instruction ) throw();
-        static void visit_encoded(instruction ) throw();
-        static void visit_encoded(basic_block &) throw();
+        static void visit_decoded(const instruction ) throw();
+        static void visit_encoded(const instruction ) throw();
+        static void visit_encoded(const basic_block &) throw();
 
         static void visit_mangle_indirect_jmp(void) throw();
         static void visit_mangle_indirect_call(void) throw();
         static void visit_mangle_return(void) throw();
 
         static void visit_ibl_stub(unsigned) throw();
-        static void visit_ibl(instruction_list &) throw();
-        static void visit_ibl_exit(instruction_list &) throw();
+        static void visit_ibl(const instruction_list &) throw();
+        static void visit_ibl_exit(const instruction_list &) throw();
 
-        static void visit_ibl_add_entry(void) throw();
-        static void visit_ibl_cant_add_entry(app_pc) throw();
+        static void visit_ibl_add_entry(app_pc) throw();
+        static void visit_ibl_miss(app_pc) throw();
+        static void visit_ibl_conflict(app_pc) throw();
 
-        static void visit_dbl(instruction_list &) throw();
-        static void visit_dbl_patch(instruction_list &) throw();
+        static void visit_dbl(const instruction_list &) throw();
+        static void visit_dbl_patch(const instruction_list &) throw();
         static void visit_dbl_stub(unsigned) throw();
 
-        static void visit_rbl(instruction_list &) throw();
+        static void visit_rbl(const instruction_list &) throw();
 
         static void visit_mem_ref(unsigned) throw();
 
@@ -51,7 +52,6 @@ namespace granary {
         static void visit_address_lookup(void) throw();
         static void visit_address_lookup_hit(void) throw();
         static void visit_address_lookup_cpu(bool) throw();
-        static void visit_address_lookup_cpu_mispredict(app_pc) throw();
 
 #if GRANARY_IN_KERNEL
         static void visit_interrupt(void) throw();

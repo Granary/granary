@@ -765,10 +765,11 @@ class CTypeEnum(CTypeCompound):
 class CTypeBuiltIn(CType):
   """Represents a built-in type."""
 
-  __slots__ = ('name',)
+  __slots__ = ('name', 'is_float')
 
-  def __init__(self, name_):
+  def __init__(self, name_, is_float_=False):
     self.name = name_
+    self.is_float = is_float_
 
   def __repr__(self):
     return "BuiltIn(%s)" % self.name
@@ -1168,9 +1169,9 @@ class CParser(object):
   T_UL  = CTypeBuiltIn("unsigned long")
   T_LL  = CTypeBuiltIn("long long")
   T_ULL = CTypeBuiltIn("unsigned long long")
-  T_F   = CTypeBuiltIn("float")
-  T_D   = CTypeBuiltIn("double")
-  T_DL  = CTypeBuiltIn("long double")
+  T_F   = CTypeBuiltIn("float", True)
+  T_D   = CTypeBuiltIn("double", True)
+  T_DL  = CTypeBuiltIn("long double", True)
   T_WC  = CTypeBuiltIn("wchar_t")
 
   T_CHR = CTypeAttributed(T_C, CTypeAttributes(is_const=True))
@@ -1180,9 +1181,9 @@ class CParser(object):
 
   VA_LIST = CTypeBuiltIn("__builtin_va_list")
 
-  T_FC = CTypeBuiltIn("float _Complex")
-  T_DC = CTypeBuiltIn("double _Complex")
-  T_LDC = CTypeBuiltIn("long double _Complex")
+  T_FC = CTypeBuiltIn("float _Complex", True)
+  T_DC = CTypeBuiltIn("double _Complex", True)
+  T_LDC = CTypeBuiltIn("long double _Complex", True)
 
   T_B = CTypeBuiltIn("_Bool")
 

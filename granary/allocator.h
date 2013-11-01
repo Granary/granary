@@ -60,6 +60,7 @@ namespace granary {
         return addr;
     }
 
+
     template <typename T>
     void free_memory(T *addr, const unsigned num=1) throw() {
         const unsigned size(sizeof(T) * num);

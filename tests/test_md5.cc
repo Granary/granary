@@ -4,7 +4,6 @@
 
 #if CONFIG_RUN_TEST_CASES
 
-#include <cstring>
 #include <cstdlib>
 #include <cstdio>
 

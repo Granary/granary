@@ -183,6 +183,7 @@ GR_OBJS += $(BIN_DIR)/granary/attach.o
 GR_OBJS += $(BIN_DIR)/granary/detach.o
 GR_OBJS += $(BIN_DIR)/granary/state.o
 GR_OBJS += $(BIN_DIR)/granary/mangle.o
+GR_OBJS += $(BIN_DIR)/granary/ibl.o
 GR_OBJS += $(BIN_DIR)/granary/code_cache.o
 GR_OBJS += $(BIN_DIR)/granary/emit_utils.o
 GR_OBJS += $(BIN_DIR)/granary/hash_table.o
@@ -190,6 +191,7 @@ GR_OBJS += $(BIN_DIR)/granary/cpu_code_cache.o
 GR_OBJS += $(BIN_DIR)/granary/register.o
 GR_OBJS += $(BIN_DIR)/granary/policy.o
 GR_OBJS += $(BIN_DIR)/granary/perf.o
+GR_OBJS += $(BIN_DIR)/granary/utils.o
 GR_OBJS += $(BIN_DIR)/granary/trace_log.o
 GR_OBJS += $(BIN_DIR)/granary/dynamic_wrapper.o
 GR_OBJS += $(BIN_DIR)/granary/init.o
@@ -383,6 +385,8 @@ ifeq (1,$(GR_TESTS))
 	#GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
 endif
 
+GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
+
 # User space.
 ifeq ($(KERNEL),0)
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
@@ -434,8 +438,8 @@ ifeq ($(KERNEL),0)
 	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_PREFIX_SPECIFIC)
 	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC)
 	GR_ASM_FLAGS += -DGRANARY_IN_KERNEL=0
-	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0 -mno-mmx 
-	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0 -mno-mmx 
+	GR_CC_FLAGS += -DGRANARY_IN_KERNEL=0 $(GR_FLOAT_FLAGS)
+	GR_CXX_FLAGS += -DGRANARY_IN_KERNEL=0 $(GR_FLOAT_FLAGS)
 	
 	GR_MAKE += $(GR_CC) -c $(BIN_DIR)/deps/dr/x86/x86.S -o $(BIN_DIR)/deps/dr/x86/x86.o ; 
 	GR_MAKE += $(GR_CC) $(GR_DEBUG_LEVEL) $(GR_LD_PREFIX_FLAGS) $(GR_OBJS)
@@ -480,8 +484,8 @@ else
 	endif
 	
 	# Common flags to disable certain user space features for the kernel
-	GR_COMMON_KERNEL_FLAGS += -mno-red-zone -mno-3dnow -fno-stack-protector
-	GR_COMMON_KERNEL_FLAGS += -mno-sse -mno-sse2 -mno-mmx -m64 -march=native
+	GR_COMMON_KERNEL_FLAGS += -mno-red-zone -fno-stack-protector
+	GR_COMMON_KERNEL_FLAGS += $(GR_FLOAT_FLAGS) -m64 -march=native
 	GR_COMMON_KERNEL_FLAGS += -fno-asynchronous-unwind-tables -fno-common
 	
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/kernel/linux/types.h

@@ -68,30 +68,16 @@ namespace granary {
         const instrumentation_policy policy_
     ) throw() {
         as_address = addr_;
-        as_uint <<= NUM_MANGLED_BITS;
         as_policy_address.policy_bits = policy_.as_raw_bits;
     }
 
 
     /// Extract the original, unmangled address from a mangled address.
     app_pc mangled_address::unmangled_address(void) const throw() {
-
-        /// Used to extract "address space" high-order bits for recovering a
-        /// native address.
-        union {
-            struct {
-                uint64_t saved_bits:(64 - NUM_MANGLED_BITS); // low
-                unsigned lost_bits:NUM_MANGLED_BITS; // high
-            } bits __attribute__((packed));
-            const void *as_addr;
-            uint64_t as_uint;
-        } recovery_addr;
-
-        recovery_addr.as_addr = this;
-        recovery_addr.bits.saved_bits = 0ULL;
-
-        return reinterpret_cast<app_pc>(
-            (as_uint >> NUM_MANGLED_BITS) | recovery_addr.as_uint);
+        mangled_address unmangled_addr;
+        unmangled_addr.as_uint = as_uint;
+        unmangled_addr.as_policy_address.policy_bits = IF_USER_ELSE(0, 0xFFFF);
+        return unmangled_addr.as_address;
     }
 
 

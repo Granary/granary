@@ -480,6 +480,12 @@ namespace granary {
     }
 
 
+#if CONFIG_ENABLE_ASSERTIONS
+    bool HAS_FAULTED_STACK = false;
+    unsigned FAULTED_STACK_BASE_INDEX = 0;
+    void *FAULTED_STACK[4096 / 8] = {0};
+#endif
+
     /// Handle an interrupt in kernel code (this includes native modules). This
     /// attempts to discover a few error conditions
     __attribute__((hot))
@@ -489,6 +495,20 @@ namespace granary {
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
+
+#if CONFIG_ENABLE_ASSERTIONS
+        // Used to try to debug when a granary_fault is called.
+        if(VECTOR_BREAKPOINT == vector && !HAS_FAULTED_STACK) {
+            HAS_FAULTED_STACK = true;
+            uintptr_t rsp = reinterpret_cast<uintptr_t>(isf->stack_pointer);
+            rsp += ALIGN_TO(rsp, 8);
+            uintptr_t rsp_base = (rsp + 4096) & ~4095;
+            FAULTED_STACK_BASE_INDEX = (rsp_base - rsp) / 8;
+            memcpy(FAULTED_STACK, reinterpret_cast<void *>(rsp), rsp_base - rsp);
+        }
+#endif
+
+
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
         return client::handle_kernel_interrupt(
             cpu,
@@ -659,6 +679,7 @@ namespace granary {
         instruction_list ls;
         instruction in_kernel(label_());
         operand isf_ptr(reg::arg1);
+        operand isf_ptr_32(reg::arg1_32);
         operand vector(reg::arg2);
 
         // Save arg1 for later (likely clobbered by handle_interrupt) so that
@@ -724,6 +745,15 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
+        // Restore callee-saved registers, because `handle_interrupt` will
+        // save them for us (because it respects the ABI).
+        rm.revive(reg::rbx);
+        rm.revive(reg::rbp);
+        rm.revive(reg::r12);
+        rm.revive(reg::r13);
+        rm.revive(reg::r14);
+        rm.revive(reg::r15);
+
         // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
 
@@ -763,8 +793,8 @@ namespace granary {
         //           APPEND.
 
         // Check to see if the interrupt was handled or not.
-        ls.append(xor_(reg::ret, reg::ret));
-        ls.append(cmp_(isf_ptr, reg::ret));
+        ls.append(xor_(reg::ret_32, reg::ret_32));
+        ls.append(cmp_(isf_ptr_32, reg::ret_32));
 
         // Restore reg::reg (%rax) to its native state.
         ls.append(pop_(reg::ret));
