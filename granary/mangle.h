@@ -114,6 +114,7 @@ namespace granary {
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind
+            _IF_PROFILE_IBL( app_pc cti_in )
         ) throw();
 
 

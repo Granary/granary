@@ -638,6 +638,13 @@ namespace granary {
     }
 
 
+    /// Mark this instruction as atomic.
+    inline instruction atomic(instruction in) throw() {
+        in.instr->prefixes |= PREFIX_LOCK;
+        return in;
+    }
+
+
     /// Mark this instruction as hot patchable.
     inline instruction patchable(instruction in) throw() {
         in.set_patchable();

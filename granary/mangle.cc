@@ -133,6 +133,7 @@ namespace granary {
         instrumentation_policy target_policy,
         operand target,
         ibl_entry_kind ibl_kind
+        _IF_PROFILE_IBL( app_pc cti_addr )
     ) throw() {
 
         const ibl_stub_key key = {
@@ -275,24 +276,8 @@ namespace granary {
             ibl.append(tail_in);
         }
 
-        // Spill RAX (reg_table_entry_addr) and then save the flags onto the
-        // stack now that rax can be killed.
-        ibl.append(push_(reg::rax));
-
-        // Save the flags.
-        insert_save_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-
-        // Mangle the target address with the policy. This corresponds to the
-        // `mangled_address` argument to the `code_cache::find*` functions.
-        ibl.append(bswap_(reg_target_addr));
-        ibl.append(mov_imm_(
-            reg_target_addr_16,
-            int16_((int64_t) (int16_t) // sign extend
-                   granary_bswap16(target_policy.encode()))));
-        ibl.append(bswap_(reg_target_addr));
-
         // Jump off to the more heavy-weight lookup routines.
-        ibl.append(jmp_(pc_(ibl_lookup_routine())));
+        ibl_lookup_stub(ibl, target_policy _IF_PROFILE_IBL(cti_addr));
 
         // Double-check before encoding.
         if(IBL_STUBS->load(key, ret)) {
@@ -714,7 +699,8 @@ namespace granary {
 
             IF_PERF( perf::visit_mangle_indirect_call(); )
             app_pc routine(ibl_entry_routine(
-                target_policy, target, IBL_ENTRY_CALL));
+                target_policy, target,
+                IBL_ENTRY_CALL _IF_PROFILE_IBL(in.pc())));
             in.replace_with(mangled(call_(pc_(routine))));
 
         } else if(in.is_return()) {
@@ -727,15 +713,16 @@ namespace granary {
                 ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
 
                 app_pc routine(ibl_entry_routine(
-                    target_policy, target, IBL_ENTRY_RETURN));
+                    target_policy, target,
+                    IBL_ENTRY_RETURN _IF_PROFILE_IBL(in.pc())));
                 in.replace_with(mangled(jmp_(pc_(routine))));
             }
 #endif
         } else {
-
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
             app_pc routine(ibl_entry_routine(
-                target_policy, target, IBL_ENTRY_JMP));
+                target_policy, target,
+                IBL_ENTRY_JMP _IF_PROFILE_IBL(in.pc())));
             in.replace_with(mangled(jmp_(pc_(routine))));
         }
     }

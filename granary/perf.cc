@@ -159,12 +159,37 @@ namespace granary {
         NUM_IBL_EXIT_INSTRUCTIONS.fetch_add(ls.length());
     }
 
+    struct ibl_entry {
+        app_pc target;
+        IF_PROFILE_IBL( app_pc source; )
+        IF_PROFILE_IBL( uint64_t *count; )
+    };
+
+    enum {
+        NUM_IBL_PROFILE_ENTRIES = NUM_IBL_JUMP_TABLE_ENTRIES IF_PROFILE_IBL(* 4)
+    };
+
+    static ibl_entry IBL_TARGETS[NUM_IBL_PROFILE_ENTRIES] = {
+        {nullptr _IF_PROFILE_IBL(nullptr, nullptr) }
+    };
+
     static std::atomic<uint8_t> IB_USE_COUNT[
         NUM_IBL_JUMP_TABLE_ENTRIES
     ] = {ATOMIC_VAR_INIT(0)};
 
-    void perf::visit_ibl_add_entry(app_pc pc) throw() {
-        NUM_IBL_HTABLE_ENTRIES.fetch_add(1);
+
+    void perf::visit_ibl_add_entry(
+        app_pc pc
+        _IF_PROFILE_IBL( app_pc source_addr )
+        _IF_PROFILE_IBL( uint64_t *count )
+    ) throw() {
+        const unsigned i(NUM_IBL_HTABLE_ENTRIES.fetch_add(1));
+
+        if(i < NUM_IBL_PROFILE_ENTRIES) {
+            IBL_TARGETS[i].target = pc;
+            IF_PROFILE_IBL( IBL_TARGETS[i].source = source_addr; )
+            IF_PROFILE_IBL( IBL_TARGETS[i].count = count; )
+        }
         IB_USE_COUNT[granary_ibl_hash(pc)].fetch_add(1);
     }
 
@@ -311,28 +336,31 @@ namespace granary {
 #endif
 
         if(NUM_IBL_CONFLICTS.load()) {
-            printf("IBL usage:\n");
-            const char *sep("");
-            char buff[100] = {'\0'};
+            printf("IBL Targets:\n");
+            char buff[200] = {'\0'};
             int j(0);
-            int k(0);
 
-            for(unsigned i(0); i < NUM_IBL_JUMP_TABLE_ENTRIES;) {
-                j += sprintf(&(buff[j]), "%s%d", sep, IB_USE_COUNT[i].load());
-                sep = ",";
+            const unsigned num_entries(NUM_IBL_HTABLE_ENTRIES.load());
+            for(unsigned i(0); i < num_entries;) {
+                if(!IBL_TARGETS[i].target) {
+                    break;
+                }
+                j += sprintf(
+                    &(buff[j]),
+                    "(%p" IF_PROFILE_IBL(",%p,%lu,%lu") "),",
+                    IF_PROFILE_IBL_((void *) IBL_TARGETS[i].source)
+                    (void *) IBL_TARGETS[i].target
+                    _IF_PROFILE_IBL(IBL_TARGETS[i].count[0], IBL_TARGETS[i].count[1]));
 
                 ++i;
-                if(!(i % 8)) {
-                    printf("%d: %s\n", k, buff);
-                    k++;
+                if(!(i % IF_PROFILE_IBL_ELSE(2, 4))) {
+                    printf("%s\n", buff);
                     j = 0;
-                    sep = "";
                 }
             }
 
             if(j) {
-                printf("%d: %s\n", k, buff);
-                printf("%d: %s\n", k, buff);
+                printf("%s\n", buff);
             }
 
             printf("\n\n");

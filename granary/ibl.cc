@@ -12,6 +12,12 @@
 #include "granary/emit_utils.h"
 #include "granary/spin_lock.h"
 
+
+extern "C" {
+    extern uint16_t granary_bswap16(uint16_t);
+}
+
+
 namespace granary {
 
 
@@ -41,67 +47,89 @@ namespace granary {
     static app_pc global_code_cache_find(nullptr);
 
 
-    /// Nice names for registers used by the IBL and RBL.
+    /// Nice names for registers used by the IBL.
     static operand reg_target_addr;
     static operand reg_target_addr_16;
+    IF_PROFILE_IBL( static operand reg_source_addr; )
 
 
     static app_pc GLOBAL_CODE_CACHE_ROUTINE = nullptr;
-    static app_pc IBL_ENTRY_ROUTINE = nullptr;
+    static app_pc IBL_JUMP_ROUTINE = nullptr;
 
-
-    /// The routine that indirectly jumps to either an IBL exit stub (that
-    /// checks if it's the correct exit stub) or jumps to the slow path (full
-    /// code cache lookup).
-    app_pc ibl_lookup_routine(void) throw() {
-        if(IBL_ENTRY_ROUTINE) {
-            return IBL_ENTRY_ROUTINE;
-        }
+    static void make_ibl_jump_routine(void) throw() {
+        instruction_list ibl;
 
         // On the stack:
         //      redzone                 (cond. saved user space)
         //      reg_target_addr         (saved: arg1, mangled target address)
-        //      rax                     (saved: unmangled target address)
-        //      flags                   (saved: arithmetic flags)
+        //      source addr             (cond. saved: IBL profiling)
 
-        instruction_list ibl(INSTRUCTION_LIST_GENCODE);
+        // Spill RAX (reg_table_entry_addr) and then save the flags onto the
+        // stack now that rax can be killed.
+        ibl.append(push_(reg::rax));
+
+        // Save the flags.
+        insert_save_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
 
         const uintptr_t jump_table_base(
             reinterpret_cast<uintptr_t>(IBL_JUMP_TABLE));
-
-        // TODO: need to find a way to get the hash index and add it to the
-        //       base, without disturbin the base bits.
-
         ibl.append(mov_imm_(reg::rax, int64_(jump_table_base)));
 
-        ASSERT(!(jump_table_base & 0xFFULL));
-
-        // Hash function for IBL table. Make sure to keep this consistent
-        // with `granary_ibl_hash` located in granary/x86/utils.asm.
+        // Store the unmangled address into %rax.
         ibl.append(mov_ld_(reg::ax, reg_target_addr_16));
+        ibl.append(shr_(reg::ax, int8_(5)));
+        ibl.append(shl_(reg::ax, int8_(3)));
 
-        ibl.append(shr_(reg::ax, int8_(4)));
-        ibl.append(shl_(reg::ax, int8_(4)));
-        ibl.append(xchg_(reg::ah, reg::al));
-        ibl.append(rol_(reg::ah, int8_(3)));
-        ibl.append(rol_(reg::ax, int8_(4)));
+        const uint8_t jump_table_mask(((jump_table_base >> 8) & 0xFFU));
+        if(jump_table_mask) {
+            ibl.append(or_(
+                reg::ah,
+                int8_((int64_t) (int8_t) jump_table_mask)));
+        }
 
-        ibl.append(or_(
-            reg::ah,
-            int8_((int8_t) (uint8_t) ((jump_table_base >> 8) & 0xFF))));
+        IF_PERF( perf::visit_ibl(ibl); )
 
         // Go off to the
         ibl.append(jmp_ind_(*reg::rax));
 
         // Encode.
         const unsigned size(ibl.encoded_size());
-        IBL_ENTRY_ROUTINE = global_state::FRAGMENT_ALLOCATOR->\
+        IBL_JUMP_ROUTINE = global_state::FRAGMENT_ALLOCATOR-> \
             allocate_array<uint8_t>(size);
-        ibl.encode(IBL_ENTRY_ROUTINE, size);
+        ibl.encode(IBL_JUMP_ROUTINE, size);
+    }
 
-        IF_PERF( perf::visit_ibl(ibl); )
 
-        return IBL_ENTRY_ROUTINE;
+    /// The routine that indirectly jumps to either an IBL exit stub (that
+    /// checks if it's the correct exit stub) or jumps to the slow path (full
+    /// code cache lookup).
+    void ibl_lookup_stub(
+        instruction_list &ibl,
+        instrumentation_policy policy
+        _IF_PROFILE_IBL( app_pc cti_addr )
+    ) throw() {
+
+        // On the stack:
+        //      redzone                 (cond. saved: user space)
+        //      reg_target_addr         (saved: arg1)
+
+        // Mangle the target address.
+        ibl.append(bswap_(reg_target_addr));
+        ibl.append(mov_imm_(
+            reg_target_addr_16,
+            int16_((int64_t) (int16_t) granary_bswap16(policy.encode()))));
+        ibl.append(bswap_(reg_target_addr));
+
+#if CONFIG_PROFILE_IBL
+        // Spill the source address for use by the IBL profiling.
+        ibl.append(push_(reg_source_addr));
+        ibl.append(mov_imm_(
+            reg_source_addr,
+            int64_(reinterpret_cast<uint64_t>(cti_addr))));
+#endif
+
+        // Jump to the lookup routine.
+        ibl.append(jmp_(pc_(IBL_JUMP_ROUTINE)));
     }
 
 
@@ -118,9 +146,9 @@ namespace granary {
     /// Return or generate the IBL exit routine for a particular jump target.
     /// The target can either be code cache or native code.
     app_pc ibl_exit_routine(
-        app_pc native_target_pc,
         app_pc mangled_target_pc,
         app_pc instrumented_target_pc
+        _IF_PROFILE_IBL( app_pc source_addr )
     ) throw() {
 
         instruction_list ibl;
@@ -133,12 +161,45 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. saved: user space)
         //      reg_target_addr         (saved: arg1)
-        //      rax                     (saved: clobbered)
+        //      reg_source_addr         (cond. saved: IBL profiling)
+        //      rax                     (saved, can be clobbered)
         //      aithmetic flags         (saved)
         ibl.append(mov_imm_(
             reg::rax, int64_(reinterpret_cast<uint64_t>(mangled_target_pc))));
         ibl.append(cmp_(reg::rax, reg_target_addr));
         ibl.append(jnz_(instr_(ibl_miss)));
+
+#if CONFIG_PROFILE_IBL
+        // Check that it's going to the right target and coming from the right
+        // source.
+
+        ibl.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(source_addr))));
+        ibl.append(cmp_(reg::rax, reg_source_addr));
+        instruction ibl_count_hit(label_());
+        ibl.append(jz_(instr_(ibl_count_hit)));
+
+        // Create hit and miss counters for this (source, dest) pair.
+        uint64_t *hit_miss_count(allocate_memory<uint64_t>(2));
+        hit_miss_count[0] = 1; // hit count.
+        hit_miss_count[1] = 0; // miss count.
+
+        // Fall-through miss, increment the miss count
+        ibl.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(&(hit_miss_count[1])))));
+        ibl.append(atomic(inc_(*reg::rax)));
+        ibl.append(jmp_short_(instr_(ibl_miss)));
+
+        // Hit, increment the hit count.
+        ibl.append(ibl_count_hit);
+        ibl.append(mov_imm_(
+            reg::rax,
+            int64_(reinterpret_cast<uint64_t>(hit_miss_count))));
+        ibl.append(atomic(inc_(*reg::rax)));
+
+#endif
 
         // Hit! We found the right target.
         insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
@@ -150,7 +211,9 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. user space)
         //      reg_target_addr         (saved: arg1)
+        //      reg_source_addr         (cond. saved: IBL profiling)
         ibl.append(ibl_hit_from_code_cache_find);
+        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
         ibl.append(pop_(reg_target_addr));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
 
@@ -162,13 +225,13 @@ namespace granary {
 
         ibl.append(ibl_miss);
 
-        const unsigned index(granary_ibl_hash(native_target_pc));
+        const unsigned index(granary_ibl_hash(mangled_target_pc));
         ASSERT(index < NUM_IBL_JUMP_TABLE_ENTRIES);
 
         app_pc prev_target(IBL_JUMP_TABLE[index]);
         ASSERT(nullptr != prev_target);
         if(prev_target != GLOBAL_CODE_CACHE_ROUTINE) {
-            IF_PERF( perf::visit_ibl_conflict(native_target_pc); )
+            IF_PERF( perf::visit_ibl_conflict(mangled_target_pc); )
         }
 
         // Only allow one thread/core to update the IBL jump table at a time.
@@ -185,7 +248,8 @@ namespace granary {
         ibl.encode(routine, size);
         IBL_JUMP_TABLE[index] = routine;
 
-        IF_PERF( perf::visit_ibl_add_entry(native_target_pc); )
+        IF_PERF( perf::visit_ibl_add_entry(
+            mangled_target_pc _IF_PROFILE_IBL(source_addr, hit_miss_count)); )
 
         // The value stored in code cache find isn't the full value!!
         return ibl_hit_from_code_cache_find.pc_or_raw_bytes();
@@ -203,7 +267,8 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. saved if user space)
         //      reg_target_addr         (saved: arg1, mangled address)
-        //      rax                     (saved: clobbered)
+        //      reg_source_addr         (cond. saved: IBL profiling)
+        //      rax                     (saved: can be clobbered)
         //      arithmetic flags        (saved)
 
         IF_KERNEL( insert_restore_arithmetic_flags_after(
@@ -283,8 +348,10 @@ namespace granary {
         // file.
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
+        IF_PROFILE_IBL( reg_source_addr = reg::arg2; )
+
         global_code_cache_find = unsafe_cast<app_pc>(
-            (app_pc (*)(mangled_address)) code_cache::find);
+            (app_pc (*)(mangled_address _IF_PROFILE_IBL(app_pc))) code_cache::find);
 
         // Double check that our hash function is valid.
         app_pc i_ptr(nullptr);
@@ -307,14 +374,14 @@ namespace granary {
         jump_table_base += ALIGN_TO(jump_table_base, IBL_JUMP_TABLE_ALIGN);
         IBL_JUMP_TABLE = reinterpret_cast<app_pc *>(jump_table_base);
 
-        // Create the IBL entry routine now that we have the jump table address.
-        ibl_lookup_routine();
-
         // Initialise the jump table.
         GLOBAL_CODE_CACHE_ROUTINE = global_code_cache_lookup_routine();
         for(unsigned i(0); i < NUM_IBL_JUMP_TABLE_ENTRIES; ++i) {
             IBL_JUMP_TABLE[i] = GLOBAL_CODE_CACHE_ROUTINE;
         }
+
+        // Make the jump table lookup + hash routine.
+        make_ibl_jump_routine();
     });
 
 }

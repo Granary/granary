@@ -39,6 +39,17 @@ extern "C" {
 namespace granary {
 
 
+    struct ibl_profiled_stub {
+        app_pc source;
+        app_pc dest;
+        bool operator==(const ibl_profiled_stub that) const throw() {
+            return source == that.source && dest == that.dest;
+        }
+    };
+
+
+    IF_PROFILE_IBL( static static_data<hash_set<ibl_profiled_stub>> PROFILED_IBL_EXIT_STUBS; )
+
     /// The globally shared code cache. This maps policy-mangled code
     /// code addresses to translated addresses.
     static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
@@ -46,7 +57,22 @@ namespace granary {
 
     STATIC_INITIALISE_ID(code_cache_hash_table, {
         CODE_CACHE.construct();
+        IF_PROFILE_IBL( PROFILED_IBL_EXIT_STUBS.construct(); )
     });
+
+
+#if CONFIG_PROFILE_IBL
+    static bool is_new_ibl_target(app_pc source, app_pc dest) throw() {
+        ibl_lock();
+        const ibl_profiled_stub key = {source, dest};
+        const bool was_in(PROFILED_IBL_EXIT_STUBS->contains(key));
+        if(!was_in) {
+            PROFILED_IBL_EXIT_STUBS->add(key);
+        }
+        ibl_unlock();
+        return !was_in;
+    }
+#endif
 
 
     /// Find fast. This looks in the cpu-private cache first, and failing
@@ -82,6 +108,7 @@ namespace granary {
     app_pc code_cache::find(
         cpu_state_handle cpu,
         const mangled_address addr
+        _IF_PROFILE_IBL(app_pc source_addr)
     ) throw() {
         IF_TEST( cpu->last_find_address = addr.unmangled_address(); )
         IF_PERF( perf::visit_address_lookup(); )
@@ -97,7 +124,26 @@ namespace granary {
                 IF_PERF( perf::visit_ibl_miss(app_target_addr); )
             }
             IF_PERF( perf::visit_address_lookup_hit(); )
+
+#if CONFIG_PROFILE_IBL
+            // If we're doing IBL profiling then we want to re-generate the
+            // exit stub for every (source,dest) pair.
+            if((policy.is_indirect_cti_target() || policy.is_return_target())) {
+                if(!is_new_ibl_target(addr.as_address, target_addr)) {
+                    return target_addr;
+                } else {
+                    // Need to null it out because `target_addr` is the address
+                    // of an IBL exit stub, and if we left it set, then we'd
+                    // end up with an IBL stub to an IBL stub to a basic block,
+                    // which would screw things up a lot.
+                    target_addr = nullptr;
+                }
+            } else {
+                return target_addr;
+            }
+#else
             return target_addr;
+#endif
         }
 
         // Do a return address IBL-like lookup to see if this might be a
@@ -108,19 +154,13 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-#if !CONFIG_ENABLE_DIRECT_RETURN
-        const uintptr_t addr_uint(reinterpret_cast<uintptr_t>(app_target_addr));
-        uint32_t *header_addr(reinterpret_cast<uint32_t *>(
-            addr_uint + 16 - RETURN_ADDRESS_OFFSET));
-        if(RETURN_ADDRESS_OFFSET == (addr_uint % 8)
-        && basic_block_info::HEADER == *header_addr) {
-#else
+#if CONFIG_ENABLE_DIRECT_RETURN
         if(is_code_cache_address(app_target_addr)
         || is_wrapper_address(app_target_addr)
         || is_gencode_address(app_target_addr)) {
-#endif /* GRANARY_IN_KERNEL */
             target_addr = app_target_addr;
         }
+#endif
 
         // Ensure that we're in the correct policy context. This might cause
         // a policy conversion. We also need to keep track of the auto-
@@ -227,7 +267,10 @@ namespace granary {
         if(policy.is_indirect_cti_target() || policy.is_return_target()) {
             ibl_lock();
             target_addr = ibl_exit_routine(
-                app_target_addr, addr.as_address, target_addr);
+                addr.as_address,
+                target_addr
+                _IF_PROFILE_IBL(source_addr));
+
             if(!CODE_CACHE->store(addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY)) {
                 CODE_CACHE->load(addr.as_address, target_addr);
             }
@@ -244,12 +287,12 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(cpu_state_handle, mangled_address))
+        (app_pc (*)(cpu_state_handle, mangled_address _IF_PROFILE_IBL( app_pc )))
             code_cache::find)
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(mangled_address)) code_cache::find)
+        (app_pc (*)(mangled_address _IF_PROFILE_IBL( app_pc ))) code_cache::find)
 
 
     GRANARY_DETACH_POINT_ERROR(

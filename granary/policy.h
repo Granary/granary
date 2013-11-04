@@ -472,8 +472,8 @@ namespace granary {
         ///
         /// Note: order of these fields is significant.
         struct {
-            uint64_t _:(64 - NUM_MANGLED_BITS); // low
-            uint16_t policy_bits:NUM_MANGLED_BITS; // high
+            uint64_t _:(64 - NUM_MANGLED_BITS);     // low
+            uint16_t policy_bits:NUM_MANGLED_BITS;  // high
         } as_policy_address __attribute__((packed));
 
     public:

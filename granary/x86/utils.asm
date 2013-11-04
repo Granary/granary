@@ -9,18 +9,9 @@ START_FILE
 /// returns an index.
 DECLARE_FUNC(granary_ibl_hash)
 GLOBAL_LABEL(granary_ibl_hash:)
-    xor %eax, %eax;
-    mov %di, %ax;
-
-    // Begin hash! Keep these consistent with `granary/ibl.cc`!!
-    shr $4, %ax;
-    shl $4, %ax;
-    xchg %al, %ah;
-    rol $3, %ah;
-    rol $4, %ax;
-    // End hash!
-
-    shr $3, %ax; // To make this into an index!!
+    mov %rdi, %rax;
+    shr $5, %ax; // To make this into an index!!
+    movzwl %ax, %eax;
     ret
 END_FUNC(granary_ibl_hash)
 

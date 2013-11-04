@@ -123,7 +123,15 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
+
+
+/// Enable profiling of indirect jumps and indirect calls.
+#if CONFIG_ENABLE_PERF_COUNTS
+#   define CONFIG_PROFILE_IBL 0
+#else
+#   define CONFIG_PROFILE_IBL 0 // can't change
+#endif
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -155,7 +163,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 0
+#define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else

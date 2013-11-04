@@ -15,7 +15,7 @@ namespace granary {
 
 
     enum {
-        NUM_IBL_JUMP_TABLE_ENTRIES = 4096
+        NUM_IBL_JUMP_TABLE_ENTRIES = 2048
     };
 
 
@@ -28,7 +28,11 @@ namespace granary {
     /// for looking to see if an address (stored in reg::arg1) is located
     /// in the CPU-private code cache or in the global code cache. If the
     /// address is in the CPU-private code cache.
-    app_pc ibl_lookup_routine(void) throw();
+    void ibl_lookup_stub(
+        instruction_list &ibl,
+        instrumentation_policy policy
+        _IF_PROFILE_IBL( app_pc cti_addr )
+    ) throw();
 
 
     /// Coarse-grained locks used to guard the creation and addition of
@@ -46,9 +50,9 @@ namespace granary {
     ///
     /// Note: invocations must be guarded by `ibl_lock` and `ibl_unlock`.
     app_pc ibl_exit_routine(
-        app_pc native_target_pc,
         app_pc mangled_target_pc,
         app_pc instrumented_target_pc
+        _IF_PROFILE_IBL( app_pc source_addr )
     ) throw();
 }
 

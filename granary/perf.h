@@ -35,7 +35,10 @@ namespace granary {
         static void visit_ibl(const instruction_list &) throw();
         static void visit_ibl_exit(const instruction_list &) throw();
 
-        static void visit_ibl_add_entry(app_pc) throw();
+        static void visit_ibl_add_entry(
+            app_pc
+            _IF_PROFILE_IBL(app_pc, uint64_t *)
+        ) throw();
         static void visit_ibl_miss(app_pc) throw();
         static void visit_ibl_conflict(app_pc) throw();
 

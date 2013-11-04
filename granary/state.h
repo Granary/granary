@@ -78,7 +78,7 @@ namespace granary {
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 16
+                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE / 2
             };
         };
 
@@ -108,7 +108,7 @@ namespace granary {
                 SHARED = true,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_WRAPPER,
-                MIN_ALIGN = 16
+                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE / 2
             };
         };
 
@@ -136,7 +136,7 @@ namespace granary {
                 SHARED = true,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 16
+                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE
             };
         };
 
