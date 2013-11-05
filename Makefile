@@ -179,6 +179,7 @@ GR_OBJS += $(BIN_DIR)/deps/murmurhash/murmurhash.o
 # Granary (C++) dependencies
 GR_OBJS += $(BIN_DIR)/granary/instruction.o
 GR_OBJS += $(BIN_DIR)/granary/basic_block.o
+GR_OBJS += $(BIN_DIR)/granary/basic_block_info.o
 GR_OBJS += $(BIN_DIR)/granary/attach.o
 GR_OBJS += $(BIN_DIR)/granary/detach.o
 GR_OBJS += $(BIN_DIR)/granary/state.o
@@ -499,6 +500,7 @@ else
 	
 	# Kernel-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/module.o
+	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/user_address.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/wrappers.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/hotpatch.o

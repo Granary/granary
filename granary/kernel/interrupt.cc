@@ -415,9 +415,9 @@ namespace granary {
         // Try to prepare for us being in a place where the kernel can
         // validly take a page fault.
         if(VECTOR_PAGE_FAULT == vector
-        && bb.info->exception_table_entry_pointer_offset) {
+        && bb.info->user_exception_metadata) {
             cpu->last_exception_instruction_pointer = isf->instruction_pointer;
-            cpu->last_exception_table_entry = bb.get_exception_table_entry();
+            cpu->last_exception_table_entry = bb.info->user_exception_metadata;
         }
 
         // We don't need to delay; let the client try to handle the
@@ -745,6 +745,7 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
+#if !CONFIG_ENABLE_ASSERTIONS
         // Restore callee-saved registers, because `handle_interrupt` will
         // save them for us (because it respects the ABI).
         rm.revive(reg::rbx);
@@ -753,6 +754,7 @@ namespace granary {
         rm.revive(reg::r13);
         rm.revive(reg::r14);
         rm.revive(reg::r15);
+#endif
 
         // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));

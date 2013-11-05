@@ -474,17 +474,28 @@ static struct notifier_block NOTIFIER_BLOCK = {
 };
 
 
+enum {
+    _1_MB = 1048576,
+    CODE_CACHE_SIZE = 40 * _1_MB,
+    _1_P = 4096,
+
+    // Maximum size of the part of the code cache containing basic blocks /
+    // fragments.
+    FRAGMENT_CACHE_MAX_SIZE = CODE_CACHE_SIZE - _1_MB,
+
+    // Keep this consistent with `granary/state.h`,
+    // fragment_allocator_config::SLAB_SIZE
+    FRAGMENT_SLAB_SIZE = _1_P * 8,
+
+    // Maximum number of fragment slabs.
+    MAX_NUM_FRAGMENT_SLABS = FRAGMENT_CACHE_MAX_SIZE / FRAGMENT_SLAB_SIZE
+};
+
 /// Allocate a "fake" module that will serve as a lasting memory zone for
 /// executable allocations.
 static void preallocate_executable(void) {
 
     typedef void *(module_alloc_t)(unsigned long);
-
-    enum {
-        _1_MB = 1048576,
-        CODE_CACHE_SIZE = 40 * _1_MB,
-        _1_P = 4096
-    };
 
     /// What is used internally by the kernel to allocate modules :D
     module_alloc_t *module_alloc_update_bounds  =
@@ -518,6 +529,20 @@ enum executable_memory_kind {
     EXEC_GEN_CODE = 1,
     EXEC_WRAPPER = 2
 };
+
+
+static void *FRAGMENT_SLABS[MAX_NUM_FRAGMENT_SLABS] = {NULL};
+
+
+/// Given an arbitrary address into a basic block, we want to be able to find
+/// the associated basic block info / meta-data. The approach is to first find
+/// the slab to which the basic block belongs, and then from there binary search
+/// over all basic blocks allocated in that slab.
+void **granary_find_fragment_slab(unsigned long fragment_addr) {
+    const unsigned index = (fragment_addr - EXEC_START) / FRAGMENT_SLAB_SIZE;
+    return &(FRAGMENT_SLABS[index]);
+}
+
 
 /// Allocate some executable memory
 void *kernel_alloc_executable(unsigned long size, int where) {

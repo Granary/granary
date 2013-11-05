@@ -67,10 +67,14 @@ namespace granary {
     }
 
 
+    IF_USER( namespace detail { extern void init_code_cache(void) throw(); } )
+
+
     /// Initialise granary.
     void init(void) throw() {
 
         IF_KERNEL( cpu_state::init_early(); )
+        IF_USER( detail::init_code_cache(); )
 
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);

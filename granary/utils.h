@@ -14,10 +14,10 @@
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <stdint.h>
-#   include "granary/allocator.h"
-#   include "granary/type_traits.h"
+#   include <type_traits>
 #   include <atomic>
 #   include <new>
+#   include "granary/allocator.h"
 #endif
 
 namespace granary {

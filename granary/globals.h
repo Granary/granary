@@ -77,7 +77,7 @@
 /// interrupts, this will affect performance because if both are disabled then
 /// Granary will mostly get out of the way
 #if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_INTERRUPT_DELAY 0
+#   define CONFIG_ENABLE_INTERRUPT_DELAY 1
 #else
 #   define CONFIG_ENABLE_INTERRUPT_DELAY 0 // can't change in user space
 #endif
@@ -339,10 +339,11 @@ namespace granary {
     }
 #endif /* GRANARY_IN_KERNEL */
 
-
-    extern "C" bool is_code_cache_address(app_pc) throw();
-    extern "C" bool is_wrapper_address(app_pc) throw();
-    extern "C" bool is_gencode_address(app_pc) throw();
+    extern "C" {
+        extern bool is_code_cache_address(app_pc) throw();
+        extern bool is_wrapper_address(app_pc) throw();
+        extern bool is_gencode_address(app_pc) throw();
+    }
 
 
 #if GRANARY_IN_KERNEL
@@ -437,8 +438,9 @@ extern "C" {
 
 #include "granary/allocator.h"
 #include "granary/utils.h"
-#include "granary/type_traits.h"
-#include "granary/bump_allocator.h"
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include "granary/bump_allocator.h"
+#endif
 #include "granary/init.h"
 #include "granary/perf.h"
 #include "granary/printf.h"

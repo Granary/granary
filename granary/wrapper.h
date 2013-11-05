@@ -918,7 +918,7 @@ namespace granary {
 
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
 
-        IF_KERNEL( ASSERT(!is_code_cache_address(app_addr_pc)); )
+        ASSERT(!is_code_cache_address(app_addr_pc));
 
         app_pc wrapper_func(unsafe_cast<app_pc>(
             dynamically_wrapped_function<R, Args...>::apply));

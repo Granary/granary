@@ -58,18 +58,18 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 4,
+                SLAB_SIZE = PAGE_SIZE * 8,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
-                MIN_ALIGN = CONFIG_MIN_CACHE_LINE_SIZE
+                MIN_ALIGN = 1 // two basic blocks can be contiguous
             };
         };
 
 
-        /// CPU-private fragment stub allocators.
+        /// CPU-private fragment stub allocators. These
         struct stub_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -78,7 +78,7 @@ namespace granary {
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE / 2
+                MIN_ALIGN = 16
             };
         };
 

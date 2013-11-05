@@ -7,6 +7,7 @@
 
 #include "granary/globals.h"
 #include "granary/basic_block.h"
+#include "granary/basic_block_info.h"
 #include "granary/instruction.h"
 #include "granary/state.h"
 #include "granary/policy.h"
@@ -15,36 +16,29 @@
 #include "granary/code_cache.h"
 
 #if GRANARY_IN_KERNEL
-#   include "granary/detach.h"
+#   include "granary/kernel/linux/user_address.h"
 #endif
 
 #include <new>
 
 namespace granary {
 
-    enum {
 
-        BB_PADDING              = 0xEA,
-        BB_PADDING_LONG         = 0xEAEAEAEAEAEAEAEA,
-        BB_ALIGN                = CONFIG_MIN_CACHE_LINE_SIZE,
+    enum {
 
         /// Maximum size in bytes of a decoded basic block. This relates to
         /// *decoding* only and not the resulting size of a basic block after
         /// translation.
-        BB_MAX_SIZE_BYTES       = (PAGE_SIZE / 4),
+        BB_MAX_SIZE_BYTES = detail::fragment_allocator_config::SLAB_SIZE / 4,
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
         BB_BYTE_STATES_PER_BYTE = 4,
 
-        /// byte and 32-bit alignment of basic block info structs in memory
-        BB_INFO_BYTE_ALIGNMENT  = 4,
-        BB_INFO_INT32_ALIGNMENT = 2,
-
         /// misc.
-        BITS_PER_BYTE   = 8,
-        BITS_PER_STATE  = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
-        BITS_PER_QWORD  = BITS_PER_BYTE * 8,
+        BITS_PER_BYTE = 8,
+        BITS_PER_STATE = BITS_PER_BYTE / BB_BYTE_STATES_PER_BYTE,
+        BITS_PER_QWORD = BITS_PER_BYTE * 8,
 
         /// Optimise by eliding JMPs in basic blocks with fewer than this
         /// many instructions.
@@ -54,7 +48,7 @@ namespace granary {
 
     /// Get the state of a byte in the basic block.
     inline static code_cache_byte_state
-    get_state(uint8_t *states, unsigned i) throw() {
+    get_state(const uint8_t *states, unsigned i) throw() {
         enum {
             MASK = (BB_BYTE_STATES_PER_BYTE - 1)
         };
@@ -137,14 +131,26 @@ namespace granary {
     }
 
 
+#if CONFIG_ENABLE_INTERRUPT_DELAY
+    /// Scan the instructions to see if the interrupt delay feature is being used.
+    static bool requires_state_bytes(instruction_list &ls) throw() {
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+            if(DELAY_INSTRUCTION & in.instr->granary_flags) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// Set the state of a pair of bits in memory.
     static unsigned initialise_state_bytes(
-        basic_block_info *info,
-        instruction in,
-        app_pc bytes
+        instruction_list &ls,
+        uint8_t *bytes,
+        unsigned num_bytes
     ) throw() {
 
-        unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
+        unsigned num_instruction_bits(num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
         unsigned num_state_bytes = num_instruction_bits / BITS_PER_BYTE;
 
@@ -155,34 +161,18 @@ namespace granary {
         unsigned num_delayed_instructions(0);
         unsigned prev_num_delayed_instructions(0);
 
-        // Scan the instructions to see if the interrupt delay feature is
-        // even being used.
-        instruction first(in);
-        bool has_delay(false);
-        for(; in.is_valid(); in = in.next()) {
-            if(DELAY_INSTRUCTION & in.instr->granary_flags) {
-                has_delay = true;
-            }
-        }
-
-        // If we don't need state bytes, then don't initialise any!
-        info->has_delay_range = has_delay;
-        if(!has_delay) {
-            return 0;
-        }
-
         // Initialise all state bytes to have their states as native.
         memset(bytes, 0, num_state_bytes);
 
-        for(in = first; in.is_valid(); in = in.next()) {
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
 
             code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
 
-            unsigned num_bytes(in.encoded_size());
+            const unsigned in_num_bytes(in.encoded_size());
 
             if(BB_BYTE_NATIVE != stored_state) {
-                if(num_bytes) {
+                if(in_num_bytes) {
                     ++num_delayed_instructions;
                 }
                 stored_state = BB_BYTE_DELAY_CONT;
@@ -201,7 +191,7 @@ namespace granary {
             }
 
             // For each byte of each instruction.
-            for(unsigned j(byte_offset); j < (byte_offset + num_bytes); ++j) {
+            for(unsigned j(byte_offset); j < (byte_offset + in_num_bytes); ++j) {
                 set_state(bytes, j, stored_state);
             }
 
@@ -211,69 +201,28 @@ namespace granary {
             } else if(BB_BYTE_DELAY_END == state) {
                 set_state(
                     bytes,
-                    byte_offset + num_bytes - 1,
+                    byte_offset + in_num_bytes - 1,
                     BB_BYTE_DELAY_END);
             }
 
             prev_byte_offset = byte_offset;
-            byte_offset += num_bytes;
+            byte_offset += in_num_bytes;
             prev_state = state;
         }
 
         return num_state_bytes;
     }
+#endif
 
 
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
     basic_block::basic_block(app_pc current_pc_) throw()
-        : info(nullptr)
-        , policy()
-        , cache_pc_start(nullptr)
+        : info(find_basic_block_info(current_pc_))
+        , policy(instrumentation_policy(info->generating_pc))
+        , cache_pc_start(info->start_pc)
         , cache_pc_current(current_pc_)
-        , cache_pc_end(nullptr)
-    {
-        // Round our search address down to `BB_INFO_BYTE_ALIGNMENT` before we
-        // search for the meta info magic value.
-        uintptr_t addr(reinterpret_cast<uintptr_t>(current_pc_));
-        addr -= (addr % BB_INFO_BYTE_ALIGNMENT);
-
-        // Go search for the basic block info by finding potential
-        // addresses of the meta info, then checking their magic values.
-        uint32_t *ints(reinterpret_cast<uint32_t *>(addr));
-        for(; ; ++ints) {
-            if(basic_block_info::HEADER == *ints) {
-                break;
-
-            // Check to see if it looks like we're inspecting uninitialised
-            // code cache memory. We check 3 consecutive double-words just in
-            // case one does a 64-bit MOVABS where the number is all 0xCC.
-            } else if(basic_block_info::UNALLOCATED == *ints
-                   && basic_block_info::UNALLOCATED == *(ints + 1)
-                   && basic_block_info::UNALLOCATED == *(ints + 2)) {
-                ASSERT(false);
-                cache_pc_current = nullptr;
-                return;
-            }
-        }
-
-        // We've found the basic block info.
-        info = unsafe_cast<basic_block_info *>(ints);
-        cache_pc_end = reinterpret_cast<app_pc>(ints);
-        cache_pc_start = (cache_pc_end - info->num_bytes) \
-                       + info->num_patch_bytes;
-        policy = instrumentation_policy::decode(info->policy_bits);
-
-#if GRANARY_IN_KERNEL
-        // Initialise the byte states only if we have them.
-        if(info->has_delay_range) {
-            pc_byte_states = reinterpret_cast<uint8_t *>(
-                ints + sizeof(basic_block_info));
-        } else {
-            pc_byte_states = nullptr;
-        }
-#endif
-    }
+    { }
 
 
 #if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
@@ -287,30 +236,23 @@ namespace granary {
         app_pc &begin,
         app_pc &end
     ) const throw() {
+        const uint8_t *delay_states(info->delay_states);
 
         // Quick check: if we don't have any delay ranges then we never
         // allocated the state bits.
-        if(!pc_byte_states) {
+        if(!delay_states || cache_pc_current == cache_pc_start) {
             return false;
         }
 
-        // Interrupted in stub code (<) OR at the first non-stub code
-        // instruction (=).
-        //
-        // Note: This implies that code within a delay region should not
-        //       use features that would cause a stub to be generated.
-        if(cache_pc_current <= cache_pc_start) {
-            return false;
-        }
+        ASSERT(cache_pc_current > cache_pc_start);
 
-        app_pc start_with_stub(cache_pc_start - info->num_patch_bytes);
-        const unsigned current_offset(cache_pc_current - start_with_stub);
+        const unsigned current_offset(cache_pc_current - cache_pc_start);
         const unsigned end_offset(info->num_bytes);
 
         ASSERT(current_offset < info->num_bytes);
 
         code_cache_byte_state byte_state(get_state(
-            pc_byte_states, current_offset));
+            info->delay_states, current_offset));
 
         enum {
             SAFE_INTERRUPT_STATE = BB_BYTE_NATIVE | BB_BYTE_DELAY_BEGIN
@@ -323,15 +265,15 @@ namespace granary {
         }
 
         for(unsigned i(current_offset); i < end_offset; ++i) {
-            if(BB_BYTE_DELAY_END == get_state(pc_byte_states, i)) {
-                end = start_with_stub + i + 1;
+            if(BB_BYTE_DELAY_END == get_state(delay_states, i)) {
+                end = cache_pc_start + i + 1;
                 break;
             }
         }
 
         for(unsigned i(0); i < current_offset; ++i) {
-            if(SAFE_INTERRUPT_STATE & get_state(pc_byte_states, i)) {
-                begin = start_with_stub + i;
+            if(SAFE_INTERRUPT_STATE & get_state(delay_states, i)) {
+                begin = cache_pc_start + i;
             }
         }
 
@@ -339,91 +281,6 @@ namespace granary {
     }
 #endif
 
-
-#if GRANARY_IN_KERNEL
-    /// If we found any exception table entries in this basic block, then
-    /// we'll need to report them to kernel interrupt handlers that query
-    /// for exception table entries in the code cache. This returns any
-    /// stored exception table entry for the current basic block.
-    void *basic_block::get_exception_table_entry(void) const throw() {
-        if(!info->exception_table_entry_pointer_offset) {
-            return nullptr;
-        }
-
-        return reinterpret_cast<void *>(
-            reinterpret_cast<uintptr_t>(&(info->exception_table_entry_pointer_offset))
-          + info->exception_table_entry_pointer_offset);
-    }
-#endif
-
-
-    /// Compute the size of a basic block given an instruction list. This
-    /// computes the size of each instruction, the amount of padding, meta
-    /// information, etc.
-    unsigned basic_block::size(
-        instruction_list &ls
-        _IF_KERNEL(bool has_user_access)
-    ) throw() {
-
-#if GRANARY_IN_KERNEL
-        unsigned size(0);
-        bool has_delay(false);
-        instruction in(ls.first());
-
-        for(; in.is_valid(); in = in.next()) {
-            size += in.encoded_size();
-            if(DELAY_INSTRUCTION & in.instr->granary_flags) {
-                has_delay = true;
-            }
-        }
-#else
-        unsigned size(ls.encoded_size());
-#endif
-
-        // Alignment and meta info.
-        size += ALIGN_TO(size, BB_INFO_BYTE_ALIGNMENT);
-        size += sizeof(basic_block_info);
-
-#if GRANARY_IN_KERNEL
-        // State set, where pairs of bits represent the state of a byte within
-        // the instructions.
-        if(has_delay) {
-            unsigned num_instruction_bits(size * BITS_PER_STATE);
-            num_instruction_bits += ALIGN_TO(
-                num_instruction_bits, BITS_PER_QWORD);
-            size += num_instruction_bits / BITS_PER_BYTE;
-        }
-
-        if(has_user_access) {
-            size += sizeof(void *);
-        }
-#endif
-
-        return size;
-    }
-
-
-    /// Compute the size of an existing basic block.
-    ///
-    /// Note: This excludes block-local storage because it is actually
-    ///       allocated separately from the basic block.
-    unsigned basic_block::size(void) const throw() {
-        unsigned size_(info->num_bytes + sizeof *info);
-
-#if GRANARY_IN_KERNEL
-        if(pc_byte_states) {
-            unsigned num_instruction_bits(info->num_bytes * BITS_PER_STATE);
-            num_instruction_bits += ALIGN_TO(
-                num_instruction_bits, BITS_PER_QWORD);
-            size_ += num_instruction_bits / BITS_PER_BYTE;
-        }
-
-        if(info->exception_table_entry_pointer_offset) {
-            size_ += sizeof(void *);
-        }
-#endif
-        return size_;
-    }
 
 
 #if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
@@ -584,169 +441,37 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+    /// Estimate the maximum size of a basic block by being pessimistic about
+    /// alignment constraints for hot-patchable instructions.
+    static unsigned estimate_max_size(instruction_list &ls) throw() {
+        unsigned size(0);
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+            size += in.encoded_size();
+            if(in.is_patchable()) {
+                size += 8;
+            }
+        }
+        return size;
+    }
 
 
-    /// Special case ranges of kernel code that have been observed to access
-    /// user space data. Some/all? of these don't *appear* to use the correct
-    /// APIs, and so the pattern matching fails on them.
-    ///
-    /// TODO: Do further investigation and potentially report these functions
-    ///       as having bugs.
-    static const app_pc USER_ACCESS_CODE[][2] = {
-#   ifdef DETACH_ADDR_memcpy
-        {(app_pc) DETACH_ADDR_memcpy,
-         (app_pc) DETACH_ADDR_memcpy + DETACH_LENGTH_memcpy},
-#   endif
-#   ifdef DETACH_ADDR_csum_partial_copy_generic
-        {(app_pc) DETACH_ADDR_csum_partial_copy_generic,
-         (app_pc) DETACH_ADDR_csum_partial_copy_generic + DETACH_LENGTH_csum_partial_copy_generic},
-#   endif
-#   ifdef DETACH_ADDR_rcu_process_callbacks
-        {(app_pc) DETACH_ADDR_rcu_process_callbacks,
-         (app_pc) DETACH_ADDR_rcu_process_callbacks + DETACH_LENGTH_rcu_process_callbacks},
-#   endif
-#   ifdef DETACH_ADDR_flush_tlb_mm_range
-        {(app_pc) DETACH_ADDR_flush_tlb_mm_range,
-         (app_pc) DETACH_ADDR_flush_tlb_mm_range + DETACH_LENGTH_flush_tlb_mm_range},
-#   endif
-#   ifdef DETACH_ADDR___kmalloc
-        {(app_pc) DETACH_ADDR___kmalloc,
-         (app_pc) DETACH_ADDR___kmalloc + DETACH_LENGTH___kmalloc},
-#   endif
-#   ifdef DETACH_ADDR___kmalloc_node
-        {(app_pc) DETACH_ADDR___kmalloc_node,
-         (app_pc) DETACH_ADDR___kmalloc_node + DETACH_LENGTH___kmalloc_node},
-#   endif
-#   ifdef DETACH_ADDR_kmem_cache_alloc
-        {(app_pc) DETACH_ADDR_kmem_cache_alloc,
-         (app_pc) DETACH_ADDR_kmem_cache_alloc + DETACH_LENGTH_kmem_cache_alloc},
-#   endif
-#   ifdef DETACH_ADDR___kmalloc_node_track_caller
-        {(app_pc) DETACH_ADDR___kmalloc_node_track_caller,
-         (app_pc) DETACH_ADDR___kmalloc_node_track_caller + DETACH_LENGTH___kmalloc_node_track_caller},
-#   endif
-#   ifdef DETACH_ADDR___kmalloc_track_caller
-        {(app_pc) DETACH_ADDR___kmalloc_track_caller,
-         (app_pc) DETACH_ADDR___kmalloc_track_caller + DETACH_LENGTH___kmalloc_track_caller},
-#   endif
-#   ifdef DETACH_ADDR_kmem_cache_alloc_node
-        {(app_pc) DETACH_ADDR_kmem_cache_alloc_node,
-         (app_pc) DETACH_ADDR_kmem_cache_alloc_node + DETACH_LENGTH_kmem_cache_alloc_node},
-#   endif
-#   ifdef DETACH_ADDR_release_sock
-        {(app_pc) DETACH_ADDR_release_sock,
-         (app_pc) DETACH_ADDR_release_sock + DETACH_LENGTH_release_sock},
-#   endif
-        {nullptr, nullptr}
-    };
-
-
-    /// Try to detect if the basic block contains a specific binary instruction
-    /// pattern that makes it look like it could contain and exception table
-    /// entry.
-    static bool might_touch_user_address(
+    /// Decode some instructions for use as a basic block. Returns the number
+    /// of decoded instructions.
+    unsigned basic_block::decode(
         instruction_list &ls,
-        app_pc start_pc
-    ) throw() {
-
-        // Go through the array of exceptions.
-        for(unsigned i(0); USER_ACCESS_CODE[i][0]; ++i) {
-            if(USER_ACCESS_CODE[i][0] <= start_pc
-            && start_pc < USER_ACCESS_CODE[i][1]) {
-                return true;
-            }
-        }
-
-        enum {
-            DATA32_XCHG_AX_AX = 0x906666U,
-            DATA32_DATA32_XCHG_AX_AX = 0x90666666U
-        };
-
-        const unsigned data32_xchg_ax_ax(DATA32_XCHG_AX_AX);
-        const unsigned data32_data32_xchg_ax_ax(DATA32_DATA32_XCHG_AX_AX);
-
-        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
-            const app_pc bytes(in.pc_or_raw_bytes());
-
-            // E.g. copy_user_enhanced_fast_string, doesn't contain
-            // the binary pattern. Unfortunately, this will also capture
-            // memcpy and others.
-            if(dynamorio::OP_ins <= in.op_code()
-            && dynamorio::OP_repne_scas >= in.op_code()) {
-                return true;
-            }
-
-            if(nullptr == bytes) {
-                continue;
-            }
-
-            if(3 == in.encoded_size()) {
-                if(0 == memcmp(bytes, &data32_xchg_ax_ax, 3)) {
-                    return true;
-                }
-            } else if(4 == in.encoded_size()) {
-                if(0 == memcmp(bytes, &data32_data32_xchg_ax_ax, 4)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    extern "C" {
-        extern void *kernel_search_exception_tables(void *);
-    }
-
-
-    /// Try to get a kernel exception table entry for any instruction within
-    /// an instruction list.
-    ///
-    /// Note: This is very Linux-specific!!
-    void *find_exception_table_entry(instruction_list &ls) throw() {
-
-        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
-            app_pc pc(in.pc_or_raw_bytes());
-            if(!pc) {
-                continue;
-            }
-
-            void *ret(kernel_search_exception_tables(pc));
-            if(ret) {
-                return ret;
-            }
-        }
-
-        return nullptr;
-    }
-#endif
-
-
-    /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(
         instrumentation_policy policy,
-        cpu_state_handle cpu,
-        app_pc start_pc
+        const app_pc start_pc
+        _IF_KERNEL( void *&user_exception_metadata )
     ) throw() {
-
         app_pc local_pc(start_pc);
         app_pc *pc(&local_pc);
-        uint8_t *generated_pc(nullptr);
-        instruction_list ls;
-
         bool fall_through_pc(false);
-
-        basic_block_state *block_storage(nullptr);
-        if(basic_block_state::size()) {
-            block_storage = cpu->block_allocator.allocate<basic_block_state>();
-        }
-
         bool uses_xmm(policy.is_in_xmm_context());
         bool fall_through_detach(false);
         bool detach_tail_call(false);
         const app_pc detach_app_pc(unsafe_cast<app_pc>(&detach));
         unsigned byte_len(0);
+        unsigned num_decoded(0);
 
         // Ensure that the start PC of the basic block is always somewhere in
         // the instruction stream.
@@ -792,6 +517,7 @@ namespace granary {
             }
 
             byte_len += in.instr->length;
+            num_decoded += 1;
             ls.append(in);
 
             if(in.is_cti()) {
@@ -811,7 +537,6 @@ namespace granary {
                         break;
                     }
 
-#if GRANARY_IN_KERNEL
                     // We have some native code that has a jump to code cache or
                     // wrapper code. Normally this sounds weird but actually it
                     // comes up when we're doing probe-based instrumentation
@@ -821,7 +546,6 @@ namespace granary {
                         in.set_mangled();
                         break;
                     }
-#endif
                 }
 
                 // Unconditional JMP; ends the block, without possibility
@@ -868,7 +592,7 @@ namespace granary {
                             break;
                         }
                     }
-#endif
+#endif /* GRANARY_IN_KERNEL */
                     break;
 
                 // Conditional CTI, end the block with the ability to fall-
@@ -935,12 +659,9 @@ namespace granary {
         // Look for potential code that accesses user-space data. This type of
         // code follows some rough binary patterns, so we first search for the
         // patterns, then verify by invoking the kernel itself.
-        bool touches_user_mem(false);
-        void *extable_entry(nullptr);
         if(policy.accesses_user_data()
-        || might_touch_user_address(ls, start_pc)) {
-            extable_entry = find_exception_table_entry(ls);
-            touches_user_mem = nullptr != extable_entry;
+        || kernel_code_accesses_user_data(ls, start_pc)) {
+            user_exception_metadata = kernel_find_exception_metadata(ls);
 
             // We don't un-set the accesses user data policy property, as there
             // is some value in leaving it set.
@@ -981,6 +702,22 @@ namespace granary {
             }
         }
 
+        return num_decoded;
+    }
+
+
+    /// Decode and translate a single basic block of application/module code.
+    basic_block basic_block::translate(
+        const instrumentation_policy policy,
+        cpu_state_handle cpu,
+        const app_pc start_pc
+    ) throw() {
+        instruction_list ls;
+
+        IF_KERNEL( void *user_exception_metadata(nullptr); )
+        const unsigned num_decoded_instructions(decode(
+            ls, policy, start_pc _IF_KERNEL(user_exception_metadata) ));
+
 #if CONFIG_ENABLE_ASSERTIONS
         // Sanity checking before we begin instrumenting; we don't want to
         // apply the wrong instrumentation function to the code!
@@ -989,6 +726,11 @@ namespace granary {
         }
 #endif
 
+        basic_block_state *state(nullptr);
+        if(basic_block_state::size()) {
+            state = cpu->block_allocator.allocate<basic_block_state>();
+        }
+
         // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect
         // of this is that if we are in policy P1, and the client returns policy
@@ -996,7 +738,7 @@ namespace granary {
         // P2's code cache.
         instrumentation_policy client_policy(policy.instrument(
             cpu,
-            *block_storage,
+            *state, // potentially null.
             ls));
 
         client_policy.inherit_properties(policy);
@@ -1014,159 +756,95 @@ namespace granary {
         // mangling uses `client_policy` as opposed to `policy` so that CTIs
         // are mangled to transfer control to the (potentially different) client
         // policy.
-        instruction_list_mangler mangler(
-            cpu, block_storage, client_policy);
-
         instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
-        mangler.mangle(ls, patch_stubs);
+        instruction_list_mangler mangler(
+            cpu, *state, ls, patch_stubs, client_policy);
+
+        mangler.mangle();
+
+        cpu->fragment_allocator.lock_coarse();
+
+        // Guarantee enough space to allocate the instructions of this basic
+        // block so that we can get an exact estimator pc for the beginning of
+        // the basic block. This estimator pc will tell us the current cache
+        // line alignment of the beginning of the basic block, which will allow
+        // us to properly align hot-patchable instructions.
+        cpu->fragment_allocator.allocate_array<uint8_t>(estimate_max_size(ls));
+        cpu->fragment_allocator.free_last();
+        const uint8_t *estimator_pc(
+            cpu->fragment_allocator.allocate_staged<uint8_t>());
+
+        // Align all hot-patchable instructions, and get the size of the
+        // instruction list.
+        const unsigned size(mangler.align(
+            reinterpret_cast<uintptr_t>(estimator_pc) % CONFIG_MIN_CACHE_LINE_SIZE));
+
+        uint8_t *generated_pc(
+            cpu->fragment_allocator.allocate_array<uint8_t>(size));
+
+        basic_block_info *info(nullptr);
+        IF_KERNEL( uint8_t *delay_states(nullptr); )
+        IF_KERNEL( unsigned num_state_bytes(0); )
+
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+        num_state_bytes = requires_state_bytes(ls)
+                        ? (size + 7) / BB_BYTE_STATES_PER_BYTE
+                        : 0;
+#endif
+
+        allocate_basic_block_info(
+            generated_pc,
+            info
+            _IF_KERNEL(num_state_bytes)
+            _IF_KERNEL(delay_states));
+
+        info->start_pc = generated_pc;
+        info->num_bytes = size;
+        info->generating_pc = mangled_address(start_pc, policy);
+        info->generating_num_instructions = num_decoded_instructions;
+        info->state = state;
+
+#if GRANARY_IN_KERNEL
+        info->user_exception_metadata = user_exception_metadata;
+        info->delay_states = delay_states;
+        info->num_delay_state_bytes = num_state_bytes;
+        if(delay_states) {
+            initialise_state_bytes(ls, delay_states, num_state_bytes);
+        }
+#endif
+
+        cpu->fragment_allocator.unlock_coarse();
 
         // Calculate the size of the stubs and then encode the stubs.
         const unsigned stub_size(patch_stubs.encoded_size());
         app_pc stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
-#if CONFIG_ENABLE_ASSERTIONS
-        // Double check that the allocator has given us memory that we think
-        // looks like uninitialized code memory.
-        for(unsigned i(0); i < stub_size; ++i) {
-            ASSERT(0xCC == stub_pc[i]);
-        }
-#endif
         patch_stubs.encode(stub_pc, stub_size);
 
-        // Re-calculate the size and re-allocate; if our earlier
-        // guess was too small then we need to re-instrument the
-        // instruction list
-        const unsigned size(basic_block::size(
-            ls _IF_KERNEL(touches_user_mem)));
-
-        generated_pc = cpu->fragment_allocator.allocate_array<uint8_t>(size);
-
-#if CONFIG_ENABLE_ASSERTIONS
-        // Double check that the allocator has given us memory that we think
-        // looks like uninitialized code memory.
-        for(unsigned i(0); i < size; ++i) {
-            ASSERT(0xCC == generated_pc[i]);
-        }
-#endif
-
-        // Zero out the memory, just in case things aren't correctly
-        // initialised somewhere.
-        memset(generated_pc, 0, size);
-
-        app_pc end_pc(nullptr);
-        IF_TEST( app_pc emitted_pc = ) emit(
-            policy, ls, bb_begin, block_storage,
-            start_pc, byte_len,
-            generated_pc,
-            end_pc);
+        // Emit the instructions to the code cache.
+        IF_TEST( app_pc end_pc = ) ls.encode(generated_pc, size);
 
         // Re-encode the instruction list to resolve the circular dependencies.
-        IF_TEST( memset(stub_pc, 0xCC, stub_size); )
+        memset(stub_pc, 0xCC, stub_size);
         patch_stubs.encode(stub_pc, stub_size);
-
-        // If this isn't the case, then there there was likely a buffer
-        // overflow. This assumes that the fragment allocator always aligns
-        // executable code on a 16 byte boundary.
-        ASSERT(generated_pc == emitted_pc);
-        ASSERT(generated_pc <= bb_begin.pc());
-        ASSERT(bb_begin.pc() < end_pc);
 
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.
-        basic_block ret(bb_begin.pc());
-
-#if GRANARY_IN_KERNEL
-        // If we've got an exception table entry for anything in the instruction
-        // list, then store it after the basic block.
-        //
-        // Note: This assumes a maximum of one exception table entry per
-        //       basic block.
-        ASSERT(0 == ret.info->exception_table_entry_pointer_offset);
-        if(touches_user_mem) {
-
-            unsigned offset = reinterpret_cast<uintptr_t>(end_pc)
-                            - reinterpret_cast<uintptr_t>(
-                                  &(ret.info->exception_table_entry_pointer_offset));
-
-            ASSERT(offset <= 256);
-
-            ret.info->exception_table_entry_pointer_offset = offset;
-            *unsafe_cast<const void **>(end_pc) = extable_entry;
-
-            end_pc += sizeof(void *);
-        }
-#endif
-        // Check the validity of our basic block sizing. `size` might over-
-        // estimate the actual instruction list's size, which is okay.
-        ASSERT((generated_pc + size) <= end_pc);
+        basic_block ret(generated_pc);
 
         // Quick double check to make sure that we can properly resolve the
         // basic block info later. If this isn't the case, then we likely need
         // to choose different magic values, or make them longer.
+        ASSERT(ret.info == info);
+        ASSERT((generated_pc + size) == end_pc);
+        ASSERT(bb_begin.pc() == generated_pc);
         ASSERT(bb_begin.pc() == ret.cache_pc_start);
 
+        USED(generated_pc);
+        USED(size);
+        USED(end_pc);
+
         IF_PERF( perf::visit_encoded(ret); )
-        UNUSED(end_pc);
 
         return ret;
     }
-
-
-    /// Emit an instruction list as code into a byte array. This will also
-    /// emit the basic block meta information.
-    ///
-    /// Note: it is assumed that no field in *state points back to itself
-    ///       or any other temporary storage location.
-    app_pc basic_block::emit(
-        instrumentation_policy policy,
-        instruction_list &ls,
-        instruction bb_begin,
-        basic_block_state *block_storage,
-        app_pc generating_pc,
-        unsigned byte_len,
-        app_pc pc,
-        app_pc &end_pc
-    ) throw() {
-        ASSERT(0 == (reinterpret_cast<uint64_t>(pc) % BB_ALIGN));
-
-        // Add in the instructions.
-        const app_pc start_pc(pc);
-        const unsigned size(ls.encoded_size());
-
-        // By this point we've already verified that the memory we've gotten
-        // had it's correct default initialisation, but then we also went ahead
-        // and zero'd it. In test mode, `instruction_list::encode` double checks
-        // that the memory being written to contains `0xCC`.
-        IF_TEST( memset(start_pc, 0xCC, size); )
-
-        pc = ls.encode(pc, size);
-
-        uint64_t pc_uint(reinterpret_cast<uint64_t>(pc));
-        app_pc pc_aligned(pc + ALIGN_TO(pc_uint, BB_INFO_BYTE_ALIGNMENT));
-
-        // Add in the padding.
-        for(; pc < pc_aligned; ) {
-            *pc++ = BB_PADDING;
-        }
-
-        basic_block_info *info(unsafe_cast<basic_block_info *>(pc));
-
-        // Fill in the info.
-        info->magic = basic_block_info::HEADER;
-        info->num_bytes = static_cast<uint16_t>(pc - start_pc);
-        info->num_patch_bytes = static_cast<uint16_t>(bb_begin.pc() - start_pc);
-        info->policy_bits = policy.encode();
-        info->generating_num_bytes = static_cast<uint16_t>(byte_len & 0xFFFF);
-        info->generating_pc = reinterpret_cast<uintptr_t>(generating_pc);
-        info->state_addr = block_storage;
-
-        // fill in the byte state set
-        pc += sizeof(basic_block_info);
-        IF_KERNEL( pc += initialise_state_bytes(info, ls.first(), pc); )
-
-        end_pc = pc;
-
-        return start_pc;
-    }
 }
-
-

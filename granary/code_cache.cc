@@ -10,6 +10,7 @@
 #include "granary/code_cache.h"
 #include "granary/hash_table.h"
 #include "granary/basic_block.h"
+#include "granary/basic_block_info.h"
 #include "granary/utils.h"
 #include "granary/register.h"
 #include "granary/emit_utils.h"
@@ -154,13 +155,11 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-#if CONFIG_ENABLE_DIRECT_RETURN
         if(is_code_cache_address(app_target_addr)
         || is_wrapper_address(app_target_addr)
         || is_gencode_address(app_target_addr)) {
             target_addr = app_target_addr;
         }
-#endif
 
         // Ensure that we're in the correct policy context. This might cause
         // a policy conversion. We also need to keep track of the auto-
@@ -245,8 +244,15 @@ namespace granary {
             if(!stored_base_addr && created_bb) {
                 client::discard_basic_block(*created_bb_state);
 
+                // Try to clean up the shared memory.
+                cpu->fragment_allocator.lock_coarse();
+                if(try_remove_basic_block_info(target_addr)) {
+                    cpu->fragment_allocator.free_last();
+                }
+                cpu->fragment_allocator.unlock_coarse();
+
+                // Try to clean up the private memory.
                 cpu->stub_allocator.free_last();
-                cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
 
                 IF_TEST( target_addr = nullptr; );

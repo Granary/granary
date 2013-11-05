@@ -31,10 +31,10 @@ namespace granary {
         friend struct code_cache;
 
         cpu_state_handle cpu;
-        basic_block_state *bb;
+        basic_block_state &bb;
         const instrumentation_policy policy;
-        instruction_list *ls;
-        instruction_list *stub_ls;
+        instruction_list &ls;
+        instruction_list &stub_ls;
 
         // used to estimate if an address is too far away from the code cache
         // to use relative addressing.
@@ -123,12 +123,20 @@ namespace granary {
 
         instruction_list_mangler(
             cpu_state_handle cpu_,
-            basic_block_state *bb_,
-            instrumentation_policy &policy_
+            basic_block_state &bb_,
+            instruction_list &ls_,
+            instruction_list &stub_ls_,
+            instrumentation_policy policy_
         ) throw();
 
 
-        void mangle(instruction_list &ls, instruction_list &stub_ls);
+        void mangle(void) throw();
+
+
+        /// Aligns hot-patchable instructions in the basic block, given the
+        /// current cache-line alignment of the basic block, and returns the
+        /// basic block's size.
+        unsigned align(unsigned align) throw();
     };
 }
 

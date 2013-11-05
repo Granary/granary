@@ -10,8 +10,8 @@
 #define BUMP_ALLOCATOR_H_
 
 #include <new>
-#include "granary/atomic.h"
-#include "granary/type_traits.h"
+#include <type_traits>
+
 #include "granary/utils.h"
 #include "granary/spin_lock.h"
 
@@ -111,12 +111,14 @@ namespace granary {
         static bump_pointer_slab *global_free;
         static atomic_spin_lock global_free_lock;
 
+
         /// Lock used to serialise allocations.
-        opt_atomic<bool, IF_TEST_ELSE(true, IS_SHARED)> lock;
+        spin_lock lock;
 
 
         /// The size of the last allocation.
         unsigned last_allocation_size;
+        uint8_t *last_allocation;
         bump_pointer_slab *last_allocation_slab;
 
 
@@ -127,7 +129,7 @@ namespace granary {
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
             if(IS_SHARED) {
-                while(lock.load() || lock.exchange(true)) { }
+                lock.acquire();
             }
         }
 
@@ -135,7 +137,7 @@ namespace granary {
         /// Release the lock on the allocator.
         inline void release(void) throw() {
             if(IS_SHARED) {
-                lock.store(false);
+                lock.release();
             }
         }
 
@@ -227,7 +229,9 @@ namespace granary {
             const unsigned align,
             const unsigned size
         ) throw() {
+
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
 
             unsigned slab_size(size + ALIGN_TO(size, SLAB_SIZE));
@@ -283,7 +287,14 @@ namespace granary {
             ASSERT(curr->remaining >= size);
 
             uint8_t *ret(&(curr->memory[curr->index]));
+
+#if CONFIG_ENABLE_ASSERTIONS
+            for(i = 0; i < size; ++i) {
+                ASSERT(MEMSET_VALUE == ret[i]);
+            }
+#endif
             last_allocation_size = size;
+            last_allocation = ret;
             last_allocation_slab = curr;
             curr->index += size;
             curr->remaining -= size;
@@ -318,17 +329,17 @@ namespace granary {
             : curr(nullptr)
             , first(nullptr)
             , free(nullptr)
+            , lock()
             , last_allocation_size(0)
             , last_allocation_slab(nullptr)
             _IF_TEST( last_allocator(nullptr) )
-        {
-            lock.store(false);
-        }
+        { }
 
         ~bump_pointer_allocator(void) throw() {
             free_slab_list(free);
             free = nullptr;
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
             free_slab_list(curr);
             curr = nullptr;
@@ -414,15 +425,13 @@ namespace granary {
 
                 ASSERT((curr->index + curr->remaining) == curr->size);
                 ASSERT(curr->index >= last_allocation_size);
+                ASSERT((last_allocation + last_allocation_size)
+                    == &(curr->memory[curr->index]));
                 curr->index -= last_allocation_size;
                 curr->remaining += last_allocation_size;
                 ASSERT(curr->index <= curr->size);
                 ASSERT((curr->index + curr->remaining) == curr->size);
 
-                // Make sure that something is actually being destroyed.
-                ASSERT(!IS_EXECUTABLE
-                    || (IS_EXECUTABLE
-                            && MEMSET_VALUE != curr->memory[curr->index]));
                 memset(
                     &(curr->memory[curr->index]),
                     MEMSET_VALUE,
@@ -430,6 +439,7 @@ namespace granary {
             }
 
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
             release();
         }
@@ -444,6 +454,7 @@ namespace granary {
             acquire();
             IF_TEST( last_allocator = allocator; )
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
 
             if(first) {
@@ -468,6 +479,25 @@ namespace granary {
             }
 
             release();
+        }
+
+
+        /// Acquire a coarse-grained lock on the allocator. This allows us
+        /// to mark an allocator as non-shared (even when it is), but do coarse-
+        /// grained locking across multiple operations, rather than fine-grained
+        /// locking around individual operations.
+        void lock_coarse(void) throw() {
+            if(!IS_SHARED) {
+                lock.acquire();
+            }
+        }
+
+
+        /// Release the coarse-grained lock.
+        void unlock_coarse(void) throw() {
+            if(!IS_SHARED) {
+                lock.release();
+            }
         }
     };
 

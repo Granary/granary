@@ -580,7 +580,7 @@ namespace granary {
     }
 
 
-    /// encodes an instruction list into a sequence of bytes
+    /// Encodes an instruction list into a sequence of bytes.
     app_pc instruction_list::encode(
         app_pc start_pc,
         unsigned max_size
@@ -640,10 +640,6 @@ namespace granary {
         ///      aligning NOPs.
         ASSERT(pc <= (start_pc + max_size));
         UNUSED(max_size);
-
-        USED(pc);
-        USED(start_pc);
-        USED(max_size);
 
         return pc;
     }

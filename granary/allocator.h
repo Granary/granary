@@ -13,8 +13,7 @@
 #ifdef __cplusplus
 
 #   include <new>
-#   include "granary/atomic.h"
-#   include "granary/type_traits.h"
+#   include <type_traits>
 
 extern "C" {
 #endif

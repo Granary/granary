@@ -11,10 +11,11 @@
 
 #if CONFIG_ENABLE_PERF_COUNTS
 
+#include <atomic>
+
 #include "granary/instruction.h"
 #include "granary/basic_block.h"
 #include "granary/state.h"
-#include "granary/atomic.h"
 #include "granary/printf.h"
 #include "granary/detach.h"
 #include "granary/ibl.h"
@@ -39,8 +40,6 @@ namespace granary {
     /// Performance counter for tracking basic blocks and their instructions.
     static std::atomic<unsigned> NUM_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BB_INSTRUCTION_BYTES(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_BB_PATCH_BYTES(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_BB_STATE_BYTES(ATOMIC_VAR_INIT(0U));
 
 
     /// Performance counters for tracking different types of indirect CTIs.
@@ -123,10 +122,7 @@ namespace granary {
 
     void perf::visit_encoded(const basic_block &bb) throw() {
         NUM_BBS.fetch_add(1);
-        NUM_BB_INSTRUCTION_BYTES.fetch_add(
-            bb.info->num_bytes - bb.info->num_patch_bytes);
-        NUM_BB_PATCH_BYTES.fetch_add(bb.info->num_patch_bytes);
-        NUM_BB_STATE_BYTES.fetch_add(sizeof(basic_block_state));
+        NUM_BB_INSTRUCTION_BYTES.fetch_add(bb.info->num_bytes);
     }
 
 
@@ -275,12 +271,8 @@ namespace granary {
 
         printf("Number of basic blocks: %u\n",
             NUM_BBS.load());
-        printf("Number of application instruction bytes: %u\n",
+        printf("Number of application instruction bytes: %u\n\n",
             NUM_BB_INSTRUCTION_BYTES.load());
-        printf("Number of patch/stub instruction bytes: %u\n",
-            NUM_BB_PATCH_BYTES.load());
-        printf("Number of state bytes: %u\n\n",
-            NUM_BB_STATE_BYTES.load());
 
         printf("Number of indirect JMPs: %u\n",
             NUM_INDIRECT_JMPS.load());
