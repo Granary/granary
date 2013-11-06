@@ -500,6 +500,8 @@ else
 	
 	# Kernel-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/module.o
+	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/syscall.o
+	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/mm.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/user_address.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/wrappers.o

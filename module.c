@@ -484,12 +484,13 @@ enum {
     FRAGMENT_CACHE_MAX_SIZE = CODE_CACHE_SIZE - _1_MB,
 
     // Keep this consistent with `granary/state.h`,
-    // fragment_allocator_config::SLAB_SIZE
-    FRAGMENT_SLAB_SIZE = _1_P * 8,
+    // `fragment_allocator_config::SLAB_SIZE`
+    FRAGMENT_SLAB_SIZE = _1_P * 4,
 
     // Maximum number of fragment slabs.
     MAX_NUM_FRAGMENT_SLABS = FRAGMENT_CACHE_MAX_SIZE / FRAGMENT_SLAB_SIZE
 };
+
 
 /// Allocate a "fake" module that will serve as a lasting memory zone for
 /// executable allocations.

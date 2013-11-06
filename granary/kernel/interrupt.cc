@@ -626,6 +626,7 @@ namespace granary {
         instruction_list ls;
         const bool vec_has_error_code(has_error_code(vector_num));
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
 
         // This makes it convenient to find top of the ISF from the common

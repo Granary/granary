@@ -10,6 +10,7 @@
 #define GRANARY_IBL_H_
 
 #include "granary/globals.h"
+#include "granary/instruction.h"
 
 namespace granary {
 

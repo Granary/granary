@@ -308,10 +308,18 @@ namespace granary {
                 goto ready_to_patch;
             }
         }
+        USED(context);
 
         ASSERT(false);
 
     ready_to_patch:
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        // Inherit this basic block's allocator from our predecessor basic
+        // block.
+        basic_block source_bb(patch_address);
+        cpu->current_fragment_allocator = source_bb.info->allocator;
+#endif
 
         // Make sure that the patch target will fit on one cache line. We will
         // use `5` as the magic number for instruction size, as that's typical
@@ -1189,7 +1197,6 @@ namespace granary {
                     CONFIG_MIN_CACHE_LINE_SIZE - cache_line_offset);
                 ASSERT(8 > forward_align);
                 insert_nops_after(ls, in.prev(), forward_align);
-                IF_PERF( perf::visit_align_nop(forward_align); );
                 in_size += forward_align;
             }
 

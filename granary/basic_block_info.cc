@@ -107,6 +107,8 @@ namespace granary {
             data = allocate_memory<basic_block_info>();
         }
 #   else
+        UNUSED(num_state_bytes);
+
         basic_block_info *data(allocate_memory<basic_block_info>());
         state_bytes = nullptr;
 #   endif

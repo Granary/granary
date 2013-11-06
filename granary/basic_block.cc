@@ -762,17 +762,17 @@ namespace granary {
 
         mangler.mangle();
 
-        cpu->fragment_allocator.lock_coarse();
+        cpu->current_fragment_allocator->lock_coarse();
 
         // Guarantee enough space to allocate the instructions of this basic
         // block so that we can get an exact estimator pc for the beginning of
         // the basic block. This estimator pc will tell us the current cache
         // line alignment of the beginning of the basic block, which will allow
         // us to properly align hot-patchable instructions.
-        cpu->fragment_allocator.allocate_array<uint8_t>(estimate_max_size(ls));
-        cpu->fragment_allocator.free_last();
+        cpu->current_fragment_allocator->allocate_array<uint8_t>(estimate_max_size(ls));
+        cpu->current_fragment_allocator->free_last();
         const uintptr_t estimator_addr(reinterpret_cast<uintptr_t>(
-            cpu->fragment_allocator.allocate_staged<uint8_t>()));
+            cpu->current_fragment_allocator->allocate_staged<uint8_t>()));
 
         // Align all hot-patchable instructions, and get the size of the
         // instruction list.
@@ -780,7 +780,7 @@ namespace granary {
             estimator_addr % CONFIG_MIN_CACHE_LINE_SIZE));
 
         uint8_t *generated_pc(
-            cpu->fragment_allocator.allocate_array<uint8_t>(size));
+            cpu->current_fragment_allocator->allocate_array<uint8_t>(size));
 
         basic_block_info *info(nullptr);
         IF_KERNEL( uint8_t *delay_states(nullptr); )
@@ -806,26 +806,40 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
         info->user_exception_metadata = user_exception_metadata;
+#   if CONFIG_ENABLE_INTERRUPT_DELAY
         info->delay_states = delay_states;
         info->num_delay_state_bytes = num_state_bytes;
         if(delay_states) {
             initialise_state_bytes(ls, delay_states, num_state_bytes);
         }
+#   endif
 #endif
 
-        cpu->fragment_allocator.unlock_coarse();
+        cpu->current_fragment_allocator->unlock_coarse();
 
         // Calculate the size of the stubs and then encode the stubs.
-        const unsigned stub_size(patch_stubs.encoded_size());
-        app_pc stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
-        patch_stubs.encode(stub_pc, stub_size);
+        app_pc stub_pc(nullptr);
+        unsigned stub_size(0);
+        if(patch_stubs.length()) {
+            stub_size = patch_stubs.encoded_size();
+            stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
+            patch_stubs.encode(stub_pc, stub_size);
+
+        // Make sure we do even a fake allocation so that next time a basic
+        // block is killed on the CPU, we don't accidentally kill the last
+        // allocated stubs.
+        } else {
+            cpu->stub_allocator.allocate_staged<uint8_t>();
+        }
 
         // Emit the instructions to the code cache.
         IF_TEST( app_pc end_pc = ) ls.encode(generated_pc, size);
 
         // Re-encode the instruction list to resolve the circular dependencies.
-        memset(stub_pc, 0xCC, stub_size);
-        patch_stubs.encode(stub_pc, stub_size);
+        if(patch_stubs.length()) {
+            memset(stub_pc, 0xCC, stub_size);
+            patch_stubs.encode(stub_pc, stub_size);
+        }
 
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.
@@ -838,10 +852,6 @@ namespace granary {
         ASSERT((generated_pc + size) == end_pc);
         ASSERT(bb_begin.pc() == generated_pc);
         ASSERT(bb_begin.pc() == ret.cache_pc_start);
-
-        USED(generated_pc);
-        USED(size);
-        USED(end_pc);
 
         IF_PERF( perf::visit_encoded(ret); )
 

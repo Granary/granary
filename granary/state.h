@@ -58,13 +58,18 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 8,
+                SLAB_SIZE = PAGE_SIZE * 4,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
-                MIN_ALIGN = 1 // two basic blocks can be contiguous
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+                MIN_ALIGN = 1 // Two basic blocks can be contiguous.
+#else
+                MIN_ALIGN = 16 // Seems to result in few alignment NOPs.
+#endif
             };
         };
 
@@ -166,6 +171,10 @@ namespace granary {
 #endif
 
 
+    typedef bump_pointer_allocator<detail::fragment_allocator_config>
+            generic_fragment_allocator;
+
+
     /// Information maintained by granary about each CPU.
     ///
     /// Note: when in kernel space, we assume that this state
@@ -226,8 +235,8 @@ namespace granary {
 
 
         /// The code cache allocator for this CPU.
-        bump_pointer_allocator<detail::fragment_allocator_config>
-            fragment_allocator;
+        generic_fragment_allocator fragment_allocator;
+        generic_fragment_allocator *current_fragment_allocator;
 
 
         /// The stub allocator for this CPU.

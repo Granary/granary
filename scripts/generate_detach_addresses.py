@@ -6,6 +6,7 @@ Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
 import sys
+from syscalls import *
 
 SYMBOLS = set()
 FOUND_SYMBOLS = {}
@@ -30,6 +31,8 @@ if "__main__" == __name__:
     "rcu_process_callbacks", "flush_tlb_mm_range", "printk",
     "__schedule_bug", "show_fault_oops", "__stack_chk_fail",
   ])
+  EXTRA_SYMBOLS.update(SYSCALL_NAMES)
+  
   MISSING_EXTRA_SYMBOLS = set()
   for sym in EXTRA_SYMBOLS:
     if sym not in SYMBOLS:

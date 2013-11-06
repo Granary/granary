@@ -187,18 +187,19 @@ namespace granary {
             {
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
-                cpu.free_transient_allocators();
+                enter(cpu);
                 CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
             }
             granary_store_flags(flags);
 #endif
 #if CONFIG_INSTRUMENT_HOST
+
             // Create this CPUs SYSCALL entry point.
             flags = granary_disable_interrupts();
             {
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
-                cpu.free_transient_allocators();
+                enter(cpu);
                 CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
                     CPU_STATES[i]->native_msr_lstar);
             }
@@ -218,9 +219,6 @@ namespace granary {
 
         UNUSED(flags);
     }
-
-
-
 
 
     /// Note: thread_state_handle::thread_state_handle and ::init are in the

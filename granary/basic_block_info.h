@@ -13,6 +13,7 @@
 
 namespace granary {
 
+
     /// Forward declarations.
     struct basic_block_info;
 

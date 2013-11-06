@@ -11,9 +11,9 @@
 #include "granary/globals.h"
 #include "granary/policy.h"
 #include "granary/detach.h"
+#include "granary/state.h"
 
 namespace granary {
-
 
     /// Forward declarations.
     struct basic_block;
@@ -77,6 +77,9 @@ namespace granary {
         /// in it? If so, then this is an offset from the address of this field
         /// to a pointer to a kernel exception table entry.
         IF_KERNEL( void *user_exception_metadata; )
+
+        /// What was the allocator used to create this basic block?
+        generic_fragment_allocator *allocator;
 
     } __attribute__((packed));
 

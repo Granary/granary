@@ -312,8 +312,6 @@ namespace granary {
 #endif
         }
 
-    private:
-
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
         inline void indirect_cti_target(bool val=true) throw() {

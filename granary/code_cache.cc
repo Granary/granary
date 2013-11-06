@@ -245,11 +245,11 @@ namespace granary {
                 client::discard_basic_block(*created_bb_state);
 
                 // Try to clean up the shared memory.
-                cpu->fragment_allocator.lock_coarse();
+                cpu->current_fragment_allocator->lock_coarse();
                 if(try_remove_basic_block_info(target_addr)) {
-                    cpu->fragment_allocator.free_last();
+                    cpu->current_fragment_allocator->free_last();
                 }
-                cpu->fragment_allocator.unlock_coarse();
+                cpu->current_fragment_allocator->unlock_coarse();
 
                 // Try to clean up the private memory.
                 cpu->stub_allocator.free_last();

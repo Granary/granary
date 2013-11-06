@@ -77,7 +77,7 @@
 /// interrupts, this will affect performance because if both are disabled then
 /// Granary will mostly get out of the way
 #if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_INTERRUPT_DELAY 1
+#   define CONFIG_ENABLE_INTERRUPT_DELAY 0
 #else
 #   define CONFIG_ENABLE_INTERRUPT_DELAY 0 // can't change in user space
 #endif
@@ -108,7 +108,9 @@
 #define CONFIG_ENABLE_DIRECT_RETURN GRANARY_IN_KERNEL
 
 
-/// Should execution be traced?
+/// Should execution be traced? This is a debugging option, not to be confused
+/// with the trace allocator or trace building, where we record the entry PCs
+/// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_TRACE_EXECUTION 0
 #define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
@@ -119,11 +121,17 @@
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
 
+/// Enable the trace allocator? The trace allocator tries to approximate trace
+/// building by having a basic block fragment allocated in the same slab (if
+/// possible) as its successor basic block.
+#define CONFIG_ENABLE_TRACE_ALLOCATOR 0
+
+
 /// Enable performance counters and reporting. Performance counters measure
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable profiling of indirect jumps and indirect calls.
@@ -163,7 +171,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
+#define CONFIG_ENABLE_ASSERTIONS 0
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
