@@ -114,7 +114,6 @@ namespace granary {
 
 
     /// Hash table of previously constructed IBL entry stubs.
-    static static_data<locked_hash_table<ibl_stub_key, app_pc>> IBL_STUBS;
     static operand reg_target_addr; // arg1, rdi
     static operand reg_target_addr_16; // arg1_16, di
 
@@ -122,34 +121,22 @@ namespace granary {
     STATIC_INITIALISE_ID(ibl_stub_table, {
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
-        IBL_STUBS.construct();
     })
 
 
     /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
     /// The purpose of the stub is to set up the registers and stack in a
     /// canonical way for entry into the indirect branch lookup routine.
-    app_pc instruction_list_mangler::ibl_entry_routine(
+    void instruction_list_mangler::mangle_ibl_lookup(
+        instruction_list &ibl,
+        instruction in,
         instrumentation_policy target_policy,
         operand target,
         ibl_entry_kind ibl_kind
         _IF_PROFILE_IBL( app_pc cti_addr )
     ) throw() {
 
-        const ibl_stub_key key = {
-            target_policy.encode(),
-            target
-        };
-
-        // Don't re-build this IBL entry stub if we've already built it.
-        app_pc ret(nullptr);
-        if(IBL_STUBS->load(key, ret)) {
-            return ret;
-        }
-
-        instruction_list ibl(INSTRUCTION_LIST_GENCODE);
         int stack_offset(0);
-        IF_PERF( const unsigned num_instruction(ibl.length()); )
 
         if(IBL_ENTRY_RETURN == ibl_kind) {
 
@@ -177,10 +164,10 @@ namespace granary {
         // by 8 bytes less than the redzone size, so that the return address
         // itself "extends" the redzone by those 8 bytes.
         if(stack_offset) {
-            ibl.append(lea_(reg::rsp, reg::rsp[-stack_offset]));
+            ibl.insert_before(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
         }
 
-        ibl.append(push_(reg_target_addr));
+        ibl.insert_before(in, push_(reg_target_addr));
         stack_offset += 8;
 
         // If this was a call, then the stack offset was also shifted by
@@ -276,30 +263,11 @@ namespace granary {
 
             next_tail_in = tail_in.next();
             tail_bb.remove(tail_in);
-            ibl.append(tail_in);
+            ibl.insert_before(in, tail_in);
         }
 
-        // Jump off to the more heavy-weight lookup routines.
-        ibl_lookup_stub(ibl, target_policy _IF_PROFILE_IBL(cti_addr));
-
-        // Double-check before encoding.
-        if(IBL_STUBS->load(key, ret)) {
-            return ret;
-        }
-
-        IF_PERF( perf::visit_ibl_stub(ibl.length() - num_instruction); )
-
-        // Encode.
-        const unsigned size(ibl.encoded_size());
-        ret = global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(size);
-        ibl.encode(ret, size);
-
-        // Store the IBL pre-entry routine. If it's already there then we'll
-        // leak a bit of memory. We put this into the global fragment allocator
-        // so that it appears as gencode.
-        IBL_STUBS->store(key, ret);
-
-        return ret;
+        // Extend the basic block with the IBL lookup stub.
+        ibl_lookup_stub(ibl, in, target_policy _IF_PROFILE_IBL(cti_addr));
     }
 
 
@@ -698,33 +666,37 @@ namespace granary {
     ) throw() {
         if(in.is_call()) {
 
+            instruction call_target(stub_ls.append(label_()));
+            instruction insert_point(stub_ls.append(label_()));
+
             IF_PERF( perf::visit_mangle_indirect_call(); )
-            app_pc routine(ibl_entry_routine(
-                target_policy, target,
-                IBL_ENTRY_CALL _IF_PROFILE_IBL(in.pc())));
-            in.replace_with(mangled(call_(pc_(routine))));
+            mangle_ibl_lookup(
+                stub_ls, insert_point, target_policy, target,
+                IBL_ENTRY_CALL _IF_PROFILE_IBL(in.pc()));
+
+            ls.insert_before(in, mangled(call_(instr_(call_target))));
+            ls.remove(in);
 
         } else if(in.is_return()) {
             IF_PERF( perf::visit_mangle_return(); )
-
 #if !CONFIG_ENABLE_DIRECT_RETURN
             if(!policy.return_address_is_in_code_cache()) {
 
                 // TODO: handle RETn/RETf with a byte count.
                 ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
 
-                app_pc routine(ibl_entry_routine(
-                    target_policy, target,
-                    IBL_ENTRY_RETURN _IF_PROFILE_IBL(in.pc())));
-                in.replace_with(mangled(jmp_(pc_(routine))));
+                mangle_ibl_lookup(
+                    ls, in, target_policy, target,
+                    IBL_ENTRY_RETURN _IF_PROFILE_IBL(in.pc()));
+                ls.remove(in);
             }
 #endif
         } else {
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
-            app_pc routine(ibl_entry_routine(
-                target_policy, target,
-                IBL_ENTRY_JMP _IF_PROFILE_IBL(in.pc())));
-            in.replace_with(mangled(jmp_(pc_(routine))));
+            mangle_ibl_lookup(
+                ls, in, target_policy, target,
+                IBL_ENTRY_JMP _IF_PROFILE_IBL(in.pc()));
+            ls.remove(in);
         }
     }
 

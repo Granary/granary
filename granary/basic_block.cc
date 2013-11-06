@@ -771,13 +771,13 @@ namespace granary {
         // us to properly align hot-patchable instructions.
         cpu->fragment_allocator.allocate_array<uint8_t>(estimate_max_size(ls));
         cpu->fragment_allocator.free_last();
-        const uint8_t *estimator_pc(
-            cpu->fragment_allocator.allocate_staged<uint8_t>());
+        const uintptr_t estimator_addr(reinterpret_cast<uintptr_t>(
+            cpu->fragment_allocator.allocate_staged<uint8_t>()));
 
         // Align all hot-patchable instructions, and get the size of the
         // instruction list.
         const unsigned size(mangler.align(
-            reinterpret_cast<uintptr_t>(estimator_pc) % CONFIG_MIN_CACHE_LINE_SIZE));
+            estimator_addr % CONFIG_MIN_CACHE_LINE_SIZE));
 
         uint8_t *generated_pc(
             cpu->fragment_allocator.allocate_array<uint8_t>(size));

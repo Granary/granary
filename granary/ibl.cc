@@ -105,6 +105,7 @@ namespace granary {
     /// code cache lookup).
     void ibl_lookup_stub(
         instruction_list &ibl,
+        instruction in,
         instrumentation_policy policy
         _IF_PROFILE_IBL( app_pc cti_addr )
     ) throw() {
@@ -114,22 +115,22 @@ namespace granary {
         //      reg_target_addr         (saved: arg1)
 
         // Mangle the target address.
-        ibl.append(bswap_(reg_target_addr));
-        ibl.append(mov_imm_(
+        ibl.insert_before(in, bswap_(reg_target_addr));
+        ibl.insert_before(in, mov_imm_(
             reg_target_addr_16,
             int16_((int64_t) (int16_t) granary_bswap16(policy.encode()))));
-        ibl.append(bswap_(reg_target_addr));
+        ibl.insert_before(in, bswap_(reg_target_addr));
 
 #if CONFIG_PROFILE_IBL
         // Spill the source address for use by the IBL profiling.
-        ibl.append(push_(reg_source_addr));
-        ibl.append(mov_imm_(
+        ibl.insert_before(in, push_(reg_source_addr));
+        ibl.insert_before(in, mov_imm_(
             reg_source_addr,
             int64_(reinterpret_cast<uint64_t>(cti_addr))));
 #endif
 
         // Jump to the lookup routine.
-        ibl.append(jmp_(pc_(IBL_JUMP_ROUTINE)));
+        ibl.insert_before(in, mangled(jmp_(pc_(IBL_JUMP_ROUTINE))));
     }
 
 

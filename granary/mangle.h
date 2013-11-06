@@ -110,7 +110,9 @@ namespace granary {
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup routine.
-        app_pc ibl_entry_routine(
+        void mangle_ibl_lookup(
+            instruction_list &insertion_list,
+            instruction insertion_point,
             instrumentation_policy target_policy,
             operand target,
             ibl_entry_kind ibl_kind

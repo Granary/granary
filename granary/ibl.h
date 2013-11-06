@@ -30,6 +30,7 @@ namespace granary {
     /// address is in the CPU-private code cache.
     void ibl_lookup_stub(
         instruction_list &ibl,
+        instruction in,
         instrumentation_policy policy
         _IF_PROFILE_IBL( app_pc cti_addr )
     ) throw();
