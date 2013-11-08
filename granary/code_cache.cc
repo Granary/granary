@@ -205,6 +205,18 @@ namespace granary {
 #endif
         }
 
+#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_FUNCTIONAL_UNITS
+        // If this basic block begins a new functional unit then locate its
+        // basic blocks in a new allocator.
+        if(policy.is_beginning_of_functional_unit()) {
+            IF_PERF( perf::visit_functional_unit(); )
+            cpu->current_fragment_allocator = \
+                allocate_memory<generic_fragment_allocator>();
+        }
+#endif
+
+        cpu->current_fragment_allocator->lock_coarse(IF_TEST(cpu->id));
+
         // If we don't have a target yet then translate the target assuming it's
         // app or host code.
         bool created_bb(false);
@@ -245,11 +257,9 @@ namespace granary {
                 client::discard_basic_block(*created_bb_state);
 
                 // Try to clean up the shared memory.
-                cpu->current_fragment_allocator->lock_coarse();
                 if(try_remove_basic_block_info(target_addr)) {
                     cpu->current_fragment_allocator->free_last();
                 }
-                cpu->current_fragment_allocator->unlock_coarse();
 
                 // Try to clean up the private memory.
                 cpu->stub_allocator.free_last();
@@ -264,6 +274,8 @@ namespace granary {
                 client::commit_to_basic_block(*created_bb_state);
             }
         }
+
+        cpu->current_fragment_allocator->unlock_coarse();
 
         // Propagate the base target to the CPU-private code cache.
         cpu->code_cache.store(base_addr.as_address, target_addr);

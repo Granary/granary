@@ -124,6 +124,7 @@ namespace granary {
 
         /// The last person who allocated.
         IF_TEST( const void *last_allocator; )
+        IF_TEST( int curr_owner_cpu_id; )
 
 
         /// Acquire a lock on the allocator.
@@ -305,6 +306,7 @@ namespace granary {
             return ret;
         }
 
+
         /// Free a list of bump_pointer_slabs.
         static void free_slab_list(bump_pointer_slab *list) throw() {
             for(bump_pointer_slab *next(nullptr); list; list = next) {
@@ -331,8 +333,10 @@ namespace granary {
             , free(nullptr)
             , lock()
             , last_allocation_size(0)
+            , last_allocation(nullptr)
             , last_allocation_slab(nullptr)
             _IF_TEST( last_allocator(nullptr) )
+            _IF_TEST( curr_owner_cpu_id(-1) )
         { }
 
         ~bump_pointer_allocator(void) throw() {
@@ -410,11 +414,11 @@ namespace granary {
 
         /// Free the last thing allocated. If that thing needed to be aligned
         /// then the alignment space is not freed.
+        ///
+        /// If this is a shared allocator, or if the allocator isn't shared but
+        /// follows a locking discipline that uses `lock_coarse` (coarse-grained
+        /// allocator locking) then this function should be used VERY carefully.
         void free_last(void) throw() {
-            if(IS_SHARED) {
-                FAULT;
-            }
-
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
@@ -486,18 +490,26 @@ namespace granary {
         /// to mark an allocator as non-shared (even when it is), but do coarse-
         /// grained locking across multiple operations, rather than fine-grained
         /// locking around individual operations.
-        void lock_coarse(void) throw() {
+        void lock_coarse(IF_TEST(int cpu_id)) throw() {
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
             if(!IS_SHARED) {
                 lock.acquire();
+                IF_TEST( curr_owner_cpu_id = cpu_id; )
             }
+#elif CONFIG_ENABLE_ASSERTIONS
+            UNUSED(cpu_id);
+#endif
         }
 
 
         /// Release the coarse-grained lock.
         void unlock_coarse(void) throw() {
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
             if(!IS_SHARED) {
+                IF_TEST( curr_owner_cpu_id = -1; )
                 lock.release();
             }
+#endif
         }
     };
 

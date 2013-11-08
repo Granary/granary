@@ -296,11 +296,13 @@ static void set_page_perms(
 
 /// Set a module's text to be non-executable
 static void module_set_exec_perms(struct kernel_module *module) {
+    (void) module;
+    /*
     set_page_perms(
         set_memory_nx,
         module->text_begin,
         module->text_end
-    );
+    ); */
 }
 
 
@@ -485,7 +487,7 @@ enum {
 
     // Keep this consistent with `granary/state.h`,
     // `fragment_allocator_config::SLAB_SIZE`
-    FRAGMENT_SLAB_SIZE = _1_P * 4,
+    FRAGMENT_SLAB_SIZE = _1_P,
 
     // Maximum number of fragment slabs.
     MAX_NUM_FRAGMENT_SLABS = FRAGMENT_CACHE_MAX_SIZE / FRAGMENT_SLAB_SIZE

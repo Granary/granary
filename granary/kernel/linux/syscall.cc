@@ -12,7 +12,9 @@
 #include "granary/policy.h"
 #include "granary/code_cache.h"
 
-#if CONFIG_INSTRUMENT_HOST && CONFIG_ENABLE_TRACE_ALLOCATOR
+#if CONFIG_ENABLE_TRACE_ALLOCATOR \
+&& !CONFIG_TRACE_FUNCTIONAL_UNITS \
+&& !CONFIG_TRACE_CPUS
 
 namespace granary {
 
@@ -37,12 +39,12 @@ namespace granary {
         // Set up the CTI; we already know it will be indirectly JMP/CALLed to
         // by the system call entrypoint so we deal with those properties here
         // as well.
-        instrumentation_policy policy(START_POLICY);
-        policy.indirect_cti_target(true);
-        mangled_address am(addr, policy);
+        //instrumentation_policy policy(START_POLICY);
+        //policy.indirect_cti_target(true);
+        //mangled_address am(addr, policy);
 
         // Add the basic block.
-        code_cache::find(cpu, am);
+        code_cache::find(cpu, mangled_address(addr, START_POLICY));
     }
 
 

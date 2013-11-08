@@ -58,18 +58,13 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 4,
+                SLAB_SIZE = PAGE_SIZE,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
-
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
-                MIN_ALIGN = 1 // Two basic blocks can be contiguous.
-#else
-                MIN_ALIGN = 16 // Seems to result in few alignment NOPs.
-#endif
+                MIN_ALIGN = CONFIG_MIN_CACHE_LINE_SIZE
             };
         };
 
@@ -181,6 +176,8 @@ namespace granary {
     /// 	  is only accessed with interrupts disabled.
     struct cpu_state : public client::cpu_state {
     public:
+
+        unsigned id;
 
         IF_TEST( void *last_find_address; )
 

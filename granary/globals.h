@@ -51,7 +51,7 @@
 /// latency because Granary won't add in additional code on each interrupt
 /// invocation.
 #if GRANARY_IN_KERNEL
-#   define CONFIG_HANDLE_INTERRUPTS 1
+#   define CONFIG_HANDLE_INTERRUPTS 0
 #else
 #   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
 #endif
@@ -67,7 +67,7 @@
 
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
 #else
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
@@ -127,11 +127,21 @@
 #define CONFIG_ENABLE_TRACE_ALLOCATOR 0
 
 
+/// Should all functional units be treated as distinct traces? This results in
+/// code being grouped into functions.
+#define CONFIG_TRACE_FUNCTIONAL_UNITS 0
+
+
+/// Should the trace allocator be based on CPU allocators? This results in traces
+/// with respect to CPU allocators.
+#define CONFIG_TRACE_CPUS 0
+
+
 /// Enable performance counters and reporting. Performance counters measure
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_ENABLE_PERF_COUNTS 1
 
 
 /// Enable profiling of indirect jumps and indirect calls.

@@ -78,8 +78,10 @@ namespace granary {
         /// to a pointer to a kernel exception table entry.
         IF_KERNEL( void *user_exception_metadata; )
 
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
         /// What was the allocator used to create this basic block?
         generic_fragment_allocator *allocator;
+#endif
 
     } __attribute__((packed));
 

@@ -183,6 +183,8 @@ def should_include_unit(unit_decls, unit_toks, is_typedef):
   for ctype, name in unit_decls:
     if name:
       base_type = ctype.base_type()
+
+      # Variable
       if not isinstance(base_type, CTypeFunction):
         return False
 

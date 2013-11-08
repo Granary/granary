@@ -115,8 +115,8 @@ namespace granary {
             instruction insertion_point,
             instrumentation_policy target_policy,
             operand target,
-            ibl_entry_kind ibl_kind
-            _IF_PROFILE_IBL( app_pc cti_in )
+            ibl_entry_kind ibl_kind,
+            app_pc cti_in
         ) throw();
 
 
@@ -128,7 +128,8 @@ namespace granary {
             basic_block_state &bb_,
             instruction_list &ls_,
             instruction_list &stub_ls_,
-            instrumentation_policy policy_
+            instrumentation_policy policy_,
+            const_app_pc
         ) throw();
 
 

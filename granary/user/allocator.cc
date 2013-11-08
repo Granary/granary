@@ -69,7 +69,7 @@ namespace granary { namespace detail {
 
         // Keep this consistent with `granary/state.h`,
         // fragment_allocator_config::SLAB_SIZE
-        FRAGMENT_SLAB_SIZE = _1_P * 8,
+        FRAGMENT_SLAB_SIZE = fragment_allocator_config::SLAB_SIZE,
 
         // Maximum number of fragment slabs.
         MAX_NUM_FRAGMENT_SLABS = FRAGMENT_CACHE_MAX_SIZE / FRAGMENT_SLAB_SIZE

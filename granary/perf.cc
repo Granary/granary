@@ -61,6 +61,12 @@ namespace granary {
     static std::atomic<unsigned> NUM_RBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
 
 
+    /// Track the number of functional units (as determined by the temporary
+    /// policy property). This can influence the trace allocator, if it's
+    /// enabled.
+    static std::atomic<unsigned> NUM_FUNCTIONAL_UNITS(ATOMIC_VAR_INIT(0U));
+
+
     /// Performance counters for tracking instructions added in order to mangle
     /// memory references.
     static std::atomic<unsigned> NUM_MEM_REF_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
@@ -225,6 +231,11 @@ namespace granary {
     }
 
 
+    void perf::visit_functional_unit(void) throw() {
+        NUM_FUNCTIONAL_UNITS.fetch_add(1);
+    }
+
+
 #if GRANARY_IN_KERNEL
     void perf::visit_interrupt(void) throw() {
         NUM_INTERRUPTS.fetch_add(1);
@@ -271,6 +282,8 @@ namespace granary {
 
         printf("Number of basic blocks: %u\n",
             NUM_BBS.load());
+        printf("Number of functional units: %u\n",
+            NUM_FUNCTIONAL_UNITS.load());
         printf("Number of application instruction bytes: %u\n\n",
             NUM_BB_INSTRUCTION_BYTES.load());
 

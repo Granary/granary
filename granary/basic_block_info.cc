@@ -15,7 +15,9 @@ namespace granary {
 
     enum {
         SLAB_SIZE = detail::fragment_allocator_config::SLAB_SIZE,
-        MAX_BBS_PER_SLAB = SLAB_SIZE / 16
+        BB_ALIGN_ = detail::fragment_allocator_config::MIN_ALIGN,
+        BB_ALIGN = 1 == BB_ALIGN_ ? 16 : BB_ALIGN_,
+        MAX_BBS_PER_SLAB = (SLAB_SIZE / BB_ALIGN) + 1
     };
 
 

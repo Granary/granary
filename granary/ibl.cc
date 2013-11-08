@@ -54,50 +54,6 @@ namespace granary {
 
 
     static app_pc GLOBAL_CODE_CACHE_ROUTINE = nullptr;
-    static app_pc IBL_JUMP_ROUTINE = nullptr;
-
-    static void make_ibl_jump_routine(void) throw() {
-        instruction_list ibl;
-
-        // On the stack:
-        //      redzone                 (cond. saved user space)
-        //      reg_target_addr         (saved: arg1, mangled target address)
-        //      source addr             (cond. saved: IBL profiling)
-
-        // Spill RAX (reg_table_entry_addr) and then save the flags onto the
-        // stack now that rax can be killed.
-        ibl.append(push_(reg::rax));
-
-        // Save the flags.
-        insert_save_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-
-        const uintptr_t jump_table_base(
-            reinterpret_cast<uintptr_t>(IBL_JUMP_TABLE));
-        ibl.append(mov_imm_(reg::rax, int64_(jump_table_base)));
-
-        // Store the unmangled address into %rax.
-        ibl.append(mov_ld_(reg::ax, reg_target_addr_16));
-        ibl.append(shr_(reg::ax, int8_(5)));
-        ibl.append(shl_(reg::ax, int8_(3)));
-
-        const uint8_t jump_table_mask(((jump_table_base >> 8) & 0xFFU));
-        if(jump_table_mask) {
-            ibl.append(or_(
-                reg::ah,
-                int8_((int64_t) (int8_t) jump_table_mask)));
-        }
-
-        IF_PERF( perf::visit_ibl(ibl); )
-
-        // Go off to the
-        ibl.append(jmp_ind_(*reg::rax));
-
-        // Encode.
-        const unsigned size(ibl.encoded_size());
-        IBL_JUMP_ROUTINE = global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(size);
-        ibl.encode(IBL_JUMP_ROUTINE, size);
-    }
 
 
     /// The routine that indirectly jumps to either an IBL exit stub (that
@@ -106,13 +62,18 @@ namespace granary {
     void ibl_lookup_stub(
         instruction_list &ibl,
         instruction in,
-        instrumentation_policy policy
-        _IF_PROFILE_IBL( app_pc cti_addr )
+        instrumentation_policy policy,
+        app_pc cti_addr
     ) throw() {
 
         // On the stack:
         //      redzone                 (cond. saved: user space)
         //      reg_target_addr         (saved: arg1)
+
+        // Spill RAX (reg_table_entry_addr). We defer saving the flags on the
+        // stack so that we can store the source address in RAX, and used it
+        // for hashing.
+        ibl.insert_before(in, push_(reg::rax));
 
         // Mangle the target address.
         ibl.insert_before(in, bswap_(reg_target_addr));
@@ -129,8 +90,36 @@ namespace granary {
             int64_(reinterpret_cast<uint64_t>(cti_addr))));
 #endif
 
-        // Jump to the lookup routine.
-        ibl.insert_before(in, mangled(jmp_(pc_(IBL_JUMP_ROUTINE))));
+        // On the stack:
+        //      redzone                 (cond. saved user space)
+        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      rax
+        //      source addr             (cond. saved: IBL profiling)
+
+        // Save the flags.
+        insert_save_arithmetic_flags_after(ibl, in.prev(), REG_AH_IS_DEAD);
+
+        const uintptr_t jump_table_base(
+            reinterpret_cast<uintptr_t>(IBL_JUMP_TABLE));
+        ibl.insert_before(in, mov_imm_(reg::rax, int64_(jump_table_base)));
+
+        // Hash the target address with part of the source address, and then
+        // convert it into an index.
+        ibl.insert_before(in, mov_ld_(reg::ax, reg_target_addr_16));
+        ibl.insert_before(in, shr_(reg::ax, int8_(5)));
+        ibl.insert_before(in, shl_(reg::ax, int8_(3)));
+
+        const uint8_t jump_table_mask(((jump_table_base >> 8) & 0xFFU));
+        if(jump_table_mask) {
+            ibl.insert_before(in, or_(
+                reg::ah,
+                int8_((int64_t) (int8_t) jump_table_mask)));
+        }
+
+        // Go off to either `code_cache::find` or a target-specific checker.
+        ibl.insert_before(in, mangled(jmp_ind_(*reg::rax)));
+
+        UNUSED(cti_addr);
     }
 
 
@@ -162,8 +151,8 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. saved: user space)
         //      reg_target_addr         (saved: arg1)
-        //      reg_source_addr         (cond. saved: IBL profiling)
         //      rax                     (saved, can be clobbered)
+        //      reg_source_addr         (cond. saved: IBL profiling)
         //      aithmetic flags         (saved)
         ibl.append(mov_imm_(
             reg::rax, int64_(reinterpret_cast<uint64_t>(mangled_target_pc))));
@@ -204,6 +193,7 @@ namespace granary {
 
         // Hit! We found the right target.
         insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
+        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
         ibl.append(pop_(reg::rax));
 
         // CASE 2: The compare from case (1) succeeded, or we're coming in from
@@ -212,9 +202,7 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. user space)
         //      reg_target_addr         (saved: arg1)
-        //      reg_source_addr         (cond. saved: IBL profiling)
         ibl.append(ibl_hit_from_code_cache_find);
-        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
         ibl.append(pop_(reg_target_addr));
         IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
 
@@ -268,9 +256,9 @@ namespace granary {
         // On the stack:
         //      redzone                 (cond. saved if user space)
         //      reg_target_addr         (saved: arg1, mangled address)
-        //      reg_source_addr         (cond. saved: IBL profiling)
         //      rax                     (saved: can be clobbered)
         //      arithmetic flags        (saved)
+        //      reg_source_addr         (cond. saved: IBL profiling)
 
         IF_KERNEL( insert_restore_arithmetic_flags_after(
             ibl, ibl.last(), REG_AH_IS_DEAD); )
@@ -324,6 +312,9 @@ namespace granary {
             ibl, ibl.last(), REG_AH_IS_DEAD); )
         IF_KERNEL( insert_restore_flags_after(
             ibl, ibl.last(), REG_AH_IS_DEAD); )
+
+        // Restore the source address if profiling.
+        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
 
         ibl.append(pop_(reg::rax));
 
@@ -380,9 +371,6 @@ namespace granary {
         for(unsigned i(0); i < NUM_IBL_JUMP_TABLE_ENTRIES; ++i) {
             IBL_JUMP_TABLE[i] = GLOBAL_CODE_CACHE_ROUTINE;
         }
-
-        // Make the jump table lookup + hash routine.
-        make_ibl_jump_routine();
     });
 
 }

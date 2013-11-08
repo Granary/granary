@@ -26,11 +26,6 @@ namespace granary {
 
     enum {
 
-        /// Maximum size in bytes of a decoded basic block. This relates to
-        /// *decoding* only and not the resulting size of a basic block after
-        /// translation.
-        BB_MAX_SIZE_BYTES = detail::fragment_allocator_config::SLAB_SIZE / 4,
-
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
         /// compression ratio of the instruction bytes to the state set bytes
         BB_BYTE_STATES_PER_BYTE = 4,
@@ -479,16 +474,6 @@ namespace granary {
         in.set_pc(start_pc);
 
         for(;;) {
-
-            // Very big basic block; cut it short and connect it with a tail.
-            // we do this test *before* decoding the next instruction because
-            // `instruction::decode` modifies `pc`, and `pc` is used to
-            // determine the fall-through target.
-            if(byte_len > BB_MAX_SIZE_BYTES) {
-                fall_through_pc = true;
-                break;
-            }
-
             in = instruction::decode(pc);
 
             // TODO: curiosity.
@@ -749,27 +734,28 @@ namespace granary {
         trace_log::log_execution(ls);
 #endif
 
-        instruction bb_begin(ls.prepend(label_()));
+        const_app_pc estimator_pc(
+            cpu->current_fragment_allocator->allocate_staged<uint8_t>());
 
         // Prepare the instructions for final execution; this does instruction-
         // specific translations needed to make the code sane/safe to run.
         // mangling uses `client_policy` as opposed to `policy` so that CTIs
         // are mangled to transfer control to the (potentially different) client
         // policy.
+        instruction bb_begin(ls.prepend(label_()));
         instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
         instruction_list_mangler mangler(
-            cpu, *state, ls, patch_stubs, client_policy);
+            cpu, *state, ls, patch_stubs, client_policy, estimator_pc);
 
         mangler.mangle();
-
-        cpu->current_fragment_allocator->lock_coarse();
 
         // Guarantee enough space to allocate the instructions of this basic
         // block so that we can get an exact estimator pc for the beginning of
         // the basic block. This estimator pc will tell us the current cache
         // line alignment of the beginning of the basic block, which will allow
         // us to properly align hot-patchable instructions.
-        cpu->current_fragment_allocator->allocate_array<uint8_t>(estimate_max_size(ls));
+        cpu->current_fragment_allocator->allocate_array<uint8_t>(
+            estimate_max_size(ls));
         cpu->current_fragment_allocator->free_last();
         const uintptr_t estimator_addr(reinterpret_cast<uintptr_t>(
             cpu->current_fragment_allocator->allocate_staged<uint8_t>()));
@@ -804,6 +790,10 @@ namespace granary {
         info->generating_num_instructions = num_decoded_instructions;
         info->state = state;
 
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        info->allocator = cpu->current_fragment_allocator;
+#endif
+
 #if GRANARY_IN_KERNEL
         info->user_exception_metadata = user_exception_metadata;
 #   if CONFIG_ENABLE_INTERRUPT_DELAY
@@ -814,8 +804,6 @@ namespace granary {
         }
 #   endif
 #endif
-
-        cpu->current_fragment_allocator->unlock_coarse();
 
         // Calculate the size of the stubs and then encode the stubs.
         app_pc stub_pc(nullptr);

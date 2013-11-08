@@ -132,8 +132,8 @@ namespace granary {
         instruction in,
         instrumentation_policy target_policy,
         operand target,
-        ibl_entry_kind ibl_kind
-        _IF_PROFILE_IBL( app_pc cti_addr )
+        ibl_entry_kind ibl_kind,
+        app_pc cti_addr
     ) throw() {
 
         int stack_offset(0);
@@ -248,7 +248,7 @@ namespace granary {
             tail_policy.instrument(cpu, bb, tail_bb);
 
             instruction_list_mangler sub_mangler(
-                cpu, bb, tail_bb, stub_ls, policy);
+                cpu, bb, tail_bb, stub_ls, policy, estimator_pc);
             sub_mangler.mangle();
         }
 
@@ -267,7 +267,7 @@ namespace granary {
         }
 
         // Extend the basic block with the IBL lookup stub.
-        ibl_lookup_stub(ibl, in, target_policy _IF_PROFILE_IBL(cti_addr));
+        ibl_lookup_stub(ibl, in, target_policy, cti_addr);
     }
 
 
@@ -294,7 +294,6 @@ namespace granary {
 
         // Get an address into the target basic block using two stage lookup.
         app_pc ret_pc(context->return_address_into_patch_tail);
-        app_pc target_pc(code_cache::find(cpu, context->target_address));
 
         // Determine the address to patch; this decodes the *tail* of the patch
         // code in the basic block and looks for a CTI (assumed jmp) and takes
@@ -308,7 +307,6 @@ namespace granary {
                 goto ready_to_patch;
             }
         }
-        USED(context);
 
         ASSERT(false);
 
@@ -318,8 +316,11 @@ namespace granary {
         // Inherit this basic block's allocator from our predecessor basic
         // block.
         basic_block source_bb(patch_address);
+        ASSERT(nullptr != source_bb.info->allocator);
         cpu->current_fragment_allocator = source_bb.info->allocator;
 #endif
+
+        app_pc target_pc(code_cache::find(cpu, context->target_address));
 
         // Make sure that the patch target will fit on one cache line. We will
         // use `5` as the magic number for instruction size, as that's typical
@@ -680,7 +681,7 @@ namespace granary {
             IF_PERF( perf::visit_mangle_indirect_call(); )
             mangle_ibl_lookup(
                 stub_ls, insert_point, target_policy, target,
-                IBL_ENTRY_CALL _IF_PROFILE_IBL(in.pc()));
+                IBL_ENTRY_CALL, in.pc());
 
             ls.insert_before(in, mangled(call_(instr_(call_target))));
             ls.remove(in);
@@ -695,7 +696,7 @@ namespace granary {
 
                 mangle_ibl_lookup(
                     ls, in, target_policy, target,
-                    IBL_ENTRY_RETURN _IF_PROFILE_IBL(in.pc()));
+                    IBL_ENTRY_RETURN, in.pc());
                 ls.remove(in);
             }
 #endif
@@ -703,7 +704,7 @@ namespace granary {
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
             mangle_ibl_lookup(
                 ls, in, target_policy, target,
-                IBL_ENTRY_JMP _IF_PROFILE_IBL(in.pc()));
+                IBL_ENTRY_JMP, in.pc());
             ls.remove(in);
         }
     }
@@ -719,6 +720,8 @@ namespace granary {
         if(!target_policy) {
             target_policy = policy;
         }
+
+        target_policy.begins_functional_unit(false); // Sane default.
 
         if(dynamorio::OP_iret == in.op_code()) {
             // TODO?
@@ -752,8 +755,10 @@ namespace granary {
             if(in.is_call()) {
                 target_policy.inherit_properties(policy, INHERIT_CALL);
                 target_policy.return_address_in_code_cache(true);
+                target_policy.begins_functional_unit(true);
             } else {
                 target_policy.inherit_properties(policy, INHERIT_JMP);
+                target_policy.begins_functional_unit(false);
             }
 
             // Direct CTI.
@@ -769,6 +774,12 @@ namespace granary {
             } else if(!dynamorio::opnd_is_instr(target)) {
                 target_policy.return_target(false);
                 target_policy.indirect_cti_target(true);
+
+                // Note: Indirect JMPs are treated as beginning a functional
+                //       unit (indirect tail-call), whereas we don't have enough
+                //       information at runtime to make this judgement of
+                //       direct jumps (potential direct tail-calls).
+                target_policy.begins_functional_unit(true);
 
                 // Tell the code cache lookup routine that if we switch to host
                 // code that we can instrument it. The protocol here is that if
@@ -1198,6 +1209,7 @@ namespace granary {
                 ASSERT(8 > forward_align);
                 insert_nops_after(ls, in.prev(), forward_align);
                 in_size += forward_align;
+                IF_PERF( perf::visit_align_nop(forward_align); )
             }
 
             curr_align += in_size;
@@ -1214,14 +1226,15 @@ namespace granary {
         basic_block_state &bb_,
         instruction_list &ls_,
         instruction_list &stub_ls_,
-        instrumentation_policy policy_
+        instrumentation_policy policy_,
+        const_app_pc estimator_pc_
     ) throw()
         : cpu(cpu_)
         , bb(bb_)
         , policy(policy_)
         , ls(ls_)
         , stub_ls(stub_ls_)
-        , estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>())
+        , estimator_pc(estimator_pc_)
     { }
 
 }

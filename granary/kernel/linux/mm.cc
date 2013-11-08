@@ -20,7 +20,9 @@
 #include "granary/policy.h"
 #include "granary/code_cache.h"
 
-#if CONFIG_INSTRUMENT_HOST && CONFIG_ENABLE_TRACE_ALLOCATOR
+#if CONFIG_ENABLE_TRACE_ALLOCATOR \
+&& !CONFIG_TRACE_FUNCTIONAL_UNITS \
+&& !CONFIG_TRACE_CPUS
 
 namespace granary {
 
