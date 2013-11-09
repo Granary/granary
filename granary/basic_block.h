@@ -18,6 +18,7 @@ namespace granary {
     /// Forward declarations.
     struct basic_block;
     struct basic_block_state;
+    struct block_translator;
     struct instruction_list;
     struct instruction;
     struct cpu_state_handle;
@@ -93,6 +94,7 @@ namespace granary {
     public:
 
         friend struct code_cache;
+        friend struct block_translator;
 
 
         /// The meta information for the specific basic block.
@@ -154,7 +156,8 @@ namespace granary {
         static unsigned decode(
             instruction_list &ls,
             instrumentation_policy policy,
-            const app_pc start_pc
+            const app_pc start_pc,
+            app_pc &end_pc
             _IF_KERNEL( void *&user_exception_metadata )
         ) throw();
 

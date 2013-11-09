@@ -17,7 +17,12 @@ namespace granary {
         SLAB_SIZE = detail::fragment_allocator_config::SLAB_SIZE,
         BB_ALIGN_ = detail::fragment_allocator_config::MIN_ALIGN,
         BB_ALIGN = 1 == BB_ALIGN_ ? 16 : BB_ALIGN_,
-        MAX_BBS_PER_SLAB = (SLAB_SIZE / BB_ALIGN) + 1
+#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+        MULTIPLIER = 4,
+#else
+        MULTIPLIER = 1,
+#endif
+        MAX_BBS_PER_SLAB = MULTIPLIER * ((SLAB_SIZE / BB_ALIGN) + 1)
     };
 
 
@@ -81,13 +86,11 @@ namespace granary {
     /// info (meta-data) and client state (client meta-data).
     ///
     /// Pointers are returned by reference through output parameters.
-    void allocate_basic_block_info(
-        app_pc start_pc,
-        basic_block_info *&info
+    basic_block_info *allocate_basic_block_info(
+        app_pc start_pc
         _IF_KERNEL( unsigned num_state_bytes )
         _IF_KERNEL( uint8_t *&state_bytes )
     ) throw() {
-
         // Make sure the fragment locator for this fragment slab exists.
         fragment_locator **slab_(granary_find_fragment_slab(start_pc));
         if(unlikely(!*slab_)) {
@@ -98,32 +101,30 @@ namespace granary {
 
 #if GRANARY_IN_KERNEL
 #   if CONFIG_ENABLE_INTERRUPT_DELAY
-        basic_block_info *data(nullptr);
+        basic_block_info *info(nullptr);
         if(num_state_bytes) {
             uint8_t *memory(allocate_memory<uint8_t>(
                 sizeof(basic_block_info) + num_state_bytes));
-            data = unsafe_cast<basic_block_info *>(memory);
+            info = unsafe_cast<basic_block_info *>(memory);
             state_bytes = &(memory[sizeof(basic_block_info)]);
         } else {
             state_bytes = nullptr;
-            data = allocate_memory<basic_block_info>();
+            info = allocate_memory<basic_block_info>();
         }
 #   else
         UNUSED(num_state_bytes);
 
-        basic_block_info *data(allocate_memory<basic_block_info>());
+        basic_block_info *info(allocate_memory<basic_block_info>());
         state_bytes = nullptr;
 #   endif
 #else
-        basic_block_info *data(allocate_memory<basic_block_info>());
+        basic_block_info *info(allocate_memory<basic_block_info>());
 #endif
 
         ASSERT(slab->next_index < MAX_BBS_PER_SLAB);
 
-        slab->fragments[slab->next_index++].ptr = data;
-
-        // Automatic type conversion.
-        info = data;
+        slab->fragments[slab->next_index++].ptr = info;
+        return info;
     }
 
 

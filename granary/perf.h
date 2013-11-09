@@ -23,9 +23,10 @@ namespace granary {
 
     struct perf {
 
+        static void visit_trace(unsigned num_bbs) throw();
+
         static void visit_decoded(const instruction ) throw();
         static void visit_encoded(const instruction ) throw();
-        static void visit_encoded(const basic_block &) throw();
 
         static void visit_mangle_indirect_jmp(void) throw();
         static void visit_mangle_indirect_call(void) throw();

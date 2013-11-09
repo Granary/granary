@@ -51,7 +51,7 @@
 /// latency because Granary won't add in additional code on each interrupt
 /// invocation.
 #if GRANARY_IN_KERNEL
-#   define CONFIG_HANDLE_INTERRUPTS 0
+#   define CONFIG_HANDLE_INTERRUPTS 1 // shouldn't be 0, but can be sometimes.
 #else
 #   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
 #endif
@@ -127,14 +127,25 @@
 #define CONFIG_ENABLE_TRACE_ALLOCATOR 0
 
 
-/// Should all functional units be treated as distinct traces? This results in
-/// code being grouped into functions.
+/// Trace allocator sub-option: Should all functional units be treated as
+/// distinct traces? This results in code being grouped into functions.
 #define CONFIG_TRACE_FUNCTIONAL_UNITS 0
 
 
-/// Should the trace allocator be based on CPU allocators? This results in traces
-/// with respect to CPU allocators.
+/// Trace allocator sub-option: Should the trace allocator be based on CPU
+/// allocators? This results in traces with respect to CPU allocators.
 #define CONFIG_TRACE_CPUS 0
+
+
+/// Should we try to aggressively build traces at basic block translation
+/// time? This implies a more transactional approach to filling the code cache.
+///
+/// Note: This is unrelated to tracing execution for debugging, and unrelated
+///       to trace allocators.
+///
+/// Note: This is a very very aggressive translation approach, and might
+///       perform badly with policies.
+#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 1
 
 
 /// Enable performance counters and reporting. Performance counters measure
@@ -181,7 +192,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 0
+#define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
@@ -199,6 +210,7 @@
 #ifndef CONFIG_MEMORY_PAGE_SIZE
 #   define CONFIG_MEMORY_PAGE_SIZE 4096
 #endif
+
 
 // Size of per-cpu/thread-local private stack (currently 6 pages).
 #ifndef CONFIG_PRIVATE_STACK_SIZE

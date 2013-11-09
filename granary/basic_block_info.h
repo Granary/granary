@@ -22,9 +22,8 @@ namespace granary {
     /// info (meta-data) and client state (client meta-data).
     ///
     /// Pointers are returned by reference through output parameters.
-    void allocate_basic_block_info(
-        app_pc start_pc,
-        basic_block_info *&info
+    basic_block_info *allocate_basic_block_info(
+        app_pc start_pc
         _IF_KERNEL( unsigned num_state_bytes )
         _IF_KERNEL( uint8_t *&state_bytes )
     ) throw();

@@ -491,7 +491,7 @@ namespace granary {
         /// grained locking across multiple operations, rather than fine-grained
         /// locking around individual operations.
         void lock_coarse(IF_TEST(int cpu_id)) throw() {
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
+#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
             if(!IS_SHARED) {
                 lock.acquire();
                 IF_TEST( curr_owner_cpu_id = cpu_id; )
@@ -504,7 +504,7 @@ namespace granary {
 
         /// Release the coarse-grained lock.
         void unlock_coarse(void) throw() {
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
+#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
             if(!IS_SHARED) {
                 IF_TEST( curr_owner_cpu_id = -1; )
                 lock.release();

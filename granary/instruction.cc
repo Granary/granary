@@ -393,6 +393,28 @@ namespace granary {
 #endif
 
 
+    /// Adds another instruction list to the end of the current one.
+    ///
+    /// Note: This removed all elements from the argument list.
+    void instruction_list::extend(instruction_list &that) throw() {
+
+        length_ += that.length_;
+
+        if(!last_) {
+            first_ = that.first_;
+            last_ = that.last_;
+        } else {
+            that.first_->prev = last_;
+            last_->next = that.first_;
+            last_ = that.last_;
+        }
+
+        that.last_ = nullptr;
+        that.first_ = nullptr;
+        that.length_ = 0;
+    }
+
+
     /// Adds an element on to the end of the list.
     instruction instruction_list::append(instruction item_) throw() {
 

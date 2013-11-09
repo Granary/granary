@@ -139,7 +139,7 @@ namespace granary {
         /// Aligns hot-patchable instructions in the basic block, given the
         /// current cache-line alignment of the basic block, and returns the
         /// basic block's size.
-        unsigned align(unsigned align) throw();
+        static unsigned align(instruction_list &ls, unsigned align) throw();
     };
 }
 

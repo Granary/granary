@@ -1172,7 +1172,10 @@ namespace granary {
     /// Make sure that we emit a basic block that meets all alignment
     /// requirements necessary for hot-patching direct control transfer
     /// instructions.
-    unsigned instruction_list_mangler::align(unsigned curr_align) throw() {
+    unsigned instruction_list_mangler::align(
+        instruction_list &ls,
+        unsigned curr_align
+    ) throw() {
         instruction in;
         instruction next_in;
         unsigned size(0);

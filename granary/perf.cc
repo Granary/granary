@@ -38,6 +38,8 @@ namespace granary {
 
 
     /// Performance counter for tracking basic blocks and their instructions.
+    static std::atomic<unsigned> NUM_TRACES(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_TRACE_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BB_INSTRUCTION_BYTES(ATOMIC_VAR_INIT(0U));
 
@@ -125,10 +127,13 @@ namespace granary {
         }
     }
 
+    void perf::visit_trace(unsigned num_bbs) throw() {
+        NUM_BBS.fetch_add(num_bbs);
 
-    void perf::visit_encoded(const basic_block &bb) throw() {
-        NUM_BBS.fetch_add(1);
-        NUM_BB_INSTRUCTION_BYTES.fetch_add(bb.info->num_bytes);
+        if(num_bbs > 1) {
+            NUM_TRACES.fetch_add(1);
+            NUM_TRACE_BBS.fetch_add(num_bbs);
+        }
     }
 
 
@@ -280,7 +285,11 @@ namespace granary {
         printf("Number of encoded instruction bytes: %u\n\n",
             NUM_ENCODED_BYTES.load());
 
-        printf("Number of basic blocks: %u\n",
+        printf("Number of traces: %u\n",
+            NUM_TRACES.load());
+        printf("Number of basics blocks in a trace: %u\n",
+            NUM_TRACE_BBS.load());
+        printf("Total number of basic blocks: %u\n",
             NUM_BBS.load());
         printf("Number of functional units: %u\n",
             NUM_FUNCTIONAL_UNITS.load());

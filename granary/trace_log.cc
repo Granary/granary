@@ -16,16 +16,6 @@
 #endif
 
 
-extern "C" {
-
-#if GRANARY_IN_KERNEL && CONFIG_TRACE_RECORD_REGS && CONFIG_TRACE_EXECUTION
-    DONT_OPTIMISE void granary_break_on_gs_zero(void) {
-        ASM("");
-    }
-#endif
-}
-
-
 namespace granary {
 
 

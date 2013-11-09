@@ -254,6 +254,9 @@ namespace granary {
                 base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
 
             if(!stored_base_addr && created_bb) {
+#if !CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+                // !!!!!TODO!!!!!!
+
                 client::discard_basic_block(*created_bb_state);
 
                 // Try to clean up the shared memory.
@@ -264,6 +267,7 @@ namespace granary {
                 // Try to clean up the private memory.
                 cpu->stub_allocator.free_last();
                 cpu->block_allocator.free_last();
+#endif
 
                 IF_TEST( target_addr = nullptr; );
                 CODE_CACHE->load(base_addr.as_address, target_addr);

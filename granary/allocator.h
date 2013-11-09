@@ -51,19 +51,55 @@ namespace granary {
     }
 
 
+    namespace detail {
+
+        template <typename T, bool=false>
+        struct memory_allocator {
+            static T *allocate(const unsigned num) throw() {
+                const unsigned size(sizeof(T) * num);
+                T *addr(reinterpret_cast<T *>(detail::global_allocate(size)));
+                memset(addr, 0, size);
+                return addr;
+            }
+
+            static void free(T *addr, const unsigned num) throw() {
+                const unsigned size(sizeof(T) * num);
+                detail::global_free(addr, size);
+            }
+        };
+
+        template <typename T>
+        struct memory_allocator<T, true> {
+            static T *allocate(const unsigned num) throw() {
+                T *addr(memory_allocator<T,false>::allocate(num));
+                new (addr) T;
+                return addr;
+            }
+
+            static void free(T *addr, const unsigned num) throw() {
+                for(unsigned i(0); i < num; ++i) {
+                    addr[i].~T();
+                }
+                memory_allocator<T,false>::free(addr, num);
+            }
+        };
+    }
+
     template <typename T>
     T *allocate_memory(const unsigned num=1) throw() {
-        const unsigned size(sizeof(T) * num);
-        T *addr(reinterpret_cast<T *>(detail::global_allocate(size)));
-        memset(addr, 0, size);
-        return addr;
+        return detail::memory_allocator<
+            T,
+            !std::is_trivial<T>::value
+        >::allocate(num);
     }
 
 
     template <typename T>
     void free_memory(T *addr, const unsigned num=1) throw() {
-        const unsigned size(sizeof(T) * num);
-        detail::global_free(addr, size);
+        detail::memory_allocator<
+            T,
+            !std::is_trivial<T>::value
+        >::free(addr, num);
     }
 }
 

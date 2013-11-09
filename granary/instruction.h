@@ -282,7 +282,10 @@ namespace granary {
 
             /// If this is a hot-patchable instruction, then this is set of
             /// this instruction stands in for a conditional JMP.
-            COND_CTI_PLACEHOLDER= (1 << 5)
+            COND_CTI_PLACEHOLDER = (1 << 5),
+
+            /// This is the fall-through jump of a conditional CTI.
+            COND_CTI_FALL_THROUGH = (1 << 6)
         };
 
         typename dynamorio::instr_t *instr;
@@ -742,6 +745,11 @@ namespace granary {
 
             return instruction(last_);
         }
+
+        /// Adds another instruction list to the end of the current one.
+        ///
+        /// Note: This removed all elements from the argument list.
+        void extend(instruction_list &that) throw();
 
         /// Adds an element on to the end of the list.
         instruction append(instruction item_) throw();

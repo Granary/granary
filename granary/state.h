@@ -58,7 +58,7 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE,
+                SLAB_SIZE = PAGE_SIZE * 8,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,

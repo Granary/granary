@@ -37,7 +37,11 @@ namespace granary {
 
         /// Optimise by eliding JMPs in basic blocks with fewer than this
         /// many instructions.
+#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+        BB_ELIDE_JMP_MIN_INSTRUCTIONS = 0
+#else
         BB_ELIDE_JMP_MIN_INSTRUCTIONS = 10
+#endif
     };
 
 
@@ -89,6 +93,7 @@ namespace granary {
     };
 
 
+#if CONFIG_ENABLE_INTERRUPT_DELAY
     /// Get the state of all bytes of an instruction.
     static code_cache_byte_state
     get_instruction_state(
@@ -126,10 +131,9 @@ namespace granary {
     }
 
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
     /// Scan the instructions to see if the interrupt delay feature is being used.
-    static bool requires_state_bytes(instruction_list &ls) throw() {
-        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+    static bool requires_state_bytes(instruction in, instruction last) throw() {
+        for(; in.is_valid() && in != last; in = in.next()) {
             if(DELAY_INSTRUCTION & in.instr->granary_flags) {
                 return true;
             }
@@ -140,7 +144,8 @@ namespace granary {
 
     /// Set the state of a pair of bits in memory.
     static unsigned initialise_state_bytes(
-        instruction_list &ls,
+        instruction in,
+        instruction last,
         uint8_t *bytes,
         unsigned num_bytes
     ) throw() {
@@ -159,7 +164,7 @@ namespace granary {
         // Initialise all state bytes to have their states as native.
         memset(bytes, 0, num_state_bytes);
 
-        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+        for(; in.is_valid() && in != last; in = in.next()) {
 
             code_cache_byte_state state(get_instruction_state(in, prev_state));
             code_cache_byte_state stored_state(state);
@@ -455,12 +460,14 @@ namespace granary {
     unsigned basic_block::decode(
         instruction_list &ls,
         instrumentation_policy policy,
-        const app_pc start_pc
+        const app_pc start_pc,
+        app_pc &end_pc
         _IF_KERNEL( void *&user_exception_metadata )
     ) throw() {
         app_pc local_pc(start_pc);
         app_pc *pc(&local_pc);
         bool fall_through_pc(false);
+        bool fall_through_cond_cti(false);
         bool uses_xmm(policy.is_in_xmm_context());
         bool fall_through_detach(false);
         bool detach_tail_call(false);
@@ -504,6 +511,11 @@ namespace granary {
             byte_len += in.instr->length;
             num_decoded += 1;
             ls.append(in);
+
+            // Keep track of the end of this basic block.
+            //
+            // Note: This can sometimes get out of sync if we're eliding JMPs.
+            end_pc = *pc;
 
             if(in.is_cti()) {
                 operand target(in.cti_target());
@@ -583,10 +595,9 @@ namespace granary {
                 // Conditional CTI, end the block with the ability to fall-
                 // through.
                 } else {
-                    if(true || BB_ELIDE_JMP_MIN_INSTRUCTIONS < ls.length()) {
-                        fall_through_pc = true;
-                        break;
-                    }
+                    fall_through_pc = true;
+                    fall_through_cond_cti = true;
+                    break;
                 }
 
 #if GRANARY_IN_KERNEL
@@ -620,13 +631,13 @@ namespace granary {
 
             } else if(dynamorio::OP_sysexit == in.op_code()) {
                 break;
-#   else
+#   endif
             } else if(dynamorio::OP_sysret == in.op_code()
                    || dynamorio::OP_sysexit == in.op_code()
                    || dynamorio::OP_swapgs == in.op_code()) {
-                granary_break_on_curiosity();
+                fall_through_detach = true;
+                //granary_break_on_curiosity();
                 break;
-#   endif
 #endif
 
             // Some other instruction.
@@ -670,7 +681,10 @@ namespace granary {
         // block if we need to force a connection between this basic block
         // and the next.
         if(fall_through_pc) {
-            ls.append(jmp_(pc_(*pc)));
+            instruction fall_through(ls.append(jmp_(pc_(*pc))));
+            if(fall_through_cond_cti) {
+                fall_through.add_flag(instruction::COND_CTI_FALL_THROUGH);
+            }
 
         /// Add in a trailing (emulated) jmp or ret if we are detaching.
         } else if(fall_through_detach) {
@@ -691,42 +705,76 @@ namespace granary {
     }
 
 
-    /// Decode and translate a single basic block of application/module code.
-    basic_block basic_block::translate(
-        const instrumentation_policy policy,
-        cpu_state_handle cpu,
-        const app_pc start_pc
-    ) throw() {
+    struct block_translator {
+        bool translated;
+
+        block_translator *next;
+        basic_block_state *state;
+
+        IF_KERNEL( void *user_exception_metadata; )
+
+        app_pc start_pc;
+        app_pc end_pc;
+
+        instrumentation_policy incoming_policy;
+        instrumentation_policy outgoing_policy;
+
+        instruction start_label;
+        instruction end_label;
+
         instruction_list ls;
 
-        IF_KERNEL( void *user_exception_metadata(nullptr); )
-        const unsigned num_decoded_instructions(decode(
-            ls, policy, start_pc _IF_KERNEL(user_exception_metadata) ));
+        unsigned num_decoded_instructions;
 
-#if CONFIG_ENABLE_ASSERTIONS
-        // Sanity checking before we begin instrumenting; we don't want to
-        // apply the wrong instrumentation function to the code!
-        if(policy.is_in_host_context()) {
-            ASSERT(!is_app_address(start_pc));
-        }
-#endif
+        block_translator(void) throw();
 
-        basic_block_state *state(nullptr);
+        void run(cpu_state_handle cpu) throw();
+
+        bool visit_conditional_branches(block_translator **head) throw();
+
+        void visit_unconditional_branches(
+            block_translator *trace,
+            app_pc trace_start_pc,
+            app_pc trace_end_pc
+        ) throw();
+    };
+
+
+    block_translator::block_translator(void) throw()
+        : translated(false)
+        , next(nullptr)
+        , state(nullptr)
+        _IF_KERNEL( user_exception_metadata(nullptr) )
+        , start_pc(nullptr)
+        , end_pc(nullptr)
+        , start_label(label_())
+        , end_label(label_())
+        , num_decoded_instructions(0)
+    { }
+
+
+    /// Translate an individual basic block.
+    void block_translator::run(cpu_state_handle cpu) throw() {
         if(basic_block_state::size()) {
             state = cpu->block_allocator.allocate<basic_block_state>();
         }
+
+        num_decoded_instructions = basic_block::decode(
+            ls, incoming_policy,
+            start_pc, end_pc
+            _IF_KERNEL(user_exception_metadata));
 
         // Invoke client code instrumentation on the basic block; the client
         // might return a different instrumentation policy to use. The effect
         // of this is that if we are in policy P1, and the client returns policy
         // P2, then we will emit a block to P1's code cache that jumps us into
         // P2's code cache.
-        instrumentation_policy client_policy(policy.instrument(
+        outgoing_policy = incoming_policy.instrument(
             cpu,
-            *state, // potentially null.
-            ls));
+            *state, // potentially NULL.
+            ls);
 
-        client_policy.inherit_properties(policy);
+        outgoing_policy.inherit_properties(incoming_policy);
 
 #if CONFIG_TRACE_EXECUTION
         // Add in logging at the beginning of the basic block so that we can
@@ -734,20 +782,252 @@ namespace granary {
         trace_log::log_execution(ls);
 #endif
 
+        // Add labels to bound the basic block, so that we can connect blocks
+        // together in the trace, while still knowing where the individual
+        // begin and end.
+        ls.prepend(start_label);
+        ls.append(end_label);
+    }
+
+
+    /// Add a block translator to a list.
+    static block_translator *find_block_translator(
+        block_translator *curr,
+        app_pc start_pc,
+        instrumentation_policy policy
+    ) throw() {
+        for(; nullptr != curr; curr = curr->next) {
+
+            // Arrange the basic blocks into sorted order.
+            if(start_pc == curr->start_pc
+            && policy == curr->incoming_policy) {
+                return curr;
+            }
+        }
+
+        return nullptr;
+    }
+
+
+    /// Add a block translator to a list.
+    static block_translator *add_block_translator(
+        block_translator **head,
+        block_translator *item
+    ) throw() {
+        block_translator *curr(*head);
+        for(; nullptr != curr; ) {
+
+            // Arrange the basic blocks into sorted order.
+            if(item->start_pc < curr->start_pc) {
+                break;
+
+            // Already translated this basic block.
+            } else if(item->start_pc == curr->start_pc
+                   && item->incoming_policy == curr->incoming_policy) {
+                return curr;
+            }
+
+            head = &(curr->next);
+            curr = curr->next;
+        }
+
+        // Insert into our translator list.
+        item->next = *head;
+        *head = item;
+
+        return item;
+    }
+
+
+    /// Trye to aggressively follow and queue up translations for all
+    /// conditional branch targets.
+    bool block_translator::visit_conditional_branches(
+        block_translator **head
+    ) throw() {
+        bool found_successor(false);
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+
+            // Filter out indirect CTIs, unconditional CTIs, and mangled CTIs.
+            if(!in.is_cti() || in.is_mangled()) {
+                continue;
+            }
+
+            // Allow ourselves to also follow the fall-through unconditional
+            // jumps, as they are actually conditional ;-)
+            if(in.is_unconditional_cti()
+            && !in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
+                continue;
+            }
+
+            instrumentation_policy target_policy(in.policy());
+            if(!target_policy) {
+                target_policy = outgoing_policy;
+            }
+
+            app_pc target_pc(in.cti_target().value.pc);
+
+            // Same policy inheritance protocol as in the instruction list
+            // mangler for `mangle_cti` and `mangle_direct_cti`.
+            target_policy.begins_functional_unit(false); // Sane default.
+            target_policy.inherit_properties(outgoing_policy, INHERIT_JMP);
+            target_policy.return_target(false);
+            target_policy.indirect_cti_target(false);
+
+            // Simplifying assumptions:
+            //      1) Conditional CTIs never target a detach address.
+            //      2) Conditional CTIs never change the context (host vs. app).
+
+            block_translator *block(allocate_memory<block_translator>());
+            block->start_pc = target_pc;
+            block->incoming_policy = target_policy;
+
+            block_translator *added(add_block_translator(head, block));
+            if(added != block) {
+                free_memory(block);
+            } else {
+                found_successor = true;
+            }
+
+            // Connect the basic blocks.
+            in.set_mangled();
+            in.set_cti_target(instr_(added->start_label));
+        }
+
+        return found_successor;
+    }
+
+
+    /// Trye to aggressively follow and queue up translations for all
+    /// conditional branch targets.
+    void block_translator::visit_unconditional_branches(
+        block_translator *trace,
+        app_pc trace_start_pc,
+        app_pc trace_end_pc
+    ) throw() {
+        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
+            if(!in.is_cti() || in.is_mangled()) {
+                continue;
+            }
+
+            const operand target(in.cti_target());
+            if(!dynamorio::opnd_is_pc(target)) {
+                continue;
+            }
+
+            if(target.value.pc < trace_start_pc
+            || target.value.pc >= trace_end_pc) {
+                continue;
+            }
+
+            // Inductive argument based on assumptions about conditional branch
+            // targets:
+            //      1) Conditional branches don't target detach addresses,
+            //         therefore unconditional branches back into the trace
+            //         don't either.
+            //      2) Conditional branches don't change the context, therefore
+            //         unconditional branches back into the trace won't either.
+
+            instrumentation_policy target_policy(in.policy());
+            if(!target_policy) {
+                target_policy = outgoing_policy;
+            }
+
+            target_policy.begins_functional_unit(false); // Sane default.
+
+            if(in.is_call()) {
+                target_policy.inherit_properties(outgoing_policy, INHERIT_CALL);
+                target_policy.return_address_in_code_cache(true);
+                target_policy.begins_functional_unit(true);
+            } else {
+                target_policy.inherit_properties(outgoing_policy, INHERIT_JMP);
+            }
+
+            target_policy.return_target(false);
+            target_policy.indirect_cti_target(false);
+
+            block_translator *target_block(find_block_translator(
+                trace, target.value.pc, target_policy));
+
+            // Redirect the CTI back into the trace.
+            if(target_block) {
+                in.set_cti_target(instr_(target_block->start_label));
+                in.set_mangled();
+            }
+        }
+    }
+
+
+    /// Decode and translate a single basic block of application/module code.
+    basic_block basic_block::translate(
+        const instrumentation_policy policy,
+        cpu_state_handle cpu,
+        const app_pc start_pc
+    ) throw() {
+
+        instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
+
+        block_translator *trace(allocate_memory<block_translator>());
+        block_translator * const trace_original_bb(trace);
+        app_pc end_pc(nullptr);
+
+        trace->start_pc = start_pc;
+        trace->incoming_policy = policy;
+
+#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+        for(bool changed(true); changed; ) {
+            changed = false;
+
+            // Build a trace of all successors that we can follow through
+            // conditional CTIs.
+            for(block_translator *block(trace);
+                nullptr != block;
+                block = block->next) {
+
+                if(!block->translated) {
+                    block->run(cpu);
+                    if(block->visit_conditional_branches(&trace)) {
+                        changed = true;
+                    }
+                    block->translated = true;
+                }
+
+                if(block->end_pc > end_pc) {
+                    end_pc = block->end_pc;
+                }
+            }
+        }
+#else
+        trace->run();
+        end_pc = trace->end_pc;
+#endif
+
         const_app_pc estimator_pc(
             cpu->current_fragment_allocator->allocate_staged<uint8_t>());
 
-        // Prepare the instructions for final execution; this does instruction-
-        // specific translations needed to make the code sane/safe to run.
-        // mangling uses `client_policy` as opposed to `policy` so that CTIs
-        // are mangled to transfer control to the (potentially different) client
-        // policy.
-        instruction bb_begin(ls.prepend(label_()));
-        instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
-        instruction_list_mangler mangler(
-            cpu, *state, ls, patch_stubs, client_policy, estimator_pc);
+        // Form one large trace instruction list.
+        instruction_list ls;
+        for(block_translator *block(trace);
+            nullptr != block;
+            block = block->next) {
 
-        mangler.mangle();
+#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+            block->visit_unconditional_branches(trace, start_pc, end_pc);
+#endif
+
+            instruction_list_mangler mangler(
+                cpu, *block->state, block->ls, patch_stubs,
+                block->incoming_policy, estimator_pc);
+
+            // Prepare the instructions for final execution; this does
+            // instruction-specific translations needed to make the code
+            // sane/safe to run. mangling uses `client_policy` as opposed to
+            // `policy` so that CTIs are mangled to transfer control to the
+            // (potentially different) client policy.
+            mangler.mangle();
+
+            // Extend our trace instruction list.
+            ls.extend(block->ls);
+        }
 
         // Guarantee enough space to allocate the instructions of this basic
         // block so that we can get an exact estimator pc for the beginning of
@@ -762,48 +1042,16 @@ namespace granary {
 
         // Align all hot-patchable instructions, and get the size of the
         // instruction list.
-        const unsigned size(mangler.align(
-            estimator_addr % CONFIG_MIN_CACHE_LINE_SIZE));
+        const unsigned emitted_size(instruction_list_mangler::align(
+            ls, estimator_addr % CONFIG_MIN_CACHE_LINE_SIZE));
 
-        uint8_t *generated_pc(
-            cpu->current_fragment_allocator->allocate_array<uint8_t>(size));
+        uint8_t *emitted_start_pc(
+            cpu->current_fragment_allocator->allocate_array<uint8_t>(
+                emitted_size));
 
-        basic_block_info *info(nullptr);
-        IF_KERNEL( uint8_t *delay_states(nullptr); )
-        IF_KERNEL( unsigned num_state_bytes(0); )
+#if 0 // TODO!!!!
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
-        num_state_bytes = requires_state_bytes(ls)
-                        ? (size + 7) / BB_BYTE_STATES_PER_BYTE
-                        : 0;
-#endif
-
-        allocate_basic_block_info(
-            generated_pc,
-            info
-            _IF_KERNEL(num_state_bytes)
-            _IF_KERNEL(delay_states));
-
-        info->start_pc = generated_pc;
-        info->num_bytes = size;
-        info->generating_pc = mangled_address(start_pc, policy);
-        info->generating_num_instructions = num_decoded_instructions;
-        info->state = state;
-
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
-        info->allocator = cpu->current_fragment_allocator;
-#endif
-
-#if GRANARY_IN_KERNEL
-        info->user_exception_metadata = user_exception_metadata;
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
-        info->delay_states = delay_states;
-        info->num_delay_state_bytes = num_state_bytes;
-        if(delay_states) {
-            initialise_state_bytes(ls, delay_states, num_state_bytes);
-        }
-#   endif
-#endif
+#endif // END TODO
 
         // Calculate the size of the stubs and then encode the stubs.
         app_pc stub_pc(nullptr);
@@ -820,28 +1068,88 @@ namespace granary {
             cpu->stub_allocator.allocate_staged<uint8_t>();
         }
 
-        // Emit the instructions to the code cache.
-        IF_TEST( app_pc end_pc = ) ls.encode(generated_pc, size);
+        // Emit the instructions into the code cache.
+        ls.encode(emitted_start_pc, emitted_size);
 
-        // Re-encode the instruction list to resolve the circular dependencies.
+        // Re-encode the patch instruction list to resolve the circular
+        // dependencies.
         if(patch_stubs.length()) {
             memset(stub_pc, 0xCC, stub_size);
             patch_stubs.encode(stub_pc, stub_size);
         }
 
+        IF_PERF( unsigned num_bbs_in_trace(0); )
+        const app_pc trace_start_pc(trace_original_bb->start_label.pc());
+
+        // Create the basic block info for each trace basic block.
+        for(block_translator *block(trace), *next_block(nullptr);
+            nullptr != block;
+            block = next_block) {
+
+            next_block = block->next;
+
+            IF_PERF( ++num_bbs_in_trace; )
+
+            IF_KERNEL( uint8_t *delay_states(nullptr); )
+            IF_KERNEL( unsigned num_state_bytes(0); )
+
+            const app_pc block_start_pc(block->start_label.pc());
+            const app_pc block_end_pc(block->end_label.pc());
+            const unsigned block_size(block_end_pc - block_start_pc);
+
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+            if(requires_state_bytes(block->start_label, block->end_label)) {
+                num_state_bytes = (block_size + 7) / BB_BYTE_STATES_PER_BYTE;
+            }
+#endif
+
+            basic_block_info *info(allocate_basic_block_info(
+                block_start_pc
+                _IF_KERNEL(num_state_bytes)
+                _IF_KERNEL(delay_states)));
+
+            const mangled_address am(block->start_pc, block->incoming_policy);
+
+            info->start_pc = block_start_pc;
+            info->num_bytes = block_size;
+            info->generating_pc = am;
+            info->generating_num_instructions = block->num_decoded_instructions;
+            info->state = block->state;
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+            /// !!!!! TODO !!!!!
+            ///     Ensure proper inheritance of the allocator w.r.t.
+            ///     direct CTI mangling.
+            info->allocator = cpu->current_fragment_allocator;
+#endif
+
+#if GRANARY_IN_KERNEL
+            info->user_exception_metadata = block->user_exception_metadata;
+#   if CONFIG_ENABLE_INTERRUPT_DELAY
+            info->delay_states = delay_states;
+            info->num_delay_state_bytes = num_state_bytes;
+            if(delay_states) {
+                initialise_state_bytes(
+                    block->start_label, block->end_label,
+                    delay_states, num_state_bytes);
+            }
+#   endif
+#endif
+
+            // Inject all of the internal trace basic blocks into the code cache.
+            if(block != trace_original_bb) {
+                code_cache::add(am.as_address, block_start_pc);
+            }
+
+            // Don't need it anymore!
+            free_memory(block);
+        }
+
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.
-        basic_block ret(generated_pc);
+        basic_block ret(trace_start_pc);
 
-        // Quick double check to make sure that we can properly resolve the
-        // basic block info later. If this isn't the case, then we likely need
-        // to choose different magic values, or make them longer.
-        ASSERT(ret.info == info);
-        ASSERT((generated_pc + size) == end_pc);
-        ASSERT(bb_begin.pc() == generated_pc);
-        ASSERT(bb_begin.pc() == ret.cache_pc_start);
-
-        IF_PERF( perf::visit_encoded(ret); )
+        IF_PERF( perf::visit_trace(num_bbs_in_trace); )
 
         return ret;
     }
