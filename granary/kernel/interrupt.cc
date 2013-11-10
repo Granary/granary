@@ -388,15 +388,23 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
 
-#if !CONFIG_ENABLE_INTERRUPT_DELAY && !CONFIG_CLIENT_HANDLE_INTERRUPT
-        // We don't need to do anything specific for interrupts.
-        return INTERRUPT_DEFER;
-#else
-
         // Need to access the basic block's info for both interrupt delaying and
         // checking if we might need to deal with an exception table entry.
         basic_block bb(isf->instruction_pointer);
 
+        // Try to prepare for us being in a place where the kernel can
+        // validly take a page fault.
+        if(VECTOR_PAGE_FAULT == vector
+        && bb.info->user_exception_metadata) {
+            cpu->last_exception_instruction_pointer = isf->instruction_pointer;
+            cpu->last_exception_table_entry = bb.info->user_exception_metadata;
+        }
+
+#if !CONFIG_ENABLE_INTERRUPT_DELAY && !CONFIG_CLIENT_HANDLE_INTERRUPT
+        // We don't need to do anything specific for interrupts.
+        return INTERRUPT_DEFER;
+
+#else
 #   if CONFIG_ENABLE_INTERRUPT_DELAY
         // We might need to do something specific for interrupts.
         app_pc delay_begin(nullptr);
@@ -412,14 +420,6 @@ namespace granary {
         }
 #   endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
 
-        // Try to prepare for us being in a place where the kernel can
-        // validly take a page fault.
-        if(VECTOR_PAGE_FAULT == vector
-        && bb.info->user_exception_metadata) {
-            cpu->last_exception_instruction_pointer = isf->instruction_pointer;
-            cpu->last_exception_table_entry = bb.info->user_exception_metadata;
-        }
-
         // We don't need to delay; let the client try to handle the
         // interrupt, or defer to the kernel if the client doesn't handle
         // the interrupt.
@@ -434,10 +434,7 @@ namespace granary {
         return INTERRUPT_DEFER;
 #   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 #endif /* CONFIG_ENABLE_INTERRUPT_DELAY || CONFIG_CLIENT_HANDLE_INTERRUPT */
-        UNUSED(cpu);
         UNUSED(thread);
-        UNUSED(isf);
-        UNUSED(vector);
     }
 
 
@@ -599,12 +596,17 @@ namespace granary {
         // to recover. This is an instance where we are likely missing a
         // wrapper.
         } else if(is_app_address(pc)) {
+
+            /*
             if(VECTOR_PAGE_FAULT == vector) {
                 IF_PERF( perf::visit_protected_module() );
                 ret = handle_module_interrupt(cpu, isf);
             } else {
                 ret = INTERRUPT_DEFER;
-            }
+            }*/
+
+            // TODO: Re-enable page-protecting the module code.
+            ret = INTERRUPT_DEFER;
 
         // Assume it's an interrupt in a host-address location.
         } else {

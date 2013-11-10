@@ -38,7 +38,7 @@ namespace granary {
         /// Optimise by eliding JMPs in basic blocks with fewer than this
         /// many instructions.
 #if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
-        BB_ELIDE_JMP_MIN_INSTRUCTIONS = 0
+        BB_ELIDE_JMP_MIN_INSTRUCTIONS = 10
 #else
         BB_ELIDE_JMP_MIN_INSTRUCTIONS = 10
 #endif
@@ -517,6 +517,40 @@ namespace granary {
             // Note: This can sometimes get out of sync if we're eliding JMPs.
             end_pc = *pc;
 
+#if GRANARY_IN_KERNEL
+            // Stop at IRET, SYSRET, SWAPGS, or SYSEXIT. If we also see a
+            // write to RSP at some point before then chop it off there so
+            // that instrumentation always stays on a safe stack.
+            if(dynamorio::OP_sysret == in.op_code()
+            || dynamorio::OP_swapgs == in.op_code()
+            || dynamorio::OP_sysexit == in.op_code()
+            || dynamorio::OP_iret == in.op_code()) {
+
+                fall_through_detach = true;
+                *pc = in.pc();
+                ls.remove(in);
+
+                // Try to find a write to %rsp somewhere earlier in the
+                // instruction list. If so, chop the list off there.
+                for(in = ls.last(); in.is_valid(); in = in.prev()) {
+                    const bool changes_stack(
+                        dynamorio::instr_writes_to_exact_reg(
+                            in.instr, dynamorio::DR_REG_RSP));
+
+                    if(changes_stack
+                    && dynamorio::OP_mov_ld <= in.op_code()
+                    && dynamorio::OP_mov_priv >= in.op_code()) {
+                        *pc = in.pc();
+                        ls.remove_tail_at(in);
+                        break;
+                    }
+                }
+
+                in = ls.last();
+                break;
+            }
+#endif /* GRANARY_IN_KERNEL */
+
             if(in.is_cti()) {
                 operand target(in.cti_target());
                 bool target_is_pc(false);
@@ -574,22 +608,6 @@ namespace granary {
 
                 // RET, far RET, and IRET instruction.
                 } else if(in.is_return()) {
-#if GRANARY_IN_KERNEL
-                    // Go look to see if there's a SWAPGS leading to an IRET
-                    // and chop the block off at the SWAPGS.
-                    if(dynamorio::OP_iret == in.op_code()) {
-                        for(in = ls.last(); in.is_valid(); in = in.prev()) {
-                            if(dynamorio::OP_swapgs != in.op_code()) {
-                                continue;
-                            }
-
-                            *pc = in.pc();
-                            ls.remove_tail_at(in);
-                            fall_through_detach = true;
-                            break;
-                        }
-                    }
-#endif /* GRANARY_IN_KERNEL */
                     break;
 
                 // Conditional CTI, end the block with the ability to fall-
@@ -599,46 +617,6 @@ namespace granary {
                     fall_through_cond_cti = true;
                     break;
                 }
-
-#if GRANARY_IN_KERNEL
-#   if CONFIG_INSTRUMENT_HOST
-
-            // Expect to see a write to %rsp at some point before sysret.
-            } else if(dynamorio::OP_sysret == in.op_code()) {
-
-                fall_through_detach = true;
-                *pc = in.pc();
-                ls.remove(in);
-
-                // Try to find a write to %rsp somewhere earlier in the
-                // instruction list. If so, chop the list off there.
-                for(in = ls.last(); in.is_valid(); in = in.prev()) {
-                    const bool changes_stack(
-                        dynamorio::instr_writes_to_exact_reg(
-                            in.instr, dynamorio::DR_REG_RSP));
-
-                    if(changes_stack
-                    && dynamorio::OP_mov_ld <= in.op_code()
-                    && dynamorio::OP_mov_priv >= in.op_code()) {
-                        *pc = in.pc();
-                        ls.remove_tail_at(in);
-                        break;
-                    }
-                }
-
-                in = ls.last();
-                break;
-
-            } else if(dynamorio::OP_sysexit == in.op_code()) {
-                break;
-#   endif
-            } else if(dynamorio::OP_sysret == in.op_code()
-                   || dynamorio::OP_sysexit == in.op_code()
-                   || dynamorio::OP_swapgs == in.op_code()) {
-                fall_through_detach = true;
-                //granary_break_on_curiosity();
-                break;
-#endif
 
             // Some other instruction.
             } else {
@@ -730,9 +708,9 @@ namespace granary {
 
         void run(cpu_state_handle cpu) throw();
 
-        bool visit_conditional_branches(block_translator **head) throw();
+        bool visit_branches(block_translator **head) throw();
 
-        void visit_unconditional_branches(
+        void fixup_branches(
             block_translator *trace,
             app_pc trace_start_pc,
             app_pc trace_end_pc
@@ -839,9 +817,9 @@ namespace granary {
     }
 
 
-    /// Trye to aggressively follow and queue up translations for all
-    /// conditional branch targets.
-    bool block_translator::visit_conditional_branches(
+    /// Try to aggressively follow and queue up translations for all
+    /// fall-through targets of conditional branches.
+    bool block_translator::visit_branches(
         block_translator **head
     ) throw() {
         bool found_successor(false);
@@ -852,8 +830,9 @@ namespace granary {
                 continue;
             }
 
-            // Allow ourselves to also follow the fall-through unconditional
-            // jumps, as they are actually conditional ;-)
+            // Only allow ourselves to follow the fall-through unconditional
+            // jumps, as they are actually conditional ;-) This filters out
+            // all CALLs and non-fall-through JMPs.
             if(in.is_unconditional_cti()
             && !in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
                 continue;
@@ -897,9 +876,9 @@ namespace granary {
     }
 
 
-    /// Trye to aggressively follow and queue up translations for all
-    /// conditional branch targets.
-    void block_translator::visit_unconditional_branches(
+    /// Try to fix up any remaining branch targets that point back into our
+    /// trace.
+    void block_translator::fixup_branches(
         block_translator *trace,
         app_pc trace_start_pc,
         app_pc trace_end_pc
@@ -985,7 +964,7 @@ namespace granary {
 
                 if(!block->translated) {
                     block->run(cpu);
-                    if(block->visit_conditional_branches(&trace)) {
+                    if(block->visit_branches(&trace)) {
                         changed = true;
                     }
                     block->translated = true;
@@ -997,7 +976,7 @@ namespace granary {
             }
         }
 #else
-        trace->run();
+        trace->run(cpu);
         end_pc = trace->end_pc;
 #endif
 
@@ -1010,13 +989,11 @@ namespace granary {
             nullptr != block;
             block = block->next) {
 
-#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
-            block->visit_unconditional_branches(trace, start_pc, end_pc);
-#endif
+            block->fixup_branches(trace, start_pc, end_pc);
 
             instruction_list_mangler mangler(
                 cpu, *block->state, block->ls, patch_stubs,
-                block->incoming_policy, estimator_pc);
+                block->outgoing_policy, estimator_pc);
 
             // Prepare the instructions for final execution; this does
             // instruction-specific translations needed to make the code
@@ -1048,10 +1025,6 @@ namespace granary {
         uint8_t *emitted_start_pc(
             cpu->current_fragment_allocator->allocate_array<uint8_t>(
                 emitted_size));
-
-#if 0 // TODO!!!!
-
-#endif // END TODO
 
         // Calculate the size of the stubs and then encode the stubs.
         app_pc stub_pc(nullptr);

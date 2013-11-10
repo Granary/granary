@@ -127,13 +127,13 @@
 #define CONFIG_ENABLE_TRACE_ALLOCATOR 0
 
 
-/// Trace allocator sub-option: Should all functional units be treated as
-/// distinct traces? This results in code being grouped into functions.
+/// Optional trace allocator sub-option: Should all functional units be treated
+/// as distinct traces? This results in code being grouped into functions.
 #define CONFIG_TRACE_FUNCTIONAL_UNITS 0
 
 
-/// Trace allocator sub-option: Should the trace allocator be based on CPU
-/// allocators? This results in traces with respect to CPU allocators.
+/// Optional trace allocator sub-option: Should the trace allocator be based on
+/// CPU allocators? This results in traces with respect to CPU allocators.
 #define CONFIG_TRACE_CPUS 0
 
 
@@ -145,7 +145,7 @@
 ///
 /// Note: This is a very very aggressive translation approach, and might
 ///       perform badly with policies.
-#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 1
+#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 0
 
 
 /// Enable performance counters and reporting. Performance counters measure

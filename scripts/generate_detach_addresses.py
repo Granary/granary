@@ -30,6 +30,7 @@ if "__main__" == __name__:
     "module_alloc_update_bounds", "process_one_work", "idt_table",
     "rcu_process_callbacks", "flush_tlb_mm_range", "printk",
     "__schedule_bug", "show_fault_oops", "__stack_chk_fail",
+    "sys_call_table",
   ])
   EXTRA_SYMBOLS.update(SYSCALL_NAMES)
   
@@ -62,7 +63,10 @@ if "__main__" == __name__:
       # adjacent addresses then we might report the length as 0.
       func_len = 0
       while not func_len:
-        func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
+        if func_index + 1 < len(ADDRESSES):
+          func_len = ADDRESSES[func_index + 1] - ADDRESSES[func_index]
+        else:
+          break
         func_index += 1
 
       if sym in MISSING_EXTRA_SYMBOLS:

@@ -667,6 +667,14 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    extern "C" {
+        extern intptr_t NATIVE_SYSCALL_TABLE;
+        extern intptr_t SHADOW_SYSCALL_TABLE;
+    }
+#endif
+
+
     /// Mangle an indirect control transfer instruction.
     void instruction_list_mangler::mangle_indirect_cti(
         instruction in,
@@ -677,6 +685,19 @@ namespace granary {
 
             instruction call_target(stub_ls.append(label_()));
             instruction insert_point(stub_ls.append(label_()));
+
+#if GRANARY_IN_KERNEL
+            // Linux-specific special case: Optimise for syscall entry points.
+            // Note: We depend on sign-extension of the 32-bit displacement here.
+            if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
+            && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
+                target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;
+                in.set_cti_target(target);
+                in.set_mangled();
+                granary_do_break_on_translate = true;
+                return;
+            }
+#endif
 
             IF_PERF( perf::visit_mangle_indirect_call(); )
             mangle_ibl_lookup(
