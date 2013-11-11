@@ -114,6 +114,10 @@
 #   include "clients/watchpoints/clients/rcudbg/instrument.h"
 #endif
 
+#ifdef CLIENT_ARK
+#	include "clients/watchpoints/clients/ark/instrument.h"
+#endif
+
 
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY
