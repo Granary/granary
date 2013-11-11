@@ -19,7 +19,10 @@
 #endif
 
 namespace granary {
-#if defined(DETACH_ADDR_sys_call_table) && DETACH_LENGTH_sys_call_table
+
+#if defined(DETACH_ADDR_sys_call_table) \
+&& DETACH_LENGTH_sys_call_table \
+&& CONFIG_INSTRUMENT_HOST
 
     enum {
         NUM_ENTRIES = DETACH_LENGTH_sys_call_table / sizeof(void *)

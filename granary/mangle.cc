@@ -686,15 +686,15 @@ namespace granary {
             instruction call_target(stub_ls.append(label_()));
             instruction insert_point(stub_ls.append(label_()));
 
-#if GRANARY_IN_KERNEL
+#if GRANARY_IN_KERNEL && CONFIG_INSTRUMENT_HOST
             // Linux-specific special case: Optimise for syscall entry points.
             // Note: We depend on sign-extension of the 32-bit displacement here.
             if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
+            && dynamorio::BASE_DISP_kind == target.kind
             && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
                 target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;
                 in.set_cti_target(target);
                 in.set_mangled();
-                granary_do_break_on_translate = true;
                 return;
             }
 #endif

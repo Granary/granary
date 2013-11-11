@@ -712,6 +712,7 @@ namespace granary {
 
         void fixup_branches(
             block_translator *trace,
+            block_translator *next_block,
             app_pc trace_start_pc,
             app_pc trace_end_pc
         ) throw();
@@ -825,16 +826,15 @@ namespace granary {
         bool found_successor(false);
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
 
-            // Filter out indirect CTIs, unconditional CTIs, and mangled CTIs.
-            if(!in.is_cti() || in.is_mangled()) {
+            // Filter out indirect CTIs, conditional CTIs, and mangled CTIs.
+            if(in.is_mangled() || !in.is_cti() || !in.is_unconditional_cti()) {
                 continue;
             }
 
             // Only allow ourselves to follow the fall-through unconditional
             // jumps, as they are actually conditional ;-) This filters out
             // all CALLs and non-fall-through JMPs.
-            if(in.is_unconditional_cti()
-            && !in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
+            if(!in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
                 continue;
             }
 
@@ -880,15 +880,35 @@ namespace granary {
     /// trace.
     void block_translator::fixup_branches(
         block_translator *trace,
+        block_translator *next_block,
         app_pc trace_start_pc,
         app_pc trace_end_pc
     ) throw() {
-        for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
-            if(!in.is_cti() || in.is_mangled()) {
+        for(instruction in(ls.first()), next_in; in.is_valid(); in = next_in) {
+            next_in = in.next();
+
+            if(!in.is_cti()) {
                 continue;
             }
 
+            // Peephole optimization for fall-through branches.
             const operand target(in.cti_target());
+            if(nullptr != next_block
+            && dynamorio::INSTR_kind == target.kind
+            && dynamorio::OP_jmp == in.op_code()
+            && next_in.is_valid()
+            && next_in == end_label
+            && target.value.instr == next_block->start_label) {
+                ls.remove(in);
+            } else {
+                continue;
+            }
+
+            if(in.is_mangled()) {
+                continue;
+            }
+
+
             if(!dynamorio::opnd_is_pc(target)) {
                 continue;
             }
@@ -931,6 +951,12 @@ namespace granary {
             if(target_block) {
                 in.set_cti_target(instr_(target_block->start_label));
                 in.set_mangled();
+
+                // Re-visit this instruction so that we can try to peephole-
+                // optimize fall-through JMPs out of existence.
+                if(next_block) {
+                    next_in = in;
+                }
             }
         }
     }
@@ -989,7 +1015,8 @@ namespace granary {
             nullptr != block;
             block = block->next) {
 
-            block->fixup_branches(trace, start_pc, end_pc);
+            block->fixup_branches(
+                trace, block->next, start_pc, end_pc);
 
             instruction_list_mangler mangler(
                 cpu, *block->state, block->ls, patch_stubs,
