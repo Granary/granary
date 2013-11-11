@@ -65,6 +65,7 @@ namespace client { namespace wp {
             EXECUTABLE = false,
             TRANSIENT = false,
             SHARED = true,
+            SHARE_DEAD_SLABS = false,
             EXEC_WHERE = granary::EXEC_NONE,
             MIN_ALIGN = 4
         };
