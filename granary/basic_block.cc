@@ -1030,9 +1030,9 @@ namespace granary {
 
             // Prepare the instructions for final execution; this does
             // instruction-specific translations needed to make the code
-            // sane/safe to run. mangling uses `client_policy` as opposed to
-            // `policy` so that CTIs are mangled to transfer control to the
-            // (potentially different) client policy.
+            // sane/safe to run. Mangling uses `block->outgoing_policy` as
+            // opposed to `block->incoming_policy` so that CTIs are mangled
+            // to transfer control to the (potentially different) client policy.
             mangler.mangle();
 
             // Extend our trace instruction list.
