@@ -50,3 +50,6 @@ bin/*
 *.lai
 *.la
 *.a
+
+# ctags file
+tags

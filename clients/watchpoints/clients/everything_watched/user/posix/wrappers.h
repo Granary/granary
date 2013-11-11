@@ -16,6 +16,22 @@
 using namespace client::wp;
 
 
+#if defined(CAN_WRAP_free) && CAN_WRAP_free
+#   define APP_WRAPPER_FOR_free
+    FUNCTION_WRAPPER_VOID(APP, free, (void *ptr), {
+        free(unwatched_address_check(ptr));
+    })
+#endif
+
+
+#if defined(CAN_WRAP___libc_free) && CAN_WRAP___libc_free
+#   define APP_WRAPPER_FOR____libc_free
+    FUNCTION_WRAPPER_VOID(APP, __libc_free, (void *ptr), {
+        __libc_free(unwatched_address_check(ptr));
+    })
+#endif
+
+
 #if defined(CAN_WRAP_realloc) && CAN_WRAP_realloc
 #   define APP_WRAPPER_FOR_realloc
     FUNCTION_WRAPPER(APP, realloc, (void *), (void *ptr, size_t size), {

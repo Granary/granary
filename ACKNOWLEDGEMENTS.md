@@ -10,6 +10,7 @@ The following is a list of people who have contributed to Granary (in alphabetic
  * [Olantuji Ruwase](https://github.com/tjruwase)
  * [Peter Goodman](https://github.com/pgoodman)
  * [Peter McCormick](https://github.com/pdmccormick)
+ * [Tyler Dixon](https://github.com/ZymoticB)
 
 Granary's original implementation (not contained in this source code repository) was primarily
 written by [Peter Goodman](https://github.com/pgoodman) and [Akshay Kumar](https://github.com/kumarak). That implementation was based on DynamoRIO Kernel (DRK).

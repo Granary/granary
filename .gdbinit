@@ -67,8 +67,7 @@ set language c++
 # Simplify user-space debugging of a DLL using by doing the proper
 # environment setup.
 define dll
-  set env LD_PRELOAD=./libgranary.so
-  #share ./libgranary.so
+  set env LD_PRELOAD=./bin/libgranary.so
 end
 
 

@@ -502,7 +502,8 @@ namespace granary {
             // make sure to restore *pc to the address of the UD2 instruction
             // so that a debugger can see the related source code nicely.
             if(dynamorio::OP_ud2a == in.op_code()
-            || dynamorio::OP_ud2b == in.op_code()) {
+            || dynamorio::OP_ud2b == in.op_code()
+            || dynamorio::OP_int3 == in.op_code()) { // GDB breakpoints.
                 *pc = in.pc();
                 fall_through_detach = true;
                 break;
