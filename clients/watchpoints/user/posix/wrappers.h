@@ -25,6 +25,10 @@
 #   include "clients/watchpoints/clients/bounds_checker/user/posix/wrappers.h"
 #endif
 
+#ifdef CLIENT_ARK
+#	include "clients/watchpoints/clients/ark/user/posix/wrappers.h"
+#endif
+
 using namespace client::wp;
 
 
