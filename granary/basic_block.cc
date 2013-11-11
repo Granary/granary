@@ -972,12 +972,14 @@ namespace granary {
 
         instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
 
-        block_translator *trace(allocate_memory<block_translator>());
-        block_translator * const trace_original_bb(trace);
-        app_pc end_pc(nullptr);
+        block_translator *trace_bbs(allocate_memory<block_translator>());
+        block_translator * const trace_original_bb(trace_bbs);
 
-        trace->start_pc = start_pc;
-        trace->incoming_policy = policy;
+        app_pc trace_start_pc(start_pc);
+        app_pc trace_end_pc(nullptr);
+
+        trace_bbs->start_pc = trace_start_pc;
+        trace_bbs->incoming_policy = policy;
 
 #if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
         for(bool changed(true); changed; ) {
@@ -985,26 +987,29 @@ namespace granary {
 
             // Build a trace of all successors that we can follow through
             // conditional CTIs.
-            for(block_translator *block(trace);
+            for(block_translator *block(trace_bbs);
                 nullptr != block;
                 block = block->next) {
 
                 if(!block->translated) {
                     block->run(cpu);
-                    if(block->visit_branches(&trace)) {
+                    if(block->visit_branches(&trace_bbs)) {
                         changed = true;
                     }
                     block->translated = true;
                 }
 
-                if(block->end_pc > end_pc) {
-                    end_pc = block->end_pc;
+                if(block->start_pc < trace_start_pc) {
+                    trace_start_pc = block->start_pc;
+                }
+                if(block->end_pc > trace_end_pc) {
+                    trace_end_pc = block->end_pc;
                 }
             }
         }
 #else
-        trace->run(cpu);
-        end_pc = trace->end_pc;
+        trace_bbs->run(cpu);
+        trace_end_pc = trace_bbs->end_pc;
 #endif
 
         const_app_pc estimator_pc(
@@ -1012,12 +1017,12 @@ namespace granary {
 
         // Form one large trace instruction list.
         instruction_list ls;
-        for(block_translator *block(trace);
+        for(block_translator *block(trace_bbs);
             nullptr != block;
             block = block->next) {
 
             block->fixup_branches(
-                trace, block->next, start_pc, end_pc);
+                trace_bbs, block->next, trace_start_pc, trace_end_pc);
 
             instruction_list_mangler mangler(
                 cpu, *block->state, block->ls, patch_stubs,
@@ -1080,10 +1085,10 @@ namespace granary {
         }
 
         IF_PERF( unsigned num_bbs_in_trace(0); )
-        const app_pc trace_start_pc(trace_original_bb->start_label.pc());
+        const app_pc translated_start_pc(trace_original_bb->start_label.pc());
 
         // Create the basic block info for each trace basic block.
-        for(block_translator *block(trace), *next_block(nullptr);
+        for(block_translator *block(trace_bbs), *next_block(nullptr);
             nullptr != block;
             block = next_block) {
 
@@ -1118,9 +1123,6 @@ namespace granary {
             info->state = block->state;
 
 #if CONFIG_ENABLE_TRACE_ALLOCATOR
-            /// !!!!! TODO !!!!!
-            ///     Ensure proper inheritance of the allocator w.r.t.
-            ///     direct CTI mangling.
             info->allocator = cpu->current_fragment_allocator;
 #endif
 
@@ -1148,7 +1150,7 @@ namespace granary {
 
         // The generated pc is not necessarily the actual basic block beginning
         // because direct jump patchers will be prepended to the basic block.
-        basic_block ret(trace_start_pc);
+        basic_block ret(translated_start_pc);
 
         IF_PERF( perf::visit_trace(num_bbs_in_trace); )
 
