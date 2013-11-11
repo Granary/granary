@@ -82,7 +82,7 @@ using namespace client::wp;
     }
 
 
-#if defined(CAN_WRAP_malloc) && CAN_WRAP_calloc
+#if defined(CAN_WRAP_calloc) && CAN_WRAP_calloc
 #   define APP_WRAPPER_FOR_calloc
     FUNCTION_WRAPPER(APP, calloc, (void *), (size_t count, size_t size), CALLOCATOR(calloc, count, size))
 #endif

@@ -22,11 +22,8 @@ namespace client { namespace wp {
 
     /// Handle a segfault by trying to attach instrumentation to native code.
     static void handle_fault(int, siginfo_t *info, void *context_) throw() {
+        USED(info);
         detach();
-
-        if(!is_watched_address(info->si_addr)) {
-            exit(1);
-        }
 
         granary::printf("faulted on watched address!\n");
 
