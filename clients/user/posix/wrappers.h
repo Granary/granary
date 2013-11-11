@@ -14,7 +14,7 @@
 #if defined(CLIENT_WATCHPOINT_BOUND) \
  || defined(CLIENT_WATCHPOINT_WATCHED) \
  || defined(CLIENT_WATCHPOINT_STATS)
-#   include "clients/watchpoints/kernel/linux/wrappers.h"
+#   include "clients/watchpoints/user/posix/wrappers.h"
 #endif
 
 
