@@ -67,10 +67,14 @@ namespace granary {
     }
 
 
+    IF_USER( namespace detail { extern void init_code_cache(void) throw(); } )
+
+
     /// Initialise granary.
     void init(void) throw() {
 
         IF_KERNEL( cpu_state::init_early(); )
+        IF_USER( detail::init_code_cache(); )
 
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_HEAD.next);
@@ -81,6 +85,8 @@ namespace granary {
 
             IF_KERNEL( eflags flags = granary_disable_interrupts(); )
             cpu_state_handle cpu;
+
+            IF_TEST( cpu->in_granary = false; )
             cpu.free_transient_allocators();
 
             ASM(

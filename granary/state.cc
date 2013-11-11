@@ -15,6 +15,7 @@ namespace granary {
     void enter(cpu_state_handle cpu) throw() {
         IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
+        cpu->current_fragment_allocator = &(cpu->fragment_allocator);
         IF_TEST( cpu->in_granary = true; )
     }
 

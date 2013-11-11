@@ -51,7 +51,7 @@
 /// latency because Granary won't add in additional code on each interrupt
 /// invocation.
 #if GRANARY_IN_KERNEL
-#   define CONFIG_HANDLE_INTERRUPTS 1
+#   define CONFIG_HANDLE_INTERRUPTS 1 // shouldn't be 0, but can be sometimes.
 #else
 #   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
 #endif
@@ -67,7 +67,7 @@
 
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
 #else
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
@@ -108,13 +108,11 @@
 #define CONFIG_ENABLE_DIRECT_RETURN GRANARY_IN_KERNEL
 
 
-/// Should execution be traced?
-#ifndef CONFIG_TRACE_EXECUTION
-	#define CONFIG_TRACE_EXECUTION 0
-#endif
-#ifndef CONFIG_TRACE_PRINT_LOG
-	#define CONFIG_TRACE_PRINT_LOG 0
-#endif
+/// Should execution be traced? This is a debugging option, not to be confused
+/// with the trace allocator or trace building, where we record the entry PCs
+/// of basic blocks as they execute for later inspection by gdb.
+#define CONFIG_TRACE_EXECUTION 0
+#define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
 
@@ -123,11 +121,38 @@
 #define CONFIG_PRE_MANGLE_REP_INSTRUCTIONS 0
 
 
+/// Enable the trace allocator? The trace allocator tries to approximate trace
+/// building by having a basic block fragment allocated in the same slab (if
+/// possible) as its successor basic block.
+#define CONFIG_ENABLE_TRACE_ALLOCATOR 0
+
+
+/// Optional trace allocator sub-option: Should all functional units be treated
+/// as distinct traces? This results in code being grouped into functions.
+#define CONFIG_TRACE_FUNCTIONAL_UNITS 0
+
+
+/// Optional trace allocator sub-option: Should the trace allocator be based on
+/// CPU allocators? This results in traces with respect to CPU allocators.
+#define CONFIG_TRACE_CPUS 0
+
+
+/// Should we try to aggressively build traces at basic block translation
+/// time? This implies a more transactional approach to filling the code cache.
+///
+/// Note: This is unrelated to tracing execution for debugging, and unrelated
+///       to trace allocators.
+///
+/// Note: This is a very very aggressive translation approach, and might
+///       perform badly with policies.
+#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 0
+
+
 /// Enable performance counters and reporting. Performance counters measure
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 1
+#define CONFIG_ENABLE_PERF_COUNTS 0
 
 
 /// Enable profiling of indirect jumps and indirect calls.
@@ -167,7 +192,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
+#define CONFIG_ENABLE_ASSERTIONS 0
 #if GRANARY_IN_KERNEL
 #   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
@@ -185,6 +210,7 @@
 #ifndef CONFIG_MEMORY_PAGE_SIZE
 #   define CONFIG_MEMORY_PAGE_SIZE 4096
 #endif
+
 
 // Size of per-cpu/thread-local private stack (currently 6 pages).
 #ifndef CONFIG_PRIVATE_STACK_SIZE
@@ -343,10 +369,11 @@ namespace granary {
     }
 #endif /* GRANARY_IN_KERNEL */
 
-
-    extern "C" bool is_code_cache_address(app_pc) throw();
-    extern "C" bool is_wrapper_address(app_pc) throw();
-    extern "C" bool is_gencode_address(app_pc) throw();
+    extern "C" {
+        extern bool is_code_cache_address(app_pc) throw();
+        extern bool is_wrapper_address(app_pc) throw();
+        extern bool is_gencode_address(app_pc) throw();
+    }
 
 
 #if GRANARY_IN_KERNEL
@@ -441,8 +468,9 @@ extern "C" {
 
 #include "granary/allocator.h"
 #include "granary/utils.h"
-#include "granary/type_traits.h"
-#include "granary/bump_allocator.h"
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include "granary/bump_allocator.h"
+#endif
 #include "granary/init.h"
 #include "granary/perf.h"
 #include "granary/printf.h"

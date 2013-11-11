@@ -58,7 +58,7 @@ namespace granary {
         /// CPU-private fragment allocators.
         struct fragment_allocator_config {
             enum {
-                SLAB_SIZE = PAGE_SIZE * 4,
+                SLAB_SIZE = PAGE_SIZE * 8,
                 EXECUTABLE = true,
                 TRANSIENT = false,
                 SHARED = false,
@@ -69,7 +69,7 @@ namespace granary {
         };
 
 
-        /// CPU-private fragment stub allocators.
+        /// CPU-private fragment stub allocators. These
         struct stub_allocator_config {
             enum {
                 SLAB_SIZE = PAGE_SIZE,
@@ -78,7 +78,7 @@ namespace granary {
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE / 2
+                MIN_ALIGN = 16
             };
         };
 
@@ -166,12 +166,18 @@ namespace granary {
 #endif
 
 
+    typedef bump_pointer_allocator<detail::fragment_allocator_config>
+            generic_fragment_allocator;
+
+
     /// Information maintained by granary about each CPU.
     ///
     /// Note: when in kernel space, we assume that this state
     /// 	  is only accessed with interrupts disabled.
     struct cpu_state : public client::cpu_state {
     public:
+
+        unsigned id;
 
         IF_TEST( void *last_find_address; )
 
@@ -226,8 +232,8 @@ namespace granary {
 
 
         /// The code cache allocator for this CPU.
-        bump_pointer_allocator<detail::fragment_allocator_config>
-            fragment_allocator;
+        generic_fragment_allocator fragment_allocator;
+        generic_fragment_allocator *current_fragment_allocator;
 
 
         /// The stub allocator for this CPU.

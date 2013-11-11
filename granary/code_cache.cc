@@ -10,6 +10,7 @@
 #include "granary/code_cache.h"
 #include "granary/hash_table.h"
 #include "granary/basic_block.h"
+#include "granary/basic_block_info.h"
 #include "granary/utils.h"
 #include "granary/register.h"
 #include "granary/emit_utils.h"
@@ -154,13 +155,11 @@ namespace granary {
         //       cache return address and then displaces it then we will
         //       have a problem (moreso in user space; kernel space is easier
         //       to detect code cache addresses).
-#if CONFIG_ENABLE_DIRECT_RETURN
         if(is_code_cache_address(app_target_addr)
         || is_wrapper_address(app_target_addr)
         || is_gencode_address(app_target_addr)) {
             target_addr = app_target_addr;
         }
-#endif
 
         // Ensure that we're in the correct policy context. This might cause
         // a policy conversion. We also need to keep track of the auto-
@@ -206,6 +205,18 @@ namespace granary {
 #endif
         }
 
+#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_FUNCTIONAL_UNITS
+        // If this basic block begins a new functional unit then locate its
+        // basic blocks in a new allocator.
+        if(policy.is_beginning_of_functional_unit()) {
+            IF_PERF( perf::visit_functional_unit(); )
+            cpu->current_fragment_allocator = \
+                allocate_memory<generic_fragment_allocator>();
+        }
+#endif
+
+        cpu->current_fragment_allocator->lock_coarse(IF_TEST(cpu->id));
+
         // If we don't have a target yet then translate the target assuming it's
         // app or host code.
         bool created_bb(false);
@@ -243,11 +254,20 @@ namespace granary {
                 base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
 
             if(!stored_base_addr && created_bb) {
+#if !CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+                // !!!!!TODO!!!!!!
+
                 client::discard_basic_block(*created_bb_state);
 
+                // Try to clean up the shared memory.
+                if(try_remove_basic_block_info(target_addr)) {
+                    cpu->current_fragment_allocator->free_last();
+                }
+
+                // Try to clean up the private memory.
                 cpu->stub_allocator.free_last();
-                cpu->fragment_allocator.free_last();
                 cpu->block_allocator.free_last();
+#endif
 
                 IF_TEST( target_addr = nullptr; );
                 CODE_CACHE->load(base_addr.as_address, target_addr);
@@ -258,6 +278,8 @@ namespace granary {
                 client::commit_to_basic_block(*created_bb_state);
             }
         }
+
+        cpu->current_fragment_allocator->unlock_coarse();
 
         // Propagate the base target to the CPU-private code cache.
         cpu->code_cache.store(base_addr.as_address, target_addr);

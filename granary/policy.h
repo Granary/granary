@@ -120,7 +120,7 @@ namespace granary {
         static std::atomic<unsigned> NEXT_POLICY_ID;
 
         enum {
-            NUM_TEMPORARY_PROPERTIES = 3,
+            NUM_TEMPORARY_PROPERTIES = 4,
             NUM_INHERITED_PROERTIES = 4,
             NUM_PROPERTIES = NUM_TEMPORARY_PROPERTIES + NUM_INHERITED_PROERTIES
         };
@@ -131,6 +131,12 @@ namespace granary {
             ///       `NUM_TEMPORARY_PROPERTIES`, `NUM_INHERITED_PROERTIES`,
             ///       and `base_policy` synchronised.
             struct {
+
+                /// Temporary property; Does this basic block begin a functional
+                /// unit? The conditions for beginning a functional unit is that
+                /// a basic block is either the target of a CALL or an indirect
+                /// JMP.
+                bool begins_functional_unit:1;
 
                 /// Temporary property; this tells the code cache lookup
                 /// function that it is coming from an indirect CTI, which
@@ -280,6 +286,17 @@ namespace granary {
             return !u.id;
         }
 
+        /// Does the code instrumented by this policy access user data?
+        inline bool is_beginning_of_functional_unit(void) const throw() {
+            return u.begins_functional_unit;
+        }
+
+        /// Mark the code instrumented by this policy as accessing user space
+        /// data.
+        inline void begins_functional_unit(bool val=true) throw() {
+            u.begins_functional_unit = val;
+        }
+
 #if GRANARY_IN_KERNEL
         /// Does the code instrumented by this policy access user data?
         inline bool accesses_user_data(void) const throw() {
@@ -311,8 +328,6 @@ namespace granary {
             u.can_direct_return = val;
 #endif
         }
-
-    private:
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
@@ -346,9 +361,11 @@ namespace granary {
         inline instrumentation_policy base_policy(void) throw() {
             instrumentation_policy policy;
             policy.as_raw_bits = as_raw_bits;
+            policy.u.begins_functional_unit = false;
             policy.u.is_indirect_target = false;
             policy.u.is_return_target = false;
             policy.u.force_attach = false;
+
             return policy;
         }
 

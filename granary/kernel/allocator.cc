@@ -36,7 +36,7 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-        HEAP_SIZE = _1_MB * 50,
+        HEAP_SIZE = _1_MB * 70,
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(unsigned long) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),
@@ -227,23 +227,12 @@ namespace granary { namespace detail {
 extern "C" {
 
     void *granary_heap_alloc(void *, unsigned long long size) {
-#if CONFIG_PRECISE_ALLOCATE
-        granary::detail::global_allocate(size);
-#else
         granary::cpu_state_handle cpu;
         return cpu->transient_allocator.allocate_untyped(16, size);
-#endif
     }
 
 
-    void granary_heap_free(void *, void *addr, unsigned long size) {
-#if CONFIG_PRECISE_ALLOCATE
-        granary::detail::global_free(addr, size);
-#else
-        UNUSED(addr);
-        UNUSED(size);
-#endif
-    }
+    void granary_heap_free(void *, void *, unsigned long) { }
 
 
     /// Return temporarily allocated space for an instruction.

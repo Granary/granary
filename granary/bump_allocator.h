@@ -10,8 +10,8 @@
 #define BUMP_ALLOCATOR_H_
 
 #include <new>
-#include "granary/atomic.h"
-#include "granary/type_traits.h"
+#include <type_traits>
+
 #include "granary/utils.h"
 #include "granary/spin_lock.h"
 
@@ -111,23 +111,26 @@ namespace granary {
         static bump_pointer_slab *global_free;
         static atomic_spin_lock global_free_lock;
 
+
         /// Lock used to serialise allocations.
-        opt_atomic<bool, IF_TEST_ELSE(true, IS_SHARED)> lock;
+        spin_lock lock;
 
 
         /// The size of the last allocation.
         unsigned last_allocation_size;
+        uint8_t *last_allocation;
         bump_pointer_slab *last_allocation_slab;
 
 
         /// The last person who allocated.
         IF_TEST( const void *last_allocator; )
+        IF_TEST( int curr_owner_cpu_id; )
 
 
         /// Acquire a lock on the allocator.
         inline void acquire(void) throw() {
             if(IS_SHARED) {
-                while(lock.load() || lock.exchange(true)) { }
+                lock.acquire();
             }
         }
 
@@ -135,7 +138,7 @@ namespace granary {
         /// Release the lock on the allocator.
         inline void release(void) throw() {
             if(IS_SHARED) {
-                lock.store(false);
+                lock.release();
             }
         }
 
@@ -227,7 +230,9 @@ namespace granary {
             const unsigned align,
             const unsigned size
         ) throw() {
+
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
 
             unsigned slab_size(size + ALIGN_TO(size, SLAB_SIZE));
@@ -283,7 +288,14 @@ namespace granary {
             ASSERT(curr->remaining >= size);
 
             uint8_t *ret(&(curr->memory[curr->index]));
+
+#if CONFIG_ENABLE_ASSERTIONS
+            for(i = 0; i < size; ++i) {
+                ASSERT(MEMSET_VALUE == ret[i]);
+            }
+#endif
             last_allocation_size = size;
+            last_allocation = ret;
             last_allocation_slab = curr;
             curr->index += size;
             curr->remaining -= size;
@@ -293,6 +305,7 @@ namespace granary {
 
             return ret;
         }
+
 
         /// Free a list of bump_pointer_slabs.
         static void free_slab_list(bump_pointer_slab *list) throw() {
@@ -318,17 +331,19 @@ namespace granary {
             : curr(nullptr)
             , first(nullptr)
             , free(nullptr)
+            , lock()
             , last_allocation_size(0)
+            , last_allocation(nullptr)
             , last_allocation_slab(nullptr)
             _IF_TEST( last_allocator(nullptr) )
-        {
-            lock.store(false);
-        }
+            _IF_TEST( curr_owner_cpu_id(-1) )
+        { }
 
         ~bump_pointer_allocator(void) throw() {
             free_slab_list(free);
             free = nullptr;
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
             free_slab_list(curr);
             curr = nullptr;
@@ -399,11 +414,11 @@ namespace granary {
 
         /// Free the last thing allocated. If that thing needed to be aligned
         /// then the alignment space is not freed.
+        ///
+        /// If this is a shared allocator, or if the allocator isn't shared but
+        /// follows a locking discipline that uses `lock_coarse` (coarse-grained
+        /// allocator locking) then this function should be used VERY carefully.
         void free_last(void) throw() {
-            if(IS_SHARED) {
-                FAULT;
-            }
-
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
@@ -414,15 +429,13 @@ namespace granary {
 
                 ASSERT((curr->index + curr->remaining) == curr->size);
                 ASSERT(curr->index >= last_allocation_size);
+                ASSERT((last_allocation + last_allocation_size)
+                    == &(curr->memory[curr->index]));
                 curr->index -= last_allocation_size;
                 curr->remaining += last_allocation_size;
                 ASSERT(curr->index <= curr->size);
                 ASSERT((curr->index + curr->remaining) == curr->size);
 
-                // Make sure that something is actually being destroyed.
-                ASSERT(!IS_EXECUTABLE
-                    || (IS_EXECUTABLE
-                            && MEMSET_VALUE != curr->memory[curr->index]));
                 memset(
                     &(curr->memory[curr->index]),
                     MEMSET_VALUE,
@@ -430,6 +443,7 @@ namespace granary {
             }
 
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
             release();
         }
@@ -444,6 +458,7 @@ namespace granary {
             acquire();
             IF_TEST( last_allocator = allocator; )
             last_allocation_size = 0;
+            last_allocation = nullptr;
             last_allocation_slab = nullptr;
 
             if(first) {
@@ -468,6 +483,33 @@ namespace granary {
             }
 
             release();
+        }
+
+
+        /// Acquire a coarse-grained lock on the allocator. This allows us
+        /// to mark an allocator as non-shared (even when it is), but do coarse-
+        /// grained locking across multiple operations, rather than fine-grained
+        /// locking around individual operations.
+        void lock_coarse(IF_TEST(int cpu_id)) throw() {
+#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+            if(!IS_SHARED) {
+                lock.acquire();
+                IF_TEST( curr_owner_cpu_id = cpu_id; )
+            }
+#elif CONFIG_ENABLE_ASSERTIONS
+            UNUSED(cpu_id);
+#endif
+        }
+
+
+        /// Release the coarse-grained lock.
+        void unlock_coarse(void) throw() {
+#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+            if(!IS_SHARED) {
+                IF_TEST( curr_owner_cpu_id = -1; )
+                lock.release();
+            }
+#endif
         }
     };
 

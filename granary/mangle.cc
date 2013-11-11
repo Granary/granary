@@ -114,7 +114,6 @@ namespace granary {
 
 
     /// Hash table of previously constructed IBL entry stubs.
-    static static_data<locked_hash_table<ibl_stub_key, app_pc>> IBL_STUBS;
     static operand reg_target_addr; // arg1, rdi
     static operand reg_target_addr_16; // arg1_16, di
 
@@ -122,34 +121,22 @@ namespace granary {
     STATIC_INITIALISE_ID(ibl_stub_table, {
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
-        IBL_STUBS.construct();
     })
 
 
     /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
     /// The purpose of the stub is to set up the registers and stack in a
     /// canonical way for entry into the indirect branch lookup routine.
-    app_pc instruction_list_mangler::ibl_entry_routine(
+    void instruction_list_mangler::mangle_ibl_lookup(
+        instruction_list &ibl,
+        instruction in,
         instrumentation_policy target_policy,
         operand target,
-        ibl_entry_kind ibl_kind
-        _IF_PROFILE_IBL( app_pc cti_addr )
+        ibl_entry_kind ibl_kind,
+        app_pc cti_addr
     ) throw() {
 
-        const ibl_stub_key key = {
-            target_policy.encode(),
-            target
-        };
-
-        // Don't re-build this IBL entry stub if we've already built it.
-        app_pc ret(nullptr);
-        if(IBL_STUBS->load(key, ret)) {
-            return ret;
-        }
-
-        instruction_list ibl(INSTRUCTION_LIST_GENCODE);
         int stack_offset(0);
-        IF_PERF( const unsigned num_instruction(ibl.length()); )
 
         if(IBL_ENTRY_RETURN == ibl_kind) {
 
@@ -177,10 +164,10 @@ namespace granary {
         // by 8 bytes less than the redzone size, so that the return address
         // itself "extends" the redzone by those 8 bytes.
         if(stack_offset) {
-            ibl.append(lea_(reg::rsp, reg::rsp[-stack_offset]));
+            ibl.insert_before(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
         }
 
-        ibl.append(push_(reg_target_addr));
+        ibl.insert_before(in, push_(reg_target_addr));
         stack_offset += 8;
 
         // If this was a call, then the stack offset was also shifted by
@@ -258,8 +245,11 @@ namespace granary {
             // Make sure all other registers appear live.
             tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
 
-            tail_policy.instrument(cpu, *bb, tail_bb);
-            mangle(tail_bb, *stub_ls);
+            tail_policy.instrument(cpu, bb, tail_bb);
+
+            instruction_list_mangler sub_mangler(
+                cpu, bb, tail_bb, stub_ls, policy, estimator_pc);
+            sub_mangler.mangle();
         }
 
         // Add the instructions back into the stub.
@@ -273,30 +263,11 @@ namespace granary {
 
             next_tail_in = tail_in.next();
             tail_bb.remove(tail_in);
-            ibl.append(tail_in);
+            ibl.insert_before(in, tail_in);
         }
 
-        // Jump off to the more heavy-weight lookup routines.
-        ibl_lookup_stub(ibl, target_policy _IF_PROFILE_IBL(cti_addr));
-
-        // Double-check before encoding.
-        if(IBL_STUBS->load(key, ret)) {
-            return ret;
-        }
-
-        IF_PERF( perf::visit_ibl_stub(ibl.length() - num_instruction); )
-
-        // Encode.
-        const unsigned size(ibl.encoded_size());
-        ret = global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(size);
-        ibl.encode(ret, size);
-
-        // Store the IBL pre-entry routine. If it's already there then we'll
-        // leak a bit of memory. We put this into the global fragment allocator
-        // so that it appears as gencode.
-        IBL_STUBS->store(key, ret);
-
-        return ret;
+        // Extend the basic block with the IBL lookup stub.
+        ibl_lookup_stub(ibl, in, target_policy, cti_addr);
     }
 
 
@@ -323,7 +294,6 @@ namespace granary {
 
         // Get an address into the target basic block using two stage lookup.
         app_pc ret_pc(context->return_address_into_patch_tail);
-        app_pc target_pc(code_cache::find(cpu, context->target_address));
 
         // Determine the address to patch; this decodes the *tail* of the patch
         // code in the basic block and looks for a CTI (assumed jmp) and takes
@@ -341,6 +311,16 @@ namespace granary {
         ASSERT(false);
 
     ready_to_patch:
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        // Inherit this basic block's allocator from our predecessor basic
+        // block.
+        basic_block source_bb(patch_address);
+        ASSERT(nullptr != source_bb.info->allocator);
+        cpu->current_fragment_allocator = source_bb.info->allocator;
+#endif
+
+        app_pc target_pc(code_cache::find(cpu, context->target_address));
 
         // Make sure that the patch target will fit on one cache line. We will
         // use `5` as the magic number for instruction size, as that's typical
@@ -538,22 +518,22 @@ namespace granary {
         instruction patched_in,
         app_pc dbl_routine
     ) throw() {
-        instruction ret(stub_ls->append(label_()));
+        instruction ret(stub_ls.append(label_()));
 
-        IF_PERF( const unsigned old_num_ins(stub_ls->length()); )
+        IF_PERF( const unsigned old_num_ins(stub_ls.length()); )
 
         int redzone_size(patched_in.is_call() ? 0 : REDZONE_SIZE);
 
         // We add REDZONE_SIZE + 8 because we make space for the policy-mangled
         // address. The
         if(redzone_size) {
-            stub_ls->append(lea_(reg::rsp, reg::rsp[-redzone_size]));
+            stub_ls.append(lea_(reg::rsp, reg::rsp[-redzone_size]));
         }
 
-        stub_ls->append(mangled(call_(pc_(dbl_routine))));
+        stub_ls.append(mangled(call_(pc_(dbl_routine))));
 
         if(redzone_size) {
-            stub_ls->append(lea_(reg::rsp, reg::rsp[redzone_size]));
+            stub_ls.append(lea_(reg::rsp, reg::rsp[redzone_size]));
         }
 
         // The address to be mangled is implicitly encoded in the target of
@@ -562,9 +542,9 @@ namespace granary {
         // around:
         //      i)  Doesn't screw around with the return address predictor.
         //      ii) Works with user space red zones.
-        stub_ls->append(mangled(jmp_(instr_(mangled(patched_in)))));
+        stub_ls.append(mangled(jmp_(instr_(mangled(patched_in)))));
 
-        IF_PERF( perf::visit_dbl_stub(stub_ls->length() - old_num_ins); )
+        IF_PERF( perf::visit_dbl_stub(stub_ls.length() - old_num_ins); )
 
         return ret;
     }
@@ -583,14 +563,12 @@ namespace granary {
         app_pc detach_target_pc(nullptr);
         mangled_address am(target_pc, target_policy);
 
-#if GRANARY_IN_KERNEL
         // Keep the target as-is.
         if(is_code_cache_address(target_pc)
         || is_wrapper_address(target_pc)
         || is_gencode_address(target_pc)) {
             detach_target_pc = target_pc;
         }
-#endif
 
         // First detach check: try to see if we should detach from our current
         // policy context, before any context conversion can happen.
@@ -689,6 +667,14 @@ namespace granary {
     }
 
 
+#if GRANARY_IN_KERNEL
+    extern "C" {
+        extern intptr_t NATIVE_SYSCALL_TABLE;
+        extern intptr_t SHADOW_SYSCALL_TABLE;
+    }
+#endif
+
+
     /// Mangle an indirect control transfer instruction.
     void instruction_list_mangler::mangle_indirect_cti(
         instruction in,
@@ -697,33 +683,50 @@ namespace granary {
     ) throw() {
         if(in.is_call()) {
 
+            instruction call_target(stub_ls.append(label_()));
+            instruction insert_point(stub_ls.append(label_()));
+
+#if GRANARY_IN_KERNEL && CONFIG_INSTRUMENT_HOST
+            // Linux-specific special case: Optimise for syscall entry points.
+            // Note: We depend on sign-extension of the 32-bit displacement here.
+            if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
+            && dynamorio::BASE_DISP_kind == target.kind
+            && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
+                target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;
+                in.set_cti_target(target);
+                in.set_mangled();
+                return;
+            }
+#endif
+
             IF_PERF( perf::visit_mangle_indirect_call(); )
-            app_pc routine(ibl_entry_routine(
-                target_policy, target,
-                IBL_ENTRY_CALL _IF_PROFILE_IBL(in.pc())));
-            in.replace_with(mangled(call_(pc_(routine))));
+            mangle_ibl_lookup(
+                stub_ls, insert_point, target_policy, target,
+                IBL_ENTRY_CALL, in.pc());
+
+            ls.insert_before(in, mangled(call_(instr_(call_target))));
+            ls.remove(in);
 
         } else if(in.is_return()) {
             IF_PERF( perf::visit_mangle_return(); )
-
 #if !CONFIG_ENABLE_DIRECT_RETURN
             if(!policy.return_address_is_in_code_cache()) {
 
                 // TODO: handle RETn/RETf with a byte count.
                 ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
 
-                app_pc routine(ibl_entry_routine(
-                    target_policy, target,
-                    IBL_ENTRY_RETURN _IF_PROFILE_IBL(in.pc())));
-                in.replace_with(mangled(jmp_(pc_(routine))));
+                mangle_ibl_lookup(
+                    ls, in, target_policy, target,
+                    IBL_ENTRY_RETURN, in.pc());
+                ls.remove(in);
             }
 #endif
         } else {
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
-            app_pc routine(ibl_entry_routine(
-                target_policy, target,
-                IBL_ENTRY_JMP _IF_PROFILE_IBL(in.pc())));
-            in.replace_with(mangled(jmp_(pc_(routine))));
+            mangle_ibl_lookup(
+                ls, in, target_policy, target,
+                IBL_ENTRY_JMP, in.pc());
+            ls.remove(in);
         }
     }
 
@@ -738,6 +741,8 @@ namespace granary {
         if(!target_policy) {
             target_policy = policy;
         }
+
+        target_policy.begins_functional_unit(false); // Sane default.
 
         if(dynamorio::OP_iret == in.op_code()) {
             // TODO?
@@ -771,8 +776,10 @@ namespace granary {
             if(in.is_call()) {
                 target_policy.inherit_properties(policy, INHERIT_CALL);
                 target_policy.return_address_in_code_cache(true);
+                target_policy.begins_functional_unit(true);
             } else {
                 target_policy.inherit_properties(policy, INHERIT_JMP);
+                target_policy.begins_functional_unit(false);
             }
 
             // Direct CTI.
@@ -788,6 +795,12 @@ namespace granary {
             } else if(!dynamorio::opnd_is_instr(target)) {
                 target_policy.return_target(false);
                 target_policy.indirect_cti_target(true);
+
+                // Note: Indirect JMPs are treated as beginning a functional
+                //       unit (indirect tail-call), whereas we don't have enough
+                //       information at runtime to make this judgement of
+                //       direct jumps (potential direct tail-calls).
+                target_policy.begins_functional_unit(true);
 
                 // Tell the code cache lookup routine that if we switch to host
                 // code that we can instrument it. The protocol here is that if
@@ -919,20 +932,20 @@ namespace granary {
 
         if(first_reg_is_dead) {
             const operand reg_addr(dead_reg_id);
-            first_in = ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            first_in = ls.insert_before(in, mov_imm_(reg_addr, int64_(addr)));
             in.replace_with(push_(*reg_addr));
 
         } else {
             const operand reg_addr(spill_reg_id);
             const operand reg_value(spill_reg_id);
-            first_in = ls->insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
-            ls->insert_before(in, push_(reg_addr));
-            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
-            ls->insert_before(in, mov_ld_(reg_value, *reg_addr));
+            first_in = ls.insert_before(in, lea_(reg::rsp, reg::rsp[-8]));
+            ls.insert_before(in, push_(reg_addr));
+            ls.insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            ls.insert_before(in, mov_ld_(reg_value, *reg_addr));
 
             in.replace_with(mov_st_(reg::rsp[8], reg_value));
 
-            last_in = ls->insert_after(in, pop_(reg_addr));
+            last_in = ls.insert_after(in, pop_(reg_addr));
         }
 
         propagate_delay_region(in, first_in, last_in);
@@ -956,28 +969,28 @@ namespace granary {
             const operand reg_value(dead_reg_id);
             const operand reg_addr(spill_reg_id);
 
-            first_in = ls->insert_before(in, pop_(reg_value));
-            ls->insert_before(in, push_(reg_addr));
-            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            first_in = ls.insert_before(in, pop_(reg_value));
+            ls.insert_before(in, push_(reg_addr));
+            ls.insert_before(in, mov_imm_(reg_addr, int64_(addr)));
 
             in.replace_with(mov_st_(*reg_addr, reg_value));
 
-            last_in = ls->insert_after(in, pop_(reg_addr));
+            last_in = ls.insert_after(in, pop_(reg_addr));
 
         } else {
             const operand reg_value(dead_reg_id);
             const operand reg_addr(spill_reg_id);
 
-            first_in = ls->insert_before(in, push_(reg_value));
-            ls->insert_before(in, push_(reg_addr));
-            ls->insert_before(in, mov_imm_(reg_addr, int64_(addr)));
-            ls->insert_before(in, mov_ld_(reg_value, reg::rsp[16]));
+            first_in = ls.insert_before(in, push_(reg_value));
+            ls.insert_before(in, push_(reg_addr));
+            ls.insert_before(in, mov_imm_(reg_addr, int64_(addr)));
+            ls.insert_before(in, mov_ld_(reg_value, reg::rsp[16]));
 
             in.replace_with(mov_st_(*reg_addr, reg_value));
 
-            ls->insert_after(in, pop_(reg_addr));
-            ls->insert_after(in, pop_(reg_value));
-            last_in = ls->insert_after(in, lea_(reg::rsp, reg::rsp[8]));
+            ls.insert_after(in, pop_(reg_addr));
+            ls.insert_after(in, pop_(reg_value));
+            last_in = ls.insert_after(in, lea_(reg::rsp, reg::rsp[8]));
         }
 
         propagate_delay_region(in, first_in, last_in);
@@ -1054,7 +1067,7 @@ namespace granary {
         // use a dead register
         if(first_reg_is_dead) {
             used_reg = dead_reg_id;
-            first_in = ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
+            first_in = ls.insert_before(in, mov_imm_(used_reg, int64_(addr)));
 
         // spill a register, then use that register to load the value from
         // memory. Note: the ordering of managing `first_in` is intentional and
@@ -1062,12 +1075,12 @@ namespace granary {
         } else {
 
             used_reg = spill_reg_id;
-            first_in = ls->insert_before(in, push_(used_reg));
-            IF_USER( first_in = ls->insert_before(first_in,
+            first_in = ls.insert_before(in, push_(used_reg));
+            IF_USER( first_in = ls.insert_before(first_in,
                 lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
-            ls->insert_before(in, mov_imm_(used_reg, int64_(addr)));
-            last_in = ls->insert_after(in, pop_(used_reg));
-            IF_USER( last_in = ls->insert_after(last_in,
+            ls.insert_before(in, mov_imm_(used_reg, int64_(addr)));
+            last_in = ls.insert_after(in, pop_(used_reg));
+            IF_USER( last_in = ls.insert_after(last_in,
                 lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
 
@@ -1116,26 +1129,19 @@ namespace granary {
         const operand undefined_source(register_manager::scale(
             undefined_source_reg_64, undef_scale));
 
-        in = ls->insert_after(in, push_(undefined_source_64));
-        in = ls->insert_after(in, mov_imm_(undefined_source, undefined_value));
-        in = ls->insert_after(in,
+        in = ls.insert_after(in, push_(undefined_source_64));
+        in = ls.insert_after(in, mov_imm_(undefined_source, undefined_value));
+        in = ls.insert_after(in,
             cmovcc_(dynamorio::OP_cmovz, dest_op, undefined_source));
-        ls->insert_after(in, pop_(undefined_source_64));
+        ls.insert_after(in, pop_(undefined_source_64));
     }
 
 
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
-    void instruction_list_mangler::mangle(
-        instruction_list &ls_,
-        instruction_list &stub_ls_
-    ) throw() {
-        instruction_list *prev_ls(ls);
+    void instruction_list_mangler::mangle(void) throw() {
 
-        ls = &ls_;
-        stub_ls = &stub_ls_;
-
-        instruction in(ls->first());
+        instruction in(ls.first());
         instruction next_in;
 
         // go mangle instructions; note: indirect CTI mangling happens here.
@@ -1168,28 +1174,34 @@ namespace granary {
             // too far away and fix it.
             } else if(dynamorio::OP_lea == in.op_code()) {
 
-                IF_PERF( const unsigned old_num_ins(ls->length()); )
+                IF_PERF( const unsigned old_num_ins(ls.length()); )
                 mangle_lea(in);
-                IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
+                IF_PERF( perf::visit_mem_ref(ls.length() - old_num_ins); )
 
             // Look for uses of relative addresses in operands that are no
             // longer reachable with %rip-relative encoding, and convert to a
             // use of an absolute address.
             } else {
-                IF_PERF( const unsigned old_num_ins(ls->length()); )
+                IF_PERF( const unsigned old_num_ins(ls.length()); )
                 mangle_far_memory_refs(in);
-                IF_PERF( perf::visit_mem_ref(ls->length() - old_num_ins); )
+                IF_PERF( perf::visit_mem_ref(ls.length() - old_num_ins); )
             }
         }
+    }
 
 
-        // Do a second-pass over all instructions, looking for any hot-patchable
-        // instructions, and aligning all hot-patchable instructions
-        // accordingly.
-        unsigned align(0);
-        instruction prev_in;
+    /// Make sure that we emit a basic block that meets all alignment
+    /// requirements necessary for hot-patching direct control transfer
+    /// instructions.
+    unsigned instruction_list_mangler::align(
+        instruction_list &ls,
+        unsigned curr_align
+    ) throw() {
+        instruction in;
+        instruction next_in;
+        unsigned size(0);
 
-        for(in = ls->first(); in.is_valid(); in = next_in) {
+        for(in = ls.first(); in.is_valid(); in = next_in) {
 
             next_in = in.next();
             const bool is_hot_patchable(in.is_patchable());
@@ -1204,11 +1216,12 @@ namespace granary {
             if(is_hot_patchable
             && (in.instr->granary_flags & instruction::COND_CTI_PLACEHOLDER)) {
                 in.instr->granary_flags &= ~instruction::COND_CTI_PLACEHOLDER;
-                ls->insert_after(in, nop1byte_());
+                ls.insert_after(in, nop1byte_());
                 in_size += 1;
             }
 
-            const unsigned cache_line_offset(align % CONFIG_MIN_CACHE_LINE_SIZE);
+            const unsigned cache_line_offset(
+                curr_align % CONFIG_MIN_CACHE_LINE_SIZE);
 
             // Make sure that hot-patchable instructions don't cross cache
             // line boundaries.
@@ -1217,30 +1230,35 @@ namespace granary {
                 ASSERT(in.prev().is_valid());
                 const unsigned forward_align(
                     CONFIG_MIN_CACHE_LINE_SIZE - cache_line_offset);
-                insert_nops_after(*ls, in.prev(), forward_align);
-                IF_PERF( perf::visit_align_nop(forward_align); );
+                ASSERT(8 > forward_align);
+                insert_nops_after(ls, in.prev(), forward_align);
                 in_size += forward_align;
+                IF_PERF( perf::visit_align_nop(forward_align); )
             }
 
-            prev_in = in;
-            align += in_size;
+            curr_align += in_size;
+            size += in_size;
         }
 
-        ls = prev_ls;
+        return size;
     }
 
 
     /// Constructor
     instruction_list_mangler::instruction_list_mangler(
         cpu_state_handle cpu_,
-        basic_block_state *bb_,
-        instrumentation_policy &policy_
+        basic_block_state &bb_,
+        instruction_list &ls_,
+        instruction_list &stub_ls_,
+        instrumentation_policy policy_,
+        const_app_pc estimator_pc_
     ) throw()
         : cpu(cpu_)
         , bb(bb_)
         , policy(policy_)
-        , ls(nullptr)
-        , estimator_pc(cpu->fragment_allocator.allocate_staged<uint8_t>())
+        , ls(ls_)
+        , stub_ls(stub_ls_)
+        , estimator_pc(estimator_pc_)
     { }
 
 }

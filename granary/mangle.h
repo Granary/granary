@@ -31,10 +31,10 @@ namespace granary {
         friend struct code_cache;
 
         cpu_state_handle cpu;
-        basic_block_state *bb;
+        basic_block_state &bb;
         const instrumentation_policy policy;
-        instruction_list *ls;
-        instruction_list *stub_ls;
+        instruction_list &ls;
+        instruction_list &stub_ls;
 
         // used to estimate if an address is too far away from the code cache
         // to use relative addressing.
@@ -110,11 +110,13 @@ namespace granary {
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup routine.
-        app_pc ibl_entry_routine(
+        void mangle_ibl_lookup(
+            instruction_list &insertion_list,
+            instruction insertion_point,
             instrumentation_policy target_policy,
             operand target,
-            ibl_entry_kind ibl_kind
-            _IF_PROFILE_IBL( app_pc cti_in )
+            ibl_entry_kind ibl_kind,
+            app_pc cti_in
         ) throw();
 
 
@@ -123,12 +125,21 @@ namespace granary {
 
         instruction_list_mangler(
             cpu_state_handle cpu_,
-            basic_block_state *bb_,
-            instrumentation_policy &policy_
+            basic_block_state &bb_,
+            instruction_list &ls_,
+            instruction_list &stub_ls_,
+            instrumentation_policy policy_,
+            const_app_pc
         ) throw();
 
 
-        void mangle(instruction_list &ls, instruction_list &stub_ls);
+        void mangle(void) throw();
+
+
+        /// Aligns hot-patchable instructions in the basic block, given the
+        /// current cache-line alignment of the basic block, and returns the
+        /// basic block's size.
+        static unsigned align(instruction_list &ls, unsigned align) throw();
     };
 }
 

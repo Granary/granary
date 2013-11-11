@@ -105,6 +105,9 @@ namespace granary {
     };
 
 
+    static std::atomic<unsigned> NEXT_CPU_ID = ATOMIC_VAR_INIT(0U);
+
+
     /// Allocate and initialise state for each CPU.
     static void alloc_cpu_state(void) {
         cpu_state **state_ptr(kernel_get_cpu_state(CPU_STATES));
@@ -115,6 +118,7 @@ namespace granary {
             state_addr + ALIGN_TO(state_addr, CONFIG_MEMORY_PAGE_SIZE)));
 
         *state_ptr = &(poisoned_state->state);
+        (*state_ptr)->id = NEXT_CPU_ID.fetch_add(1);
 
 #if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
         // Get a copy of the native IDTR.
@@ -138,7 +142,7 @@ namespace granary {
     static void set_percpu(void) {
         cpu_state_handle cpu;
 
-#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+#if CONFIG_HANDLE_INTERRUPTS
         set_idtr(&(cpu->idtr));
 #endif
 
@@ -170,7 +174,7 @@ namespace granary {
             kernel_make_page_read_only(
                 unsafe_cast<char *>(CPU_STATES[i]) + POS_OFFSET);
 
-#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+#if CONFIG_HANDLE_INTERRUPTS
 
             // Make sure that we can read the kernel's IDT.
             kernel_make_page_read_only(
@@ -187,26 +191,29 @@ namespace granary {
             {
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
-                cpu.free_transient_allocators();
+                enter(cpu);
                 CPU_STATES[i]->idtr = create_idt(CPU_STATES[i]->native_idtr);
             }
             granary_store_flags(flags);
 #endif
 #if CONFIG_INSTRUMENT_HOST
+
             // Create this CPUs SYSCALL entry point.
             flags = granary_disable_interrupts();
             {
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
-                cpu.free_transient_allocators();
+                enter(cpu);
                 CPU_STATES[i]->msr_lstar = create_syscall_entrypoint(
                     CPU_STATES[i]->native_msr_lstar);
             }
             granary_store_flags(flags);
 #endif
 
+#if CONFIG_HANDLE_INTERRUPTS
             // Page protect the IDTs.
             kernel_make_page_read_only(CPU_STATES[i]->idtr.base);
+#endif
         }
 
         kernel_run_on_each_cpu(set_percpu);
@@ -218,9 +225,6 @@ namespace granary {
 
         UNUSED(flags);
     }
-
-
-
 
 
     /// Note: thread_state_handle::thread_state_handle and ::init are in the

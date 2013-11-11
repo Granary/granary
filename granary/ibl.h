@@ -10,6 +10,7 @@
 #define GRANARY_IBL_H_
 
 #include "granary/globals.h"
+#include "granary/instruction.h"
 
 namespace granary {
 
@@ -30,8 +31,9 @@ namespace granary {
     /// address is in the CPU-private code cache.
     void ibl_lookup_stub(
         instruction_list &ibl,
-        instrumentation_policy policy
-        _IF_PROFILE_IBL( app_pc cti_addr )
+        instruction in,
+        instrumentation_policy policy,
+        app_pc cti_addr
     ) throw();
 
 

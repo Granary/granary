@@ -11,12 +11,14 @@
 #include "granary/globals.h"
 #include "granary/policy.h"
 #include "granary/detach.h"
+#include "granary/state.h"
 
 namespace granary {
 
     /// Forward declarations.
     struct basic_block;
     struct basic_block_state;
+    struct block_translator;
     struct instruction_list;
     struct instruction;
     struct cpu_state_handle;
@@ -35,80 +37,54 @@ namespace granary {
 
 
     /// Defines the meta-information block that ends each basic block in the
-    /// code cache.
+    /// code cache._InputIterator
     struct basic_block_info {
     public:
 
-        enum {
-            UNALLOCATED = 0xCCCCCCCC,
-            HEADER = 0xD4D5D682
-        };
-
-        /// magic number (sequence of 4 int3 instructions) which signals the
-        /// beginning of a bb_meta block.
-        uint32_t magic;
-
-        /// Number of bytes in this basic block, *including* the number of
-        /// bytes of padding, and the patch bytes.
-        uint16_t num_bytes;
-
-        //-------------------
-
-        /// Number of bytes of patch instructions beginning this basic block.
-        uint16_t num_patch_bytes;
-
-        //-------------------
-
-        /// Represents the translation policy used to translate this basic
-        /// block. This includes policy properties.
-        uint16_t policy_bits;
-
-        /// Number of bytes of instructions in the generating basic block.
-        uint16_t generating_num_bytes;
-
-        //-------------------
-
-        /// Does this basic block have any state bits following it? It will only
-        /// have state bits of there is a delay region.
-        bool has_delay_range:8;
-
-#if GRANARY_IN_KERNEL
-        /// Does this basic block look like it might have a user space access
-        /// in it? If so, then this is an offset from the address of this field
-        /// to a pointer to a kernel exception table entry.
-        ///
-        /// TODO: This approach is pretty ugly; it's way more convenient to
-        ///       simply store a pointer to the entry itself directly in this
-        ///       structure, but it's also a waste of space 99% of the time.
-        uint8_t exception_table_entry_pointer_offset;
-#endif
-
-        uint32_t:IF_USER_ELSE(24,16);
-
-        //-------------------
-
-        basic_block_state *state_addr;
+        /// The starting pc of the basic block in the code cache.
+        app_pc start_pc;
 
         /// The native pc that "generated" the instructions of this basic block.
         /// That is, if we decoded and instrumented some basic block starting at
         /// pc X, then the generating pc is X.
-        uintptr_t generating_pc;
+        mangled_address generating_pc;
 
-    } __attribute__((packed));
+        //-------------------
 
+        /// Number of bytes in this basic block.
+        uint16_t num_bytes;
 
-#if GRANARY_IN_KERNEL
-    /// Used for packing/unpacking a basic block state address from a basic
-    /// block info address.
-    union basic_block_state_address {
-        struct {
-            uint32_t low;
-            uint32_t high;
-        } __attribute__((packed));
-        basic_block_state *state_addr;
-        basic_block_info *info_addr;
-    } __attribute__((packed));
+        /// Number of instructions in the generating basic block.
+        uint16_t generating_num_instructions;
+
+#if CONFIG_ENABLE_INTERRUPT_DELAY
+        uint16_t num_delay_state_bytes;
+        uint16_t _;
+#else
+        uint32_t _;
 #endif
+
+        //-------------------
+
+        /// Address of client/tool-created basic block meta-data.
+        basic_block_state *state;
+
+#if CONFIG_ENABLE_INTERRUPT_DELAY
+        /// State-set of delay range information for this basic block, if any.
+        uint8_t *delay_states;
+#endif
+
+        /// Does this basic block look like it might have a user space access
+        /// in it? If so, then this is an offset from the address of this field
+        /// to a pointer to a kernel exception table entry.
+        IF_KERNEL( void *user_exception_metadata; )
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        /// What was the allocator used to create this basic block?
+        generic_fragment_allocator *allocator;
+#endif
+
+    } __attribute__((packed));
 
 
     /// Represents a basic block. Basic blocks are not concrete objects in the
@@ -118,12 +94,7 @@ namespace granary {
     public:
 
         friend struct code_cache;
-
-
-        /// points to the counting set, where every pair of bits represents the
-        /// state of some byte in the code cache; this counting set immediately
-        /// follows the info block in memory.
-        IF_KERNEL( uint8_t *pc_byte_states; )
+        friend struct block_translator;
 
 
         /// The meta information for the specific basic block.
@@ -150,11 +121,6 @@ namespace granary {
         app_pc cache_pc_current;
 
 
-        /// The end of the instructions within the basic block. This includes
-        /// illegal instructions emitted at the end of the basic block.
-        app_pc cache_pc_end;
-
-
         /// construct a basic block from a pc that points into the code cache.
         basic_block(app_pc current_pc_) throw();
 
@@ -168,28 +134,6 @@ namespace granary {
         /// to execute after the interrupt has been handled.
         bool get_interrupt_delay_range(app_pc &, app_pc &) const throw();
 #endif
-
-
-#if GRANARY_IN_KERNEL
-        /// If we found any exception table entries in this basic block, then
-        /// we'll need to report them to kernel interrupt handlers that query
-        /// for exception table entries in the code cache. This returns any
-        /// stored exception table entry for the current basic block.
-        void *get_exception_table_entry(void) const throw();
-#endif
-
-
-        /// Compute the size of a basic block given an instruction list. This
-        /// computes the size of each instruction, the amount of padding, meta
-        /// information, etc.
-        static unsigned size(
-            instruction_list &ls
-            _IF_KERNEL(bool has_user_access)
-        ) throw();
-
-
-        /// Compute the size of an existing basic block.
-        unsigned size(void) const throw();
 
 
         /// Call the code within the basic block as if is a function.
@@ -207,48 +151,22 @@ namespace granary {
     protected:
 
 
-        typedef void (client_instrumenter)(
-            cpu_state_handle cpu,
-            basic_block_state *bb,
-            instruction_list &ls);
+        /// Decode instructions at a starting program counter and end decoding
+        /// when we've met the ending conditions for a basic block.
+        static unsigned decode(
+            instruction_list &ls,
+            instrumentation_policy policy,
+            const app_pc start_pc,
+            app_pc &end_pc
+            _IF_KERNEL( void *&user_exception_metadata )
+        ) throw();
 
 
         /// Decode and translate a single basic block of application/module code.
         static basic_block translate(
-            instrumentation_policy policy,
+            const instrumentation_policy policy,
             cpu_state_handle cpu,
-            app_pc start_pc
-        ) throw();
-
-
-        /// Emit an instruction list as code into a byte array. This will also
-        /// emit the basic block meta information and local storage.
-        ///
-        /// Note: it is assumed that pc is well-aligned, e.g. to an 8 or 16 byte
-        ///       boundary.
-        ///
-        /// Note: it is assumed that enough space has been allocated for the
-        ///       instructions and the basic block meta-info, etc.
-        ///
-        /// Args:
-        ///     policy:         The policy of this basic block.
-        ///     ls:             The instructions to encode.
-        ///     generating_pc:  The program PC whose decoding/translation
-        ///                     generated the instruction list ls.
-        ///     generated_pc:   A pointer to the memory location where we will
-        ///                     store this basic block. When the block is
-        ///                     emitted, this pointer is updated to the address
-        ///                     of the memory location immediately following
-        ///                     the basic block.
-        static app_pc emit(
-            instrumentation_policy kind,
-            instruction_list &ls,
-            instruction bb_begin,
-            basic_block_state *block_storage,
-            app_pc generating_pc,
-            unsigned byte_len,
-            app_pc generated_pc,
-            app_pc &end_pc
+            const app_pc start_pc
         ) throw();
 
 
@@ -257,7 +175,7 @@ namespace granary {
         /// Return a pointer to the basic block state structure of this basic
         /// block.
         inline basic_block_state *state(void) const throw() {
-            return info->state_addr;
+            return info->state;
         }
     };
 
