@@ -13,17 +13,22 @@
 
 #include "granary/globals.h"
 
-extern "C" void exit(int);
-
 using namespace granary;
 
 namespace client { namespace wp {
 
 
     /// Handle a segfault by trying to attach instrumentation to native code.
-    static void handle_fault(int, siginfo_t *info, void *context_) throw() {
-        USED(info);
+    static void handle_fault(int, siginfo_t *, void *context_) throw() {
         detach();
+
+        ucontext *context = unsafe_cast<ucontext *>(context_);
+        app_pc faulted_addr(unsafe_cast<app_pc>(
+            context->uc_mcontext.gregs[REG_RIP]));
+
+        if(is_code_cache_address(faulted_addr)) {
+            return;
+        }
 
         granary::printf("faulted on watched address!\n");
 
@@ -33,9 +38,8 @@ namespace client { namespace wp {
         policy.force_attach(true);
 
         cpu_state_handle cpu;
-        ucontext *context = unsafe_cast<ucontext *>(context_);
-        app_pc faulted_addr(unsafe_cast<app_pc>(
-            context->uc_mcontext.gregs[REG_RIP]));
+
+
         mangled_address target(faulted_addr, policy);
 
         context->uc_mcontext.gregs[REG_RIP] = reinterpret_cast<uintptr_t>(

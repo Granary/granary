@@ -166,7 +166,7 @@ namespace granary {
         static basic_block translate(
             const instrumentation_policy policy,
             cpu_state_handle cpu,
-            const app_pc start_pc
+            const app_pc start_pc_
         ) throw();
 
 

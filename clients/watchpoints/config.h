@@ -26,7 +26,7 @@
 /// (especially leaf functions) will behave correctly. The down-side is that
 /// a lot of code will have extra, potentially unneeded instrumentation,
 /// especially where frame pointers are concerned.
-#define WP_IGNORE_FRAME_POINTER 1
+#define WP_IGNORE_FRAME_POINTER IF_USER_ELSE(1, 1)
 
 
 /// Check for user space addresses. This adds an extra two instructions to

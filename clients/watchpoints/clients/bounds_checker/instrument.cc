@@ -181,7 +181,7 @@ namespace client { namespace wp {
     /// Free a watchpoint descriptor by adding it to a free list.
     void bound_descriptor::free(
         bound_descriptor *desc,
-        uintptr_t index
+        uintptr_t IF_TEST( index )
     ) throw() {
         if(!is_valid_address(desc)) {
             return;

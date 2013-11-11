@@ -248,9 +248,9 @@ GR_WP_INCLUDE_DEFAULT = 0
 ifeq ($(GR_CLIENT),watchpoint_null)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
 	GR_WP_INCLUDE_DEFAULT = 1
+	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/instrument.o
 	
 	ifeq ($(KERNEL),1)
-    	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/instrument.o
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_mov.o
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_cmp.o
     	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/tests/test_xlat.o
