@@ -154,14 +154,32 @@ namespace client {
     /// Visit a read or write of a watched address that is the result of an
     /// `rcu_assign_pointer` within a read-side critical section.
     void access_assigned_pointer(register rcudbg_watched_address addr) {
-        (void) addr;
+        IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+        thread_state_handle thread = safe_cpu_access_zone();
+        const char *section_carat(thread->section_carat);
+        const void *thread_id(thread.identifying_address());
+        IF_KERNEL( granary_store_flags(flags); )
+
+        log(ACCESS_OF_ASSIGNED_POINTER_IN_CRITICAL_SECTION,
+            thread_id,
+            section_carat,
+            get_location_carat(addr.assign_location_id));
     }
 
 
     /// Visit a write to a watched address that is the result of an
     /// `rcu_dereference` within a read-side critical section.
     void write_to_deref_pointer(register rcudbg_watched_address addr) {
-        (void) addr;
+        IF_KERNEL( eflags flags = granary_disable_interrupts(); )
+        thread_state_handle thread = safe_cpu_access_zone();
+        const char *section_carat(thread->section_carat);
+        const void *thread_id(thread.identifying_address());
+        IF_KERNEL( granary_store_flags(flags); )
+
+        log(WRITE_TO_DEREF_POINTER_IN_CRITICAL_SECTION,
+            thread_id,
+            section_carat,
+            get_section_carat(addr.read_section_id, SECTION_DEREF_CARAT));
     }
 
 
@@ -191,22 +209,27 @@ namespace client {
     void init(void) throw() {
         cpu_state_handle cpu;
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
         EVENT_READ_THROUGH_RET = generate_clean_callable_address(
             event_read_through_ret);
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
         EVENT_ACCESS_ASSIGNED_POINTER = generate_clean_callable_address(
             access_assigned_pointer);
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
         EVENT_WRITE_TO_DEREF_POINTER = generate_clean_callable_address(
             write_to_deref_pointer);
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
         EVENT_READ_FROM_DEREF_POINTER = generate_clean_callable_address(
             read_from_deref_pointer);
 
+        IF_TEST( cpu->in_granary = false; )
         cpu.free_transient_allocators();
     }
 }

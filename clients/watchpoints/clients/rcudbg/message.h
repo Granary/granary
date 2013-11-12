@@ -132,3 +132,25 @@ RCUDBG_MESSAGE(
     " > last rcu_dereference: %s.\n\n",
     (const void *thread, const char *read_unlock_carat, const char *deref_carat),
     (thread, read_unlock_carat, deref_carat))
+
+RCUDBG_MESSAGE(
+    ACCESS_OF_ASSIGNED_POINTER_IN_CRITICAL_SECTION,
+    ERROR,
+    "Error: Access of an rcu_assign_pointer'd pointer in a read-side critical "
+    "section, but without first using rcu_dereference.\n"
+    " > thread: %p.\n"
+    " > rcu_read_lock: %s.\n"
+    " > rcu_assign_pointer: %s.\n\n",
+    (const void *thread, const char *read_lock_carat, const char *assign_carat),
+    (thread, read_lock_carat, assign_carat))
+
+RCUDBG_MESSAGE(
+    WRITE_TO_DEREF_POINTER_IN_CRITICAL_SECTION,
+    ERROR,
+    "Error: Write to an rcu_dereference'd pointer in a read-side critical "
+    "section.\n"
+    " > thread: %p.\n"
+    " > rcu_read_lock: %s.\n"
+    " > rcu_dereference: %s.\n\n",
+    (const void *thread, const char *read_lock_carat, const char *deref_carat),
+    (thread, read_lock_carat, deref_carat))

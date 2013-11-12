@@ -35,41 +35,10 @@ namespace client {
     };
 
 
-    namespace wp {
+    DECLARE_READ_WRITE_POLICY(
+        rcu_read_policy /* name */,
+        true /* auto-instrument */)
 
-        struct rcu_read_policy {
-
-            enum {
-                AUTO_INSTRUMENT_HOST = true
-            };
-
-            static void visit_read(
-                granary::basic_block_state &bb,
-                granary::instruction_list &ls,
-                watchpoint_tracker &tracker,
-                unsigned i
-            ) throw();
-
-
-            static void visit_write(
-                granary::basic_block_state &bb,
-                granary::instruction_list &ls,
-                watchpoint_tracker &tracker,
-                unsigned i
-            ) throw();
-
-
-            static granary::interrupt_handled_state handle_interrupt(
-                granary::cpu_state_handle cpu,
-                granary::thread_state_handle thread,
-                granary::basic_block_state &bb,
-                granary::interrupt_stack_frame &isf,
-                granary::interrupt_vector vector
-            ) throw();
-
-        };
-
-    }
 
     enum {
         MAX_SECTION_DEPTH = 4
@@ -150,7 +119,7 @@ namespace client {
             AUTO_INSTRUMENT_HOST = true
         };
 
-        static granary::instrumentation_policy visit_instructions(
+        granary::instrumentation_policy visit_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls

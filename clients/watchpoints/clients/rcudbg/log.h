@@ -26,7 +26,7 @@ namespace client {
         WARNING,
         ERROR,
 
-        MIN_LOG_LEVEL = MESSAGE_NOT_READY + 1
+        MIN_LOG_LEVEL = INFO
     };
 
 

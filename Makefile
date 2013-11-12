@@ -390,6 +390,8 @@ GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
 
 # User space.
 ifeq ($(KERNEL),0)
+	GR_FLOAT_FLAGS += -mpreferred-stack-boundary=4
+
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
 	GR_OUTPUT_TYPES = $(SOURCE_DIR)/granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = $(SOURCE_DIR)/granary/gen/user_wrappers.h

@@ -1066,6 +1066,8 @@ namespace granary {
             stub_size = patch_stubs.encoded_size();
             stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
             patch_stubs.encode(stub_pc, stub_size);
+            USED(*stub_pc);
+            USED(stub_pc);
 
         // Make sure we do even a fake allocation so that next time a basic
         // block is killed on the CPU, we don't accidentally kill the last
@@ -1073,6 +1075,8 @@ namespace granary {
         } else {
             cpu->stub_allocator.allocate_staged<uint8_t>();
         }
+
+        USED(*stub_pc);
 
         // Emit the instructions into the code cache.
         ls.encode(emitted_start_pc, emitted_size);

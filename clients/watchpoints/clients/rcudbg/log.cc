@@ -8,6 +8,8 @@
 
 #include <atomic>
 
+#include "granary/client.h"
+
 #include "clients/watchpoints/clients/rcudbg/log.h"
 
 
@@ -20,6 +22,7 @@ extern "C" {
     extern int sprintf(char *buf, const char *fmt, ...);
 }
 
+using namespace granary;
 
 namespace client {
 
@@ -179,8 +182,8 @@ namespace client {
 
 
     enum {
-        BUFFER_SIZE = granary::PAGE_SIZE * 4,
-        BUFFER_FLUSH_SIZE = BUFFER_SIZE - (granary::PAGE_SIZE / 4)
+        BUFFER_SIZE = PAGE_SIZE * 4,
+        BUFFER_FLUSH_SIZE = BUFFER_SIZE - (PAGE_SIZE / 4)
     };
 
 
@@ -189,6 +192,7 @@ namespace client {
 
     /// Log the reports.
     void report(void) {
+        detach();
 
         message_container cont;
         int b(0);

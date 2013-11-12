@@ -67,7 +67,7 @@
 
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
 #else
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
@@ -111,7 +111,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_TRACE_EXECUTION 0
+#define CONFIG_TRACE_EXECUTION 1
 #define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
@@ -192,15 +192,23 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 0
+#define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
-#   define CONFIG_RUN_TEST_CASES 0 // don't change.
+#   define CONFIG_RUN_TEST_CASES 1 // don't change.
 #else
 #   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_ENABLE_ASSERTIONS)
 #endif
 
 
 /// Lower bound on the cache line size.
+///
+/// If running on a relatively recent kernel version, then one should be able
+/// to find the correct value using something like:
+///     cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size
+///
+/// An alternative way of finding this value on Linux is to run:
+///     getconf LEVEL1_DCACHE_LINESIZE
+///
 #ifndef CONFIG_MIN_CACHE_LINE_SIZE
 #   define CONFIG_MIN_CACHE_LINE_SIZE 64
 #endif
@@ -484,8 +492,7 @@ extern "C" {
 
 namespace granary {
     /// Log some data from Granary to the external world.
-    inline void log(const char *data, size_t size) throw() {
-        USED(size);
+    inline void log(const char *data, size_t IF_KERNEL( size ) ) throw() {
         IF_KERNEL(kernel_log(data, size);)
         IF_USER(printf(data);)
     }

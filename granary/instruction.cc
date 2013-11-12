@@ -131,9 +131,20 @@ namespace granary {
         }
 
         if(is_patchable()) {
+            enum {
+
+                // We use JMP length (5) instead of COND_JMP_LENGTH (6) because
+                // `instruction_list_mangler::align` treats conditional JMPs
+                // specially (by converting them into a 5-byte JMP followed by
+                // a 1-byte NOP).
+                JMP_LENGTH = 5
+            };
+
             const uintptr_t addr(reinterpret_cast<uintptr_t>(pc_));
-            ASSERT(((addr % CONFIG_MIN_CACHE_LINE_SIZE) + 5)
+            ASSERT(((addr % CONFIG_MIN_CACHE_LINE_SIZE) + JMP_LENGTH)
                     <= CONFIG_MIN_CACHE_LINE_SIZE);
+
+            USED(*this);
         }
 #endif
 
@@ -717,25 +728,9 @@ namespace granary {
         app_pc *pc_,
         instruction_decode_constraint constraint
     ) throw() {
-        if(true || !instr) { // TODO!!! Double check this, try to remove 'true'.
-            instr = make_instr();
-        } else {
-            // TODO: Improve this for the future.
-            dynamorio::instr_reset(DCONTEXT, instr);
-            dynamorio::instr_set_x86_mode(instr, false);
-            instr->flags |= dynamorio::INSTR_HAS_CUSTOM_STUB;
-        }
+        instr = make_instr();
 
         uint8_t *byte_pc(*pc_);
-
-#if !GRANARY_IN_KERNEL
-        // Deal with `REPZ RET` in user space with potential GDB breakpoints.
-        if((X86_INT3 == byte_pc[0] || X86_REPZ == byte_pc[0])
-        && X86_RET_SHORT == byte_pc[1]) {
-            ++pc_;
-            ++byte_pc;
-        }
-#endif
 
         *pc_ = dynamorio::decode_raw(DCONTEXT, byte_pc, instr);
         dynamorio::decode(DCONTEXT, byte_pc, instr);

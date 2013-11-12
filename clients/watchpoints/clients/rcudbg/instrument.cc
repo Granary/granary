@@ -228,15 +228,27 @@ namespace client {
         instruction_list &ls
     ) throw() {
 
+        static_assert(16 <= detail::fragment_allocator_config::MIN_ALIGN,
+            "Basic block alignment must be at least 16 bytes to enable "
+            "easy patching of RCU-upgradable basic blocks.");
+
+        if(ls.is_stub()) {
+            return *this;
+        }
+
         // Upgrade patch point for write-side debugging. If this basic block
         // faults while running (i.e. because it writes to an RCU-protected
         // data structure) then it is either in an area where the writer is
         // updating the data structure, or doing something wrong.
 
         instruction first(ls.first());
+        instruction patch_target(label_());
 
-        instruction patch_target(ls.prepend(label_()));
-        ls.prepend(mangled(patchable(jmp_short_(instr_(patch_target)))));
+        // We will upgrade in two steps:
+        //  1) Hot patch the long jump (patch_jump).
+        //  2) Hot patch the short jump to point to the long jump.
+        ls.insert_before(first, patchable(mangled(jmp_(instr_(patch_target)))));
+        ls.insert_before(first, patch_target);
 
         unsigned curr_depth(0);
         instrumentation_policy curr_policy(policy_for_depth(curr_depth));
@@ -329,59 +341,67 @@ namespace client {
         interrupt_stack_frame &isf,
         interrupt_vector vec
     ) throw() {
-        if(VECTOR_GENERAL_PROTECTION == vec) {
-
-            // Sequence of NOPs (0x90).
-            uint64_t patch(0x9090909090909090ULL);
-
-            // Re-encode the basic block using the rcu_watched policy and hot-
-            // patch the first instruction to redirect execution.
-            basic_block faulting_bb(isf.instruction_pointer);
-            instrumentation_policy policy = policy_for<rcu_watched>();
-            policy.force_attach(true);
-            policy.access_user_data(faulting_bb.policy.accesses_user_data());
-            policy.in_host_context(faulting_bb.policy.is_in_host_context());
-            policy.in_xmm_context(faulting_bb.policy.is_in_xmm_context());
-
-            // Figure out the location of the hot-patchable entry-point. If the
-            // trace logger is being used then we need to shift by 8 bytes.
-            // Double check that we find a short/near JMP instruction.
-            app_pc patch_pc(faulting_bb.cache_pc_start);
-#if CONFIG_TRACE_EXECUTION
-            patch_pc += 5; // Size of a `CALL`.
-            patch_pc += ALIGN_TO(reinterpret_cast<uintptr_t>(patch_pc), 8);
-#endif
-            ASSERT(0xEB == *patch_pc || 0xE9 == *patch_pc);
-
-            mangled_address am(
-                reinterpret_cast<app_pc>(faulting_bb.info->generating_pc),
-                policy);
-
-            // Stage a patched JMP to the upgraded basic block.
-            app_pc upgraded_bb_pc(code_cache::find(cpu, am));
-            instruction patch_jmp(jmp_(pc_(upgraded_bb_pc)));
-            patch_jmp.stage_encode(unsafe_cast<app_pc>(&patch), patch_pc);
-
-            // Apply the patch.
-            uint64_t *patch_target(reinterpret_cast<uint64_t *>(patch_pc));
-            *patch_target = patch;
-            std::atomic_thread_fence(std::memory_order_seq_cst);
-
-            // Build the tail if we didn't fault at the first instruction.
-            // Redirect the interrupt to resume where watchpoints are tested
-            // for.
-            const app_pc first_ins(patch_pc + 8);
-            if(first_ins == isf.instruction_pointer) {
-                isf.instruction_pointer = upgraded_bb_pc;
-            } else {
-                isf.instruction_pointer = rcu_watched_tail(
-                    cpu, bb, isf.instruction_pointer, policy);
-            }
-
-            return INTERRUPT_IRET;
+        if(VECTOR_GENERAL_PROTECTION != vec) {
+            return INTERRUPT_DEFER;
         }
 
-        return INTERRUPT_DEFER;
+        enum {
+            OP_JMP_SHORT = 0xEB,
+            OP_JMP = 0xE9
+        };
+
+        // Re-encode the basic block using the rcu_watched policy and hot-
+        // patch the first instruction to redirect execution.
+        basic_block faulting_bb(isf.instruction_pointer);
+        instrumentation_policy policy = policy_for<rcu_watched>();
+        policy.force_attach(true);
+        policy.access_user_data(faulting_bb.policy.accesses_user_data());
+        policy.in_host_context(faulting_bb.policy.is_in_host_context());
+        policy.in_xmm_context(faulting_bb.policy.is_in_xmm_context());
+        policy.begins_functional_unit(
+            faulting_bb.policy.is_beginning_of_functional_unit());
+
+        // Figure out the location of the hot-patchable entry-point. If the
+        // trace logger is being used then we need to shift by 8 bytes.
+        // Double check that we find a short/near JMP instruction.
+        app_pc patch_pc(faulting_bb.cache_pc_start);
+#if CONFIG_TRACE_EXECUTION
+        patch_pc += 5; // Size of a `CALL`.
+        patch_pc += ALIGN_TO(reinterpret_cast<uintptr_t>(patch_pc), 8);
+#endif
+
+        uint64_t *patch_target(reinterpret_cast<uint64_t *>(patch_pc));
+        uint64_t patch(*patch_target);
+
+        ASSERT(OP_JMP_SHORT == *patch_pc || OP_JMP == *patch_pc);
+
+        mangled_address am(
+            reinterpret_cast<app_pc>(
+                faulting_bb.info->generating_pc.unmangled_address()),
+            policy);
+
+        // Stage a patched JMP to the upgraded basic block.
+        app_pc upgraded_bb_pc(code_cache::find(cpu, am));
+        instruction patch_jmp(jmp_(pc_(upgraded_bb_pc)));
+        patch_jmp.stage_encode(unsafe_cast<app_pc>(&patch), patch_pc);
+
+        // Apply the patch.
+        std::atomic_thread_fence(std::memory_order_acquire);
+        *patch_target = patch;
+        std::atomic_thread_fence(std::memory_order_release);
+
+        // Build the tail if we didn't fault at the first instruction.
+        // Redirect the interrupt to resume where watchpoints are tested
+        // for.
+        const app_pc first_ins(patch_pc + 8);
+        if(first_ins == isf.instruction_pointer) {
+            isf.instruction_pointer = upgraded_bb_pc;
+        } else {
+            isf.instruction_pointer = rcu_watched_tail(
+                cpu, bb, isf.instruction_pointer, policy);
+        }
+
+        return INTERRUPT_IRET;
     }
 
 

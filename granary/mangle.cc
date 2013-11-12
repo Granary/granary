@@ -233,6 +233,7 @@ namespace granary {
         // Instrument the memory instructions needed to complete this CALL
         // or JMP.
         instruction tail_bb_end(tail_bb.append(label_()));
+        bool tail_bb_changed(false);
         if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
             instrumentation_policy tail_policy(policy);
 
@@ -245,11 +246,30 @@ namespace granary {
             // Make sure all other registers appear live.
             tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
 
-            tail_policy.instrument(cpu, bb, tail_bb);
+            const unsigned old_size(tail_bb.length());
 
+            tail_policy.instrument(cpu, bb, tail_bb);
             instruction_list_mangler sub_mangler(
                 cpu, bb, tail_bb, stub_ls, policy, estimator_pc);
             sub_mangler.mangle();
+
+            // Not quite a perfect test, but the idea here is that if the client
+            // tool is actually instrumenting the tail_bb, then we want to
+            // append it all onto the original basic block, but otherwise we'll
+            // move it out of the code cache and into the stub area. The key
+            // idea is that we don't want to have to do any alignment for
+            // potentially hot-patchable instructions introduced into stub code.
+            // At the same time, if code is injected into the stub but not
+            // placed into the basic block, then we won't be able to related
+            // that fault back to the client tools `handle_interrupt` function.
+            if(old_size != tail_bb.length()) {
+                tail_bb_changed = true;
+            }
+        }
+
+        instruction ibl_stand_in;
+        if(tail_bb_changed) {
+            ibl_stand_in = ls.append(label_());
         }
 
         // Add the instructions back into the stub.
@@ -263,7 +283,12 @@ namespace granary {
 
             next_tail_in = tail_in.next();
             tail_bb.remove(tail_in);
-            ibl.insert_before(in, tail_in);
+
+            if(tail_bb_changed) {
+                ls.insert_before(ibl_stand_in, tail_in);
+            } else {
+                ibl.insert_before(in, tail_in);
+            }
         }
 
         // Extend the basic block with the IBL lookup stub.
@@ -484,11 +509,11 @@ namespace granary {
         app_pc patcher_for_opcode(get_direct_cti_patch_func(in.op_code()));
         instruction_list dbl;
 
-        // TODO: these patch stubs can be reference counted so that they
+        // TODO: These patch stubs can be reference counted so that they
         //       can be reclaimed (especially since every patch stub will
         //       have the same size!).
 
-        // TODO: these patch stubs represent a big memory leak!
+        // TODO: These patch stubs represent a big memory leak!
 
         // Store the policy-mangled target on the stack.
         dbl.append(lea_(reg::rsp, reg::rsp[-8]));
@@ -501,8 +526,8 @@ namespace granary {
         dbl.append(mangled(jmp_(pc_(patcher_for_opcode))));
 
         const unsigned size(dbl.encoded_size());
-        app_pc routine(global_state::FRAGMENT_ALLOCATOR->allocate_array<uint8_t>(
-            size));
+        app_pc routine(global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>(size));
         dbl.encode(routine, size);
 
         IF_PERF( perf::visit_dbl(dbl); )
