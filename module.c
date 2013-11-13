@@ -199,43 +199,8 @@ static struct kernel_module KERNEL_MODULE = {
 };
 
 
-/// Exposed for the C++ side of things to see for the debug memset hot-patcher.
-unsigned long EXEC_START = 0;
-static unsigned long EXEC_END = 0;
-
-
-/// Layout of the executable region:
-///
-///  EXEC_START                GEN_CODE_START   WRAPPER_START       EXEC_END
-///      |--------------->              <--------------|-------->      |
-///                CODE_CACHE_END                          WRAPPER_END
-///
-unsigned long CODE_CACHE_END = 0;
-static unsigned long GEN_CODE_START = 0;
-static unsigned long WRAPPER_START = 0;
-static unsigned long WRAPPER_END = 0;
-
 static int DEVICE_IS_OPEN = 0;
 static int DEVICE_IS_INITIALISED = 0;
-
-
-/// Returns true if an address is a kernel address, or native kernel module.
-int is_host_address(uintptr_t addr) {
-    if(KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END) {
-        return 1;
-    } else if(EXEC_START <= addr && addr < EXEC_END) {
-        return 0;
-    } else if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
-        struct kernel_module *mod = LOADED_MODULES;
-        for(; mod; mod = mod->next) {
-            if(((uintptr_t) mod->text_begin) <= addr
-            && addr < ((uintptr_t) mod->max_text_end)) {
-                return mod->is_granary;
-            }
-        }
-    }
-    return 0;
-}
 
 
 /// Returns the kernel module information for a given app address.
@@ -253,6 +218,30 @@ const struct kernel_module *kernel_get_module(uintptr_t addr) {
         return &KERNEL_MODULE;
     }
     return found_mod;
+}
+
+
+/// Exported by `granary/allocator.cc`.
+extern uintptr_t GRANARY_EXEC_START;
+extern uintptr_t GRANARY_EXEC_END;
+
+
+/// Returns true if an address is a kernel address, or native kernel module.
+int is_host_address(uintptr_t addr) {
+    if(KERNEL_TEXT_START <= addr && addr < KERNEL_TEXT_END) {
+        return 1;
+    } else if(GRANARY_EXEC_START <= addr && addr < GRANARY_EXEC_END) {
+        return 0;
+    } else if(MODULE_TEXT_START <= addr && addr < MODULE_TEXT_END) {
+        struct kernel_module *mod = LOADED_MODULES;
+        for(; mod; mod = mod->next) {
+            if(((uintptr_t) mod->text_begin) <= addr
+            && addr < ((uintptr_t) mod->max_text_end)) {
+                return mod->is_granary;
+            }
+        }
+    }
+    return 0;
 }
 
 
@@ -297,6 +286,10 @@ static void set_page_perms(
 /// Set a module's text to be non-executable
 static void module_set_exec_perms(struct kernel_module *module) {
     (void) module;
+
+    // TODO: Have this disabled now for performance reasons, but we should
+    //       eventually re-enable it.
+
     /*
     set_page_perms(
         set_memory_nx,
@@ -354,6 +347,16 @@ void kernel_make_page_executable(void *addr) {
         set_memory_x,
         addr,
         (void *) (((uintptr_t) addr) + PAGE_SIZE)
+    );
+}
+
+
+/// Mark a range of memory as being executable.
+void kernel_make_pages_executable(void *begin, void *end) {
+    set_page_perms(
+        set_memory_x,
+        begin,
+        end
     );
 }
 
@@ -476,137 +479,6 @@ static struct notifier_block NOTIFIER_BLOCK = {
 };
 
 
-enum {
-    _1_MB = 1048576,
-    CODE_CACHE_SIZE = 40 * _1_MB,
-    _1_P = 4096,
-
-    // Maximum size of the part of the code cache containing basic blocks /
-    // fragments.
-    FRAGMENT_CACHE_MAX_SIZE = CODE_CACHE_SIZE - _1_MB,
-
-    // Keep this consistent with `granary/state.h`,
-    // `fragment_allocator_config::SLAB_SIZE`
-    FRAGMENT_SLAB_SIZE = _1_P * 8,
-
-    // Maximum number of fragment slabs.
-    MAX_NUM_FRAGMENT_SLABS = FRAGMENT_CACHE_MAX_SIZE / FRAGMENT_SLAB_SIZE
-};
-
-
-/// Allocate a "fake" module that will serve as a lasting memory zone for
-/// executable allocations.
-static void preallocate_executable(void) {
-
-    typedef void *(module_alloc_t)(unsigned long);
-
-    /// What is used internally by the kernel to allocate modules :D
-    module_alloc_t *module_alloc_update_bounds  =
-        (module_alloc_t *) DETACH_ADDR_module_alloc_update_bounds;
-
-    void *mem = module_alloc_update_bounds(CODE_CACHE_SIZE);
-    if(!mem) {
-        granary_fault();
-    }
-
-    // Memset all module code to be int3 instructions.
-    memset(mem, 0xCC, CODE_CACHE_SIZE);
-
-    EXEC_START = (unsigned long) mem;
-    EXEC_END = EXEC_START + CODE_CACHE_SIZE;
-
-    set_page_perms(
-        set_memory_x,
-        (void *) EXEC_START,
-        (void *) EXEC_END
-    );
-
-    CODE_CACHE_END = EXEC_START;
-    WRAPPER_START = EXEC_END - _1_MB;
-    WRAPPER_END = WRAPPER_START;
-    GEN_CODE_START = WRAPPER_START;
-}
-
-enum executable_memory_kind {
-    EXEC_CODE_CACHE = 0,
-    EXEC_GEN_CODE = 1,
-    EXEC_WRAPPER = 2
-};
-
-
-static void *FRAGMENT_SLABS[MAX_NUM_FRAGMENT_SLABS] = {NULL};
-
-
-/// Given an arbitrary address into a basic block, we want to be able to find
-/// the associated basic block info / meta-data. The approach is to first find
-/// the slab to which the basic block belongs, and then from there binary search
-/// over all basic blocks allocated in that slab.
-void **granary_find_fragment_slab(unsigned long fragment_addr) {
-    const unsigned index = (fragment_addr - EXEC_START) / FRAGMENT_SLAB_SIZE;
-    return &(FRAGMENT_SLABS[index]);
-}
-
-
-/// Allocate some executable memory
-void *kernel_alloc_executable(unsigned long size, int where) {
-    unsigned long mem = 0;
-    switch(where) {
-
-    // code cache pages are allocated from the beginning
-    case EXEC_CODE_CACHE:
-        mem = __sync_fetch_and_add(&CODE_CACHE_END, size);
-        if((mem + size) > GEN_CODE_START) {
-            //printk("[granary] Unable to allocate fragment code!\n\n");
-            granary_fault();
-        }
-        break;
-
-    // gencode pages are allocated from near the end
-    case EXEC_GEN_CODE:
-        mem = __sync_sub_and_fetch(&GEN_CODE_START, size);
-        if(mem < CODE_CACHE_END) {
-            //printk("[granary] Unable to allocate gencode!\n\n");
-            granary_fault();
-        }
-        break;
-
-    // wrapper entry points are allocated from the end in a fixed-size buffer.
-    case EXEC_WRAPPER:
-        mem = __sync_fetch_and_add(&WRAPPER_END, size);
-        if((mem + size) > EXEC_END) {
-            //printk("[granary] Unable to allocate wrapper code!\n\n");
-            granary_fault();
-        }
-        break;
-
-    default:
-        //printk("[granary] Unknown executable allocation type!\n\n");
-        granary_fault();
-        break;
-    }
-
-    return (void *) mem; // Should all already be memset to 0xCC.
-}
-
-
-/// granary::is_code_cache_address
-int is_code_cache_address(unsigned long addr) {
-    return EXEC_START <= addr && addr < CODE_CACHE_END;
-}
-
-
-/// granary::is_wrapper_address
-int is_wrapper_address(unsigned long addr) {
-    return WRAPPER_START <= addr && addr < WRAPPER_END;
-}
-
-
-/// granary::is_gencode_address
-int is_gencode_address(unsigned long addr) {
-    return GEN_CODE_START <= addr && addr < WRAPPER_START;
-}
-
-
 /// Open Granary as a device.
 static int device_open(struct inode *inode, struct file *file) {
     if(DEVICE_IS_OPEN) {
@@ -617,7 +489,6 @@ static int device_open(struct inode *inode, struct file *file) {
 
     if(!DEVICE_IS_INITIALISED) {
         DEVICE_IS_INITIALISED = 1;
-        preallocate_executable();
         granary_initialise();
     } else {
         granary_report();

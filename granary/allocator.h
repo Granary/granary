@@ -21,9 +21,9 @@ extern "C" {
 /// DynamoRIO-compatible heap allocation functions; these are from globally
 /// known allocators.
 
-void *granary_heap_alloc(void *, unsigned long long);
-void granary_heap_free(void *, void *, unsigned long);
-void *granary_heap_alloc_temp_instr(void);
+    void *granary_heap_alloc(void *, unsigned long long);
+    void granary_heap_free(void *, void *, unsigned long);
+    void *granary_heap_alloc_temp_instr(void);
 
 #ifdef __cplusplus
 }

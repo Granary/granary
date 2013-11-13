@@ -177,7 +177,7 @@
 #if GRANARY_IN_KERNEL
 #   define CONFIG_ENABLE_WRAPPERS (!CONFIG_INSTRUMENT_HOST)
 #else
-#   define CONFIG_ENABLE_WRAPPERS 1 // can't change; not re-entrant with malloc.
+#   define CONFIG_ENABLE_WRAPPERS 1
 #endif
 
 
@@ -377,11 +377,10 @@ namespace granary {
     }
 #endif /* GRANARY_IN_KERNEL */
 
-    extern "C" {
-        extern bool is_code_cache_address(app_pc) throw();
-        extern bool is_wrapper_address(app_pc) throw();
-        extern bool is_gencode_address(app_pc) throw();
-    }
+
+    extern bool is_code_cache_address(app_pc) throw();
+    extern bool is_wrapper_address(app_pc) throw();
+    extern bool is_gencode_address(app_pc) throw();
 
 
 #if GRANARY_IN_KERNEL

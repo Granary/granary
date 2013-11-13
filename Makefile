@@ -195,6 +195,7 @@ GR_OBJS += $(BIN_DIR)/granary/perf.o
 GR_OBJS += $(BIN_DIR)/granary/utils.o
 GR_OBJS += $(BIN_DIR)/granary/trace_log.o
 GR_OBJS += $(BIN_DIR)/granary/dynamic_wrapper.o
+GR_OBJS += $(BIN_DIR)/granary/allocator.o
 GR_OBJS += $(BIN_DIR)/granary/init.o
 
 # Granary wrapper dependencies
@@ -398,7 +399,6 @@ ifeq ($(KERNEL),0)
 	GR_DETACH_FILE = $(SOURCE_DIR)/granary/gen/user_detach.inc
 	
 	# User-specific versions of granary functions.
-	GR_OBJS += $(BIN_DIR)/granary/user/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/user/state.o
 	GR_OBJS += $(BIN_DIR)/granary/user/printf.o
 	
@@ -509,7 +509,6 @@ else
 	GR_OBJS += $(BIN_DIR)/granary/kernel/hotpatch.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/interrupt.o
-	GR_OBJS += $(BIN_DIR)/granary/kernel/allocator.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/printf.o
 	
 	# Toggle whole-kernel instrumentation.

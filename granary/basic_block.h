@@ -57,11 +57,13 @@ namespace granary {
         /// Number of instructions in the generating basic block.
         uint16_t generating_num_instructions;
 
+        /// Number of instructions in the generated basic block.
+        uint16_t num_instructions;
+
 #if CONFIG_ENABLE_INTERRUPT_DELAY
         uint16_t num_delay_state_bytes;
-        uint16_t _;
 #else
-        uint32_t _;
+        uint16_t _;
 #endif
 
         //-------------------

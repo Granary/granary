@@ -87,14 +87,14 @@
 
         // Defined in module.c, actually as unsigned long long, but for
         // comparison's sake, it's easier to declare them differently here.
-        extern uint8_t *EXEC_START;
+        extern uint8_t *GRANARY_EXEC_START;
         extern uint8_t *CODE_CACHE_END;
     }
 
     PATCH_WRAPPER(memset, (void *), (uint8_t *addr, uint8_t val, size_t size), {
 
         // Slow path: check that all bytes are zero first.
-        if(addr >= EXEC_START && (addr + size) <= CODE_CACHE_END) {
+        if(addr >= GRANARY_EXEC_START && (addr + size) <= CODE_CACHE_END) {
             bool reported_issue(false);
             for(size_t i(0); i < size; ++i) {
                 if(!reported_issue && 0xCC != addr[i]) {

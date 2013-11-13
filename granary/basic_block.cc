@@ -704,6 +704,7 @@ namespace granary {
         instruction_list ls;
 
         unsigned num_decoded_instructions;
+        unsigned num_encoded_instrucitons;
 
         block_translator(void) throw();
 
@@ -730,6 +731,7 @@ namespace granary {
         , start_label(label_())
         , end_label(label_())
         , num_decoded_instructions(0)
+        , num_encoded_instrucitons(0)
     { }
 
 
@@ -1036,6 +1038,7 @@ namespace granary {
             mangler.mangle();
 
             // Extend our trace instruction list.
+            block->num_encoded_instrucitons = block->ls.length();
             ls.extend(block->ls);
         }
 
@@ -1124,6 +1127,7 @@ namespace granary {
             info->num_bytes = block_size;
             info->generating_pc = am;
             info->generating_num_instructions = block->num_decoded_instructions;
+            info->num_instructions = block->num_encoded_instrucitons;
             info->state = block->state;
 
 #if CONFIG_ENABLE_TRACE_ALLOCATOR
