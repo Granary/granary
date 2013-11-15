@@ -58,14 +58,14 @@ namespace test {
         rand_fill_matrix(x);
         rand_fill_matrix(y);
 
+        multiply_matrices(x, y, z_native);
+
         bb_func.call<
             void,
             int (&)[DIM][DIM],
             int (&)[DIM][DIM],
             int (&)[DIM][DIM]
         >(x, y, z_instrumented);
-
-        multiply_matrices(x, y, z_native);
 
         ASSERT(0 == memcmp(
             &(z_instrumented[0][0]),

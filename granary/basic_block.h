@@ -60,10 +60,14 @@ namespace granary {
         /// Number of instructions in the generated basic block.
         uint16_t num_instructions;
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
-        uint16_t num_delay_state_bytes;
+        /// How many basic blocks are in the trace containing this basic
+        /// block?
+        uint8_t num_bbs_in_trace;
+
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+        uint8_t num_delay_state_bytes;
 #else
-        uint16_t _;
+        uint8_t _;
 #endif
 
         //-------------------
@@ -71,7 +75,7 @@ namespace granary {
         /// Address of client/tool-created basic block meta-data.
         basic_block_state *state;
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
         /// State-set of delay range information for this basic block, if any.
         uint8_t *delay_states;
 #endif
@@ -89,6 +93,32 @@ namespace granary {
     } __attribute__((packed));
 
 
+    /// Information about a trace of basic blocks that are allocated
+    /// contiguously in memory.
+    struct trace_info {
+
+        /// Starting (code cache) pc of the first basic block.
+        app_pc start_pc;
+
+        /// The number of basic blocks in the trace.
+        unsigned num_blocks;
+
+        /// The number of total bytes of all blocks in the trace.
+        unsigned num_bytes;
+
+        /// An array of `num_blocks` block info structures.
+        basic_block_info *info;
+
+        /// Zero-initialize the trace data structure.
+        inline trace_info(void) throw()
+            : start_pc(nullptr)
+            , num_blocks(0)
+            , num_bytes(0)
+            , info(nullptr)
+        { }
+    };
+
+
     /// Represents a basic block. Basic blocks are not concrete objects in the
     /// sense that they are used to build basic blocks; they are an abstraction
     /// imposed on some bytes in the code cache as a convenience.
@@ -100,7 +130,7 @@ namespace granary {
 
 
         /// The meta information for the specific basic block.
-        basic_block_info *info;
+        const basic_block_info *info;
 
 
     public:
@@ -165,10 +195,11 @@ namespace granary {
 
 
         /// Decode and translate a single basic block of application/module code.
-        static basic_block translate(
+        static app_pc translate(
             const instrumentation_policy policy,
             cpu_state_handle cpu,
-            const app_pc start_pc_
+            const app_pc start_pc_,
+            unsigned &num_translated_bbs
         ) throw();
 
 

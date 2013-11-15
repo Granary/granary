@@ -241,7 +241,7 @@ namespace granary {
             }
 
             ASSERT(slab_size >= SLAB_SIZE);
-            IF_TEST( int i(0); )
+            IF_TEST( unsigned i(0); )
             for(; IF_TEST(i < 3); IF_TEST(++i)) {
 
                 // Allocate a slab if we're missing one or if this slab appears
@@ -491,25 +491,19 @@ namespace granary {
         /// grained locking across multiple operations, rather than fine-grained
         /// locking around individual operations.
         void lock_coarse(IF_TEST(int cpu_id)) throw() {
-#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
             if(!IS_SHARED) {
                 lock.acquire();
                 IF_TEST( curr_owner_cpu_id = cpu_id; )
             }
-#elif CONFIG_ENABLE_ASSERTIONS
-            UNUSED(cpu_id);
-#endif
         }
 
 
         /// Release the coarse-grained lock.
         void unlock_coarse(void) throw() {
-#if CONFIG_ENABLE_TRACE_ALLOCATOR || CONFIG_FOLLOW_CONDITIONAL_BRANCHES
             if(!IS_SHARED) {
                 IF_TEST( curr_owner_cpu_id = -1; )
                 lock.release();
             }
-#endif
         }
     };
 

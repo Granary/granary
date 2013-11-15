@@ -110,7 +110,7 @@ extern "C" {
 #define dynamo_exited 0
 #define dynamo_initialised 0
 #define dynamo_initialized 0
-#define assert_reachable 0
+#define assert_reachable 1
 #define GLOBAL_DCONTEXT (&DCONTEXT)
 
 #define CHECK_TRUNCATE_TYPE_byte(val) ((val) >= 0 && (val) <= UCHAR_MAX)

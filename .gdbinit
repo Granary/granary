@@ -56,6 +56,7 @@ if !$in_user_space
   b __stack_chk_fail
   b do_spurious_interrupt_bug
   b report_bug
+  b dump_stack
   #b kernel/hung_task.c:101
 end
 
@@ -129,7 +130,7 @@ define get-bb-info
   set $__pc = (granary::app_pc) $arg0
   set $__base_addr = (unsigned long) GRANARY_EXEC_START
   set $__offs = $__addr - $__base_addr
-  set $__index = $__offs / granary::SLAB_SIZE
+  set $__index = $__offs / granary::FRAGMENT_SLAB_SIZE
   set $__locator = (granary::fragment_locator *) granary::detail::FRAGMENT_SLABS[$__index]
 
   # Binary search in the locator to find the fragment's
@@ -139,16 +140,37 @@ define get-bb-info
   set $__last = $__locator->next_index - 1
   set $__mid = ($__first + $__last) / 2
   set $bb = 0
+  set $trace = 0
   
-  while !$bb && ($__first <= $__mid) && ($__mid <= $__last)
-    set $__curr = $__locator->fragments[$__mid].ptr
+  while !$bb && !$trace && ($__first <= $__mid) && ($__mid <= $__last)
+    set $__curr = $__locator->fragments[$__mid]
+  
+    if $__curr.is_trace
+      set $__trace = (granary::trace_info *) (((uintptr_t) $__curr.trace) & ~0x1ULL)
 
-    if $__curr
-      if $__curr->start_pc <= $__pc
+      if $__trace->start_pc <= $__pc
 
         # Found the fragment
-        if $__pc < ($__curr->start_pc + $__curr->num_bytes)
-          set $bb = $__curr
+        if $__pc < ($__trace->start_pc + $__trace->num_bytes)
+          set $trace = $__trace
+
+        # Not in lower half
+        else
+          set $__first = $__mid + 1
+        end
+      
+      # Not in upper half
+      else
+        set $__last = $__mid - 1
+      end
+
+    else
+      set $__block = $__curr.block
+      if $__block->start_pc <= $__pc
+
+        # Found the fragment
+        if $__pc < ($__block->start_pc + $__block->num_bytes)
+          set $bb = $__block
 
         # Not in lower half
         else
@@ -159,12 +181,19 @@ define get-bb-info
       else
         set $__last = $__mid - 1
       end
-      set $__mid = ($__first + $__last) / 2
+    end
 
-    # Error, break out of the loop
-    else
-      set $__first = 1
-      set $__last = 0
+    set $__mid = ($__first + $__last) / 2
+  end
+
+  if $trace
+    set $__i = 0
+    while $__i < $trace->num_blocks && !$bb
+      set $__bb = &($trace->info[$__i])
+      if $__bb->start_pc <= $__pc && $__pc < ($__bb->start_pc + $__bb->num_bytes)
+        set $bb = $__bb
+      end
+      set $__i = $__i + 1
     end
   end
 
@@ -224,15 +253,14 @@ define p-bb-info-impl
   printf "      Code: %p\n", (void *) $__bb->start_pc
   printf "      Num instructions: %d\n", $__bb->num_instructions
   printf "   Policy properties:\n"
-  printf "      Temporary:\n"
-  printf "         Begins functional unit: %d\n", $__policy->u.begins_functional_unit
-  printf "         Is indirect CALL/JMP target: %d\n", $__policy->u.is_indirect_target
-  printf "         Is return target: %d\n", $__policy->u.is_return_target
-  printf "      Inherited:\n"
-  printf "         Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
-  printf "         Is in host context: %d\n", $__policy->u.is_in_host_context
-  printf "         Accesses user data: %d\n", $__policy->u.accesses_user_data
-  printf "         Return address in code cache: %d\n", $__policy->u.can_direct_return
+  printf "      Is in XMM context: %d\n", $__policy->u.is_in_xmm_context
+  printf "      Is in host context: %d\n", $__policy->u.is_in_host_context
+  printf "      Accesses user data: %d\n", $__policy->u.accesses_user_data
+  printf "      Return address in code cache: %d\n", $__policy->u.can_direct_return
+  printf "   Num blocks in trace: %d\n", $__bb->num_bbs_in_trace
+  if !$in_user_space
+    printf "   Exception table entry: %p\n", $__bb->user_exception_metadata
+  end
   printf "   Policy ID: %d\n", $__policy->u.id
   printf "   Instrumentation Function:"
   printf "\n      "

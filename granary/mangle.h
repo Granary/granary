@@ -40,14 +40,6 @@ namespace granary {
         // to use relative addressing.
         const const_app_pc estimator_pc;
 
-        instruction dbl_entry_stub(
-            instruction patched_in,
-            app_pc dbl_routine
-        ) throw();
-
-        void mangle_sti(instruction in) throw();
-        void mangle_cli(instruction in) throw();
-
         void mangle_cti(instruction in) throw();
 
         void mangle_direct_cti(
@@ -72,9 +64,12 @@ namespace granary {
 
     private:
 
+
         void mangle_lea(instruction in) throw();
 
+
         void mangle_far_memory_refs(instruction in) throw();
+
 
         void mangle_far_memory_push(
             instruction in,
@@ -84,19 +79,13 @@ namespace granary {
             uint64_t addr
         ) throw();
 
+
         void mangle_far_memory_pop(
             instruction in,
             bool first_reg_is_dead,
             dynamorio::reg_id_t dead_reg_id,
             dynamorio::reg_id_t spill_reg_id,
             uint64_t addr
-        ) throw();
-
-
-        /// Get the direct branch lookip (DBL) entry point for a direct operand.
-        app_pc dbl_entry_routine(
-            instruction in,
-            mangled_address am
         ) throw();
 
 

@@ -16,12 +16,7 @@ namespace granary {
 
     /// Operand that represents a PC stored somewhere in memory.
     operand mem_pc_(app_pc *pc) {
-        operand op;
-        op.kind = dynamorio::BASE_DISP_kind;
-        op.value.addr = pc;
-        op.size = dynamorio::OPSZ_8;
-        op.seg.segment = dynamorio::DR_REG_NULL;
-        return op;
+        return absmem_(pc, dynamorio::OPSZ_8);
     }
 
 

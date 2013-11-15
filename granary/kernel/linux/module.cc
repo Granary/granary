@@ -17,6 +17,9 @@
 #include "granary/test.h"
 #include "granary/wrapper.h"
 
+#include "granary/x86/asm_defines.asm"
+#include "granary/x86/asm_helpers.asm"
+
 #include "granary/kernel/linux/module.h"
 
 #include "granary/kernel/printf.h"
@@ -38,15 +41,21 @@ extern "C" {
 
     /// Make a special init function that sets certain page permissions before
     /// executing the module's init function.
-    static int (*make_init_func(
-        int (*init)(void),
-        kernel_module *module
-    ))(void) throw() {
+    GRANARY_ENTRYPOINT
+    void granary_replace_init_func(kernel_module *module) throw() {
 
         using namespace granary;
 
-        app_pc init_pc(unsafe_cast<app_pc>(init));
-        app_pc init_cc(code_cache::find(init_pc, START_POLICY));
+        cpu_state_handle cpu;
+        granary::enter(cpu);
+
+        instrumentation_policy policy(START_POLICY);
+        policy.begins_functional_unit(true);
+        policy.in_host_context(false);
+        policy.return_address_in_code_cache(true);
+
+        app_pc init_pc(unsafe_cast<app_pc>(*(module->init)));
+        app_pc init_cc(code_cache::find(init_pc, policy));
 
         // build a dynamic wrapper-like construct that makes sure that certain
         // data is readable/writable in the module before init() executes.
@@ -61,8 +70,12 @@ extern "C" {
             allocate_array<uint8_t>(size);
         ls.encode(wrapped_init_pc, size);
 
-        return unsafe_cast<int (*)(void)>(wrapped_init_pc);
+        *(module->init) = unsafe_cast<int (*)(void)>(wrapped_init_pc);
     }
+
+
+    extern void granary_enter_private_stack(void);
+    extern void granary_exit_private_stack(void);
 
 
     /// Notify granary of a state change.
@@ -77,11 +90,28 @@ extern "C" {
         case kernel_module::STATE_COMING: {
             printf("[granary] Notified about module (%s) state change: COMING.\n",
                 module->name);
+
             granary_before_module_bootstrap(module);
 
             if(module->init) {
-                *(module->init) = make_init_func(*(module->init), module);
+
+                eflags flags = granary_disable_interrupts();
+
+                ASM(
+                    "movq %0, %%" TO_STRING(ARG1) ";"
+                    TO_STRING(PUSHA_ASM_ARG)
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_enter_private_stack)) ";"
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_replace_init_func)) ";"
+                    "callq " TO_STRING(SHARED_SYMBOL(granary_exit_private_stack)) ";"
+                    TO_STRING(POPA_ASM_ARG)
+                    :
+                    : "m"(module)
+                    : "%" TO_STRING(ARG1)
+                );
+
+                granary_store_flags(flags);
             }
+
             if(module->exit) {
                 *(module->exit) = dynamic_wrapper_of(*(module->exit));
             }

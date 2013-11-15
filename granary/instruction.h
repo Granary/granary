@@ -263,29 +263,25 @@ namespace granary {
         enum instruction_flag {
             /// Mark an instruction as already mangled. By default, all
             /// instructions are subject to mangling.
-            DONT_MANGLE         = (1 << 0),
+            DONT_MANGLE             = (1 << 0),
 
             /// Begin a delay region. This property is potentially removed and
             /// back-propagated by the instruction mangler.
-            DELAY_BEGIN         = (1 << 1),
+            DELAY_BEGIN             = (1 << 1),
 
             /// End a delay region. This property is potentially removed and
             /// forward-propagated by the instruction mangler.
-            DELAY_END           = (1 << 2),
+            DELAY_END               = (1 << 2),
 
             /// Set iff a label is targeted by a CTI within the current basic
             /// block.
-            TARGETED_BY_CTI     = (1 << 3),
+            TARGETED_BY_CTI         = (1 << 3),
 
             /// Mark this instruction as hot-patchable.
-            HOT_PATCHABLE       = (1 << 4),
-
-            /// If this is a hot-patchable instruction, then this is set of
-            /// this instruction stands in for a conditional JMP.
-            COND_CTI_PLACEHOLDER = (1 << 5),
+            HOT_PATCHABLE           = (1 << 4),
 
             /// This is the fall-through jump of a conditional CTI.
-            COND_CTI_FALL_THROUGH = (1 << 6)
+            COND_CTI_FALL_THROUGH   = (1 << 5)
         };
 
         typename dynamorio::instr_t *instr;

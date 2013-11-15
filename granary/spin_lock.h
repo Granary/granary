@@ -110,6 +110,10 @@ namespace granary {
             pthread_mutex_lock(&mutex);
         }
 
+        inline bool try_acquire(void) throw() {
+            return 0 == pthread_mutex_trylock(&mutex);
+        }
+
         inline void release(void) throw() {
             pthread_mutex_unlock(&mutex);
         }

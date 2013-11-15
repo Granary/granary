@@ -11,6 +11,8 @@
 
 #if CONFIG_ENABLE_PERF_COUNTS
 
+#define DUMP_IBL_INFO 0
+
 #include <atomic>
 
 #include "granary/instruction.h"
@@ -57,10 +59,12 @@ namespace granary {
     static std::atomic<unsigned> NUM_IBL_HTABLE_ENTRIES(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_MISSES(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_IBL_CONFLICTS(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_DBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_DBL_STUB_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_DBL_PATCH_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
-    static std::atomic<unsigned> NUM_RBL_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_DBL_STUBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_FALL_THROUGH_DBL_STUBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_COND_DBL_STUBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_PATCHED_DBL_STUBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_PATCHED_FALL_THROUGH_DBL_STUBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_PATCHED_COND_DBL_STUBS(ATOMIC_VAR_INIT(0U));
 
 
     /// Track the number of functional units (as determined by the temporary
@@ -211,19 +215,35 @@ namespace granary {
     }
 
 
-    void perf::visit_dbl(const instruction_list &ls) throw() {
-        NUM_DBL_INSTRUCTIONS.fetch_add(ls.length());
+    void perf::visit_dbl_stub(void) throw() {
+        NUM_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_dbl_patch(const instruction_list &ls) throw() {
-        NUM_DBL_PATCH_INSTRUCTIONS.fetch_add(ls.length());
+    void perf::visit_fall_through_dbl(void) throw() {
+        NUM_FALL_THROUGH_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_dbl_stub(unsigned num) throw() {
-        NUM_DBL_STUB_INSTRUCTIONS.fetch_add(num);
+    void perf::visit_conditional_dbl(void) throw() {
+        NUM_COND_DBL_STUBS.fetch_add(1);
     }
+
+
+    void perf::visit_patched_dbl(void) throw() {
+        NUM_PATCHED_DBL_STUBS.fetch_add(1);
+    }
+
+
+    void perf::visit_patched_fall_through_dbl(void) throw() {
+        NUM_PATCHED_FALL_THROUGH_DBL_STUBS.fetch_add(1);
+    }
+
+
+    void perf::visit_patched_conditional_dbl(void) throw() {
+        NUM_PATCHED_COND_DBL_STUBS.fetch_add(1);
+    }
+
 
 
     void perf::visit_mem_ref(unsigned num) throw() {
@@ -287,9 +307,9 @@ namespace granary {
 
         printf("Number of traces: %u\n",
             NUM_TRACES.load());
-        printf("Number of basics blocks in a trace: %u\n",
+        printf("Number of basics blocks in traces: %u\n",
             NUM_TRACE_BBS.load());
-        printf("Total number of basic blocks: %u\n",
+        printf("Number of basic blocks: %u\n",
             NUM_BBS.load());
         printf("Number of functional units: %u\n",
             NUM_FUNCTIONAL_UNITS.load());
@@ -317,12 +337,20 @@ namespace granary {
         printf("Number of IBL exit instructions: %u\n\n",
             NUM_IBL_EXIT_INSTRUCTIONS.load());
 
-        printf("Number of DBL entry instructions: %u\n",
-            NUM_DBL_INSTRUCTIONS.load());
-        printf("Number of DBL patch-stub instructions: %u\n",
-            NUM_DBL_STUB_INSTRUCTIONS.load());
-        printf("Number of DBL patch-setup instructions: %u\n\n",
-            NUM_DBL_PATCH_INSTRUCTIONS.load());
+        // TODO!
+
+        printf("Number of DBL stubs: %u\n",
+            NUM_DBL_STUBS.load());
+        printf("Number of fall-through DBL stubs: %u\n",
+            NUM_FALL_THROUGH_DBL_STUBS.load());
+        printf("Number of conditional branches: %u\n",
+            NUM_COND_DBL_STUBS.load());
+        printf("Number of patched branches: %u\n",
+            NUM_PATCHED_DBL_STUBS.load());
+        printf("Number of patched conditional branches: %u\n",
+            NUM_PATCHED_COND_DBL_STUBS.load());
+        printf("Number of patched fall-through branches: %u\n\n",
+            NUM_PATCHED_FALL_THROUGH_DBL_STUBS.load());
 
         printf("Number of extra instructions to mangle memory refs: %u\n\n",
             NUM_MEM_REF_INSTRUCTIONS.load());
@@ -349,6 +377,7 @@ namespace granary {
             NUM_BAD_MODULE_EXECS.load());
 #endif
 
+#if DUMP_IBL_INFO
         if(NUM_IBL_CONFLICTS.load()) {
             printf("IBL Targets:\n");
             char buff[200] = {'\0'};
@@ -379,6 +408,7 @@ namespace granary {
 
             printf("\n\n");
         }
+#endif
     }
 }
 

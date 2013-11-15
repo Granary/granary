@@ -119,7 +119,7 @@
 #define DONT_OPTIMISE __attribute__((noinline, optimize("O0")))
 
 
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
 #   define IF_TRACE(...) __VA_ARGS__
 #else
 #   define IF_TRACE(...)

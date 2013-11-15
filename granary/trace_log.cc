@@ -9,7 +9,7 @@
 #include "granary/globals.h"
 #include "granary/trace_log.h"
 
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
 #   include "granary/instruction.h"
 #   include "granary/emit_utils.h"
 #   include "granary/state.h"
@@ -19,7 +19,7 @@
 namespace granary {
 
 
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
 #   if !CONFIG_TRACE_PRINT_LOG
 
     /// An item in the trace log.
@@ -46,7 +46,7 @@ namespace granary {
     /// A ring buffer representing the trace log.
     static trace_log_item LOGS[CONFIG_NUM_TRACE_LOG_ENTRIES];
 #   endif /* CONFIG_TRACE_PRINT_LOG */
-#endif /* CONFIG_TRACE_EXECUTION */
+#endif /* CONFIG_DEBUG_TRACE_EXECUTION */
 
 
     /// Log a lookup in the code cache.
@@ -54,7 +54,7 @@ namespace granary {
         app_pc IF_TRACE(code_cache_addr),
         simple_machine_state *IF_TRACE(state)
     ) throw() {
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
 #   if CONFIG_TRACE_PRINT_LOG
         printf("app=%p cache=%p\n", app_addr, target_addr);
         (void) kind;
@@ -82,7 +82,7 @@ namespace granary {
     extern "C" void **kernel_get_cpu_state(void *ptr[]);
 
 
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
     static app_pc trace_logger(void) throw() {
         static volatile app_pc routine(nullptr);
         if(routine) {
@@ -137,16 +137,12 @@ namespace granary {
         routine = temp;
         return temp;
     }
-#endif /* CONFIG_TRACE_EXECUTION */
 
 
-    /// Log the run of some code. This will add a lot of instructions to the
-    /// beginning of an instruction list.
-    void trace_log::log_execution(instruction_list &IF_TRACE(ls)) throw() {
-#if CONFIG_TRACE_EXECUTION
-        instruction in;
-
-        in = ls.prepend(label_());
+    static void add_trace_log_call(
+        instruction_list &ls,
+        instruction in
+    ) throw() {
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
 
@@ -159,6 +155,44 @@ namespace granary {
 
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[REDZONE_SIZE])) );
+    }
+#endif /* CONFIG_DEBUG_TRACE_EXECUTION */
+
+
+    /// Log the run of some code. This will add a lot of instructions to the
+    /// beginning of an instruction list, as well as replace RET instructions
+    /// with tail-calls to the trace logger so that we can observe ourselves
+    /// re-entering a given basic block after a CALL.
+    void trace_log::log_execution(instruction_list &IF_TRACE(ls)) throw() {
+#if CONFIG_DEBUG_TRACE_EXECUTION
+
+        // The first instruction will be a label.
+        instruction in(ls.first());
+
+        ASSERT(in.is_valid());
+
+        instruction in_next(in.next());
+        add_trace_log_call(ls, in);
+
+        UNUSED(in_next);
+
+#   if 0
+        for(in = in_next; in.is_valid(); in = in_next) {
+            in_next = in.next();
+            if(in.is_return()) {
+
+                // We don't need to guard against the redzone for RETs
+                // because they're popping their return address off of the
+                // stack.
+                insert_cti_after(ls, in,
+                    trace_logger(),
+                    CTI_DONT_STEAL_REGISTER, operand(),
+                    CTI_JMP).set_mangled();
+
+                ls.remove(in);
+            }
+        }
+#   endif
 #endif
     }
 

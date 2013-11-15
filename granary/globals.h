@@ -67,7 +67,7 @@
 
 /// Can client code handle interrupts?
 #if GRANARY_IN_KERNEL
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 1
+#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
 #else
 #   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
@@ -111,7 +111,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_TRACE_EXECUTION 1
+#define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_TRACE_PRINT_LOG 0
 #define CONFIG_TRACE_RECORD_REGS 1
 #define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
@@ -194,7 +194,7 @@
 /// Set the 1 iff we should run test cases (before doing anything else).
 #define CONFIG_ENABLE_ASSERTIONS 1
 #if GRANARY_IN_KERNEL
-#   define CONFIG_RUN_TEST_CASES 1 // don't change.
+#   define CONFIG_RUN_TEST_CASES 0 // don't change.
 #else
 #   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_ENABLE_ASSERTIONS)
 #endif
@@ -378,9 +378,9 @@ namespace granary {
 #endif /* GRANARY_IN_KERNEL */
 
 
-    extern bool is_code_cache_address(app_pc) throw();
-    extern bool is_wrapper_address(app_pc) throw();
-    extern bool is_gencode_address(app_pc) throw();
+    extern bool is_code_cache_address(const const_app_pc) throw();
+    extern bool is_wrapper_address(const const_app_pc) throw();
+    extern bool is_gencode_address(const const_app_pc) throw();
 
 
 #if GRANARY_IN_KERNEL

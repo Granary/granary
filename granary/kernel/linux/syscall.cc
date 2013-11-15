@@ -43,6 +43,7 @@ namespace granary {
         instrumentation_policy policy(START_POLICY);
         policy.begins_functional_unit(true);
         policy.in_host_context(true);
+        policy.return_address_in_code_cache(true);
 
         cpu_state_handle cpu;
 

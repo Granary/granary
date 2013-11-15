@@ -153,6 +153,7 @@ void *granary_allocate_idt(void) {
 }
 
 
+/// Run a function when all CPUs are synchronized.
 static int do_init_sync(void *func) {
     ((void (*)(void)) func)();
     return 0;

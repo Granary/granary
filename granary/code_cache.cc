@@ -181,11 +181,8 @@ namespace granary {
         // Policy has gone through a property conversion (e.g. host->app,
         // app->host, indirect->direct, return->direct). Check to see if we
         // actually have the converted version in the code cache.
-        bool base_addr_exists(false);
         if(!target_addr && base_addr.as_address != addr.as_address) {
-            if(CODE_CACHE->load(base_addr.as_address, target_addr)) {
-                base_addr_exists = true;
-            }
+            CODE_CACHE->load(base_addr.as_address, target_addr);
         }
 
         // Can we detach to a known target?
@@ -219,15 +216,11 @@ namespace granary {
 
         // If we don't have a target yet then translate the target assuming it's
         // app or host code.
-        bool created_bb(false);
-        basic_block_state *created_bb_state(nullptr);
+        unsigned num_translated_bbs(0);
         if(!target_addr) {
 
-            basic_block bb(basic_block::translate(
-                base_policy, cpu, app_target_addr));
-            target_addr = bb.cache_pc_start;
-            created_bb = true;
-            created_bb_state = bb.state();
+            target_addr = basic_block::translate(
+                base_policy, cpu, app_target_addr, num_translated_bbs);
 
 #if CONFIG_ENABLE_ASSERTIONS
             // The trick here is that if we've got a particular buggy
@@ -242,47 +235,50 @@ namespace granary {
                 granary_do_break_on_translate = false;
             }
 #endif
-        }
 
-        // If the base policy address isn't in the code cache yet, put it there.
-        // If there's a race condition, i.e. two threads/cores both put the same
-        // base address in, then one will fail (according to
-        // `HASH_KEEP_PREV_ENTRY`). If it fails and we built a basic block, then
-        // free up some memory.
-        if(!base_addr_exists) {
-            bool stored_base_addr(CODE_CACHE->store(
-                base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
+            const basic_block_info *info(find_basic_block_info(target_addr));
 
-            if(!stored_base_addr && created_bb) {
-#if !CONFIG_FOLLOW_CONDITIONAL_BRANCHES
-                // !!!!!TODO!!!!!!
+            // If we've only translated a single basic block, then we'll prefer
+            // to keep what was already in the code cache, because it might be
+            // part of a trace, and because then we can clean up the basic
+            // block's memory.
+            if(1 == num_translated_bbs) {
+                bool stored_base_addr(CODE_CACHE->store(
+                    base_addr.as_address, target_addr, HASH_KEEP_PREV_ENTRY));
 
-                client::discard_basic_block(*created_bb_state);
-
-                // Try to clean up the shared memory.
-                if(try_remove_basic_block_info(target_addr)) {
+                if(!stored_base_addr) {
+                    client::discard_basic_block(*info->state);
+                    remove_basic_block_info(target_addr);
                     cpu->current_fragment_allocator->free_last();
+                    cpu->stub_allocator.free_last();
+                    cpu->block_allocator.free_last();
+
+                    IF_TEST( target_addr = nullptr; );
+                    CODE_CACHE->load(base_addr.as_address, target_addr);
+                    ASSERT(target_addr);
+
+                } else {
+                    client::commit_to_basic_block(*info->state);
                 }
 
-                // Try to clean up the private memory.
-                cpu->stub_allocator.free_last();
-                cpu->block_allocator.free_last();
-#endif
+            // If we've built a trace, then we'll assume it's better than what's
+            // already in the code cache (e.g. another trace, or only an
+            // individual basic block), and also we can't reliably clean up
+            // memory for multiple basic blocks.
+            //
+            // TODO: Make the allocators and code cache transactional, so
+            //       that multiple things can be committed / cleaned up.
+            } else {
+                CODE_CACHE->store(
+                    base_addr.as_address, target_addr,
+                    HASH_OVERWRITE_PREV_ENTRY
+                );
 
-                IF_TEST( target_addr = nullptr; );
-                CODE_CACHE->load(base_addr.as_address, target_addr);
-                ASSERT(target_addr);
-
-            // Commit to the basic block state.
-            } else if(stored_base_addr && created_bb) {
-                client::commit_to_basic_block(*created_bb_state);
+                client::commit_to_basic_block(*info->state);
             }
         }
 
         cpu->current_fragment_allocator->unlock_coarse();
-
-        // Propagate the base target to the CPU-private code cache.
-        cpu->code_cache.store(base_addr.as_address, target_addr);
 
         // If this code cache lookup is the result of an indirect CALL/JMP, or
         // from a RET, then we need to generate an IBL/RBL exit stub.

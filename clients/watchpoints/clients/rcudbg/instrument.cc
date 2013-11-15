@@ -365,7 +365,7 @@ namespace client {
         // trace logger is being used then we need to shift by 8 bytes.
         // Double check that we find a short/near JMP instruction.
         app_pc patch_pc(faulting_bb.cache_pc_start);
-#if CONFIG_TRACE_EXECUTION
+#if CONFIG_DEBUG_TRACE_EXECUTION
         patch_pc += 5; // Size of a `CALL`.
         patch_pc += ALIGN_TO(reinterpret_cast<uintptr_t>(patch_pc), 8);
 #endif

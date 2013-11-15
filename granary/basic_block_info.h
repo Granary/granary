@@ -18,27 +18,22 @@ namespace granary {
     struct basic_block_info;
 
 
-    /// Allocate basic block data. Basic block data includes both basic block
-    /// info (meta-data) and client state (client meta-data).
-    ///
-    /// Pointers are returned by reference through output parameters.
-    basic_block_info *allocate_basic_block_info(
-        app_pc start_pc
-        _IF_KERNEL( unsigned num_state_bytes )
-        _IF_KERNEL( uint8_t *&state_bytes )
-    ) throw();
+    /// Commit to storing information about a trace.
+    void store_trace_meta_info(const trace_info &trace) throw();
 
 
     /// Find the basic block info given an address into our code cache of
     /// basic blocks.
-    basic_block_info *find_basic_block_info(app_pc cache_pc) throw();
+    const basic_block_info *find_basic_block_info(app_pc cache_pc) throw();
 
 
-    /// Try to delete a fragment locator, but don't necessarily succeed.
+    /// Remove the basic block info for some `cache_pc`. This is only valid
+    /// if the associated basic block was the last block added to this
+    /// fragment allocator, and if it wasn't added as part of a trace.
     ///
     /// Note: We assume that there is a coarse grained lock that is guarding
     ///       these operations!
-    bool try_remove_basic_block_info(app_pc cache_pc) throw();
+    void remove_basic_block_info(app_pc cache_pc) throw();
 
 }
 

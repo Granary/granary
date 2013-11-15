@@ -111,9 +111,13 @@ ifeq ($(UNAME),Darwin) # Mac OS X
 endif
 
 
+GR_CLANG = 0
+GR_GCC = 0
+
 # Compilation options that are conditional on the compiler
 ifneq (,$(findstring clang,$(GR_CC))) # clang
-
+	
+	GR_CLANG = 1
 	GR_CC_FLAGS += -Wno-null-dereference -Wno-unused-value -Wstrict-overflow=4
 	GR_CXX_FLAGS += -Wno-gnu -Wno-attributes 
 	GR_CXX_STD = -std=c++11
@@ -145,6 +149,7 @@ else
 endif
 
 ifneq (,$(findstring gcc,$(GR_CC))) # gcc
+	GR_GCC = 1
 	GR_CC_FLAGS += -fdiagnostics-show-option
 	GR_TYPE_CC_FLAGS += -fdiagnostics-show-option
 	GR_CXX_FLAGS += -fdiagnostics-show-option -fno-check-new
@@ -185,6 +190,7 @@ GR_OBJS += $(BIN_DIR)/granary/detach.o
 GR_OBJS += $(BIN_DIR)/granary/state.o
 GR_OBJS += $(BIN_DIR)/granary/mangle.o
 GR_OBJS += $(BIN_DIR)/granary/ibl.o
+GR_OBJS += $(BIN_DIR)/granary/dbl.o
 GR_OBJS += $(BIN_DIR)/granary/code_cache.o
 GR_OBJS += $(BIN_DIR)/granary/emit_utils.o
 GR_OBJS += $(BIN_DIR)/granary/hash_table.o
@@ -203,7 +209,6 @@ GR_OBJS += $(BIN_DIR)/granary/wrapper.o
 
 # Granary (x86) dependencies
 GR_OBJS += $(BIN_DIR)/granary/x86/utils.o
-GR_OBJS += $(BIN_DIR)/granary/x86/direct_branch.o
 GR_OBJS += $(BIN_DIR)/granary/x86/attach.o
 GR_OBJS += $(BIN_DIR)/granary/x86/dynamic_wrapper_of.o
 GR_OBJS += $(BIN_DIR)/granary/x86/stack.o
@@ -384,14 +389,17 @@ ifeq (1,$(GR_TESTS))
     GR_OBJS += $(BIN_DIR)/tests/test_lock_inc.o
 	GR_OBJS += $(BIN_DIR)/tests/test_mat_mul.o
 	GR_OBJS += $(BIN_DIR)/tests/test_md5.o
-	#GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
+	GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
 endif
 
 GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
 
 # User space.
 ifeq ($(KERNEL),0)
-	GR_FLOAT_FLAGS += -mpreferred-stack-boundary=4
+	
+	ifeq ($(GR_GCC),1)
+		GR_FLOAT_FLAGS += -mpreferred-stack-boundary=4
+	endif
 
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
 	GR_OUTPUT_TYPES = $(SOURCE_DIR)/granary/gen/user_types.h

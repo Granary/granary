@@ -77,7 +77,7 @@ namespace granary { namespace detail {
     };
 
 
-    static page EXECUTABLE_AREA[NUM_EXEC_PAGES] = {{0xCC}};
+    static page EXECUTABLE_AREA[NUM_EXEC_PAGES] = {{{0xCC}}};
 
 
     /// Layout of the executable region:
@@ -109,7 +109,7 @@ namespace granary { namespace detail {
 #if GRANARY_IN_KERNEL
         kernel_make_pages_executable(
             &(EXECUTABLE_AREA[0]),
-            &(EXECUTABLE_AREA[NUM_EXEC_PAGES])
+            &(EXECUTABLE_AREA[NUM_EXEC_PAGES - 1])
         );
 #else
         mprotect(
@@ -173,19 +173,19 @@ namespace granary { namespace detail {
 }}
 
 namespace granary {
-    bool is_code_cache_address(app_pc addr_) throw() {
+    bool is_code_cache_address(const const_app_pc addr_) throw() {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return GRANARY_EXEC_START <= addr && addr < detail::CODE_CACHE_END;
     }
 
 
-    bool is_wrapper_address(app_pc addr_) throw() {
+    bool is_wrapper_address(const const_app_pc addr_) throw() {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return detail::WRAPPER_START <= addr && addr < detail::WRAPPER_END;
     }
 
 
-    bool is_gencode_address(app_pc addr_) throw() {
+    bool is_gencode_address(const const_app_pc addr_) throw() {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return detail::GEN_CODE_START <= addr && addr < detail::WRAPPER_START;
     }

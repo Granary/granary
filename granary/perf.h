@@ -43,11 +43,12 @@ namespace granary {
         static void visit_ibl_miss(app_pc) throw();
         static void visit_ibl_conflict(app_pc) throw();
 
-        static void visit_dbl(const instruction_list &) throw();
-        static void visit_dbl_patch(const instruction_list &) throw();
-        static void visit_dbl_stub(unsigned) throw();
-
-        static void visit_rbl(const instruction_list &) throw();
+        static void visit_dbl_stub(void) throw();
+        static void visit_fall_through_dbl(void) throw();
+        static void visit_conditional_dbl(void) throw();
+        static void visit_patched_dbl(void) throw();
+        static void visit_patched_fall_through_dbl(void) throw();
+        static void visit_patched_conditional_dbl(void) throw();
 
         static void visit_mem_ref(unsigned) throw();
 

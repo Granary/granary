@@ -48,6 +48,13 @@ namespace granary {
 
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(is_host_address(wrappee));
+        policy.begins_functional_unit(true);
+
+        // Will directly return to:
+        //      1) Wrapper code if the wrapper CALLs the code cache.
+        //      2) Code cache if the wrapper tailcalls (JMPs) to the code cache.
+        policy.return_address_in_code_cache(true);
+
         app_pc target_code_cache;
 
         // In order to avoid checks for whether this function is wrapped or

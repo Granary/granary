@@ -13,35 +13,80 @@
 
 namespace granary {
 
+
     enum {
         SLAB_SIZE = detail::fragment_allocator_config::SLAB_SIZE,
         BB_ALIGN_ = detail::fragment_allocator_config::MIN_ALIGN,
         BB_ALIGN = 1 == BB_ALIGN_ ? 16 : BB_ALIGN_,
-#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES
-        MULTIPLIER = 4,
-#else
-        MULTIPLIER = 1,
-#endif
-        MAX_BBS_PER_SLAB = MULTIPLIER * ((SLAB_SIZE / BB_ALIGN) + 1)
+        MAX_BBS_PER_SLAB = (SLAB_SIZE / BB_ALIGN) + 1
     };
 
 
-    struct basic_block_info_ptr {
-        basic_block_info *ptr;
+    __attribute__((used))
+    const unsigned FRAGMENT_SLAB_SIZE = SLAB_SIZE;
 
-        inline bool operator<(const app_pc that) const throw() {
-            return ptr->start_pc < that;
+
+    struct generic_info_ptr {
+
+        union {
+            basic_block_info *block;
+            trace_info *trace;
+
+            struct {
+                bool is_trace:1; // low
+                uintptr_t:63; // high
+            } __attribute__((packed));
+        } __attribute__((packed));
+
+
+        inline app_pc start_pc(void) const throw() {
+            if(is_trace) {
+                generic_info_ptr untraced_ptr(*this);
+                untraced_ptr.is_trace = false;
+                return untraced_ptr.trace->start_pc;
+            } else {
+                return block->start_pc;
+            }
         }
 
-        inline bool operator==(const app_pc that) const throw() {
-            return ptr->start_pc <= that
-                && that < (ptr->start_pc + ptr->num_bytes);
+
+        inline app_pc end_pc(void) const throw() {
+            if(is_trace) {
+                generic_info_ptr untraced_ptr(*this);
+                untraced_ptr.is_trace = false;
+                return untraced_ptr.trace->start_pc \
+                     + untraced_ptr.trace->num_bytes;
+            } else {
+                return block->start_pc + block->num_bytes;
+            }
+        }
+
+
+        /// Get the basic block info from this trace data.
+        const basic_block_info *get_block(app_pc cache_pc) const throw() {
+            if(is_trace) {
+                generic_info_ptr untraced_ptr(*this);
+                untraced_ptr.is_trace = false;
+                const trace_info *raw_trace(untraced_ptr.trace);
+                const basic_block_info *blocks(raw_trace->info);
+                for(unsigned i(0); i < raw_trace->num_blocks; ++i) {
+                    if(blocks[i].start_pc <= cache_pc
+                    && cache_pc < (blocks[i].start_pc + blocks[i].num_bytes)) {
+                        return &(blocks[i]);
+                    }
+                }
+            } else {
+                return block;
+            }
+
+            ASSERT(false);
+            return nullptr;
         }
     };
 
 
-    static basic_block_info *search_basic_block_info(
-        basic_block_info_ptr *array,
+    static const basic_block_info *search_basic_block_info(
+        generic_info_ptr *array,
         const long max,
         app_pc cache_pc
     ) throw() {
@@ -54,10 +99,13 @@ namespace granary {
         long middle((first + last) / 2);
 
         for(; first <= middle && middle <= last; ) {
-            basic_block_info_ptr curr(array[middle]);
-            if(curr.ptr->start_pc <= cache_pc) {
-                if(cache_pc < (curr.ptr->start_pc + curr.ptr->num_bytes)) {
-                    return curr.ptr;
+            const generic_info_ptr info_ptr(array[middle]);
+            const app_pc trace_start_pc(info_ptr.start_pc());
+            const app_pc trace_end_pc(info_ptr.end_pc());
+
+            if(trace_start_pc <= cache_pc) {
+                if(cache_pc < trace_end_pc) {
+                    return info_ptr.get_block(cache_pc);
                 } else {
                     first = middle + 1;
                 }
@@ -73,7 +121,7 @@ namespace granary {
 
     struct fragment_locator {
         unsigned next_index;
-        basic_block_info_ptr fragments[MAX_BBS_PER_SLAB];
+        generic_info_ptr fragments[MAX_BBS_PER_SLAB];
     };
 
 
@@ -82,62 +130,43 @@ namespace granary {
     }
 
 
-    /// Allocate basic block data. Basic block data includes both basic block
-    /// info (meta-data) and client state (client meta-data).
-    ///
-    /// Pointers are returned by reference through output parameters.
-    basic_block_info *allocate_basic_block_info(
-        app_pc start_pc
-        _IF_KERNEL( unsigned num_state_bytes )
-        _IF_KERNEL( uint8_t *&state_bytes )
-    ) throw() {
+    /// Commit to storing information about a trace.
+    void store_trace_meta_info(const trace_info &trace) throw() {
+
         // Make sure the fragment locator for this fragment slab exists.
-        fragment_locator **slab_(granary_find_fragment_slab(start_pc));
+        fragment_locator **slab_(granary_find_fragment_slab(trace.start_pc));
         if(unlikely(!*slab_)) {
             *slab_ = allocate_memory<fragment_locator>();
         }
 
         fragment_locator *slab(*slab_);
 
-#if GRANARY_IN_KERNEL
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
-        basic_block_info *info(nullptr);
-        if(num_state_bytes) {
-            uint8_t *memory(allocate_memory<uint8_t>(
-                sizeof(basic_block_info) + num_state_bytes));
-            info = unsafe_cast<basic_block_info *>(memory);
-            state_bytes = &(memory[sizeof(basic_block_info)]);
-        } else {
-            state_bytes = nullptr;
-            info = allocate_memory<basic_block_info>();
-        }
-#   else
-        UNUSED(num_state_bytes);
-
-        basic_block_info *info(allocate_memory<basic_block_info>());
-        state_bytes = nullptr;
-#   endif
-#else
-        basic_block_info *info(allocate_memory<basic_block_info>());
-#endif
-
+        ASSERT(0 < trace.num_blocks);
         ASSERT(slab->next_index < MAX_BBS_PER_SLAB);
 
-        slab->fragments[slab->next_index++].ptr = info;
-        return info;
+        generic_info_ptr &info_ptr(slab->fragments[slab->next_index++]);
+
+        if(1 == trace.num_blocks) {
+            info_ptr.block = trace.info;
+        } else {
+            trace_info *perm_trace(allocate_memory<trace_info>());
+            memcpy(perm_trace, &trace, sizeof trace);
+            info_ptr.trace = perm_trace;
+            info_ptr.is_trace = true;
+        }
     }
 
 
     /// Find the basic block info given an address into our code cache of
     /// basic blocks.
     __attribute__((hot))
-    basic_block_info *find_basic_block_info(app_pc cache_pc) throw() {
+    const basic_block_info *find_basic_block_info(app_pc cache_pc) throw() {
         fragment_locator **slab_(granary_find_fragment_slab(cache_pc));
         fragment_locator *slab(*slab_);
 
         ASSERT(nullptr != slab);
 
-        basic_block_info *info(search_basic_block_info(
+        const basic_block_info *info(search_basic_block_info(
             &(slab->fragments[0]), slab->next_index, cache_pc));
 
         ASSERT(nullptr != info);
@@ -146,46 +175,36 @@ namespace granary {
     }
 
 
-    /// Try to delete a fragment locator, but don't necessarily succeed.
+    /// Remove the basic block info for some `cache_pc`. This is only valid
+    /// if the associated basic block was the last block added to this
+    /// fragment allocator, and if it wasn't added as part of a trace.
     ///
     /// Note: We assume that there is a coarse grained lock that is guarding
     ///       these operations!
-    bool try_remove_basic_block_info(app_pc cache_pc) throw() {
+    void remove_basic_block_info(app_pc cache_pc) throw() {
         fragment_locator **slab_(granary_find_fragment_slab(cache_pc));
         fragment_locator *slab(*slab_);
 
         ASSERT(nullptr != slab);
+        ASSERT(slab->next_index);
 
-        if(!slab->next_index) {
-            return false;
+        generic_info_ptr &frag(slab->fragments[slab->next_index - 1]);
+
+        ASSERT(!frag.is_trace);
+        ASSERT(nullptr != frag.block);
+        ASSERT(frag.block->start_pc <= cache_pc);
+
+#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+        if(frag.block->delay_states) {
+            free_memory(
+                frag.block->delay_states, frag.block->num_delay_state_bytes);
         }
-
-        basic_block_info_ptr &frag(slab->fragments[slab->next_index - 1]);
-        ASSERT(nullptr != frag.ptr);
-
-        if(frag.ptr->start_pc > cache_pc) {
-            return false;
-        }
-
-#if GRANARY_IN_KERNEL
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
-        if(frag.ptr->delay_states) {
-            free_memory<uint8_t>(
-                unsafe_cast<uint8_t *>(frag.ptr),
-                sizeof(basic_block_info) + frag.ptr->num_delay_state_bytes);
-        } else {
-            free_memory<basic_block_info>(frag.ptr);
-        }
-#   else
-        free_memory<basic_block_info>(frag.ptr);
-#   endif
-#else
-        free_memory<basic_block_info>(frag.ptr);
 #endif
 
-        frag.ptr = nullptr;
+        free_memory(frag.block);
+
+        frag.block = nullptr;
         slab->next_index -= 1;
-        return true;
     }
 }
 

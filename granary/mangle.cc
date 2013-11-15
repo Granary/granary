@@ -14,40 +14,9 @@
 #include "granary/register.h"
 #include "granary/hash_table.h"
 #include "granary/emit_utils.h"
+
+#include "granary/dbl.h"
 #include "granary/ibl.h"
-
-/// Used to unroll registers in the opposite order in which they are saved
-/// by PUSHA in x86/asm_helpers.asm. This is so that we can operate on the
-/// pushed state on the stack as a form of machine context.
-#define DPM_DECLARE_REG(reg) \
-    uint64_t reg;
-
-
-#define DPM_DECLARE_REG_CONT(reg, rest) \
-    rest \
-    DPM_DECLARE_REG(reg)
-
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define DEFINE_DIRECT_JUMP_RESOLVER(opcode, size) \
-    direct_branch_ ## opcode = \
-        make_direct_cti_patch_func<opcode ## _ >( \
-            granary_asm_direct_branch_template);
-
-/// Used to forward-declare the assembly function patches. These patch functions
-/// eventually call the templates.
-#define CASE_DIRECT_JUMP_MANGLER(opcode, size) \
-    case dynamorio::OP_ ## opcode: \
-        if(!(direct_branch_ ## opcode)) { \
-            DEFINE_DIRECT_JUMP_RESOLVER(opcode, size) \
-        } \
-        return direct_branch_ ## opcode;
-
-/// Used to forward-declare the assembly funcion patches. These patch functions
-/// eventually call the templates.
-#define DECLARE_DIRECT_JUMP_MANGLER(opcode, size) \
-    static app_pc direct_branch_ ## opcode = nullptr;
 
 
 extern "C" {
@@ -58,58 +27,10 @@ extern "C" {
 
 namespace granary {
 
-    namespace {
-        /// Specific instruction manglers used for branch lookup.
-        DECLARE_DIRECT_JUMP_MANGLER(call, 5)
-        FOR_EACH_DIRECT_JUMP(DECLARE_DIRECT_JUMP_MANGLER)
-    }
-
 
     enum {
         MAX_NUM_POLICIES = 1 << mangled_address::NUM_MANGLED_BITS,
         HOTPATCH_ALIGN = 8
-    };
-
-
-    /// A machine context representation for direct jump/call patches. The
-    /// structure contains as much state as is saved by the direct assembly
-    /// direct jump patch functions.
-    ///
-    /// The high-level operation here is that the patch function will know
-    /// what to patch because of the return address on the stack (we guarantee
-    /// that hot-patchable instructions will be aligned on 8-byte boundaries)
-    /// and that we know where we need to patch the target to by looking at the
-    /// relative target offset from the beginning of application code.
-    struct direct_cti_patch_mcontext {
-
-        // low on the stack
-
-        /// Saved registers.
-        ALL_REGS(DPM_DECLARE_REG_CONT, DPM_DECLARE_REG)
-
-        /// Saved flags.
-        eflags flags;
-
-        /// The target address of a jump, including the policy to use when
-        /// translating the target basic block.
-        mangled_address target_address;
-
-        /// Return address into the patch code located in the tail of the
-        /// basic block being patched. We use this to figure out the instruction
-        /// to patch because the tail code ends with a jmp to that instruction.
-        app_pc return_address_into_patch_tail;
-
-    } __attribute__((packed));
-
-
-    struct ibl_stub_key {
-        uint16_t policy_bits;
-        operand target_operand;
-
-        bool operator==(const ibl_stub_key &that) const throw() {
-            return policy_bits == that.policy_bits
-                && 0 == memcmp(&target_operand, &(that.target_operand), sizeof target_operand);
-        }
     };
 
 
@@ -296,285 +217,6 @@ namespace granary {
     }
 
 
-    /// Patch the code by regenerating the original instruction.
-    ///
-    /// Note: in kernel mode, this function executes with interrupts
-    ///       disabled.
-    ///
-    /// Note: this function alters a return address in `context` so that
-    ///       when the corresponding assembly patch function returns, it
-    ///       will return to the instruction just patched.
-    GRANARY_ENTRYPOINT
-    template <instruction (*make_opcode)(dynamorio::opnd_t)>
-    static void
-    find_and_patch_direct_cti(direct_cti_patch_mcontext *context) throw() {
-
-        // Notify Granary that we're entering!
-        cpu_state_handle cpu;
-        granary::enter(cpu);
-
-        ASSERT(is_valid_address(context->target_address.unmangled_address()));
-        ASSERT(is_valid_address(context->return_address_into_patch_tail));
-        ASSERT(is_gencode_address(context->return_address_into_patch_tail));
-
-        // Get an address into the target basic block using two stage lookup.
-        app_pc ret_pc(context->return_address_into_patch_tail);
-
-        // Determine the address to patch; this decodes the *tail* of the patch
-        // code in the basic block and looks for a CTI (assumed jmp) and takes
-        // its target to be the instruction that must be patched.
-        app_pc patch_address(nullptr);
-        for(int max_tries(0); max_tries < 8; ++max_tries) {
-            instruction maybe_jmp(instruction::decode(&ret_pc));
-            if(maybe_jmp.is_cti()) {
-                ASSERT(dynamorio::OP_jmp == maybe_jmp.op_code());
-                patch_address = maybe_jmp.cti_target().value.pc;
-                goto ready_to_patch;
-            }
-        }
-
-        ASSERT(false);
-
-    ready_to_patch:
-
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
-        // Inherit this basic block's allocator from our predecessor basic
-        // block.
-        basic_block source_bb(patch_address);
-        ASSERT(nullptr != source_bb.info->allocator);
-        cpu->current_fragment_allocator = source_bb.info->allocator;
-#endif
-
-        app_pc target_pc(code_cache::find(cpu, context->target_address));
-
-        // Make sure that the patch target will fit on one cache line. We will
-        // use `5` as the magic number for instruction size, as that's typical
-        // for a RIP-relative CTI.
-
-        // Get the original code. Note: We get the code before we decode the
-        // instruction, which means that the decoded instruction *could* see
-        // a newer version of the code. We accept this as it will allow us to
-        // detect whether or not the code was patched (because the decoded old
-        // CTI will no longer point into gencode).
-        uint64_t *code_to_patch(reinterpret_cast<uint64_t *>(patch_address));
-        uint64_t original_code(*code_to_patch);
-        uint64_t staged_code(original_code);
-        app_pc staged_data(reinterpret_cast<app_pc>(&staged_code));
-
-        // The old instruction that we think is there.
-        app_pc decode_address(patch_address);
-        instruction old_cti(instruction::decode(&decode_address));
-        unsigned old_cti_len(old_cti.encoded_size());
-
-        // Make the new CTI instruction, widen it if possible.
-        instruction new_cti(make_opcode(pc_(target_pc)));
-        new_cti.widen_if_cti();
-
-        // This is kind of a hack; see later in this file. `Jcc rel32` takes
-        // 6 bytes, whereas `JMP rel32` and `CALL rel32` take 5 bytes.
-        if(!new_cti.is_unconditional_cti()) {
-            old_cti_len += 1;
-        }
-
-        ASSERT(old_cti_len <= sizeof(uintptr_t));
-        ASSERT(new_cti.encoded_size() <= old_cti_len);
-
-        // Double check that the instruction to patch transfers control into
-        // gencode. If not then it's already been patched.
-        ASSERT(old_cti.is_cti());
-        operand old_cti_target(old_cti.cti_target());
-        ASSERT(dynamorio::opnd_is_pc(old_cti_target));
-        if(!is_gencode_address(old_cti_target.value.pc)) {
-            return;
-        }
-
-        // Create a bitmask that will allow us to diagnose why a compare&swap
-        // might fail. Under normal circumstances (e.g. null tool), we wouldn't
-        // actually need to check whether the compare&swap succeeds because
-        // control cannot jump over a patch. However, it's entirely possible for
-        // another tool to place two hot-patchable CTIs side-by-side, and
-        // conditionally jump to one or another.
-        uint64_t code_mask(0ULL);
-        memset(&code_mask, 0xFF, old_cti_len);
-        const uint64_t masked_head(original_code & code_mask);
-
-        IF_TEST( int i(0); )
-        for(; IF_TEST(i < 2); IF_TEST(++i)) {
-
-            // Fill the staged code with NOPs where the old CTI was.
-            memset(staged_data, 0x90, old_cti_len);
-            new_cti.stage_encode(staged_data, patch_address);
-
-            // Apply the patch.
-            const bool applied_patch(__sync_bool_compare_and_swap(
-                code_to_patch, original_code, staged_code));
-
-            if(applied_patch) {
-                break;
-            }
-
-            // Get the new version of the code.
-            original_code = *code_to_patch;
-            staged_code = original_code;
-
-            // Ignorable failure; the instruction was concurrently patched by
-            // another thread/core.
-            if(masked_head != (original_code & code_mask)) {
-                break;
-            }
-        }
-
-        ASSERT(2 > i);
-    }
-
-
-    /// Make a direct patch function that is specific to a particular opcode.
-    template <instruction (*make_opcode)(dynamorio::opnd_t)>
-    static app_pc make_direct_cti_patch_func(
-        void (*template_func)(void)
-    ) throw() {
-
-        instruction_list ls;
-        app_pc start_pc(unsafe_cast<app_pc>(template_func));
-
-        for(;;) {
-            instruction in(instruction::decode(&start_pc));
-            if(in.is_call()) {
-                // Leave any direct calls as is. For example, the private stack
-                // entry/exit functions.
-                if (in.is_direct_call()) {
-                    insert_cti_after(
-                        ls, ls.last(), in.cti_target().value.pc,
-                        CTI_STEAL_REGISTER, reg::ret,
-                        CTI_CALL);
-
-                // The indirect call targeting %rax is meant to be replaced with
-                // the call to our patch function.
-                } else {
-                    ASSERT(dynamorio::REG_kind == in.cti_target().kind);
-                    ASSERT(dynamorio::DR_REG_RAX == in.cti_target().value.reg);
-                    insert_cti_after(
-                        ls, ls.last(),
-                        unsafe_cast<app_pc>(
-                            find_and_patch_direct_cti<make_opcode>),
-                        CTI_STEAL_REGISTER, reg::rax,
-                        CTI_CALL);
-
-                }
-            } else {
-                ls.append(in);
-            }
-
-            //ls.append(in);
-            if(dynamorio::OP_ret == in.op_code()) {
-                break;
-            }
-        }
-
-        const unsigned size(ls.encoded_size());
-        app_pc dest_pc(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(size));
-        ls.encode(dest_pc, size);
-
-        IF_PERF( perf::visit_dbl_patch(ls); )
-
-        return dest_pc;
-    }
-
-
-    /// Look up and return the assembly patch (see asm/direct_branch.asm)
-    /// function needed to patch an instruction that originally had opcode as
-    /// `opcode`.
-    static app_pc get_direct_cti_patch_func(int opcode) throw() {
-        switch(opcode) {
-        CASE_DIRECT_JUMP_MANGLER(call, 5)
-        FOR_EACH_DIRECT_JUMP(CASE_DIRECT_JUMP_MANGLER);
-        default: return nullptr;
-        }
-    }
-
-
-    /// Get or build the direct branch lookup (DBL) routine for some jump/call
-    /// target.
-    app_pc instruction_list_mangler::dbl_entry_routine(
-        instruction in,
-        mangled_address am
-    ) throw() {
-
-        /// Nice names for register(s) used by the DBL.
-        operand reg_mangled_addr(reg::rax);
-
-        // Add in the patch code, change the initial behaviour of the
-        // instruction, and mark it has hot patchable so it is nicely aligned.
-        app_pc patcher_for_opcode(get_direct_cti_patch_func(in.op_code()));
-        instruction_list dbl;
-
-        // TODO: These patch stubs can be reference counted so that they
-        //       can be reclaimed (especially since every patch stub will
-        //       have the same size!).
-
-        // TODO: These patch stubs represent a big memory leak!
-
-        // Store the policy-mangled target on the stack.
-        dbl.append(lea_(reg::rsp, reg::rsp[-8]));
-        dbl.append(push_(reg_mangled_addr));
-        dbl.append(mov_imm_(reg_mangled_addr, int64_(am.as_int)));
-        dbl.append(mov_st_(reg::rsp[8], reg_mangled_addr));
-        dbl.append(pop_(reg_mangled_addr)); // restore
-
-        // tail-call out to the patcher/mangler.
-        dbl.append(mangled(jmp_(pc_(patcher_for_opcode))));
-
-        const unsigned size(dbl.encoded_size());
-        app_pc routine(global_state::FRAGMENT_ALLOCATOR-> \
-            allocate_array<uint8_t>(size));
-        dbl.encode(routine, size);
-
-        IF_PERF( perf::visit_dbl(dbl); )
-
-        return routine;
-    }
-
-
-    /// Make a direct CTI patch stub. This is used both for mangling direct CTIs
-    /// and for emulating policy inheritance/scope when transparent return
-    /// addresses are used.
-    instruction instruction_list_mangler::dbl_entry_stub(
-        instruction patched_in,
-        app_pc dbl_routine
-    ) throw() {
-        instruction ret(stub_ls.append(label_()));
-
-        IF_PERF( const unsigned old_num_ins(stub_ls.length()); )
-
-        int redzone_size(patched_in.is_call() ? 0 : REDZONE_SIZE);
-
-        // We add REDZONE_SIZE + 8 because we make space for the policy-mangled
-        // address. The
-        if(redzone_size) {
-            stub_ls.append(lea_(reg::rsp, reg::rsp[-redzone_size]));
-        }
-
-        stub_ls.append(mangled(call_(pc_(dbl_routine))));
-
-        if(redzone_size) {
-            stub_ls.append(lea_(reg::rsp, reg::rsp[redzone_size]));
-        }
-
-        // The address to be mangled is implicitly encoded in the target of
-        // this JMP instruction, which will later be decoded by the direct cti
-        // patch function. There are two reasons for this approach of jumping
-        // around:
-        //      i)  Doesn't screw around with the return address predictor.
-        //      ii) Works with user space red zones.
-        stub_ls.append(mangled(jmp_(instr_(mangled(patched_in)))));
-
-        IF_PERF( perf::visit_dbl_stub(stub_ls.length() - old_num_ins); )
-
-        return ret;
-    }
-
-
     /// Add a direct branch slot; this is a sort of "formula" for direct
     /// branches that pushes two addresses and then jmps to an actual
     /// direct branch handler.
@@ -633,9 +275,15 @@ namespace granary {
         // This can be a fall-through from above, where we want to auto-
         // instrument the host, but there is a host-context detach point which
         // must be considered.
-        if(!detach_target_pc){
+        if(!detach_target_pc) {
             detach_target_pc = find_detach_target(
                 target_pc, target_policy.context());
+        }
+
+        // Okay, look in the code cache to see if we've already translated the
+        // target code.
+        if(!detach_target_pc) {
+            detach_target_pc = code_cache::lookup(am.as_address);
         }
 
         // If this is a detach point then replace the target address with the
@@ -668,27 +316,10 @@ namespace granary {
                 in.set_mangled();
             }
 
-            return;
+        } else {
+            // Replace `in` with a DBL lookup stub.
+            insert_dbl_lookup_stub(ls, stub_ls, in, am);
         }
-
-        IF_TEST( const unsigned old_size(in.encoded_size()); )
-
-        // Set the policy-fied target.
-        instruction stub(dbl_entry_stub(
-            in,                         // patched instruction
-            dbl_entry_routine(in, am)   // target of stub
-        ));
-
-        const bool was_unconditional(in.is_unconditional_cti());
-        in.replace_with(patchable(mangled(jmp_(instr_(stub)))));
-
-        if(!was_unconditional) {
-            in.instr->granary_flags |= instruction::COND_CTI_PLACEHOLDER;
-        }
-
-        IF_TEST( const unsigned new_size(in.encoded_size()); )
-        ASSERT(old_size <= 8);
-        ASSERT(new_size <= 8);
     }
 
 
@@ -706,33 +337,8 @@ namespace granary {
         operand target,
         instrumentation_policy target_policy
     ) throw() {
-        if(in.is_call()) {
 
-            instruction call_target(stub_ls.append(label_()));
-            instruction insert_point(stub_ls.append(label_()));
-
-#if GRANARY_IN_KERNEL && CONFIG_INSTRUMENT_HOST
-            // Linux-specific special case: Optimise for syscall entry points.
-            // Note: We depend on sign-extension of the 32-bit displacement here.
-            if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
-            && dynamorio::BASE_DISP_kind == target.kind
-            && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
-                target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;
-                in.set_cti_target(target);
-                in.set_mangled();
-                return;
-            }
-#endif
-
-            IF_PERF( perf::visit_mangle_indirect_call(); )
-            mangle_ibl_lookup(
-                stub_ls, insert_point, target_policy, target,
-                IBL_ENTRY_CALL, in.pc());
-
-            ls.insert_before(in, mangled(call_(instr_(call_target))));
-            ls.remove(in);
-
-        } else if(in.is_return()) {
+        if(in.is_return()) {
             IF_PERF( perf::visit_mangle_return(); )
 #if !CONFIG_ENABLE_DIRECT_RETURN
             if(!policy.return_address_is_in_code_cache()) {
@@ -746,6 +352,36 @@ namespace granary {
                 ls.remove(in);
             }
 #endif
+            return;
+        }
+
+#if GRANARY_IN_KERNEL && CONFIG_INSTRUMENT_HOST
+        // Linux-specific special case: Optimise for syscall entry points.
+        // Note: We depend on sign-extension of the 32-bit displacement here.
+        if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
+        && dynamorio::BASE_DISP_kind == target.kind
+        && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
+            target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;
+            in.set_cti_target(target);
+            in.set_mangled();
+            return;
+        }
+#endif
+
+        // Indirect CALL.
+        if(in.is_call()) {
+            instruction call_target(stub_ls.append(label_()));
+            instruction insert_point(stub_ls.append(label_()));
+
+            IF_PERF( perf::visit_mangle_indirect_call(); )
+            mangle_ibl_lookup(
+                stub_ls, insert_point, target_policy, target,
+                IBL_ENTRY_CALL, in.pc());
+
+            ls.insert_before(in, mangled(call_(instr_(call_target))));
+            ls.remove(in);
+
+        // Indirect JMP.
         } else {
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
             mangle_ibl_lookup(
@@ -854,17 +490,6 @@ namespace granary {
                 ASSERT(target_policy == policy);
             }
         }
-    }
-
-
-    void instruction_list_mangler::mangle_cli(instruction in) throw() {
-        (void) in;
-    }
-
-
-    void instruction_list_mangler::mangle_sti(instruction in) throw() {
-
-        (void) in;
     }
 
 
@@ -1172,7 +797,6 @@ namespace granary {
         // go mangle instructions; note: indirect CTI mangling happens here.
         for(; in.is_valid(); in = next_in) {
             const bool is_mangled(in.is_mangled());
-            const bool can_skip(nullptr == in.pc() || is_mangled);
             next_in = in.next();
 
             // native instruction, we might need to mangle it.
@@ -1180,20 +804,6 @@ namespace granary {
                 if(!is_mangled) {
                     mangle_cti(in);
                 }
-
-            // clear interrupt
-            } else if(dynamorio::OP_cli == in.op_code()) {
-                if(can_skip) {
-                    continue;
-                }
-                mangle_cli(in);
-
-            // restore interrupt
-            } else if(dynamorio::OP_sti == in.op_code()) {
-                if(can_skip) {
-                    continue;
-                }
-                mangle_sti(in);
 
             // Look for cases where an `LEA` loads from a memory address that is
             // too far away and fix it.
@@ -1227,24 +837,9 @@ namespace granary {
         unsigned size(0);
 
         for(in = ls.first(); in.is_valid(); in = next_in) {
-
             next_in = in.next();
-            const bool is_hot_patchable(in.is_patchable());
             unsigned in_size(in.encoded_size());
-
-            // This is a hack: `Jcc rel32` takes 6 bytes to encode, whereas
-            // `CALL rel32` and `JMP rel32` take only 5 bytes.
-            //
-            // We add the NOP here so that we can take it into account when
-            // figuring out the forward alignment requirements of the patchable
-            // instruction.
-            if(is_hot_patchable
-            && (in.instr->granary_flags & instruction::COND_CTI_PLACEHOLDER)) {
-                in.instr->granary_flags &= ~instruction::COND_CTI_PLACEHOLDER;
-                ls.insert_after(in, nop1byte_());
-                in_size += 1;
-            }
-
+            const bool is_hot_patchable(in.is_patchable());
             const unsigned cache_line_offset(
                 curr_align % CONFIG_MIN_CACHE_LINE_SIZE);
 
@@ -1285,6 +880,4 @@ namespace granary {
         , stub_ls(stub_ls_)
         , estimator_pc(estimator_pc_)
     { }
-
 }
-

@@ -383,7 +383,6 @@ namespace granary {
     __attribute__((hot))
     static interrupt_handled_state handle_code_cache_interrupt(
         cpu_state_handle cpu,
-        thread_state_handle thread,
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
@@ -413,6 +412,7 @@ namespace granary {
         // We need to delay. After the delay has occurred, we re-issue the
         // interrupt.
         if(bb.get_interrupt_delay_range(delay_begin, delay_end)) {
+            granary::enter(cpu);
             isf->instruction_pointer = emit_delayed_interrupt(
                 cpu, isf, vector, delay_begin, delay_end);
 
@@ -427,6 +427,8 @@ namespace granary {
         basic_block_state *bb_state(bb.state());
         instrumentation_policy policy(bb.policy);
 
+        granary::enter(cpu);
+        thread_state_handle thread(cpu);
         return policy.handle_interrupt(
             cpu, thread, *bb_state, *isf, vector);
 
@@ -434,7 +436,6 @@ namespace granary {
         return INTERRUPT_DEFER;
 #   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
 #endif /* CONFIG_ENABLE_INTERRUPT_DELAY || CONFIG_CLIENT_HANDLE_INTERRUPT */
-        UNUSED(thread);
     }
 
 
@@ -488,7 +489,6 @@ namespace granary {
     __attribute__((hot))
     static interrupt_handled_state handle_kernel_interrupt(
         cpu_state_handle cpu,
-        thread_state_handle thread,
         interrupt_stack_frame *isf,
         interrupt_vector vector
     ) throw() {
@@ -504,9 +504,9 @@ namespace granary {
             memcpy(FAULTED_STACK, reinterpret_cast<void *>(rsp), rsp_base - rsp);
         }
 #endif
-
-
 #if CONFIG_CLIENT_HANDLE_INTERRUPT
+        granary::enter(cpu);
+        thread_state_handle thread(cpu);
         return client::handle_kernel_interrupt(
             cpu,
             thread,
@@ -514,7 +514,6 @@ namespace granary {
             vector);
 #else
         UNUSED(cpu);
-        UNUSED(thread);
         UNUSED(isf);
         UNUSED(vector);
         return INTERRUPT_DEFER;
@@ -534,12 +533,19 @@ namespace granary {
 
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(false);
-        //policy.force_attach(true);
+        policy.begins_functional_unit(true);
+
+        // Probably the kernel calling the module, so make sure it supports
+        // direct return back into the kernel.
+        policy.return_address_in_code_cache(true);
 
         mangled_address target(isf->instruction_pointer, policy);
         app_pc translated_target(nullptr);
+
         if(!cpu->code_cache.load(target.as_address, translated_target)) {
+            granary::enter(cpu);
             translated_target = code_cache::find(cpu, target);
+            cpu->code_cache.store(target.as_address, translated_target);
         }
 
         isf->instruction_pointer = translated_target;
@@ -556,7 +562,6 @@ namespace granary {
     ) throw() {
 
         cpu_state_handle cpu;
-        thread_state_handle thread(cpu);
 
         // If the high 48 bits of the two stack pointers are the same then
         // we hit a recursive interrupt; otherwise, mark us as entering into
@@ -564,11 +569,12 @@ namespace granary {
         const uintptr_t private_stack_check(
             reinterpret_cast<uintptr_t>(isf->stack_pointer) ^
             reinterpret_cast<uintptr_t>(cpu->percpu_stack.top));
-        if(0 != (private_stack_check >> 16)) {
-            granary::enter(cpu);
-        } else {
+
+#if CONFIG_ENABLE_ASSERTIONS
+        if(0 == (private_stack_check >> 16)) {
             granary_break_on_nested_interrupt(isf, vector, cpu);
         }
+#endif
 
         app_pc pc(isf->instruction_pointer);
 
@@ -584,7 +590,7 @@ namespace granary {
         // In the code cache, defer to a client if necessary, otherwise default
         // to deferring to the kernel.
         } else if(is_code_cache_address(pc)) {
-            ret = handle_code_cache_interrupt(cpu, thread, isf, vector);
+            ret = handle_code_cache_interrupt(cpu, isf, vector);
 
         /// An interrupt in some automatically generated, non-instrumented
         /// code. These interrupts are either ignored (common), or indicate a
@@ -610,7 +616,7 @@ namespace granary {
 
         // Assume it's an interrupt in a host-address location.
         } else {
-            ret = handle_kernel_interrupt(cpu, thread, isf, vector);
+            ret = handle_kernel_interrupt(cpu, isf, vector);
         }
 
         return ret;
@@ -886,7 +892,7 @@ namespace granary {
             ls.append(ret_());
         }
 
-        // encode.
+        // Encode.
         const unsigned size(ls.encoded_size());
         app_pc routine(reinterpret_cast<app_pc>(
             global_state::FRAGMENT_ALLOCATOR-> \
@@ -906,11 +912,6 @@ namespace granary {
     static system_table_register_t PREV_IDTR_GEN;
 
 
-    extern "C" {
-        descriptor_t *kernel_get_idt_table(void);
-    }
-
-
     /// Create a Granary version of the interrupt descriptor table. This does
     /// not assume that all CPUs share the same IDT, but benefits from sharing
     /// if it's true.
@@ -919,13 +920,6 @@ namespace granary {
         // Unusual; seem to be re-creating based on our own IDT.
         if(native.base == PREV_IDTR_GEN.base) {
             return PREV_IDTR_GEN;
-        }
-
-        // A bit of defensive programming here; we're concerned that the kernel
-        // has loaded the IDTR with a fixed, read-only address so as to not
-        // leak the kernel's base address.
-        if(!is_host_address(native.base)) {
-            native.base = kernel_get_idt_table();
         }
 
         if(native.base == PREV_IDTR.base && native.limit == PREV_IDTR.limit) {

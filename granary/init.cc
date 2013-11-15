@@ -91,15 +91,16 @@ namespace granary {
 
             IF_TEST( cpu->in_granary = false; )
             cpu.free_transient_allocators();
-
             ASM(
-                "movq %0, %%rdi;"
+                "movq %0, %%" TO_STRING(ARG1) ";"
+                TO_STRING(PUSHA_ASM_ARG)
                 "callq " TO_STRING(SHARED_SYMBOL(granary_enter_private_stack)) ";"
                 "callq " TO_STRING(SHARED_SYMBOL(granary_do_init_on_private_stack)) ";"
                 "callq " TO_STRING(SHARED_SYMBOL(granary_exit_private_stack)) ";"
+                TO_STRING(POPA_ASM_ARG)
                 :
                 : "m"(init)
-                : "%rdi"
+                : "%" TO_STRING(ARG1)
             );
 
             IF_KERNEL( granary_store_flags(flags); )
