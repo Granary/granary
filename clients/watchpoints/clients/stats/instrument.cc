@@ -111,7 +111,7 @@ namespace client {
 
 }
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 namespace client { namespace wp {
 
     interrupt_handled_state stats_policy::handle_interrupt(
@@ -124,5 +124,5 @@ namespace client { namespace wp {
         return INTERRUPT_DEFER;
     }
 }} /* wp namespace */
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
 

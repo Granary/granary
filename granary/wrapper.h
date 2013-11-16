@@ -11,7 +11,7 @@
 #include "granary/globals.h"
 #include "granary/detach.h"
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "granary/kernel/hotpatch.h"
 #endif
 
@@ -21,9 +21,9 @@
 namespace granary {
 
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 
-#if     GRANARY_IN_KERNEL
+#if     CONFIG_ENV_KERNEL
     template <enum function_wrapper_id>
     struct kernel_address;
 
@@ -37,7 +37,7 @@ namespace granary {
             VALUE = DETACH_ADDR_ ## func \
         }; \
     };
-#       if GRANARY_IN_KERNEL
+#       if CONFIG_ENV_KERNEL
 #           include "granary/gen/kernel_detach.inc"
 #       else
 #           include "granary/gen/user_detach.inc"
@@ -46,7 +46,7 @@ namespace granary {
 #       undef TYPED_DETACH
 #       undef WRAP_FOR_DETACH
 #   endif
-#endif /* CONFIG_ENABLE_WRAPPERS */
+#endif /* CONFIG_FEATURE_WRAPPERS */
 
 
     /// The identity of a type.
@@ -459,7 +459,7 @@ namespace granary {
     WRAP_BASIC_TYPE_IMPL(const volatile basic_type *)
 
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
@@ -469,7 +469,7 @@ namespace granary {
             VALUE = false
         };
     };
-#endif /* CONFIG_ENABLE_WRAPPERS */
+#endif /* CONFIG_FEATURE_WRAPPERS */
 
 
     /// Wrapping operators.
@@ -598,7 +598,7 @@ namespace granary {
         }
     };
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 
     /// Represents a manual function wrapper.
     struct custom_wrapped_function { };
@@ -654,7 +654,7 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #else
             func_type *func(
@@ -704,7 +704,7 @@ namespace granary {
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static void apply(Args... args) throw() {
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #else
             func_type *func(
@@ -800,7 +800,7 @@ namespace granary {
     {};
 
 
-#endif /* CONFIG_ENABLE_WRAPPERS */
+#endif /* CONFIG_FEATURE_WRAPPERS */
 
 
     /// A pretty ugly hack to pass the target address from gencode into a
@@ -820,7 +820,7 @@ namespace granary {
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
+#if !CONFIG_OPTIMISE_DIRECT_RETURN
             granary::detach();
 #endif
 
@@ -854,7 +854,7 @@ namespace granary {
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             func_addr(args...);
 
-#if !CONFIG_ENABLE_DIRECT_RETURN
+#if !CONFIG_OPTIMISE_DIRECT_RETURN
             detach();
 #endif
 
@@ -965,7 +965,7 @@ namespace granary {
     };
 }
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 
 #define TYPE_WRAPPER_FUNCTION(prefix) \
     FORCE_INLINE static void \
@@ -1209,7 +1209,7 @@ namespace granary {
         }; \
     }
 
-#else /* !CONFIG_ENABLE_WRAPPERS */
+#else /* !CONFIG_FEATURE_WRAPPERS */
 #   define TYPE_WRAPPER_FUNCTION(prefix)
 #   define TYPE_WRAPPER_FUNCTION_FORWARD(prefix)
 #   define TYPE_WRAPPER(type_name, wrap_code)
@@ -1220,9 +1220,9 @@ namespace granary {
 #   define FUNCTION_WRAPPER_DETACH(context, function_name)
 #   define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code)
 #   define FUNCTION_WRAPPER_VOID(context, function_name, arg_list, wrapper_code)
-#endif /* CONFIG_ENABLE_WRAPPERS */
+#endif /* CONFIG_FEATURE_WRAPPERS */
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
     namespace granary { \
         extern "C" PARAMS return_type function_name arg_list ; \
@@ -1302,7 +1302,7 @@ namespace granary {
         }); \
     }
 
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 #define WRAP_FUNCTION(lvalue) \
     { \

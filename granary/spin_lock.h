@@ -76,7 +76,7 @@ namespace granary {
 }
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-#   if GRANARY_IN_KERNEL
+#   if CONFIG_ENV_KERNEL
 
 namespace granary {
     typedef atomic_spin_lock spin_lock;
@@ -120,7 +120,7 @@ namespace granary {
     };
 }
 
-#   endif /* GRANARY_IN_KERNEL */
+#   endif /* CONFIG_ENV_KERNEL */
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
 
 #endif /* SPIN_LOCK_H_ */

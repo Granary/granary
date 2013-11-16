@@ -9,7 +9,7 @@
 
 #include "granary/perf.h"
 
-#if CONFIG_ENABLE_PERF_COUNTS
+#if CONFIG_DEBUG_PERF_COUNTS
 
 #define DUMP_IBL_INFO 0
 
@@ -90,7 +90,7 @@ namespace granary {
     static std::atomic<unsigned> NUM_ADDRESS_LOOKUPS_CPU_MISPREDICT(ATOMIC_VAR_INIT(0U));
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     static std::atomic<unsigned long> NUM_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
     static std::atomic<unsigned> NUM_RECURSIVE_INTERRUPTS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned long> NUM_DELAYED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
@@ -261,7 +261,7 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     void perf::visit_interrupt(void) throw() {
         NUM_INTERRUPTS.fetch_add(1);
     }
@@ -286,7 +286,7 @@ namespace granary {
 #endif
 
     // If we're in the kernel, and regardless of
-#if GRANARY_IN_KERNEL && defined(DETACH_ADDR_printk)
+#if CONFIG_ENV_KERNEL && defined(DETACH_ADDR_printk)
     extern "C" {
         extern int printk(const char *, ...);
     }
@@ -366,7 +366,7 @@ namespace granary {
         printf("Number misses in the cpu code cache(s): %u\n\n",
             NUM_ADDRESS_LOOKUPS_CPU_MISS.load());
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         printf("Number of interrupts: %lu\n",
             NUM_INTERRUPTS.load());
         printf("Number of delayed interrupts: %lu\n",
@@ -413,5 +413,5 @@ namespace granary {
 }
 
 
-#endif /* CONFIG_ENABLE_PERF_COUNTS */
+#endif /* CONFIG_DEBUG_PERF_COUNTS */
 

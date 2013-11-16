@@ -11,7 +11,7 @@
 #include "granary/kernel/printf.h"
 #include "granary/types.h"
 
-#define LOG !CONFIG_INSTRUMENT_HOST
+#define LOG !CONFIG_FEATURE_INSTRUMENT_HOST
 
 namespace granary {
 #if LOG

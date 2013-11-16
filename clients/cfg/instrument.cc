@@ -12,7 +12,7 @@
 using namespace granary;
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "granary/kernel/linux/module.h"
 extern "C" {
     /// Returns the kernel module information for a given app address.
@@ -83,7 +83,7 @@ namespace client {
         cpu.free_transient_allocators();
         MEMORY_ALLOCATORS.construct();
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   define CFG_MEMORY_ALLOCATOR(func) \
         MEMORY_ALLOCATORS->store( \
             unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_ALLOCATOR);
@@ -100,7 +100,7 @@ namespace client {
 #   undef CFG_MEMORY_ALLOCATOR
 #   undef CFG_MEMORY_DEALLOCATOR
 #   undef CFG_MEMORY_REALLOCATOR
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
     }
 
 
@@ -155,7 +155,7 @@ namespace client {
             used_regs.revive(in);
             entry_regs.visit(in);
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             // Track the translation so that we can find the offset.
             if(in.pc()) {
                 app_pc curr_pc(in.pc());
@@ -166,7 +166,7 @@ namespace client {
                     }
                 }
             }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
             // Call, switch into a the entry basic block policy.
             if(in.is_call()) {
@@ -205,7 +205,7 @@ namespace client {
         bb.used_regs = used_regs.encode();
         bb.entry_regs = entry_regs.encode();
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
         // Is this a memory allocator?
         allocator_kind alloc_kind;
@@ -238,7 +238,7 @@ namespace client {
 
             bb.app_name = module->name;
         }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
         // Add the edges here because it's technically possible for a race to
         // occur where one core will observe the basic block once it's been
@@ -338,7 +338,7 @@ namespace client {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
     granary::interrupt_handled_state cfg_entry_policy::handle_interrupt(
         granary::cpu_state_handle,

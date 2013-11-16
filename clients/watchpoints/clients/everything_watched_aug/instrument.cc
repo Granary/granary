@@ -70,7 +70,7 @@ namespace client {
             unsigned
         ) throw() { }
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         interrupt_handled_state watched_policy::handle_interrupt(
             cpu_state_handle,
             thread_state_handle,
@@ -84,7 +84,7 @@ namespace client {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
 
     /// Re-encode some of the instructions in the faulting basic block, up to

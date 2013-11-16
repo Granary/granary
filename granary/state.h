@@ -14,7 +14,7 @@
 
 #include "clients/state.h"
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "deps/drk/segment_descriptor.h"
 #endif
 
@@ -39,7 +39,7 @@ namespace granary {
     struct stack_state {
         char base[CONFIG_PRIVATE_STACK_SIZE];
         uint64_t top[0];
-    } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE), packed));
+    } __attribute__((aligned (CONFIG_ARCH_PAGE_SIZE), packed));
 
 
     extern "C" {
@@ -64,7 +64,7 @@ namespace granary {
                 SHARED = false,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_CODE_CACHE,
-                MIN_ALIGN = CONFIG_MIN_CACHE_LINE_SIZE
+                MIN_ALIGN = CONFIG_ARCH_CACHE_LINE_SIZE
             };
         };
 
@@ -108,7 +108,7 @@ namespace granary {
                 SHARED = true,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_WRAPPER,
-                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE / 2
+                MIN_ALIGN = 16 //CONFIG_ARCH_CACHE_LINE_SIZE / 2
             };
         };
 
@@ -136,7 +136,7 @@ namespace granary {
                 SHARED = true,
                 SHARE_DEAD_SLABS = false,
                 EXEC_WHERE = EXEC_GEN_CODE,
-                MIN_ALIGN = 16 //CONFIG_MIN_CACHE_LINE_SIZE
+                MIN_ALIGN = 16 //CONFIG_ARCH_CACHE_LINE_SIZE
             };
         };
 
@@ -156,12 +156,12 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     namespace detail {
         struct interrupt_descriptor_table {
             descriptor_t vectors[
                  2 * NUM_INTERRUPT_VECTORS * sizeof(descriptor_t)];
-        } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE)));
+        } __attribute__((aligned (CONFIG_ARCH_PAGE_SIZE)));
     }
 #endif
 
@@ -181,8 +181,8 @@ namespace granary {
 
         IF_TEST( void *last_find_address; )
 
-#if GRANARY_IN_KERNEL
-#   if CONFIG_INSTRUMENT_HOST || CONFIG_HANDLE_INTERRUPTS
+#if CONFIG_ENV_KERNEL
+#   if CONFIG_FEATURE_INSTRUMENT_HOST || CONFIG_FEATURE_HANDLE_INTERRUPTS
 
         /// Copy of this CPU's original interrupt descriptor table register
         /// value/
@@ -191,7 +191,7 @@ namespace granary {
         /// Granary's CPU-specific interrupt descriptor table.
         system_table_register_t idtr;
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_FEATURE_INTERRUPT_DELAY
         /// A region of executable code that is overwritten as necessary to
         /// delay interrupts.
         app_pc interrupt_delay_handler;
@@ -201,7 +201,7 @@ namespace granary {
         uint64_t spill[2];
 
 #   endif
-#   if CONFIG_INSTRUMENT_HOST
+#   if CONFIG_FEATURE_INSTRUMENT_HOST
 
         /// Native value of the MSR_LSTAR model-specific register, which is
         /// normally used for system calls on this particular CPU.
@@ -219,7 +219,7 @@ namespace granary {
         /// `search_exception_tables`.
         void *last_exception_instruction_pointer;
         void *last_exception_table_entry;
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 
         /// Thread data.

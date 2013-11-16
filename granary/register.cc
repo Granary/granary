@@ -510,7 +510,7 @@ namespace granary {
     }
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
     /// This will visit destination operands and attempt to "find" potentially
     /// complicated instructions to deal with.
     void register_manager::visit_dests_simple_forward(dynamorio::instr_t *in) throw() {

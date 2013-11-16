@@ -12,7 +12,7 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 #include "clients/watchpoints/clients/null/instrument.h"
 #include "clients/watchpoints/clients/null/tests/pp.h"
@@ -21,7 +21,7 @@
 
 namespace test {
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   define MASK_OP "andq"
 #else
 #   define MASK_OP "orq"
@@ -89,5 +89,5 @@ namespace test {
         "memory operands containing frame pointers works correctly.")
 }
 #endif /* WP_IGNORE_FRAME_POINTER */
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 

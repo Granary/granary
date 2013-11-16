@@ -602,7 +602,7 @@ namespace client { namespace wp {
     }
 
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
     /// Add in a user space redzone guard if necessary. This looks for a PUSH
     /// instruction anywhere between `first` and `last` and if it finds one then
     /// it guards the entire instrumented block with a redzone shift.
@@ -649,7 +649,7 @@ namespace client { namespace wp {
     }
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
     static void record_source_regs(
         const operand_ref &op,
         register_manager &mem_regs,
@@ -919,7 +919,7 @@ namespace client { namespace wp {
                 } else {
                     restore_full_unwatched_reg = true;
 
-#if 0 && CONFIG_ENABLE_ASSERTIONS
+#if 0 && CONFIG_DEBUG_ASSERTIONS
                     // Try to detect really unusual corner cases like the MOVS
                     // instructions.
                     register_manager live_after;

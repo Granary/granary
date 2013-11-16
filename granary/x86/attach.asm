@@ -9,7 +9,7 @@ START_FILE
 DECLARE_FUNC(_ZN7granary6attachENS_22instrumentation_policyE)
 GLOBAL_LABEL(_ZN7granary6attachENS_22instrumentation_policyE:)
     lea (%rsp), %ARG2;
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
 #   if defined(__clang__) && defined(__APPLE__)
     lea SHARED_SYMBOL(_ZN7granary9do_attachENS_22instrumentation_policyEPPh), %rax;
     jmpq *%rax;

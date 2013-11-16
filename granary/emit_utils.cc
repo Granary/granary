@@ -345,7 +345,7 @@ namespace granary {
         flag_save_constraint constraint
     ) throw() {
         (void) constraint;
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         in = ls.insert_after(in, pushf_());
         in = ls.insert_after(in, cli_());
 #else
@@ -362,7 +362,7 @@ namespace granary {
         flag_save_constraint constraint
     ) throw() {
         (void) constraint;
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         in = ls.insert_after(in, popf_());
 #else
         in = insert_restore_arithmetic_flags_after(ls, in, constraint);
@@ -467,7 +467,7 @@ namespace granary {
                 in = insert_align_stack_after(ls, in);
             }
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
             instruction after_xmm(ls.insert_after(in, label_()));
             in = save_and_restore_xmm_registers(
                 dead_regs, ls, in,

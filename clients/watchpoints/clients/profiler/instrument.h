@@ -42,7 +42,7 @@ namespace client {
             ) throw();
 
 
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
             static granary::interrupt_handled_state handle_interrupt(
                 granary::cpu_state_handle cpu,
                 granary::thread_state_handle thread,
@@ -50,7 +50,7 @@ namespace client {
                 granary::interrupt_stack_frame &isf,
                 granary::interrupt_vector vector
             ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#   endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
         };
 
         struct host_policy {
@@ -75,7 +75,7 @@ namespace client {
             ) throw();
 
 
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
             static granary::interrupt_handled_state handle_interrupt(
                 granary::cpu_state_handle cpu,
                 granary::thread_state_handle thread,
@@ -83,7 +83,7 @@ namespace client {
                 granary::interrupt_stack_frame &isf,
                 granary::interrupt_vector vector
             ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#   endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
         };
 
     }
@@ -97,7 +97,7 @@ namespace client {
           >
     { };
 
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
     /// Handle an interrupt in kernel code. Returns true iff the client handles
     /// the interrupt.
     granary::interrupt_handled_state handle_kernel_interrupt(
@@ -106,7 +106,7 @@ namespace client {
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw();
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#   endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
 
 
 

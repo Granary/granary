@@ -17,9 +17,6 @@
 namespace granary {
 
 
-    typedef instruction (instr_func_t)(dynamorio::opnd_t);
-
-
     /// Data structure that tracks direct control flow instructions that must
     /// be patched, and how to patch them.
     struct direct_branch_patch_info {
@@ -32,17 +29,14 @@ namespace granary {
         /// access to the instruction's location after it has been patched.
         dynamorio::instr_t in_to_patch;
 
-        /// Function to create the patch instruction.
-        instr_func_t *make_patched_in;
-
         /// The target of the instruction to patch.
         mangled_address target_address;
 
+        /// The resolved target of the patch.
+        app_pc translated_target_address;
+
         /// Lock on if this is owned.
         spin_lock lock;
-
-        /// Have we finished this patch?
-        bool patch_complete;
 
         enum {
             DBL_CONDITIONAL,
@@ -58,19 +52,9 @@ namespace granary {
     }
 
 
-#define INSTR_CASE(instr, size) \
-    case dynamorio::CAT(OP_, instr): return &CAT(instr, _);
-
-
-    static instr_func_t *get_instr_func_for_instr(int opcode) throw() {
-        switch(opcode) {
-        INSTR_CASE(call, 5)
-        FOR_EACH_DIRECT_JUMP(INSTR_CASE)
-        default: break;
-        }
-
-        return &bad_instr_;
-    }
+    enum {
+        CALL_INDIRECT_ADDRESS_SIZE = 6 // 1-byte opcode + mod/rm + rel32
+    };
 
 
     /// Patch a direct control-flow instruction.
@@ -81,15 +65,10 @@ namespace granary {
         cpu_state_handle cpu;
         granary::enter(cpu);
 
-        enum {
-            CALL_INDIRECT_ADDRESS_SIZE = 6 // 1-byte opcode + mod/rm + rel32
-        };
-
         app_pc indirect_call(*ret_address_addr - CALL_INDIRECT_ADDRESS_SIZE);
 
         // Make sure we're coming from the right place.
-        ASSERT(is_code_cache_address(indirect_call)
-            || is_gencode_address(indirect_call));
+        ASSERT(is_gencode_address(indirect_call));
 
         // The indirect call that brought us here goes through the actual
         // `direct_branch_patch_info` structure.
@@ -97,27 +76,27 @@ namespace granary {
         direct_branch_patch_info *patch(unsafe_cast<direct_branch_patch_info *>(
             call_ind.cti_target().value.addr));
 
-        instruction in_to_patch(&(patch->in_to_patch));
-        app_pc patch_address(in_to_patch.pc_or_raw_bytes());
-
-        ASSERT(is_code_cache_address(patch_address));
-
-        // Redirect the return address.
-        *ret_address_addr = patch_address;
+        // Start by specifying the return address as the instruction that
+        // brought us into here, i.e. infinite loop!
+        *ret_address_addr = call_ind.pc_or_raw_bytes();
 
         // If we can't get mutual exclusion over the locking process then we'll
         // give up and go right on back. This might re-enter again, which is
         // fine.
         if(!patch->lock.try_acquire()) {
+            if(patch->translated_target_address) {
+                *ret_address_addr = patch->translated_target_address;
+            }
             return;
         }
 
         // We got ownership of the lock, but we've just realized that the
-        // instruction has already been patched! Leave it locked; we can't
-        // (easily) prove that no one else is looking at this data.
+        // instruction has already been patched!
         //
         // TODO: Garbage collection of patch info structures.
-        if(patch->patch_complete) {
+        if(patch->translated_target_address) {
+            patch->lock.release();
+            *ret_address_addr = patch->translated_target_address;
             return;
         }
 
@@ -136,25 +115,38 @@ namespace granary {
 
         app_pc target_pc(code_cache::find(cpu, patch->target_address));
 
-        // Make sure that the patch target will fit on one cache line. We will
-        // use `5` as the magic number for instruction size, as that's typical
-        // for a RIP-relative CTI.
+        // Tell concurrent patchers that the patch is done, even before it is!
+        std::atomic_thread_fence(std::memory_order_acquire);
+        patch->translated_target_address = target_pc;
+        std::atomic_thread_fence(std::memory_order_release);
+
+        // Make sure we return to the destination of the instruction we're
+        // patching, rather than re-executing the original instruction.
+        *ret_address_addr = patch->translated_target_address;
 
         // Get the original code. Note: We get the code before we decode the
         // instruction, which means that the decoded instruction *could* see
         // a newer version of the code. We accept this as it will allow us to
         // detect whether or not the code was patched (because the decoded old
         // CTI will no longer point into gencode).
+        app_pc patch_address(patch->in_to_patch.translation);
+        ASSERT(is_code_cache_address(patch_address));
+
         uint64_t *code_to_patch(reinterpret_cast<uint64_t *>(patch_address));
         uint64_t original_code(*code_to_patch);
         uint64_t staged_code(original_code);
         app_pc staged_data(reinterpret_cast<app_pc>(&staged_code));
 
-        // Make the new CTI instruction, widen it if possible.
-        instruction new_cti(patch->make_patched_in(pc_(target_pc)));
-        new_cti.widen_if_cti();
+        instruction new_cti(instruction::decode(&patch_address));
+        IF_TEST( const unsigned old_cti_len(new_cti.encoded_size()); )
+        IF_TEST( const uintptr_t old_cti_addr(
+            reinterpret_cast<uintptr_t>(new_cti.pc_or_raw_bytes())); )
+        new_cti.set_cti_target(pc_(target_pc));
+        const unsigned new_cti_len(new_cti.encoded_size());
 
-        const unsigned cti_len(new_cti.encoded_size());
+        // Make sure the patch is not crossing a cache line boundary.
+        ASSERT(old_cti_len == new_cti_len);
+        ASSERT(((old_cti_addr % CACHE_LINE_SIZE) + old_cti_len) <= CACHE_LINE_SIZE);
 
         // Create a bitmask that will allow us to diagnose why a compare&swap
         // might fail. Under normal circumstances (e.g. null tool), we wouldn't
@@ -163,15 +155,15 @@ namespace granary {
         // another tool to place two hot-patchable CTIs side-by-side, and
         // conditionally jump to one or another.
         uint64_t code_mask(0ULL);
-        memset(&code_mask, 0xFF, cti_len);
+        memset(&code_mask, 0xFF, new_cti_len);
         const uint64_t masked_head(original_code & code_mask);
 
         IF_TEST( int i(0); )
         for(; IF_TEST(i < 2); IF_TEST(++i)) {
 
             // Fill the staged code with NOPs where the old CTI was.
-            memset(staged_data, 0x90, cti_len);
-            new_cti.stage_encode(staged_data, patch_address);
+            memset(staged_data, 0x90, new_cti_len);
+            new_cti.stage_encode(staged_data, patch->in_to_patch.translation);
 
             // Apply the patch.
             const bool applied_patch(__sync_bool_compare_and_swap(
@@ -194,7 +186,6 @@ namespace granary {
 
         ASSERT(2 > i);
 
-        patch->patch_complete = true;
         patch->lock.release();
     }
 
@@ -215,14 +206,14 @@ namespace granary {
 
         // Restore callee-saved registers, because `handle_interrupt` will
         // save them for us (because it respects the ABI).
-#if !CONFIG_ENABLE_ASSERTIONS
-        rm.revive(reg::rbx);
-        rm.revive(reg::rbp);
-        rm.revive(reg::r12);
-        rm.revive(reg::r13);
-        rm.revive(reg::r14);
-        rm.revive(reg::r15);
-#endif
+        IF_NOT_TEST(
+            rm.revive(reg::rbx);
+            rm.revive(reg::rbp);
+            rm.revive(reg::r12);
+            rm.revive(reg::r13);
+            rm.revive(reg::r14);
+            rm.revive(reg::r15);
+        )
 
         // Move the address of the return address into ARG1.
         ls.append(push_(reg::arg1));
@@ -285,21 +276,30 @@ namespace granary {
     ) throw() {
         IF_PERF( perf::visit_dbl_stub(); )
 
+        // TODO: If the basic block is not committed then this is a memory leak.
+        // TODO: These are already a memory leak! Find a way to reclaim them in
+        //       the common case.
         direct_branch_patch_info *patch(
             allocate_memory<direct_branch_patch_info>());
 
-        patch->in_to_patch.num_srcs = 1;
-        patch->in_to_patch.num_dsts = 0;
+        // Copy the patch instruction verbatim. At patch time, the actual
+        // sources and destination operands are invalid, so MUST not be
+        // accessed.
+        memcpy(&(patch->in_to_patch), cti.instr, sizeof *(cti.instr));
+        patch->in_to_patch.next = nullptr;
+        patch->in_to_patch.prev = nullptr;
 
         // Unconditional CTIs are always followed, and they all occupy 5 bytes,
         // so we always replace them with 5-byte JMPs to stubs, which are
         // always followed.
         if(cti.is_unconditional_cti()) {
-            patch->in_to_patch.opcode = dynamorio::OP_jmp;
 
+            // Fall-through JMP.
             if(cti.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
                 patch->kind = direct_branch_patch_info::DBL_FALL_THROUGH;
                 IF_PERF( perf::visit_fall_through_dbl(); )
+
+            // Direct JMP, direct CALL.
             } else {
                 patch->kind = direct_branch_patch_info::DBL_UNCONDITIONAL;
             }
@@ -309,33 +309,32 @@ namespace granary {
         // the correct amount of space and only trigger translation of the
         // destination block if its taken.
         } else {
-            patch->in_to_patch.opcode = cti.op_code();
             patch->kind = direct_branch_patch_info::DBL_CONDITIONAL;
             IF_PERF( perf::visit_conditional_dbl(); )
         }
 
-        dynamorio::instr_set_src(
-            &(patch->in_to_patch), 0, instr_(stub_ls.append(label_())));
+        // Modify the instruction to patch in place.
+        instruction patch_cti(&(patch->in_to_patch));
+        patch_cti.set_cti_target(instr_(stub_ls.append(label_())));
+        patch_cti.set_mangled();
+        patch_cti.set_patchable();
 
         IF_USER( stub_ls.append(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
-        stub_ls.append(call_ind_(mem_pc_(&(patch->patcher_func))));
+
+        instruction patch_entry(call_ind_(mem_pc_(&(patch->patcher_func))));
+        stub_ls.append(patch_entry);
+
+        ASSERT(CALL_INDIRECT_ADDRESS_SIZE == patch_entry.encoded_size());
 
         // Redzone is unshifted in the RET instruction of the patcher
         // in the case of user space.
 
-        // Make sure the mangler treats this instruction as mangled and
-        // hot-patchable.
-        patch->in_to_patch.granary_flags |= instruction::DONT_MANGLE;
-        patch->in_to_patch.granary_flags |= instruction::HOT_PATCHABLE;
-
         // Fill in the rest of the information.
-        patch->make_patched_in = get_instr_func_for_instr(cti.op_code());
         patch->target_address = target_address;
         patch->patcher_func = PATCH_INSTRUCTION;
 
         // Replace the CTI.
         ls.insert_before(cti, instruction(&(patch->in_to_patch)));
-        ls.remove(cti);
     }
 }
 

@@ -156,7 +156,7 @@ namespace client {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
@@ -210,7 +210,7 @@ namespace client {
 
 
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 namespace test {
 
@@ -240,4 +240,4 @@ namespace test {
         "Test that policy switching works correctly.")
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */

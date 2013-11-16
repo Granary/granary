@@ -14,7 +14,7 @@
 
 namespace granary {
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     extern int (*printf)(const char *, ...);
 #else
     int printf(const char *format, ...) throw();

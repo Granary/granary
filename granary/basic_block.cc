@@ -15,7 +15,7 @@
 #include "granary/emit_utils.h"
 #include "granary/code_cache.h"
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "granary/kernel/linux/user_address.h"
 #endif
 
@@ -85,7 +85,7 @@ namespace granary {
     };
 
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_FEATURE_INTERRUPT_DELAY
     /// Get the state of all bytes of an instruction.
     static code_cache_byte_state
     get_instruction_state(
@@ -217,7 +217,7 @@ namespace granary {
     { }
 
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
     /// Returns true iff this interrupt must be delayed. If the interrupt
     /// must be delayed then the arguments are updated in place with the
     /// range of code that must be copied and re-relativised in order to
@@ -479,13 +479,13 @@ namespace granary {
             if(dynamorio::OP_INVALID == in.op_code()
             || dynamorio::OP_UNDECODED == in.op_code()) {
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
                 printf(
                     "Failed to decode instruction at %p in "
                     "block starting at %p\n",
                     in.pc(), start_pc);
                 USED(in); // To help with debugging.
-#endif /* CONFIG_ENABLE_ASSERTIONS */
+#endif /* CONFIG_DEBUG_ASSERTIONS */
                 ls.append(ud2a_());
                 break;
             }
@@ -510,7 +510,7 @@ namespace granary {
             // Note: This can sometimes get out of sync if we're eliding JMPs.
             end_pc = *pc;
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             // Stop at IRET, SYSRET, SWAPGS, or SYSEXIT. If we also see a
             // write to RSP at some point before then chop it off there so
             // that instrumentation always stays on a safe stack.
@@ -542,7 +542,7 @@ namespace granary {
                 in = ls.last();
                 break;
             }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
             if(in.is_cti()) {
                 operand target(in.cti_target());
@@ -605,7 +605,7 @@ namespace granary {
             }
         }
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         // Look for potential code that accesses user-space data. This type of
         // code follows some rough binary patterns, so we first search for the
         // patterns, then verify by invoking the kernel itself.
@@ -969,6 +969,17 @@ namespace granary {
         unsigned &num_translated_bbs
     ) throw() {
 
+        // Make sure we do a fake allocation so that next time a basic
+        // block is killed on this CPU, we don't accidentally kill anything from
+        // the previous translation.
+        cpu->block_allocator.allocate_staged<uint8_t>();
+        cpu->stub_allocator.allocate_staged<uint8_t>();
+
+        // Used in mangling to estimate whether or not a particular JMP is
+        // far away from the code cache.
+        const_app_pc estimator_pc(
+            cpu->current_fragment_allocator->allocate_staged<uint8_t>());
+
         instruction_list patch_stubs(INSTRUCTION_LIST_GENCODE);
 
         block_translator *trace_bbs(cpu->transient_allocator. \
@@ -1006,15 +1017,6 @@ namespace granary {
                 }
             }
         }
-
-        enum {
-            TRACE_ALIGN = detail::fragment_allocator_config::MIN_ALIGN
-        };
-
-        // Used in mangling to estimate whether or not a particular JMP is
-        // far away from the code cache.
-        const_app_pc estimator_pc(
-            cpu->current_fragment_allocator->allocate_staged<uint8_t>());
 
         // Used to record information about this trace.
         trace_info trace;
@@ -1056,7 +1058,7 @@ namespace granary {
             const unsigned block_max_size(estimate_max_size(block->ls));
             trace_max_size += block_max_size;
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
             if(requires_state_bytes(block->start_label, block->end_label)) {
                 block->num_state_bytes =
                     (block_max_size + 7) / BB_BYTE_STATES_PER_BYTE;
@@ -1089,15 +1091,18 @@ namespace granary {
         // Align all hot-patchable instructions, and get the size of the
         // instruction list.
         trace.num_bytes = instruction_list_mangler::align(
-            ls, estimator_addr % CONFIG_MIN_CACHE_LINE_SIZE);
+            ls, estimator_addr % CONFIG_ARCH_CACHE_LINE_SIZE);
 
         trace.start_pc = \
             cpu->current_fragment_allocator->allocate_array<uint8_t>(
                 trace.num_bytes);
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
         // If any of the blocks in this trace are using interrupt delaying,
         // then batch-allocate their state bytes and partition them out later.
+        //
+        // TODO: State byte allocation is perhaps better suited to a bump
+        //       pointer allocator.
         uint8_t *trace_state_bytes(nullptr);
         unsigned trace_state_bytes_offset(0);
         if(trace_num_state_bytes) {
@@ -1106,6 +1111,10 @@ namespace granary {
 #endif
 
         // Batch allocate the basic block info for all blocks in the trace.
+        //
+        // TODO: Block info is likely better suited to a bump-pointer
+        //       allocator to get better spatial locality when binary searching
+        //       for the block info containing a given PC.
         trace.info = allocate_memory<basic_block_info>(trace.num_blocks);
 
         // Calculate the size of the stubs and then encode the stubs.
@@ -1113,16 +1122,10 @@ namespace granary {
         unsigned stub_size(0);
         if(patch_stubs.length()) {
             stub_size = patch_stubs.encoded_size();
-            stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
-            patch_stubs.encode(stub_pc, stub_size);
-            USED(*stub_pc);
-            USED(stub_pc);
-
-        // Make sure we do a fake allocation so that next time a basic
-        // block is killed on this CPU, we don't accidentally kill the last
-        // allocated stubs.
-        } else {
-            cpu->stub_allocator.allocate_staged<uint8_t>();
+            if(stub_size) {
+                stub_pc = cpu->stub_allocator.allocate_array<uint8_t>(stub_size);
+                patch_stubs.encode(stub_pc, stub_size);
+            }
         }
 
         USED(*stub_pc);
@@ -1133,7 +1136,7 @@ namespace granary {
         // Re-encode the patch instruction list to resolve the circular
         // dependencies with the main instruction list. Circular dependencies
         // come up because we have `instr_` based jumps between the two lists.
-        if(patch_stubs.length()) {
+        if(stub_size) {
             memset(stub_pc, 0xCC, stub_size);
             patch_stubs.encode(stub_pc, stub_size);
         }
@@ -1145,11 +1148,9 @@ namespace granary {
 
         // Create the basic block info for each trace basic block.
         unsigned i(0);
-        for(block_translator *block(trace_bbs), *next_block(nullptr);
+        for(block_translator *block(trace_bbs);
             nullptr != block;
-            block = next_block) {
-
-            next_block = block->next;
+            block = block->next) {
 
             const app_pc block_start_pc(block->start_label.pc());
             const app_pc block_end_pc(block->end_label.pc());
@@ -1170,9 +1171,9 @@ namespace granary {
             info->allocator = cpu->current_fragment_allocator;
 #endif
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             info->user_exception_metadata = block->user_exception_metadata;
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
+#   if CONFIG_FEATURE_INTERRUPT_DELAY
             if(block->num_state_bytes) {
                 const unsigned num_delay_state_bytes(
                     (block_size + 7) / BB_BYTE_STATES_PER_BYTE);

@@ -27,8 +27,8 @@
 #endif
 
 
-#ifndef GRANARY_IN_KERNEL
-#   define GRANARY_IN_KERNEL 1
+#ifndef CONFIG_ENV_KERNEL
+#   define CONFIG_ENV_KERNEL 1
 #endif
 
 
@@ -42,6 +42,14 @@
 #endif
 
 
+/// Should the host be instrument as well as the app?
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_FEATURE_INSTRUMENT_HOST GRANARY_WHOLE_KERNEL
+#else
+#   define CONFIG_FEATURE_INSTRUMENT_HOST 0 // TODO: Perhaps default to 1.
+#endif
+
+
 /// Should Granary interpose on any interrupts? If this is disabled then any
 /// faults caused by the kernel invoking unwrapped module code will not be
 /// handled and will likely result in a crash. However, the benefit of disabling
@@ -50,36 +58,28 @@
 /// handle interrupts. Another potential benefit is decreased interrupt
 /// latency because Granary won't add in additional code on each interrupt
 /// invocation.
-#if GRANARY_IN_KERNEL
-#   define CONFIG_HANDLE_INTERRUPTS 1 // shouldn't be 0, but can be sometimes.
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_FEATURE_HANDLE_INTERRUPTS 1 // shouldn't be 0, but can be sometimes.
 #else
-#   define CONFIG_HANDLE_INTERRUPTS 0 // can't change in user space
-#endif
-
-
-/// Should the host be instrument as well as the app?
-#if GRANARY_IN_KERNEL
-#   define CONFIG_INSTRUMENT_HOST GRANARY_WHOLE_KERNEL
-#else
-#   define CONFIG_INSTRUMENT_HOST 0 // TODO: Perhaps default to 1.
+#   define CONFIG_FEATURE_HANDLE_INTERRUPTS 0 // can't change in user space
 #endif
 
 
 /// Can client code handle interrupts?
-#if GRANARY_IN_KERNEL
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0
 #else
-#   define CONFIG_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
+#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
 
 
 /// Should we support interrupt delaying? Combined with clients handling
 /// interrupts, this will affect performance because if both are disabled then
 /// Granary will mostly get out of the way
-#if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_INTERRUPT_DELAY 0
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_FEATURE_INTERRUPT_DELAY 0
 #else
-#   define CONFIG_ENABLE_INTERRUPT_DELAY 0 // can't change in user space
+#   define CONFIG_FEATURE_INTERRUPT_DELAY 0 // can't change in user space
 #endif
 
 
@@ -87,12 +87,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_CHECK_INSTRUCTION_ENCODE 0
+#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 0
 
 
 /// Should Granary double check that any time CPU private data is accessed, that
 /// interrupts are disabled?
-#define CONFIG_CHECK_CPU_ACCESS_SAFE 0
+#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 0
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -105,16 +105,16 @@
 
 /// Should the direct return optimisation be enabled? This is not available for
 /// user space code; however, can make a different in kernel space.
-#define CONFIG_ENABLE_DIRECT_RETURN GRANARY_IN_KERNEL
+#define CONFIG_OPTIMISE_DIRECT_RETURN CONFIG_ENV_KERNEL
 
 
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_DEBUG_TRACE_EXECUTION 1
-#define CONFIG_TRACE_PRINT_LOG 0
-#define CONFIG_TRACE_RECORD_REGS 1
-#define CONFIG_NUM_TRACE_LOG_ENTRIES 1024
+#define CONFIG_DEBUG_TRACE_PRINT_LOG 0
+#define CONFIG_DEBUG_TRACE_RECORD_REGS 1
+#define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
 
 
 /// Do pre-mangling of instructions with the REP prefix?
@@ -127,14 +127,23 @@
 #define CONFIG_ENABLE_TRACE_ALLOCATOR 0
 
 
+/// Optional trace allocator sub-option: Should all syscall entrypoints be
+/// treated as distinct traces?
+#define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 0
+
+
 /// Optional trace allocator sub-option: Should all functional units be treated
 /// as distinct traces? This results in code being grouped into functions.
-#define CONFIG_TRACE_FUNCTIONAL_UNITS 0
+#define CONFIG_TRACE_ALLOCATE_FUNCTIONAL_UNITS 0
 
 
 /// Optional trace allocator sub-option: Should the trace allocator be based on
 /// CPU allocators? This results in traces with respect to CPU allocators.
-#define CONFIG_TRACE_CPUS 0
+///
+/// Note: If the trace allocator is turned on that none of the other options
+///       are set, then the implementation behavior is such that this is the
+///       default.
+#define CONFIG_TRACE_ALLOCATE_ENTRY_CPU 0
 
 
 /// Should we try to aggressively build traces at basic block translation
@@ -152,14 +161,14 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_ENABLE_PERF_COUNTS 0
+#define CONFIG_DEBUG_PERF_COUNTS 0
 
 
 /// Enable profiling of indirect jumps and indirect calls.
-#if CONFIG_ENABLE_PERF_COUNTS
-#   define CONFIG_PROFILE_IBL 0
+#if CONFIG_DEBUG_PERF_COUNTS
+#   define CONFIG_DEBUG_PROFILE_IBL 0
 #else
-#   define CONFIG_PROFILE_IBL 0 // can't change
+#   define CONFIG_DEBUG_PROFILE_IBL 0 // can't change
 #endif
 
 
@@ -174,55 +183,10 @@
 ///       addresses, partly due to its inability to regain control in some
 ///       circumstance (which is addressable) and partly because of its inability
 ///       to regain control in the proper policy.
-#if GRANARY_IN_KERNEL
-#   define CONFIG_ENABLE_WRAPPERS (!CONFIG_INSTRUMENT_HOST)
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_FEATURE_WRAPPERS (!CONFIG_FEATURE_INSTRUMENT_HOST)
 #else
-#   define CONFIG_ENABLE_WRAPPERS 1
-#endif
-
-
-/// If we're using patch wrappers, the this will tell us whether or not we
-/// should instrument the actual patch wrapper code, or just copy it whole-sale.
-///
-/// This is type of option comes up with full-kernel instrumentation and
-/// watchpoints, where we might patch-wrap some code to wrap it, but at the
-/// same time, it might try to de-reference watched memory, so we want to
-/// make sure it doesn't fault.
-#define CONFIG_INSTRUMENT_PATCH_WRAPPERS CONFIG_INSTRUMENT_HOST
-
-
-/// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_ENABLE_ASSERTIONS 1
-#if GRANARY_IN_KERNEL
-#   define CONFIG_RUN_TEST_CASES 0 // don't change.
-#else
-#   define CONFIG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_ENABLE_ASSERTIONS)
-#endif
-
-
-/// Lower bound on the cache line size.
-///
-/// If running on a relatively recent kernel version, then one should be able
-/// to find the correct value using something like:
-///     cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size
-///
-/// An alternative way of finding this value on Linux is to run:
-///     getconf LEVEL1_DCACHE_LINESIZE
-///
-#ifndef CONFIG_MIN_CACHE_LINE_SIZE
-#   define CONFIG_MIN_CACHE_LINE_SIZE 64
-#endif
-
-
-/// Exact size of memory pages.
-#ifndef CONFIG_MEMORY_PAGE_SIZE
-#   define CONFIG_MEMORY_PAGE_SIZE 4096
-#endif
-
-
-// Size of per-cpu/thread-local private stack (currently 6 pages).
-#ifndef CONFIG_PRIVATE_STACK_SIZE
-#   define CONFIG_PRIVATE_STACK_SIZE 24576
+#   define CONFIG_FEATURE_WRAPPERS 1
 #endif
 
 
@@ -235,6 +199,51 @@
 #endif
 #ifndef CONFIG_MAX_RETURN_WRAP_DEPTH
 #   define CONFIG_MAX_RETURN_WRAP_DEPTH 1
+#endif
+
+
+/// If we're using patch wrappers, the this will tell us whether or not we
+/// should instrument the actual patch wrapper code, or just copy it whole-sale.
+///
+/// This is type of option comes up with full-kernel instrumentation and
+/// watchpoints, where we might patch-wrap some code to wrap it, but at the
+/// same time, it might try to de-reference watched memory, so we want to
+/// make sure it doesn't fault.
+#define CONFIG_FEATURE_INSTRUMENT_PATCH_WRAPPERS CONFIG_FEATURE_INSTRUMENT_HOST
+
+
+/// Set the 1 iff we should run test cases (before doing anything else).
+#define CONFIG_DEBUG_ASSERTIONS 1
+#if CONFIG_ENV_KERNEL
+#   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.
+#else
+#   define CONFIG_DEBUG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_DEBUG_ASSERTIONS)
+#endif
+
+
+/// Lower bound on the cache line size.
+///
+/// If running on a relatively recent kernel version, then one should be able
+/// to find the correct value using something like:
+///     cat /sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size
+///
+/// An alternative way of finding this value on Linux is to run:
+///     getconf LEVEL1_DCACHE_LINESIZE
+///
+#ifndef CONFIG_ARCH_CACHE_LINE_SIZE
+#   define CONFIG_ARCH_CACHE_LINE_SIZE 64
+#endif
+
+
+/// Exact size of memory pages.
+#ifndef CONFIG_ARCH_PAGE_SIZE
+#   define CONFIG_ARCH_PAGE_SIZE 4096
+#endif
+
+
+// Size of per-cpu/thread-local private stack (currently 6 pages).
+#ifndef CONFIG_PRIVATE_STACK_SIZE
+#   define CONFIG_PRIVATE_STACK_SIZE 24576
 #endif
 
 
@@ -252,11 +261,11 @@ namespace granary {
     enum {
 
         /// Size in bytes of each memory page.
-        PAGE_SIZE = CONFIG_MEMORY_PAGE_SIZE,
+        PAGE_SIZE = CONFIG_ARCH_PAGE_SIZE,
 
 
         /// Some non-zero positive multiple of the cache line size.
-        CACHE_LINE_SIZE = CONFIG_MIN_CACHE_LINE_SIZE,
+        CACHE_LINE_SIZE = CONFIG_ARCH_CACHE_LINE_SIZE,
 
 
         /// Number of interrupt vectors
@@ -364,18 +373,18 @@ namespace granary {
     struct basic_block;
 
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
     extern void run_tests(void) throw();
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     template <typename T>
     FORCE_INLINE
     void construct_object(T &obj) throw() {
         new (&obj) T;
     }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 
     extern bool is_code_cache_address(const const_app_pc) throw();
@@ -383,7 +392,7 @@ namespace granary {
     extern bool is_gencode_address(const const_app_pc) throw();
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
     extern "C" bool is_host_address(uintptr_t addr) throw();
     extern "C" bool is_app_address(uintptr_t addr) throw();
@@ -413,7 +422,7 @@ namespace granary {
         return true; // TODO
     }
 
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 }
 
 
@@ -442,14 +451,14 @@ extern "C" {
 #   define strlen granary_strlen
 #   define strncpy granary_strncpy
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     extern void kernel_log(const char *, size_t);
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
     extern int granary_test_return_true(void);
     extern int granary_test_return_false(void);
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 
 
     /// Perform an 8-byte atomic write.
@@ -465,11 +474,11 @@ extern "C" {
     extern void granary_exit_private_stack(void);
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
     /// Used in conjunction with GDB to improve code cache debugging.
     extern bool granary_do_break_on_translate;
     extern void granary_break_on_translate(void *addr);
-#endif /* CONFIG_ENABLE_ASSERTIONS*/
+#endif /* CONFIG_DEBUG_ASSERTIONS*/
 }
 
 
@@ -485,7 +494,7 @@ extern "C" {
 
 #include "granary/kernel/interrupt.h"
 
-#if CONFIG_INSTRUMENT_HOST && GRANARY_IN_KERNEL
+#if CONFIG_FEATURE_INSTRUMENT_HOST && CONFIG_ENV_KERNEL
 #   include "granary/kernel/syscall.h"
 #endif
 

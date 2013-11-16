@@ -28,7 +28,7 @@ namespace granary {
 
     /// Initialise the thread state.
     void thread_state_handle::init(void) throw() {
-#if CONFIG_CHECK_CPU_ACCESS_SAFE
+#if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE
         check_cpu_access_safety();
 #endif
         if(sizeof(thread_state) > STATE_SIZE) {
@@ -43,7 +43,7 @@ namespace granary {
     /// handle implies that thread state should only be accessed when interrupts
     /// are disabled (where it's safe to access CPU-private data).
     thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw() {
-#if CONFIG_CHECK_CPU_ACCESS_SAFE
+#if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE
         check_cpu_access_safety();
 #endif
 

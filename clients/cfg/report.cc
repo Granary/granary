@@ -100,14 +100,14 @@ namespace client {
             bb->num_outgoing_jumps,
             bb->has_outgoing_indirect_jmp);
 
-#   if GRANARY_IN_KERNEL
+#   if CONFIG_ENV_KERNEL
         // Kernel-specific meta info.
         b += sprintf(&(buffer[b]), ",%s,%u,%u,%u",
             bb->app_name,
             bb->app_offset_begin,
             bb->app_offset_begin + bb->num_bytes_in_block,
             bb->num_interrupts.load());
-#   endif /* GRANARY_IN_KERNEL */
+#   endif /* CONFIG_ENV_KERNEL */
 
         b += sprintf(&(buffer[b]), ")\n");
         return b;
@@ -122,9 +122,9 @@ namespace client {
             "BB_FORMAT(is_root,is_function_entry,is_function_exit,is_app_code,"
             "is_allocator,is_deallocator,num_executions,function_id,block_id,"
             "used_regs,entry_regs,num_outgoing_jumps,has_outgoing_indirect_jmp"
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             ",app_name,app_offset_begin,app_offset_end,num_interrupts"
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
             ")\n"
         );
 

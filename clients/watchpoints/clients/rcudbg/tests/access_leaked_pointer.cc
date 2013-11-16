@@ -8,7 +8,7 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 #include "clients/watchpoints/clients/rcudbg/instrument.h"
 #include "clients/watchpoints/clients/rcudbg/log.h"
@@ -102,4 +102,4 @@ namespace test {
         "wrong read-side critical section.")
 }
 
-#endif /* CONFIG_RUN_TEST_CASES*/
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES*/

@@ -40,7 +40,7 @@ namespace client {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.

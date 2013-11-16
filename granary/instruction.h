@@ -494,7 +494,7 @@ namespace granary {
         }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         /// Return true iff this instruction begins a delay region.
         inline bool begins_delay_region(void) const throw() {
             return has_flag(DELAY_BEGIN);

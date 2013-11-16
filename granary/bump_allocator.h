@@ -289,7 +289,7 @@ namespace granary {
 
             uint8_t *ret(&(curr->memory[curr->index]));
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
             for(i = 0; i < size; ++i) {
                 ASSERT(MEMSET_VALUE == ret[i]);
             }

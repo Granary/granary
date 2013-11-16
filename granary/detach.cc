@@ -12,7 +12,7 @@
 #include "granary/state.h"
 #include "granary/cpu_code_cache.h"
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
 #   ifndef _GNU_SOURCE
 #      define _GNU_SOURCE
 #   endif
@@ -29,7 +29,7 @@ namespace granary {
     static static_data<cpu_private_code_cache> DETACH_HASH_TABLE[2];
 
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
     static void wrap_user_address(
         function_wrapper &wrapper,
         runtime_context context,
@@ -140,7 +140,7 @@ namespace granary {
     ///     detach target.
     app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   if !CONFIG_INSTRUMENT_WHOLE_KERNEL
         if(likely(RUNNING_AS_APP == context)) {
 #   else
@@ -173,7 +173,7 @@ namespace granary {
     GRANARY_DETACH_POINT_ERROR(granary_fault);
     GRANARY_DETACH_POINT_ERROR(granary_break_on_fault);
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     extern "C" {
         extern void module_load_notifier(void);
         extern void granary_report(void);

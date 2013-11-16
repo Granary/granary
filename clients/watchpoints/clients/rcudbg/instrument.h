@@ -16,11 +16,11 @@
 #   define GRANARY_INIT_POLICY (client::rcu_null())
 #endif
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
 #   error "The RCU debugger only works for Linux kernel code."
 #endif
 
-#if !CONFIG_CLIENT_HANDLE_INTERRUPT
+#if !CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 #   error "Interrupt handling must be enabled for RCU debugging."
 #endif
 

@@ -49,7 +49,7 @@
 
 /// Order of wrapper inclusion allows clients to take precedence over app/host,
 /// and app/host to take precedence over auto-generated.
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "clients/kernel/linux/wrappers.h"
 #   include "granary/kernel/linux/wrappers.h"
 #   include "granary/gen/kernel_wrappers.h"
@@ -67,7 +67,7 @@
 #   pragma GCC diagnostic pop
 #endif
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specialisations from
@@ -84,7 +84,7 @@ namespace granary {
         #func },
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
-#   if GRANARY_IN_KERNEL
+#   if CONFIG_ENV_KERNEL
 #       include "granary/gen/kernel_detach.inc"
 #   else
 #       include "granary/gen/user_detach.inc"
@@ -100,7 +100,7 @@ namespace granary {
 #   define DETACH(func)  \
     { 0, 0, 0, #func },
 #   define TYPED_DETACH(func) DETACH(func)
-#   if GRANARY_IN_KERNEL
+#   if CONFIG_ENV_KERNEL
 #       include "granary/gen/kernel_detach.inc"
 #   else
 #       include "granary/gen/user_detach.inc"
@@ -111,5 +111,5 @@ namespace granary {
     };
 }
 
-#endif /* CONFIG_ENABLE_WRAPPERS */
+#endif /* CONFIG_FEATURE_WRAPPERS */
 

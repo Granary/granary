@@ -28,6 +28,12 @@ namespace granary {
     struct instruction_list_mangler {
     private:
 
+        enum ibl_entry_kind {
+            IBL_ENTRY_CALL,
+            IBL_ENTRY_RETURN,
+            IBL_ENTRY_JMP
+        };
+
         friend struct code_cache;
 
         cpu_state_handle cpu;
@@ -50,7 +56,6 @@ namespace granary {
 
         void mangle_indirect_cti(
             instruction in,
-            operand op,
             instrumentation_policy target_policy
         ) throw();
 
@@ -89,23 +94,13 @@ namespace granary {
         ) throw();
 
 
-        enum ibl_entry_kind {
-            IBL_ENTRY_CALL,
-            IBL_ENTRY_RETURN,
-            IBL_ENTRY_JMP
-        };
-
-
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
         /// The purpose of the stub is to set up the registers and stack in a
         /// canonical way for entry into the indirect branch lookup routine.
         void mangle_ibl_lookup(
-            instruction_list &insertion_list,
-            instruction insertion_point,
+            instruction cti,
             instrumentation_policy target_policy,
-            operand target,
-            ibl_entry_kind ibl_kind,
-            app_pc cti_in
+            ibl_entry_kind ibl_kind
         ) throw();
 
 

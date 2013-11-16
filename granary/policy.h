@@ -26,7 +26,7 @@ namespace granary {
     template <typename> struct policy_for;
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
     /// Forward declaration.
     interrupt_handled_state handle_interrupt(
         interrupt_stack_frame *isf,
@@ -67,7 +67,7 @@ namespace granary {
         >::type basic_block_visitor;
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         /// Global interrupt handler. Dispatches to client-specific interrupt
         /// handler functions.
         friend interrupt_handled_state handle_interrupt(
@@ -103,7 +103,7 @@ namespace granary {
         ) throw();
 #endif
 
-#if !CONFIG_INSTRUMENT_HOST
+#if !CONFIG_FEATURE_INSTRUMENT_HOST
         /// Should this policy auto-instrument host (kernel, libc) code?
         static bool AUTO_VISIT_HOST[];
 #endif
@@ -226,7 +226,7 @@ namespace granary {
             return (self.*visitor)(cpu, bb, ls);
         }
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         /// Invoke client code interrupt handler.
         inline interrupt_handled_state handle_interrupt(
             cpu_state_handle cpu,
@@ -297,7 +297,7 @@ namespace granary {
             u.begins_functional_unit = val;
         }
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         /// Does the code instrumented by this policy access user data?
         inline bool accesses_user_data(void) const throw() {
             return u.accesses_user_data;
@@ -312,7 +312,7 @@ namespace granary {
 
         /// Does the code instrumented by this policy access user data?
         inline bool return_address_is_in_code_cache(void) const throw() {
-#if CONFIG_ENABLE_DIRECT_RETURN
+#if CONFIG_OPTIMISE_DIRECT_RETURN
             return true;
 #else
             return u.can_direct_return;
@@ -322,7 +322,7 @@ namespace granary {
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
         inline void return_address_in_code_cache(bool val=true) throw() {
-#if CONFIG_ENABLE_DIRECT_RETURN
+#if CONFIG_OPTIMISE_DIRECT_RETURN
             (void) val;
 #else
             u.can_direct_return = val;
@@ -406,7 +406,7 @@ namespace granary {
         /// Returns true iff we should automatically switch to the host context
         /// instead of detaching.
         inline bool is_host_auto_instrumented(void) const throw() {
-#if CONFIG_INSTRUMENT_HOST
+#if CONFIG_FEATURE_INSTRUMENT_HOST
             return true;
 #else
             return AUTO_VISIT_HOST[u.id];
@@ -564,7 +564,7 @@ namespace granary {
             unsigned policy_id(
                 instrumentation_policy::NEXT_POLICY_ID.fetch_add(1));
 
-#if !CONFIG_INSTRUMENT_HOST
+#if !CONFIG_FEATURE_INSTRUMENT_HOST
             instrumentation_policy::AUTO_VISIT_HOST[policy_id] = \
                 !!(T::AUTO_INSTRUMENT_HOST);
 #endif
@@ -587,7 +587,7 @@ namespace granary {
                     instruction_list &
                 >(&T::visit_host_instructions);
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
             instrumentation_policy::INTERRUPT_VISITORS[policy_id] = \
                 detail::unsafe_policy_method_cast<
                     interrupt_handled_state, // ret

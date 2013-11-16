@@ -47,7 +47,7 @@ namespace client {
 #ifndef CLIENT_cpu_state
     /// Extensions to Granary's internal CPU-local storage.
     struct cpu_state {
-#   if GRANARY_IN_KERNEL
+#   if CONFIG_ENV_KERNEL
 
 #   endif
     };

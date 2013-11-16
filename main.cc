@@ -17,7 +17,7 @@ int main(void) throw() {
 
     init();
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
     run_tests();
 #endif
 

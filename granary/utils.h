@@ -106,7 +106,7 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
     /// Returns true if the 47th bit is 1. This is also a good distinguisher
     /// between user and kernel addresses, and user space addresses will appear
@@ -130,7 +130,7 @@ namespace granary {
     FORCE_INLINE static bool is_valid_address(T *addr) throw() {
         return is_valid_address(reinterpret_cast<uintptr_t>(addr));
     }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 
     namespace detail {
@@ -153,7 +153,7 @@ namespace granary {
     template <typename T>
     struct cache_aligned
         : public detail::cache_aligned_impl<T, sizeof(T) % CACHE_LINE_SIZE>
-    { } __attribute__((aligned (CONFIG_MIN_CACHE_LINE_SIZE)));
+    { } __attribute__((aligned (CONFIG_ARCH_CACHE_LINE_SIZE)));
 
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB

@@ -120,7 +120,7 @@ namespace granary {
         ASSERT(instr);
         ASSERT(pc_);
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
         if(dynamorio::OP_int3 == op_code()) {
             granary_do_break_on_translate = true;
         }
@@ -136,8 +136,8 @@ namespace granary {
             };
 
             const uintptr_t addr(reinterpret_cast<uintptr_t>(pc_));
-            ASSERT(((addr % CONFIG_MIN_CACHE_LINE_SIZE) + JMP_LENGTH)
-                    <= CONFIG_MIN_CACHE_LINE_SIZE);
+            ASSERT(((addr % CONFIG_ARCH_CACHE_LINE_SIZE) + JMP_LENGTH)
+                    <= CONFIG_ARCH_CACHE_LINE_SIZE);
 
             USED(*this);
         }
@@ -152,7 +152,7 @@ namespace granary {
         instr->translation = pc_;
         instr->length = (ret - pc_);
 
-#if CONFIG_CHECK_INSTRUCTION_ENCODE
+#if CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE
         if(dynamorio::OP_LABEL != instr->opcode) {
             app_pc pc_2(pc_);
             instruction in(decode(&pc_2));
@@ -380,7 +380,7 @@ namespace granary {
     }
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
     static void check_list_consistency(
         dynamorio::instr_t *first,
         dynamorio::instr_t *last,
@@ -617,7 +617,7 @@ namespace granary {
             return start_pc;
         }
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
         for(unsigned i(0); i < max_size; ++i) {
             ASSERT(start_pc[i] == 0xCC);
         }
@@ -707,7 +707,7 @@ namespace granary {
     }
 
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
     enum {
         X86_INT3 = 0xCC,
         X86_REPZ = 0xF3,

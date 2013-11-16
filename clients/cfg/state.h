@@ -131,7 +131,7 @@ namespace client {
         /// Lock that is acquired when updating the edges of any of the graphs.
         granary::atomic_spin_lock edge_lock;
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         /// Name of the module being instrumented.
         const char *app_name;
 

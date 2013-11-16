@@ -245,7 +245,7 @@ namespace client { namespace wp {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
     interrupt_handled_state bound_policy::handle_interrupt(
         cpu_state_handle,
         thread_state_handle,
@@ -258,6 +258,6 @@ namespace client { namespace wp {
 } /* wp namespace */
 #else
 } /* wp namespace */
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
 
 } /* client namespace */

@@ -12,7 +12,7 @@
 
 #include "granary/globals.h"
 
-#if CONFIG_ENABLE_PERF_COUNTS
+#if CONFIG_DEBUG_PERF_COUNTS
 
 namespace granary {
 
@@ -60,7 +60,7 @@ namespace granary {
         static void visit_address_lookup_hit(void) throw();
         static void visit_address_lookup_cpu(bool) throw();
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         static void visit_interrupt(void) throw();
         static void visit_recursive_interrupt(void) throw();
         static void visit_delayed_interrupt(void) throw();
@@ -73,6 +73,6 @@ namespace granary {
 
 }
 
-#endif /* CONFIG_ENABLE_PERF_COUNTS */
+#endif /* CONFIG_DEBUG_PERF_COUNTS */
 
 #endif /* Granary_PERF_H_ */

@@ -4,7 +4,7 @@
 #include "granary/x86/asm_helpers.asm"
 #include "granary/pp.h"
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
 START_FILE
 

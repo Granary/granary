@@ -8,14 +8,14 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 #include "clients/watchpoints/clients/null/instrument.h"
 #include "clients/watchpoints/clients/null/tests/pp.h"
 
 namespace test {
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   define MASK_OP &=
 #else
 #   define MASK_OP |=
@@ -60,4 +60,4 @@ namespace test {
         "Test that indirect CTIs are watched correctly.")
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */

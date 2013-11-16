@@ -18,7 +18,7 @@
 #include "granary/ibl.h"
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
 extern "C" {
 
 
@@ -34,7 +34,7 @@ extern "C" {
         USED(addr);
     }
 }
-#endif /* CONFIG_ENABLE_ASSERTIONS */
+#endif /* CONFIG_DEBUG_ASSERTIONS */
 
 
 namespace granary {
@@ -62,7 +62,7 @@ namespace granary {
     });
 
 
-#if CONFIG_PROFILE_IBL
+#if CONFIG_DEBUG_PROFILE_IBL
     static bool is_new_ibl_target(app_pc source, app_pc dest) throw() {
         ibl_lock();
         const ibl_profiled_stub key = {source, dest};
@@ -126,7 +126,7 @@ namespace granary {
             }
             IF_PERF( perf::visit_address_lookup_hit(); )
 
-#if CONFIG_PROFILE_IBL
+#if CONFIG_DEBUG_PROFILE_IBL
             // If we're doing IBL profiling then we want to re-generate the
             // exit stub for every (source,dest) pair.
             if((policy.is_indirect_cti_target() || policy.is_return_target())) {
@@ -167,7 +167,7 @@ namespace granary {
         // then we'll mark the CTI target as being in the host context. If the
         // mark was wrong (i.e. the IBL targets app code) then that's fine, and
         // if it targets host code then auto instrument.
-#if !CONFIG_INSTRUMENT_HOST
+#if !CONFIG_FEATURE_INSTRUMENT_HOST
         const bool policy_was_in_host_context(policy.is_in_host_context());
 #endif
         policy.in_host_context(
@@ -189,7 +189,7 @@ namespace granary {
         if(!target_addr && policy.can_detach()) {
             target_addr = find_detach_target(app_target_addr, policy.context());
 
-#if !CONFIG_INSTRUMENT_HOST
+#if !CONFIG_FEATURE_INSTRUMENT_HOST
             // Application of the auto-instrument host protocol. If we weren't
             // auto-instrumenting or already in host code, and now we've
             // switched to host code, then set the target address so that we
@@ -202,7 +202,7 @@ namespace granary {
 #endif
         }
 
-#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_FUNCTIONAL_UNITS
+#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_ALLOCATE_FUNCTIONAL_UNITS
         // If this basic block begins a new functional unit then locate its
         // basic blocks in a new allocator.
         if(policy.is_beginning_of_functional_unit()) {
@@ -222,7 +222,7 @@ namespace granary {
             target_addr = basic_block::translate(
                 base_policy, cpu, app_target_addr, num_translated_bbs);
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
             // The trick here is that if we've got a particular buggy
             // instrumentation policy and we're trying to debug it then we can
             // "narrow down" on a bug by excluding certain cases (i.e. divide
@@ -249,6 +249,7 @@ namespace granary {
                 if(!stored_base_addr) {
                     client::discard_basic_block(*info->state);
                     remove_basic_block_info(target_addr);
+
                     cpu->current_fragment_allocator->free_last();
                     cpu->stub_allocator.free_last();
                     cpu->block_allocator.free_last();

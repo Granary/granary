@@ -13,7 +13,7 @@
 #include "granary/code_cache.h"
 #include "granary/hash_table.h"
 
-#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
+#if CONFIG_FEATURE_INSTRUMENT_PATCH_WRAPPERS
 #   include "granary/detach.h"
 #endif
 
@@ -198,7 +198,7 @@ namespace granary {
     app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw() {
         ASSERT(0 < len);
 
-#if CONFIG_INSTRUMENT_PATCH_WRAPPERS
+#if CONFIG_FEATURE_INSTRUMENT_PATCH_WRAPPERS
         if(reinterpret_cast<app_pc>(DETACH_ADDR_search_exception_tables) != addr) {
             return instrument_function(addr, len);
         }

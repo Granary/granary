@@ -10,7 +10,7 @@
 #include "granary/state.h"  // for detail::fragment_allocator::SLAB_SIZE
 #include "granary/detach.h" // for GRANARY_DETACH_POINT_ERROR
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 extern "C" {
     /// Mark a range of memory as being executable.
     extern void kernel_make_pages_executable(void *begin, void *end);
@@ -68,8 +68,8 @@ namespace granary { namespace detail {
 
 
     struct page {
-        uint8_t data[CONFIG_MEMORY_PAGE_SIZE];
-    } __attribute__((aligned (CONFIG_MEMORY_PAGE_SIZE)));
+        uint8_t data[CONFIG_ARCH_PAGE_SIZE];
+    } __attribute__((aligned (CONFIG_ARCH_PAGE_SIZE)));
 
 
     enum {
@@ -106,7 +106,7 @@ namespace granary { namespace detail {
 
 
     void init_code_cache(void) throw() {
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         kernel_make_pages_executable(
             &(EXECUTABLE_AREA[0]),
             &(EXECUTABLE_AREA[NUM_EXEC_PAGES - 1])
@@ -203,7 +203,7 @@ GRANARY_DETACH_POINT_ERROR(granary::detail::global_free_executable)
 namespace granary { namespace detail {
 
     enum {
-        HEAP_SIZE = _1_MB * 70,
+        HEAP_SIZE = _1_MB * IF_USER_ELSE(100, 70),
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(uintptr_t) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),
@@ -335,7 +335,6 @@ namespace granary { namespace detail {
                 const uintptr_t next_heap_index(curr_heap_index + size);
 
 #if ENABLE_SPLITTING
-
                 // Try to detect if our chosen heap size is too small.
                 if(next_heap_index > HEAP_SIZE) {
                     free_object *object(split_large_object(scale));

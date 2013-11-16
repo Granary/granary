@@ -20,7 +20,7 @@ namespace granary {
 
 
 #if CONFIG_DEBUG_TRACE_EXECUTION
-#   if !CONFIG_TRACE_PRINT_LOG
+#   if !CONFIG_DEBUG_TRACE_PRINT_LOG
 
     /// An item in the trace log.
     struct trace_log_item {
@@ -31,10 +31,10 @@ namespace granary {
         /// A code cache address into a basic block.
         void *code_cache_addr;
 
-#       if CONFIG_TRACE_RECORD_REGS
+#       if CONFIG_DEBUG_TRACE_RECORD_REGS
         /// State of the general purpose registers on entry to this basic block.
         simple_machine_state state;
-#       endif /* CONFIG_TRACE_RECORD_REGS */
+#       endif /* CONFIG_DEBUG_TRACE_RECORD_REGS */
     };
 
 
@@ -44,8 +44,8 @@ namespace granary {
 
 
     /// A ring buffer representing the trace log.
-    static trace_log_item LOGS[CONFIG_NUM_TRACE_LOG_ENTRIES];
-#   endif /* CONFIG_TRACE_PRINT_LOG */
+    static trace_log_item LOGS[CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES];
+#   endif /* CONFIG_DEBUG_TRACE_PRINT_LOG */
 #endif /* CONFIG_DEBUG_TRACE_EXECUTION */
 
 
@@ -55,27 +55,27 @@ namespace granary {
         simple_machine_state *IF_TRACE(state)
     ) throw() {
 #if CONFIG_DEBUG_TRACE_EXECUTION
-#   if CONFIG_TRACE_PRINT_LOG
+#   if CONFIG_DEBUG_TRACE_PRINT_LOG
         printf("app=%p cache=%p\n", app_addr, target_addr);
         (void) kind;
 #   else
         trace_log_item *prev(nullptr);
         trace_log_item *item(&(LOGS[
-            NUM_TRACE_ENTRIES.fetch_add(1) % CONFIG_NUM_TRACE_LOG_ENTRIES]));
+            NUM_TRACE_ENTRIES.fetch_add(1) % CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES]));
         item->code_cache_addr = code_cache_addr;
 
-#       if CONFIG_TRACE_RECORD_REGS
+#       if CONFIG_DEBUG_TRACE_RECORD_REGS
         item->state = *state;
 
 #       else
         (void) state;
-#       endif /* CONFIG_TRACE_RECORD_REGS */
+#       endif /* CONFIG_DEBUG_TRACE_RECORD_REGS */
 
         do {
             prev = TRACE.load();
             item->prev = prev;
         } while(!TRACE.compare_exchange_weak(prev, item));
-#   endif /* CONFIG_TRACE_PRINT_LOG */
+#   endif /* CONFIG_DEBUG_TRACE_PRINT_LOG */
 #endif
     }
 
@@ -100,21 +100,21 @@ namespace granary {
         in = ls.insert_after(in,
             mov_ld_(reg::arg1, reg::rsp[sizeof(simple_machine_state)]));
 
-#   if CONFIG_TRACE_RECORD_REGS
+#   if CONFIG_DEBUG_TRACE_RECORD_REGS
         in = ls.insert_after(in, mov_st_(reg::arg2, reg::rsp));
-#   endif /* CONFIG_TRACE_RECORD_REGS */
+#   endif /* CONFIG_DEBUG_TRACE_RECORD_REGS */
 
         in = insert_save_flags_after(ls, in);
         in = insert_align_stack_after(ls, in);
 
         xmm_tail = ls.insert_after(in, label_());
 
-#   if !GRANARY_IN_KERNEL
+#   if !CONFIG_ENV_KERNEL
         // In some user space programs (e.g. kcachegrind), we need to
         // unconditionally save all XMM registers.
         in = save_and_restore_xmm_registers(
             all_regs, ls, in, XMM_SAVE_ALIGNED);
-#   endif /* GRANARY_IN_KERNEL */
+#   endif /* CONFIG_ENV_KERNEL */
 
         in = insert_cti_after(ls, in,
             unsafe_cast<app_pc>(trace_log::add_entry),

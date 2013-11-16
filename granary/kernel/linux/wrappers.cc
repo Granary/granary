@@ -14,7 +14,7 @@
 /// their functions are executed. This is here because there are ways to get
 /// work structs registered through macros/inline functions, thus bypassing
 /// wrapping.
-#if defined(DETACH_ADDR_process_one_work) && CONFIG_ENABLE_WRAPPERS
+#if defined(DETACH_ADDR_process_one_work) && CONFIG_FEATURE_WRAPPERS
     PATCH_WRAPPER_VOID(process_one_work, (struct worker *worker, struct work_struct *work), {
         PRE_OUT_WRAP(work);
         process_one_work(worker, work);
@@ -82,7 +82,7 @@
 
 /// Wraps memset to try to make sure we never memset over existing code cache
 /// code.
-#if CONFIG_ENABLE_ASSERTIONS && defined(DETACH_ADDR_memset) && 0
+#if CONFIG_DEBUG_ASSERTIONS && defined(DETACH_ADDR_memset) && 0
     extern "C" {
 
         // Defined in module.c, actually as unsigned long long, but for

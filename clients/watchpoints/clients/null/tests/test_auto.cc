@@ -15,7 +15,7 @@ extern "C" {
 
 #define RUN_AUTO_TESTS 0
 
-#if RUN_AUTO_TESTS && CONFIG_RUN_TEST_CASES
+#if RUN_AUTO_TESTS && CONFIG_DEBUG_RUN_TEST_CASES
 
 #include "clients/watchpoints/clients/null/instrument.h"
 #include "clients/watchpoints/clients/null/tests/pp.h"
@@ -552,4 +552,4 @@ namespace test {
         "be instrumented.")
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */

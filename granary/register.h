@@ -71,7 +71,7 @@ namespace granary {
             return visit_dests(in.instr);
         }
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
         void visit_dests_check(dynamorio::instr_t *in) throw();
         void visit_dests_simple_forward(dynamorio::instr_t *in) throw();
         void visit_dests_simple_backward(dynamorio::instr_t *in) throw();

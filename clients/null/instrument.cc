@@ -30,7 +30,7 @@ namespace client {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
     /// Handle an interrupt in module code.
     granary::interrupt_handled_state null_policy::handle_interrupt(

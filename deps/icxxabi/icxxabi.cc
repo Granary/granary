@@ -99,7 +99,7 @@ void __cxa_finalize(void *f) {
         }
     } while(i-- > 0);
 }
-#elif GRANARY_IN_KERNEL
+#elif CONFIG_ENV_KERNEL
 void *__dso_handle = 0;
 
 int __cxa_atexit(void (*)(void *), void *, void *) { return 0; }

@@ -49,7 +49,7 @@
     (((lval) % (const_align)) ? ((const_align) - ((lval) % (const_align))) : 0)
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
     /// Note: this macro should be used *outside* of any anonymous namespaces.
 #   define INITIALISE_GLOBAL_VARIABLE(var) \
@@ -83,7 +83,7 @@
 #endif
 
 
-#if CONFIG_PROFILE_IBL
+#if CONFIG_DEBUG_PROFILE_IBL
 #   define IF_PROFILE_IBL_ELSE(a,b) a
 #   define IF_PROFILE_IBL(...) __VA_ARGS__
 #   define IF_PROFILE_IBL_(...) __VA_ARGS__ ,
@@ -97,14 +97,14 @@
 #endif
 
 
-#if CONFIG_ENABLE_PERF_COUNTS
+#if CONFIG_DEBUG_PERF_COUNTS
 #   define IF_PERF(...) __VA_ARGS__
 #else
 #   define IF_PERF(...)
 #endif
 
 
-#if CONFIG_ENABLE_WRAPPERS
+#if CONFIG_FEATURE_WRAPPERS
 #   define IF_WRAPPERS(...) __VA_ARGS__
 #else
 #   define IF_WRAPPERS(...)
@@ -156,7 +156,7 @@
 #define STATIC_INITIALISE_ID(id, ...) \
     STATIC_INITIALISE_(CAT(CAT(id, __LINE__), CAT(_, __COUNTER__)), ##__VA_ARGS__)
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
 /// Defines a static initialiser that is run when the entire machine is
 /// synchronised (e.g. after/within a Linux kernel `stop_machine`.).
@@ -179,17 +179,19 @@
             } \
         } \
         INITIALISE_GLOBAL_VARIABLE(CAT(init_val_sync_, id))
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 
-#if !CONFIG_ENABLE_ASSERTIONS
+#if !CONFIG_DEBUG_ASSERTIONS
 #   define IF_TEST(...)
+#   define IF_NOT_TEST(...) __VA_ARGS__
 #   define IF_TEST_ELSE(a,b) b
 #   define _IF_TEST(...)
 #   define ADD_TEST(func, desc)
 #   define ASSERT(...)
 #else
 #   define IF_TEST(...) __VA_ARGS__
+#   define IF_NOT_TEST(...)
 #   define IF_TEST_ELSE(a,b) a
 #   define _IF_TEST(...) , __VA_ARGS__
 #   define ADD_TEST(test_func, test_desc) \
@@ -334,7 +336,7 @@
 #define TEMPLATE_PARAMS_6(...) < __VA_ARGS__ >
 #define TEMPLATE_PARAMS_7(...) < __VA_ARGS__ >
 
-#if defined(GRANARY_USE_PIC) && !GRANARY_IN_KERNEL
+#if defined(GRANARY_USE_PIC) && !CONFIG_ENV_KERNEL
 #   define DLL_PUBLIC __attribute__ ((visibility ("default")))
 #   define DLL_LOCAL  __attribute__ ((visibility ("hidden")))
 #else

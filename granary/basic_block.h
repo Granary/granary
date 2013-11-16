@@ -64,7 +64,7 @@ namespace granary {
         /// block?
         uint8_t num_bbs_in_trace;
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
         uint8_t num_delay_state_bytes;
 #else
         uint8_t _;
@@ -75,7 +75,7 @@ namespace granary {
         /// Address of client/tool-created basic block meta-data.
         basic_block_state *state;
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
         /// State-set of delay range information for this basic block, if any.
         uint8_t *delay_states;
 #endif
@@ -157,7 +157,7 @@ namespace granary {
         basic_block(app_pc current_pc_) throw();
 
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
         /// Returns true iff this interrupt must be delayed. If the interrupt
         /// must be delayed then the arguments are updated in place with the
         /// range of code that must be copied and re-relativised in order to

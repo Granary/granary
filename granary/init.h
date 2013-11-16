@@ -23,7 +23,7 @@ namespace granary {
 
     void init(void) throw();
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     /// Returns true iff there is anything to run in a synchronised way.
     bool should_init_sync(void) throw();
 

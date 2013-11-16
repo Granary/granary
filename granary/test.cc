@@ -14,7 +14,7 @@
 extern "C" {
 
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
     DONT_OPTIMISE int granary_test_return_true(void) {
         return 1;
     }
@@ -24,7 +24,7 @@ extern "C" {
     }
 #endif
 
-#if !GRANARY_IN_KERNEL
+#if !CONFIG_ENV_KERNEL
 
     DONT_OPTIMISE void granary_break_on_fault(void) {
         ASM("");
@@ -68,7 +68,7 @@ namespace granary {
     }
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
     /// Handle an interrupt in module code. Returns true iff the client
     /// handles the interrupt.
@@ -85,7 +85,7 @@ namespace granary {
 #endif
 
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
     /// List of test cases to run.
     static static_test_list STATIC_TEST_LIST_HEAD;
@@ -152,6 +152,6 @@ namespace granary {
             }
         }
     }
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 } /* granary */
 

@@ -54,7 +54,7 @@ struct enable_if<false, T> { typedef T type; };
         }; \
     };
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "clients/watchpoints/clients/shadow_memory/kernel/linux/kernel_type_descriptor.h"
 #else
 #   error "User space type shadows are not yet supported."
@@ -66,7 +66,7 @@ const uint16_t TYPE_SIZES[] = {
     0, // NOTE: type id == 0 is an undefined type!
 
 #define MODULE_TYPE_ID(type_name) sizeof(struct type_name),
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 #   include "clients/watchpoints/clients/shadow_memory/kernel/linux/kernel_type_descriptor.h"
 #else
 #   error "User space type shadows are not yet supported."

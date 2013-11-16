@@ -11,11 +11,11 @@
 
 #include "granary/globals.h"
 
-#ifndef IF_CONFIG_CLIENT_HANDLE_INTERRUPT
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
-#       define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...) __VA_ARGS__
+#ifndef IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
+#       define IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT(...) __VA_ARGS__
 #   else
-#       define IF_CONFIG_CLIENT_HANDLE_INTERRUPT(...)
+#       define IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT(...)
 #   endif
 #endif
 
@@ -50,7 +50,7 @@
                 granary::instruction_list & \
             ) throw(); \
             \
-            IF_CONFIG_CLIENT_HANDLE_INTERRUPT( \
+            IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT( \
             granary::interrupt_handled_state handle_interrupt( \
                 granary::cpu_state_handle, \
                 granary::thread_state_handle, \
@@ -61,7 +61,7 @@
         }
 
     namespace client {
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in kernel code.
         granary::interrupt_handled_state handle_kernel_interrupt(
             granary::cpu_state_handle cpu,

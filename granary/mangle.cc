@@ -28,73 +28,79 @@ extern "C" {
 namespace granary {
 
 
-    enum {
-        MAX_NUM_POLICIES = 1 << mangled_address::NUM_MANGLED_BITS,
-        HOTPATCH_ALIGN = 8
-    };
-
-
     /// Hash table of previously constructed IBL entry stubs.
     static operand reg_target_addr; // arg1, rdi
     static operand reg_target_addr_16; // arg1_16, di
 
 
-    STATIC_INITIALISE_ID(ibl_stub_table, {
+    STATIC_INITIALISE_ID(ibl_lookup_regs, {
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
     })
 
 
-    /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
+    /// Make an IBL stub. This is used by indirect JMPs, CALLs, and RETs.
     /// The purpose of the stub is to set up the registers and stack in a
     /// canonical way for entry into the indirect branch lookup routine.
+    ///
+    /// Note: We assume that the user space redzone is not used across
+    ///       indirect control flow. This is generally valid for CALL and RET
+    ///       instructions, as we'll assume is valid for JMPs as well (by
+    ///       pretending that all indirect JMPs are in fact tail-calls).
     void instruction_list_mangler::mangle_ibl_lookup(
-        instruction_list &ibl,
-        instruction in,
+        instruction cti,
         instrumentation_policy target_policy,
-        operand target,
-        ibl_entry_kind ibl_kind,
-        app_pc cti_addr
+        ibl_entry_kind ibl_kind
     ) throw() {
 
+        operand target;
+        if(IBL_ENTRY_RETURN != ibl_kind) {
+            target = cti.cti_target();
+        }
+
+        const app_pc cti_addr(cti.pc());
+
+        // Isolate the IBL instructions (for the time being) because we don't
+        // know if we're going to add them to stub code or to a basic block.
+        instruction_list ibl(INSTRUCTION_LIST_STUB);
+
+        // Make a "fake" basic block so that we can also instrument / mangle
+        // the memory loads needed to complete this indirect call or jump. This
+        // isolates the client/tool from the logic that actually gets the
+        // target into the right registers.
+        instruction_list ibl_tail(INSTRUCTION_LIST_STUB);
+
         int stack_offset(0);
-
-        if(IBL_ENTRY_RETURN == ibl_kind) {
-
-            // Kernel space: save `reg_target_addr` and load the return address.
-            if(!REDZONE_SIZE) {
-                FAULT; // Should not be calling this from kernel space.
-
-            // User space: overlay the redzone on top of the return address,
-            // and default over to our usual mechanism.
-            } else {
-                stack_offset = REDZONE_SIZE - 8;
-            }
-
-        // Normal user space JMP; need to protect the stack against the redzone.
-        } else {
-            stack_offset = REDZONE_SIZE;
-        }
-
-        // Note: CALL and RET instructions do not technically need to protect
-        //       against the redzone, as CALLs implicitly clobber part of the
-        //       stack, and RETs implicitly release part of it. However, for
-        //       consistency in the ibl_exit_routines, we use this.
-
-        // Shift the stack. If this is a return in user space then we shift if
-        // by 8 bytes less than the redzone size, so that the return address
-        // itself "extends" the redzone by those 8 bytes.
-        if(stack_offset) {
-            ibl.insert_before(in, lea_(reg::rsp, reg::rsp[-stack_offset]));
-        }
-
-        ibl.insert_before(in, push_(reg_target_addr));
-        stack_offset += 8;
-
-        // If this was a call, then the stack offset was also shifted by
-        // the push of the return address
         if(IBL_ENTRY_CALL == ibl_kind) {
-            stack_offset += 8;
+            instruction call_target(label_());
+            instruction call_cti(call_(instr_(call_target)));
+            instruction do_call_cti(label_());
+
+            // A bit all over the place, but we jump around the IBL stuff to a
+            // direct CALL that calls backward into the IBL stuff, that indirect
+            // JMPs to the desired indirect CALL target. The return then
+            // properly falls through.
+
+            ls.insert_before(cti, mangled(jmp_(instr_(do_call_cti))));
+            ls.insert_before(cti, call_target);
+            ls.insert_after(cti, call_cti);
+            ls.insert_after(cti, do_call_cti);
+
+            // If this was a call, then the stack offset was shifted by
+            // the push of the return address
+            stack_offset = sizeof(uintptr_t);
+
+        // Atomic swap, unfortunately, but we only expect this in user space,
+        // and it hits the stack so it should be contention free.
+        } else if(IBL_ENTRY_RETURN == ibl_kind) {
+            ls.insert_before(cti, xchg_(*reg::rsp, reg_target_addr));
+            target = reg_target_addr;
+        }
+
+        // Returns have already swapped `reg_target_addr` onto the stack.
+        if(IBL_ENTRY_RETURN != ibl_kind) {
+            ibl.append(push_(reg_target_addr));
+            stack_offset += sizeof(uintptr_t);
         }
 
         // Adjust the target operand if it's on the stack
@@ -102,10 +108,6 @@ namespace granary {
         && dynamorio::DR_REG_RSP == target.value.base_disp.base_reg) {
             target.value.base_disp.disp += stack_offset;
         }
-
-        // Make a "fake" basic block so that we can also instrument / mangle
-        // the memory loads needed to complete this indirect call or jump.
-        instruction_list tail_bb(INSTRUCTION_LIST_STUB);
 
         // Load the target address into `reg_target_addr`. This might be a
         // normal base/disp kind, or a relative address, or an absolute
@@ -129,7 +131,7 @@ namespace granary {
 
                 // Do an indirect load using abs address.
                 if(is_far_away(target_addr, estimator_pc)) {
-                    tail_bb.append(mangled(mov_imm_(
+                    ibl_tail.append(mangled(mov_imm_(
                         reg_target_addr,
                         int64_(reinterpret_cast<uint64_t>(target_addr)))));
                     target = *reg_target_addr;
@@ -137,83 +139,59 @@ namespace granary {
                 }
             }
 
-            tail_bb.append(mov_ld_(reg_target_addr, target));
+            ibl_tail.append(mov_ld_(reg_target_addr, target));
 
             // Notify higher levels of instrumentation that might be doing
             // memory operand interposition that this insruction should not be
             // interposed on.
             if(mangled_target) {
-                tail_bb.last().set_mangled();
+                ibl_tail.last().set_mangled();
             }
 
-        // Target is in a register.
+        // Target is in a register; only load it if we need to.
         } else if(reg_target_addr.value.reg != target.value.reg) {
-            tail_bb.append(mov_ld_(reg_target_addr, target));
+            ibl_tail.append(mov_ld_(reg_target_addr, target));
         }
 
         // Instrument the memory instructions needed to complete this CALL
         // or JMP.
-        instruction tail_bb_end(tail_bb.append(label_()));
-        bool tail_bb_changed(false);
+        instruction ibl_tail_end(ibl_tail.append(label_()));
+
         if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
             instrumentation_policy tail_policy(policy);
 
             // Kill all flags so that the instrumentation can use them if
             // possible.
-            if(IBL_ENTRY_CALL == ibl_kind) {
-                tail_bb.append(mangled(popf_()));
-            }
+            //if(IBL_ENTRY_CALL == ibl_kind) {
+            //    ibl_tail.append(mangled(popf_()));
+            //}
 
             // Make sure all other registers appear live.
-            tail_bb.append(mangled(jmp_(instr_(tail_bb_end))));
-
-            const unsigned old_size(tail_bb.length());
-
-            tail_policy.instrument(cpu, bb, tail_bb);
+            ibl_tail.append(mangled(jmp_(instr_(ibl_tail_end))));
+            tail_policy.instrument(cpu, bb, ibl_tail);
             instruction_list_mangler sub_mangler(
-                cpu, bb, tail_bb, stub_ls, policy, estimator_pc);
+                cpu, bb, ibl_tail, stub_ls, policy, estimator_pc);
             sub_mangler.mangle();
-
-            // Not quite a perfect test, but the idea here is that if the client
-            // tool is actually instrumenting the tail_bb, then we want to
-            // append it all onto the original basic block, but otherwise we'll
-            // move it out of the code cache and into the stub area. The key
-            // idea is that we don't want to have to do any alignment for
-            // potentially hot-patchable instructions introduced into stub code.
-            // At the same time, if code is injected into the stub but not
-            // placed into the basic block, then we won't be able to related
-            // that fault back to the client tools `handle_interrupt` function.
-            if(old_size != tail_bb.length()) {
-                tail_bb_changed = true;
-            }
         }
 
-        instruction ibl_stand_in;
-        if(tail_bb_changed) {
-            ibl_stand_in = ls.append(label_());
-        }
+        ibl.extend(ibl_tail);
 
         // Add the instructions back into the stub.
-        for(instruction tail_in(tail_bb.first()), next_tail_in;
-            tail_in.is_valid();
-            tail_in = next_tail_in) {
+        for(instruction ibl_in(ibl.first()), next_ibl_in;
+            ibl_in.is_valid();
+            ibl_in = next_ibl_in) {
 
-            if(tail_in == tail_bb_end) {
+            if(ibl_in == ibl_tail_end) {
                 break;
             }
 
-            next_tail_in = tail_in.next();
-            tail_bb.remove(tail_in);
-
-            if(tail_bb_changed) {
-                ls.insert_before(ibl_stand_in, tail_in);
-            } else {
-                ibl.insert_before(in, tail_in);
-            }
+            next_ibl_in = ibl_in.next();
+            ibl.remove(ibl_in);
+            ls.insert_before(cti, ibl_in);
         }
 
-        // Extend the basic block with the IBL lookup stub.
-        ibl_lookup_stub(ibl, in, target_policy, cti_addr);
+        ibl_lookup_stub(ls, cti, target_policy, cti_addr);
+        ls.remove(cti);
     }
 
 
@@ -319,11 +297,12 @@ namespace granary {
         } else {
             // Replace `in` with a DBL lookup stub.
             insert_dbl_lookup_stub(ls, stub_ls, in, am);
+            ls.remove(in);
         }
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     extern "C" {
         extern intptr_t NATIVE_SYSCALL_TABLE;
         extern intptr_t SHADOW_SYSCALL_TABLE;
@@ -334,28 +313,25 @@ namespace granary {
     /// Mangle an indirect control transfer instruction.
     void instruction_list_mangler::mangle_indirect_cti(
         instruction in,
-        operand target,
         instrumentation_policy target_policy
     ) throw() {
 
         if(in.is_return()) {
             IF_PERF( perf::visit_mangle_return(); )
-#if !CONFIG_ENABLE_DIRECT_RETURN
+#if !CONFIG_OPTIMISE_DIRECT_RETURN
             if(!policy.return_address_is_in_code_cache()) {
 
                 // TODO: handle RETn/RETf with a byte count.
                 ASSERT(dynamorio::IMMED_INTEGER_kind != in.instr->u.o.src0.kind);
 
-                mangle_ibl_lookup(
-                    ls, in, target_policy, target,
-                    IBL_ENTRY_RETURN, in.pc());
-                ls.remove(in);
+                mangle_ibl_lookup(in, target_policy, IBL_ENTRY_RETURN);
             }
 #endif
             return;
         }
 
-#if GRANARY_IN_KERNEL && CONFIG_INSTRUMENT_HOST
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INSTRUMENT_HOST
+        operand target(in.cti_target());
         // Linux-specific special case: Optimise for syscall entry points.
         // Note: We depend on sign-extension of the 32-bit displacement here.
         if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
@@ -370,24 +346,13 @@ namespace granary {
 
         // Indirect CALL.
         if(in.is_call()) {
-            instruction call_target(stub_ls.append(label_()));
-            instruction insert_point(stub_ls.append(label_()));
-
             IF_PERF( perf::visit_mangle_indirect_call(); )
-            mangle_ibl_lookup(
-                stub_ls, insert_point, target_policy, target,
-                IBL_ENTRY_CALL, in.pc());
-
-            ls.insert_before(in, mangled(call_(instr_(call_target))));
-            ls.remove(in);
+            mangle_ibl_lookup(in, target_policy, IBL_ENTRY_CALL);
 
         // Indirect JMP.
         } else {
             IF_PERF( perf::visit_mangle_indirect_jmp(); )
-            mangle_ibl_lookup(
-                ls, in, target_policy, target,
-                IBL_ENTRY_JMP, in.pc());
-            ls.remove(in);
+            mangle_ibl_lookup(in, target_policy, IBL_ENTRY_JMP);
         }
     }
 
@@ -427,7 +392,6 @@ namespace granary {
 
             mangle_indirect_cti(
                 in,
-                operand(*reg::rsp),
                 target_policy
             );
 
@@ -481,7 +445,6 @@ namespace granary {
 
                 mangle_indirect_cti(
                     in,
-                    target,
                     target_policy
                 );
 
@@ -519,7 +482,7 @@ namespace granary {
         instruction IF_KERNEL(first),
         instruction IF_KERNEL(last)
     ) throw() {
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
         if(in.begins_delay_region() && first.is_valid()) {
             in.remove_flag(instruction::DELAY_BEGIN);
             first.add_flag(instruction::DELAY_BEGIN);
@@ -841,15 +804,15 @@ namespace granary {
             unsigned in_size(in.encoded_size());
             const bool is_hot_patchable(in.is_patchable());
             const unsigned cache_line_offset(
-                curr_align % CONFIG_MIN_CACHE_LINE_SIZE);
+                curr_align % CONFIG_ARCH_CACHE_LINE_SIZE);
 
             // Make sure that hot-patchable instructions don't cross cache
             // line boundaries.
             if(is_hot_patchable
-            && CONFIG_MIN_CACHE_LINE_SIZE < (cache_line_offset + in_size)) {
+            && CONFIG_ARCH_CACHE_LINE_SIZE < (cache_line_offset + in_size)) {
                 ASSERT(in.prev().is_valid());
                 const unsigned forward_align(
-                    CONFIG_MIN_CACHE_LINE_SIZE - cache_line_offset);
+                    CONFIG_ARCH_CACHE_LINE_SIZE - cache_line_offset);
                 ASSERT(8 > forward_align);
                 insert_nops_after(ls, in.prev(), forward_align);
                 in_size += forward_align;

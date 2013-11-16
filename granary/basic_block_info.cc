@@ -22,6 +22,11 @@ namespace granary {
     };
 
 
+    /// GDB helper variable. GDB doesn't always have access to the value of
+    /// the `SLAB_SIZE` symbol (either the above defined one, or the one inside
+    /// the `fragment_allocator_config`), so we put this variable here to
+    /// give it something more "solid", so that we can duplicate the block info
+    /// lookup procedure in `.gdbinit`.
     __attribute__((used))
     const unsigned FRAGMENT_SLAB_SIZE = SLAB_SIZE;
 
@@ -170,6 +175,8 @@ namespace granary {
             &(slab->fragments[0]), slab->next_index, cache_pc));
 
         ASSERT(nullptr != info);
+        ASSERT(info->start_pc <= cache_pc);
+        ASSERT(cache_pc < (info->start_pc + info->num_bytes));
 
         return info;
     }
@@ -194,7 +201,7 @@ namespace granary {
         ASSERT(nullptr != frag.block);
         ASSERT(frag.block->start_pc <= cache_pc);
 
-#if GRANARY_IN_KERNEL && CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
         if(frag.block->delay_states) {
             free_memory(
                 frag.block->delay_states, frag.block->num_delay_state_bytes);

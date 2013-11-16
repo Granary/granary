@@ -36,7 +36,7 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
     /// List of static initialisers to be run at granary's kernel initialiser
     /// within a `stop_machine` call.
     static static_init_list STATIC_INIT_LIST_SYNC_HEAD;
@@ -52,7 +52,7 @@ namespace granary {
 
         STATIC_INIT_LIST_SYNC_TAIL = &entry;
     }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 
 
     extern "C" {
@@ -114,7 +114,7 @@ namespace granary {
     }
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
     /// Returns true iff there is anything to run in a synchronised way.
     bool should_init_sync(void) throw() {
@@ -153,6 +153,6 @@ namespace granary {
             IF_KERNEL( granary_store_flags(flags); )
         }
     }
-#endif /* GRANARY_IN_KERNEL */
+#endif /* CONFIG_ENV_KERNEL */
 }
 

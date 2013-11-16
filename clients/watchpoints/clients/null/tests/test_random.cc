@@ -8,7 +8,7 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 #include "clients/watchpoints/clients/null/instrument.h"
 #include "clients/watchpoints/clients/null/tests/pp.h"
@@ -60,4 +60,4 @@ namespace test {
         "correctly watched.")
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */

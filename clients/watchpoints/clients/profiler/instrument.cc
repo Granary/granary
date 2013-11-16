@@ -150,7 +150,7 @@ namespace client {
 
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         granary::interrupt_handled_state app_policy::handle_interrupt(
             granary::cpu_state_handle,
             granary::thread_state_handle,
@@ -170,7 +170,7 @@ namespace client {
         ) throw() {
             return granary::INTERRUPT_DEFER;
         }
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
 
     }
 

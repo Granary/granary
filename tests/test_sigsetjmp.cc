@@ -8,7 +8,7 @@
  */
 
 #include "granary/test.h"
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 extern "C" {
 #   include <setjmp.h>
@@ -75,5 +75,5 @@ namespace test {
         "Test that sigsetjmp works.");
 }
 
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 

@@ -15,7 +15,7 @@
 #include "granary/state.h"
 #include "granary/emit_utils.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 #   include "granary/x86/asm_defines.asm"
 #   include "granary/detach.h"
 #endif
@@ -52,7 +52,7 @@ namespace granary {
         ) throw();
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
         granary::interrupt_handled_state handle_interrupt(
@@ -66,7 +66,7 @@ namespace granary {
 
     };
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
     /// Used for static initialisation of test cases.
     struct static_test_list {
         void (*func)(void);
@@ -79,7 +79,7 @@ namespace granary {
     };
 
     void run_tests(void) throw();
-#endif /* CONFIG_RUN_TEST_CASES */
+#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 
 }
 

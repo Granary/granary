@@ -95,7 +95,7 @@
     ALL_XMM_REGS(POP_XMM_REG, POP_LAST_XMM_REG) \
     lea 256(%rsp), %rsp; \
 
-#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
+#if CONFIG_ENV_KERNEL || !GRANARY_USE_PIC
 #   define SHARED_SYMBOL SYMBOL
 #else
 #   ifdef __APPLE__
@@ -105,7 +105,7 @@
 #   endif
 #endif
 
-#if GRANARY_IN_KERNEL || !GRANARY_USE_PIC
+#if CONFIG_ENV_KERNEL || !GRANARY_USE_PIC
 #   define EXTERN_SYMBOL SYMBOL
 #else
 #   define EXTERN_SYMBOL SHARED_SYMBOL

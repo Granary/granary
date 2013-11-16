@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
 
     /* Big hack: the kernel has it's own definition for bool, which we macro'd
      * out in kernel/linux/types.h.

@@ -9,7 +9,7 @@
 
 #include "granary/test.h"
 
-#if CONFIG_RUN_TEST_CASES
+#if CONFIG_DEBUG_RUN_TEST_CASES
 
 #define TEST_CALL 1
 

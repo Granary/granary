@@ -46,7 +46,7 @@ namespace granary {
     cpu_state *CPU_STATES[MAX_NUM_CPUS] = {nullptr};
 
 
-#if CONFIG_CHECK_CPU_ACCESS_SAFE
+#if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE
     /// Check that it's safe to access CPU-private state.
     __attribute__((noinline))
     void check_cpu_access_safety(void) {
@@ -60,7 +60,7 @@ namespace granary {
 
     extern "C" uint64_t *granary_get_private_stack_top(void)
     {
-#if CONFIG_CHECK_CPU_ACCESS_SAFE && 0
+#if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE && 0
         check_cpu_access_safety();
 #endif
         return &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top[0]);
@@ -94,7 +94,7 @@ namespace granary {
     /// pages around it.
     struct poison {
         char poison[PAGE_SIZE];
-    } __attribute__((packed, aligned(CONFIG_MEMORY_PAGE_SIZE)));
+    } __attribute__((packed, aligned(CONFIG_ARCH_PAGE_SIZE)));
 
 
     static std::atomic<unsigned> NEXT_CPU_ID = ATOMIC_VAR_INIT(0U);
@@ -110,7 +110,7 @@ namespace granary {
         cpu_state *state(*state_ptr);
         state->id = NEXT_CPU_ID.fetch_add(1);
 
-#if CONFIG_HANDLE_INTERRUPTS || CONFIG_INSTRUMENT_HOST
+#if CONFIG_FEATURE_HANDLE_INTERRUPTS || CONFIG_FEATURE_INSTRUMENT_HOST
         // Get a copy of the native IDTR.
         get_idtr(&(state->native_idtr));
 
@@ -122,7 +122,7 @@ namespace granary {
         }
 #endif
 
-#if CONFIG_INSTRUMENT_HOST
+#if CONFIG_FEATURE_INSTRUMENT_HOST
         /// Get a copy of the native MSR_LSTAR model-specific register.
         state->native_msr_lstar = get_msr(MSR_LSTAR);
 #endif
@@ -139,11 +139,11 @@ namespace granary {
     static void set_percpu(void) {
         cpu_state_handle cpu;
 
-#if CONFIG_HANDLE_INTERRUPTS
+#if CONFIG_FEATURE_HANDLE_INTERRUPTS
         set_idtr(&(cpu->idtr));
 #endif
 
-#if CONFIG_INSTRUMENT_HOST
+#if CONFIG_FEATURE_INSTRUMENT_HOST
         set_msr(MSR_LSTAR, cpu->msr_lstar);
 #endif
 
@@ -160,8 +160,8 @@ namespace granary {
                 continue;
             }
 
-#if CONFIG_HANDLE_INTERRUPTS
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_FEATURE_HANDLE_INTERRUPTS
+#   if CONFIG_FEATURE_INTERRUPT_DELAY
             // Allocate space for interrupt delay handlers.
             CPU_STATES[i]->interrupt_delay_handler = reinterpret_cast<app_pc>(
                 global_state::FRAGMENT_ALLOCATOR-> \
@@ -177,7 +177,7 @@ namespace granary {
             }
             granary_store_flags(flags);
 #endif
-#if CONFIG_INSTRUMENT_HOST
+#if CONFIG_FEATURE_INSTRUMENT_HOST
 
             // Create this CPUs SYSCALL entry point.
             flags = granary_disable_interrupts();
@@ -191,7 +191,7 @@ namespace granary {
             granary_store_flags(flags);
 #endif
 
-#if CONFIG_HANDLE_INTERRUPTS
+#if CONFIG_FEATURE_HANDLE_INTERRUPTS
             // Page protect the IDTs.
             kernel_make_page_read_only(CPU_STATES[i]->idtr.base);
 #endif

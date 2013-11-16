@@ -15,7 +15,7 @@
 namespace granary {
 
 
-#if !CONFIG_INSTRUMENT_HOST
+#if !CONFIG_FEATURE_INSTRUMENT_HOST
     /// Should this policy auto-instrument host (kernel, libc) code?
     bool instrumentation_policy::AUTO_VISIT_HOST[
         instrumentation_policy::MAX_NUM_POLICY_IDS
@@ -39,7 +39,7 @@ namespace granary {
     ];
 
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
     /// Per-policy interrupt handlers. These are invoked when an interrupt
     /// occurs in *non-delayed* instrumented kernel code.
     instrumentation_policy::interrupt_visitor
@@ -110,7 +110,7 @@ namespace granary {
             return granary::policy_for<missing_policy_policy>();
         }
 
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         /// Handle an interrupt in module code. Returns true iff the client
         /// handles the interrupt.
         granary::interrupt_handled_state handle_interrupt(

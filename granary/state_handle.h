@@ -89,7 +89,7 @@ namespace granary {
 
         FORCE_INLINE thread_state *operator->(void) throw() {
 
-#if GRANARY_IN_KERNEL
+#if CONFIG_ENV_KERNEL
             // Used to lazily initialise thread state on access.
             if(unlikely(nullptr != state_ptr)) {
                 init();

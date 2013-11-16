@@ -186,7 +186,7 @@ namespace granary {
     }
 
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_FEATURE_INTERRUPT_DELAY
     /// Emit the code needed to reconstruct this interrupt after executing the
     /// code within the delay region. Interrupt delaying works by copying and
     /// re-relativizing all of the code within a interrupt delay region into a
@@ -326,7 +326,7 @@ namespace granary {
 
         return delay_in.pc();
     }
-#endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
+#endif /* CONFIG_FEATURE_INTERRUPT_DELAY */
 
 
     extern "C" {
@@ -399,12 +399,12 @@ namespace granary {
             cpu->last_exception_table_entry = bb.info->user_exception_metadata;
         }
 
-#if !CONFIG_ENABLE_INTERRUPT_DELAY && !CONFIG_CLIENT_HANDLE_INTERRUPT
+#if !CONFIG_FEATURE_INTERRUPT_DELAY && !CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         // We don't need to do anything specific for interrupts.
         return INTERRUPT_DEFER;
 
 #else
-#   if CONFIG_ENABLE_INTERRUPT_DELAY
+#   if CONFIG_FEATURE_INTERRUPT_DELAY
         // We might need to do something specific for interrupts.
         app_pc delay_begin(nullptr);
         app_pc delay_end(nullptr);
@@ -418,24 +418,21 @@ namespace granary {
 
             return INTERRUPT_RETURN;
         }
-#   endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
+#   endif /* CONFIG_FEATURE_INTERRUPT_DELAY */
 
         // We don't need to delay; let the client try to handle the
         // interrupt, or defer to the kernel if the client doesn't handle
         // the interrupt.
-#   if CONFIG_CLIENT_HANDLE_INTERRUPT
-        basic_block_state *bb_state(bb.state());
-        instrumentation_policy policy(bb.policy);
-
+#   if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         granary::enter(cpu);
-        thread_state_handle thread(cpu);
+        instrumentation_policy policy(bb.policy);
         return policy.handle_interrupt(
-            cpu, thread, *bb_state, *isf, vector);
+            cpu, thread_state_handle(cpu), *bb.state(), *isf, vector);
 
 #   else
         return INTERRUPT_DEFER;
-#   endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
-#endif /* CONFIG_ENABLE_INTERRUPT_DELAY || CONFIG_CLIENT_HANDLE_INTERRUPT */
+#   endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_FEATURE_INTERRUPT_DELAY || CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
     }
 
 
@@ -449,7 +446,7 @@ namespace granary {
     ) throw() {
         const app_pc pc(isf->instruction_pointer);
 
-#if CONFIG_ENABLE_INTERRUPT_DELAY
+#if CONFIG_FEATURE_INTERRUPT_DELAY
         // Detect an exception within a delayed interrupt handler. This
         // is really bad.
         //
@@ -462,7 +459,7 @@ namespace granary {
             granary_break_on_interrupt(isf, vector, cpu);
             return INTERRUPT_IRET;
         }
-#endif /* CONFIG_ENABLE_INTERRUPT_DELAY */
+#endif /* CONFIG_FEATURE_INTERRUPT_DELAY */
 
         // Detect if an exception or something else is occurring within our
         // common interrupt handler. This is expected on the emulated IRET path
@@ -478,7 +475,7 @@ namespace granary {
     }
 
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
     bool HAS_FAULTED_STACK = false;
     unsigned FAULTED_STACK_BASE_INDEX = 0;
     void *FAULTED_STACK[4096 / 8] = {0};
@@ -493,7 +490,7 @@ namespace granary {
         interrupt_vector vector
     ) throw() {
 
-#if CONFIG_ENABLE_ASSERTIONS
+#if CONFIG_DEBUG_ASSERTIONS
         // Used to try to debug when a granary_fault is called.
         if(VECTOR_BREAKPOINT == vector && !HAS_FAULTED_STACK) {
             HAS_FAULTED_STACK = true;
@@ -504,12 +501,11 @@ namespace granary {
             memcpy(FAULTED_STACK, reinterpret_cast<void *>(rsp), rsp_base - rsp);
         }
 #endif
-#if CONFIG_CLIENT_HANDLE_INTERRUPT
+#if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         granary::enter(cpu);
-        thread_state_handle thread(cpu);
         return client::handle_kernel_interrupt(
             cpu,
-            thread,
+            thread_state_handle(cpu),
             *isf,
             vector);
 #else
@@ -517,7 +513,7 @@ namespace granary {
         UNUSED(isf);
         UNUSED(vector);
         return INTERRUPT_DEFER;
-#endif /* CONFIG_CLIENT_HANDLE_INTERRUPT */
+#endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
     }
 
 
@@ -563,14 +559,14 @@ namespace granary {
 
         cpu_state_handle cpu;
 
+#if CONFIG_DEBUG_ASSERTIONS
         // If the high 48 bits of the two stack pointers are the same then
         // we hit a recursive interrupt; otherwise, mark us as entering into
         // Granary.
         const uintptr_t private_stack_check(
             reinterpret_cast<uintptr_t>(isf->stack_pointer) ^
             reinterpret_cast<uintptr_t>(cpu->percpu_stack.top));
-
-#if CONFIG_ENABLE_ASSERTIONS
+        
         if(0 == (private_stack_check >> 16)) {
             granary_break_on_nested_interrupt(isf, vector, cpu);
         }
@@ -754,7 +750,7 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-#if !CONFIG_ENABLE_ASSERTIONS
+#if !CONFIG_DEBUG_ASSERTIONS
         // Restore callee-saved registers, because `handle_interrupt` will
         // save them for us (because it respects the ABI).
         rm.revive(reg::rbx);
@@ -965,7 +961,7 @@ namespace granary {
 
                 app_pc target(native_handler);
 
-#if !CONFIG_CLIENT_HANDLE_INTERRUPT && !CONFIG_ENABLE_INTERRUPT_DELAY
+#if !CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT && !CONFIG_FEATURE_INTERRUPT_DELAY
                 // If clients aren't handling interrupts, and we don't care
                 // about delaying interrupts.
                 if(VECTOR_PAGE_FAULT == i) {
@@ -976,7 +972,7 @@ namespace granary {
                 // Magic number 0xf0: This covers most Linux x86 and ia64 IPI
                 // interrupt vectors (as well as a few others, but whatever).
                 //
-                // TODO: If CONFIG_INSTRUMENT_HOST, deal with VECTOR_SYSCALL.
+                // TODO: If CONFIG_FEATURE_INSTRUMENT_HOST, deal with VECTOR_SYSCALL.
                 //       For the time being this might not be necessary because
                 //       `INT 0x80` is used for 32-bit applications (similar to
                 //       `SYSENTER`).

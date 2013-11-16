@@ -67,7 +67,6 @@ namespace granary {
     ) throw() {
 
         // On the stack:
-        //      redzone                 (cond. saved: user space)
         //      reg_target_addr         (saved: arg1)
 
         // Spill RAX (reg_table_entry_addr). We defer saving the flags on the
@@ -82,7 +81,7 @@ namespace granary {
             int16_((int64_t) (int16_t) granary_bswap16(policy.encode()))));
         ibl.insert_before(in, bswap_(reg_target_addr));
 
-#if CONFIG_PROFILE_IBL
+#if CONFIG_DEBUG_PROFILE_IBL
         // Spill the source address for use by the IBL profiling.
         ibl.insert_before(in, push_(reg_source_addr));
         ibl.insert_before(in, mov_imm_(
@@ -91,7 +90,6 @@ namespace granary {
 #endif
 
         // On the stack:
-        //      redzone                 (cond. saved user space)
         //      reg_target_addr         (saved: arg1, mangled target address)
         //      rax
         //      source addr             (cond. saved: IBL profiling)
@@ -149,7 +147,6 @@ namespace granary {
         //         a chained exit routine that was part of the IBL jump table.
         //
         // On the stack:
-        //      redzone                 (cond. saved: user space)
         //      reg_target_addr         (saved: arg1)
         //      rax                     (saved, can be clobbered)
         //      reg_source_addr         (cond. saved: IBL profiling)
@@ -159,7 +156,7 @@ namespace granary {
         ibl.append(cmp_(reg::rax, reg_target_addr));
         ibl.append(jnz_(instr_(ibl_miss)));
 
-#if CONFIG_PROFILE_IBL
+#if CONFIG_DEBUG_PROFILE_IBL
         // Check that it's going to the right target and coming from the right
         // source.
 
@@ -200,11 +197,9 @@ namespace granary {
         //         a return from the global code cache find function, and so
         //
         // On the stack:
-        //      redzone                 (cond. user space)
         //      reg_target_addr         (saved: arg1)
         ibl.append(ibl_hit_from_code_cache_find);
         ibl.append(pop_(reg_target_addr));
-        IF_USER( ibl.append(lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
 
         ASSERT(nullptr != instrumented_target_pc);
         insert_cti_after(
@@ -254,7 +249,6 @@ namespace granary {
         instruction_list ibl;
 
         // On the stack:
-        //      redzone                 (cond. saved if user space)
         //      reg_target_addr         (saved: arg1, mangled address)
         //      rax                     (saved: can be clobbered)
         //      arithmetic flags        (saved)
