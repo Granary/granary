@@ -70,7 +70,9 @@ extern "C" {
             allocate_array<uint8_t>(size);
         ls.encode(wrapped_init_pc, size);
 
+#if !CONFIG_DEBUG_INITIALISE
         *(module->init) = unsafe_cast<int (*)(void)>(wrapped_init_pc);
+#endif
     }
 
 

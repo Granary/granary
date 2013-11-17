@@ -139,11 +139,11 @@ namespace granary {
     static void set_percpu(void) {
         cpu_state_handle cpu;
 
-#if CONFIG_FEATURE_HANDLE_INTERRUPTS
+#if CONFIG_FEATURE_HANDLE_INTERRUPTS && !CONFIG_DEBUG_INITIALISE
         set_idtr(&(cpu->idtr));
 #endif
 
-#if CONFIG_FEATURE_INSTRUMENT_HOST
+#if CONFIG_FEATURE_INSTRUMENT_HOST && !CONFIG_DEBUG_INITIALISE
         set_msr(MSR_LSTAR, cpu->msr_lstar);
 #endif
 
@@ -153,7 +153,6 @@ namespace granary {
 
     void cpu_state::init_late(void) throw() {
         eflags flags;
-
         for(unsigned i(0); i < MAX_NUM_CPUS; ++i) {
 
             if(!CPU_STATES[i]) {

@@ -18,14 +18,7 @@
 
 
 extern "C" {
-
-
     extern granary::cpu_state *get_percpu_state(void *);
-
-
-    /// Allocates memory for an interrupt descriptor table.
-    extern granary::detail::interrupt_descriptor_table *
-    granary_allocate_idt(void);
 }
 
 
@@ -750,16 +743,16 @@ namespace granary {
         rm.revive(vector);
         rm.revive(reg::ret);
 
-#if !CONFIG_DEBUG_ASSERTIONS
         // Restore callee-saved registers, because `handle_interrupt` will
         // save them for us (because it respects the ABI).
-        rm.revive(reg::rbx);
-        rm.revive(reg::rbp);
-        rm.revive(reg::r12);
-        rm.revive(reg::r13);
-        rm.revive(reg::r14);
-        rm.revive(reg::r15);
-#endif
+        IF_NOT_TEST(
+            rm.revive(reg::rbx);
+            rm.revive(reg::rbp);
+            rm.revive(reg::r12);
+            rm.revive(reg::r13);
+            rm.revive(reg::r14);
+            rm.revive(reg::r15);
+        )
 
         // Get ready to switch stacks and call out to the handler.
         instruction in(save_and_restore_registers(rm, ls, in_kernel));
@@ -904,8 +897,11 @@ namespace granary {
 
 
     /// Used to share IDTs across multiple CPUs.
-    static system_table_register_t PREV_IDTR;
-    static system_table_register_t PREV_IDTR_GEN;
+    static system_table_register_t PREV_IDTR = {0, nullptr};
+    static system_table_register_t PREV_IDTR_GEN = {0, nullptr};
+
+
+    static detail::interrupt_descriptor_table GLOBAL_IDT;
 
 
     /// Create a Granary version of the interrupt descriptor table. This does
@@ -922,10 +918,13 @@ namespace granary {
             return PREV_IDTR_GEN;
         }
 
+        // TODO: Add support for multiple IDTs later.
+        ASSERT(!PREV_IDTR.base);
+
         PREV_IDTR = native;
 
         system_table_register_t instrumented;
-        detail::interrupt_descriptor_table *idt(granary_allocate_idt());
+        detail::interrupt_descriptor_table *idt(&GLOBAL_IDT);
         detail::interrupt_descriptor_table *kernel_idt(
             unsafe_cast<detail::interrupt_descriptor_table *>(native.base));
 

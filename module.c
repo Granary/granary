@@ -147,12 +147,6 @@ int granary_fault(void) {
 }
 
 
-/// Allocate memory for an interrupt descriptor table (IDT).
-void *granary_allocate_idt(void) {
-    return (void *) __get_free_page(GFP_ATOMIC);
-}
-
-
 /// Run a function when all CPUs are synchronized.
 static int do_init_sync(void *func) {
     ((void (*)(void)) func)();
@@ -280,6 +274,8 @@ static void set_page_perms(
 
     } else if(end_pfn == begin_pfn) {
         set_memory_(begin_pfn << PAGE_SHIFT, 1);
+    } else {
+        granary_fault();
     }
 }
 

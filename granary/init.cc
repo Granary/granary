@@ -91,6 +91,7 @@ namespace granary {
 
             IF_TEST( cpu->in_granary = false; )
             cpu.free_transient_allocators();
+
             ASM(
                 "movq %0, %%" TO_STRING(ARG1) ";"
                 TO_STRING(PUSHA_ASM_ARG)

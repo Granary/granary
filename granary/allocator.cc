@@ -51,8 +51,7 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-        CODE_CACHE_SIZE = 40 * _1_MB,
-        _1_P = 4096,
+        CODE_CACHE_SIZE = 20 * _1_MB,
 
         // Maximum size of the part of the code cache containing basic blocks /
         // fragments.
@@ -109,7 +108,7 @@ namespace granary { namespace detail {
 #if CONFIG_ENV_KERNEL
         kernel_make_pages_executable(
             &(EXECUTABLE_AREA[0]),
-            &(EXECUTABLE_AREA[NUM_EXEC_PAGES - 1])
+            &(EXECUTABLE_AREA[NUM_EXEC_PAGES])
         );
 #else
         mprotect(
@@ -203,7 +202,7 @@ GRANARY_DETACH_POINT_ERROR(granary::detail::global_free_executable)
 namespace granary { namespace detail {
 
     enum {
-        HEAP_SIZE = _1_MB * IF_USER_ELSE(100, 70),
+        HEAP_SIZE = _1_MB * IF_USER_ELSE(100, 30),
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(uintptr_t) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),

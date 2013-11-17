@@ -266,12 +266,14 @@ namespace granary {
 
         // Restore callee-saved registers, because the global code cache routine
         // respects the ABI.
-        all_regs.revive(reg::rbx);
-        all_regs.revive(reg::rbp);
-        all_regs.revive(reg::r12);
-        all_regs.revive(reg::r13);
-        all_regs.revive(reg::r14);
-        all_regs.revive(reg::r15);
+        IF_NOT_TEST(
+            all_regs.revive(reg::rbx);
+            all_regs.revive(reg::rbp);
+            all_regs.revive(reg::r12);
+            all_regs.revive(reg::r13);
+            all_regs.revive(reg::r14);
+            all_regs.revive(reg::r15);
+        )
 
         // Create a "safe" region of code around which all registers are saved
         // and restored.

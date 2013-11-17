@@ -111,7 +111,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 1
+#define CONFIG_DEBUG_TRACE_EXECUTION 0
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
@@ -172,6 +172,11 @@
 #endif
 
 
+/// Debug the initialisation of Granary, but make sure that it doesn't actually
+/// take over anything.
+#define CONFIG_DEBUG_INITIALISE 0
+
+
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
 /// detach when certain functions are called. When Granary detaches, it will
 /// sometimes call a "wrapped" version of the intended function, which may or
@@ -213,7 +218,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 1
+#define CONFIG_DEBUG_ASSERTIONS 0
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.
 #else
