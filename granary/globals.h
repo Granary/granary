@@ -154,7 +154,7 @@
 ///
 /// Note: This is a very very aggressive translation approach, and might
 ///       perform badly with policies.
-#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 0
+#define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 1
 
 
 /// Enable performance counters and reporting. Performance counters measure

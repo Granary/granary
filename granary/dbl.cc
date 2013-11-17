@@ -14,6 +14,9 @@
 #include "granary/spin_lock.h"
 #include "granary/emit_utils.h"
 
+#include "granary/basic_block.h"
+#include "granary/basic_block_info.h"
+
 namespace granary {
 
 
@@ -113,6 +116,17 @@ namespace granary {
         default: break;
         }
 
+        // Get the original CTI that we're going to patch.
+        app_pc patch_address(patch->in_to_patch.translation);
+        ASSERT(is_code_cache_address(patch_address));
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        // Propagate the allocator through direct control flow instructions.
+        const basic_block_info * const source_bb_info(
+            find_basic_block_info(patch_address));
+        cpu->current_fragment_allocator = source_bb_info->allocator;
+#endif
+
         app_pc target_pc(code_cache::find(cpu, patch->target_address));
 
         // Tell concurrent patchers that the patch is done, even before it is!
@@ -123,14 +137,6 @@ namespace granary {
         // Make sure we return to the destination of the instruction we're
         // patching, rather than re-executing the original instruction.
         *ret_address_addr = patch->translated_target_address;
-
-        // Get the original code. Note: We get the code before we decode the
-        // instruction, which means that the decoded instruction *could* see
-        // a newer version of the code. We accept this as it will allow us to
-        // detect whether or not the code was patched (because the decoded old
-        // CTI will no longer point into gencode).
-        app_pc patch_address(patch->in_to_patch.translation);
-        ASSERT(is_code_cache_address(patch_address));
 
         uint64_t *code_to_patch(reinterpret_cast<uint64_t *>(patch_address));
         uint64_t original_code(*code_to_patch);
@@ -146,7 +152,8 @@ namespace granary {
 
         // Make sure the patch is not crossing a cache line boundary.
         ASSERT(old_cti_len == new_cti_len);
-        ASSERT(((old_cti_addr % CACHE_LINE_SIZE) + old_cti_len) <= CACHE_LINE_SIZE);
+        ASSERT(((old_cti_addr % CACHE_LINE_SIZE) + old_cti_len)
+               <= CACHE_LINE_SIZE);
 
         // Create a bitmask that will allow us to diagnose why a compare&swap
         // might fail. Under normal circumstances (e.g. null tool), we wouldn't
