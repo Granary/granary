@@ -125,6 +125,8 @@ namespace granary {
         TEST_POLICY = granary::policy_for<granary::test_policy>();
         TEST_POLICY.force_attach(true);
         TEST_POLICY.return_address_in_code_cache(true);
+        TEST_POLICY.begins_functional_unit(true);
+        TEST_POLICY.in_host_context(false);
 
         static_test_list *test(STATIC_TEST_LIST_HEAD.next);
         for(; test; test = test->next) {
@@ -134,7 +136,7 @@ namespace granary {
                 IF_KERNEL( eflags flags = granary_disable_interrupts(); )
                 cpu_state_handle cpu;
                 IF_TEST( cpu->in_granary = false; )
-                cpu.free_transient_allocators();
+                enter(cpu);
 
                 ASM(
                     "movq %0, %%" TO_STRING(ARG1) ";"

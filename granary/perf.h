@@ -24,6 +24,8 @@ namespace granary {
     struct perf {
 
         static void visit_trace(unsigned num_bbs) throw();
+        static void visit_split_block(void) throw();
+        static void visit_unsplittable_block(void) throw();
 
         static void visit_decoded(const instruction ) throw();
         static void visit_encoded(const instruction ) throw();

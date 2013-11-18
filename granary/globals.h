@@ -124,12 +124,16 @@
 /// Enable the trace allocator? The trace allocator tries to approximate trace
 /// building by having a basic block fragment allocated in the same slab (if
 /// possible) as its successor basic block.
-#define CONFIG_ENABLE_TRACE_ALLOCATOR 0
+#if GRANARY_ENV_KERNEL
+#   define CONFIG_ENABLE_TRACE_ALLOCATOR 1
+#else
+#   define CONFIG_ENABLE_TRACE_ALLOCATOR 0 // Can't change.
+#endif
 
 
 /// Optional trace allocator sub-option: Should all syscall entrypoints be
 /// treated as distinct traces?
-#define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 0
+#define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 1
 
 
 /// Optional trace allocator sub-option, which can be combined with other
@@ -137,8 +141,8 @@
 /// code into their own trace allocators?
 ///
 /// Note: These cannot be combined with functional unit tracing.
-#define CONFIG_TRACE_ALLOCATE_MM 0
-#define CONFIG_TRACE_ALLOCATE_SCHEDULE 0
+#define CONFIG_TRACE_ALLOCATE_MM 1
+#define CONFIG_TRACE_ALLOCATE_SCHEDULE 1
 
 
 /// Optional trace allocator sub-option: Should all functional units be treated
@@ -170,7 +174,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 1
+#define CONFIG_DEBUG_PERF_COUNTS 0
 
 
 /// Enable profiling of indirect jumps and indirect calls.
@@ -229,7 +233,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 1
+#define CONFIG_DEBUG_ASSERTIONS 0
 
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.

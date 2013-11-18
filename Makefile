@@ -390,6 +390,7 @@ ifeq (1,$(GR_TESTS))
 	GR_OBJS += $(BIN_DIR)/tests/test_mat_mul.o
 	GR_OBJS += $(BIN_DIR)/tests/test_md5.o
 	GR_OBJS += $(BIN_DIR)/tests/test_sigsetjmp.o
+	GR_OBJS += $(BIN_DIR)/tests/test_trace_block_split.o
 endif
 
 GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow

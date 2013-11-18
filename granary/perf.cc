@@ -41,6 +41,8 @@ namespace granary {
 
     /// Performance counter for tracking basic blocks and their instructions.
     static std::atomic<unsigned> NUM_TRACES(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_UNSPLITTABLE_BBS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_SPLIT_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_TRACE_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BBS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned> NUM_BB_INSTRUCTION_BYTES(ATOMIC_VAR_INIT(0U));
@@ -139,6 +141,16 @@ namespace granary {
             NUM_TRACES.fetch_add(1);
             NUM_TRACE_BBS.fetch_add(num_bbs);
         }
+    }
+
+
+    void perf::visit_split_block(void) throw() {
+        NUM_SPLIT_BBS.fetch_add(1);
+    }
+
+
+    void perf::visit_unsplittable_block(void) throw() {
+        NUM_UNSPLITTABLE_BBS.fetch_add(1);
     }
 
 
@@ -317,6 +329,10 @@ namespace granary {
             NUM_TRACE_BBS.load());
         printf("Number of basic blocks: %u\n",
             NUM_BBS.load());
+        printf("Number of split basic blocks: %u\n",
+            NUM_SPLIT_BBS.load());
+        printf("Number of non-splittable basic blocks: %u\n",
+            NUM_UNSPLITTABLE_BBS.load());
         printf("Number of functional units: %u\n",
             NUM_FUNCTIONAL_UNITS.load());
         printf("Number of application instruction bytes: %u\n\n",
