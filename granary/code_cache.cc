@@ -108,8 +108,8 @@ namespace granary {
     /// the code cache.
     app_pc code_cache::find(
         cpu_state_handle cpu,
-        const mangled_address addr
-        _IF_PROFILE_IBL(app_pc source_addr)
+        const mangled_address addr,
+        app_pc indirect_cache_source_addr
     ) throw() {
         IF_TEST( cpu->last_find_address = addr.unmangled_address(); )
         IF_PERF( perf::visit_address_lookup(); )
@@ -202,15 +202,29 @@ namespace granary {
 #endif
         }
 
-#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_ALLOCATE_FUNCTIONAL_UNITS
+#if CONFIG_ENABLE_TRACE_ALLOCATOR && !CONFIG_TRACE_ALLOCATE_FUNCTIONAL_UNITS
+        // Allocator inheritance through indirect control flow instructions.
+        // The direct branch lookup patcher (`granary/dbl.cc`) manages
+        // allocator inheritance for direct control flow instructions.
+        if(indirect_cache_source_addr) {
+            ASSERT(is_code_cache_address(indirect_cache_source_addr));
+            ASSERT(policy.is_indirect_cti_target() || policy.is_return_target());
+            const basic_block_info * const source_bb_info(
+                find_basic_block_info(indirect_cache_source_addr));
+            cpu->current_fragment_allocator = source_bb_info->allocator;
+        }
+#endif
+        UNUSED(indirect_cache_source_addr);
+
         // If this basic block begins a new functional unit then locate its
         // basic blocks in a new allocator.
         if(policy.is_beginning_of_functional_unit()) {
             IF_PERF( perf::visit_functional_unit(); )
+#if CONFIG_ENABLE_TRACE_ALLOCATOR && CONFIG_TRACE_ALLOCATE_FUNCTIONAL_UNITS
             cpu->current_fragment_allocator = \
                 allocate_memory<generic_fragment_allocator>();
-        }
 #endif
+        }
 
         cpu->current_fragment_allocator->lock_coarse(IF_TEST(cpu->id));
 
@@ -306,12 +320,12 @@ namespace granary {
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(cpu_state_handle, mangled_address _IF_PROFILE_IBL( app_pc )))
+        (app_pc (*)(cpu_state_handle, mangled_address, app_pc))
             code_cache::find)
 
 
     GRANARY_DETACH_POINT_ERROR(
-        (app_pc (*)(mangled_address _IF_PROFILE_IBL( app_pc ))) code_cache::find)
+        (app_pc (*)(mangled_address, app_pc)) code_cache::find)
 
 
     GRANARY_DETACH_POINT_ERROR(

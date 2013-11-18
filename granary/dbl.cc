@@ -130,6 +130,8 @@ namespace granary {
         app_pc target_pc(code_cache::find(cpu, patch->target_address));
 
         // Tell concurrent patchers that the patch is done, even before it is!
+        // This is fine because they will redirect to the destination, not back
+        // to the instruction being patched.
         std::atomic_thread_fence(std::memory_order_acquire);
         patch->translated_target_address = target_pc;
         std::atomic_thread_fence(std::memory_order_release);
@@ -138,60 +140,29 @@ namespace granary {
         // patching, rather than re-executing the original instruction.
         *ret_address_addr = patch->translated_target_address;
 
-        uint64_t *code_to_patch(reinterpret_cast<uint64_t *>(patch_address));
-        uint64_t original_code(*code_to_patch);
-        uint64_t staged_code(original_code);
+        uint64_t staged_code(0);
         app_pc staged_data(reinterpret_cast<app_pc>(&staged_code));
 
-        instruction new_cti(instruction::decode(&patch_address));
+        app_pc decode_address(patch_address);
+        instruction new_cti(instruction::decode(&decode_address));
+
         IF_TEST( const unsigned old_cti_len(new_cti.encoded_size()); )
-        IF_TEST( const uintptr_t old_cti_addr(
-            reinterpret_cast<uintptr_t>(new_cti.pc_or_raw_bytes())); )
+
         new_cti.set_cti_target(pc_(target_pc));
+        new_cti.stage_encode(staged_data, patch_address);
         const unsigned new_cti_len(new_cti.encoded_size());
 
-        // Make sure the patch is not crossing a cache line boundary.
         ASSERT(old_cti_len == new_cti_len);
-        ASSERT(((old_cti_addr % CACHE_LINE_SIZE) + old_cti_len)
-               <= CACHE_LINE_SIZE);
 
-        // Create a bitmask that will allow us to diagnose why a compare&swap
-        // might fail. Under normal circumstances (e.g. null tool), we wouldn't
-        // actually need to check whether the compare&swap succeeds because
-        // control cannot jump over a patch. However, it's entirely possible for
-        // another tool to place two hot-patchable CTIs side-by-side, and
-        // conditionally jump to one or another.
-        uint64_t code_mask(0ULL);
-        memset(&code_mask, 0xFF, new_cti_len);
-        const uint64_t masked_head(original_code & code_mask);
+        const unsigned rel32_offset(new_cti_len - sizeof(uint32_t));
+        const uint32_t new_rel32(
+            *unsafe_cast<uint32_t *>(&(staged_data[rel32_offset])));
+        uint32_t *old_rel32(
+            unsafe_cast<uint32_t *>(&(patch_address[rel32_offset])));
 
-        IF_TEST( int i(0); )
-        for(; IF_TEST(i < 2); IF_TEST(++i)) {
-
-            // Fill the staged code with NOPs where the old CTI was.
-            memset(staged_data, 0x90, new_cti_len);
-            new_cti.stage_encode(staged_data, patch->in_to_patch.translation);
-
-            // Apply the patch.
-            const bool applied_patch(__sync_bool_compare_and_swap(
-                code_to_patch, original_code, staged_code));
-
-            if(applied_patch) {
-                break;
-            }
-
-            // Get the new version of the code.
-            original_code = *code_to_patch;
-            staged_code = original_code;
-
-            // Ignorable failure; the instruction was concurrently patched by
-            // another thread/core.
-            if(masked_head != (original_code & code_mask)) {
-                break;
-            }
-        }
-
-        ASSERT(2 > i);
+        std::atomic_thread_fence(std::memory_order_acquire);
+        *old_rel32 = new_rel32;
+        std::atomic_thread_fence(std::memory_order_release);
 
         patch->lock.release();
     }

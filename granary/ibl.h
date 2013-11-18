@@ -32,8 +32,7 @@ namespace granary {
     void ibl_lookup_stub(
         instruction_list &ibl,
         instruction in,
-        instrumentation_policy policy,
-        app_pc cti_addr
+        instrumentation_policy policy
     ) throw();
 
 

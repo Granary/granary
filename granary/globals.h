@@ -113,7 +113,7 @@
 /// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_DEBUG_TRACE_EXECUTION 0
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
-#define CONFIG_DEBUG_TRACE_RECORD_REGS 1
+#define CONFIG_DEBUG_TRACE_RECORD_REGS 0
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
 
 
@@ -130,6 +130,15 @@
 /// Optional trace allocator sub-option: Should all syscall entrypoints be
 /// treated as distinct traces?
 #define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 0
+
+
+/// Optional trace allocator sub-option, which can be combined with other
+/// sub-options: Should we also isolate the memory management and scheduler
+/// code into their own trace allocators?
+///
+/// Note: These cannot be combined with functional unit tracing.
+#define CONFIG_TRACE_ALLOCATE_MM 0
+#define CONFIG_TRACE_ALLOCATE_SCHEDULE 0
 
 
 /// Optional trace allocator sub-option: Should all functional units be treated
@@ -161,10 +170,12 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 0
+#define CONFIG_DEBUG_PERF_COUNTS 1
 
 
 /// Enable profiling of indirect jumps and indirect calls.
+///
+/// TODO: Re-implement IBL profiling.
 #if CONFIG_DEBUG_PERF_COUNTS
 #   define CONFIG_DEBUG_PROFILE_IBL 0
 #else
@@ -186,8 +197,8 @@
 ///
 /// Note: Currently, Granary does not support wrappers with transparent return
 ///       addresses, partly due to its inability to regain control in some
-///       circumstance (which is addressable) and partly because of its inability
-///       to regain control in the proper policy.
+///       circumstance (which is addressable) and partly because of its
+///       inability to regain control in the proper policy.
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_FEATURE_WRAPPERS (!CONFIG_FEATURE_INSTRUMENT_HOST)
 #else
@@ -218,7 +229,8 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 0
+#define CONFIG_DEBUG_ASSERTIONS 1
+
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.
 #else

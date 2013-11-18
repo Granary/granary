@@ -80,6 +80,7 @@ namespace granary {
 
     /// NOPs added to get specific alignments.
     static std::atomic<unsigned> NUM_ALIGN_NOP_INSTRUCTIONS(ATOMIC_VAR_INIT(0U));
+    static std::atomic<unsigned> NUM_ALIGN_PREFIXES(ATOMIC_VAR_INIT(0U));
 
 
     /// Tracking the number if code cache address lookups.
@@ -256,6 +257,11 @@ namespace granary {
     }
 
 
+    void perf::visit_align_prefix(void) throw() {
+        NUM_ALIGN_PREFIXES.fetch_add(1);
+    }
+
+
     void perf::visit_functional_unit(void) throw() {
         NUM_FUNCTIONAL_UNITS.fetch_add(1);
     }
@@ -354,8 +360,11 @@ namespace granary {
 
         printf("Number of extra instructions to mangle memory refs: %u\n\n",
             NUM_MEM_REF_INSTRUCTIONS.load());
-        printf("Number of alignment NOPs: %u\n\n",
+
+        printf("Number of alignment NOPs: %u\n",
             NUM_ALIGN_NOP_INSTRUCTIONS.load());
+        printf("Number of alignment prefixes: %u\n\n",
+            NUM_ALIGN_PREFIXES.load());
 
         printf("Number of global code cache address lookups: %u\n",
             NUM_ADDRESS_LOOKUPS.load());

@@ -50,7 +50,7 @@ namespace granary {
     /// Nice names for registers used by the IBL.
     static operand reg_target_addr;
     static operand reg_target_addr_16;
-    IF_PROFILE_IBL( static operand reg_source_addr; )
+    static operand reg_source_addr;
 
 
     static app_pc GLOBAL_CODE_CACHE_ROUTINE = nullptr;
@@ -62,8 +62,7 @@ namespace granary {
     void ibl_lookup_stub(
         instruction_list &ibl,
         instruction in,
-        instrumentation_policy policy,
-        app_pc cti_addr
+        instrumentation_policy policy
     ) throw() {
 
         // On the stack:
@@ -81,18 +80,15 @@ namespace granary {
             int16_((int64_t) (int16_t) granary_bswap16(policy.encode()))));
         ibl.insert_before(in, bswap_(reg_target_addr));
 
-#if CONFIG_DEBUG_PROFILE_IBL
         // Spill the source address for use by the IBL profiling.
         ibl.insert_before(in, push_(reg_source_addr));
-        ibl.insert_before(in, mov_imm_(
-            reg_source_addr,
-            int64_(reinterpret_cast<uint64_t>(cti_addr))));
-#endif
+        instruction block_instr(ibl.insert_before(in, label_()));
+        ibl.insert_before(in, mov_imm_(reg_source_addr, instr_(block_instr)));
 
         // On the stack:
         //      reg_target_addr         (saved: arg1, mangled target address)
         //      rax
-        //      source addr             (cond. saved: IBL profiling)
+        //      source addr             (IBL profiling, trace allocating)
 
         // Save the flags.
         insert_save_arithmetic_flags_after(ibl, in.prev(), REG_AH_IS_DEAD);
@@ -116,8 +112,6 @@ namespace granary {
 
         // Go off to either `code_cache::find` or a target-specific checker.
         ibl.insert_before(in, mangled(jmp_ind_(*reg::rax)));
-
-        UNUSED(cti_addr);
     }
 
 
@@ -149,7 +143,7 @@ namespace granary {
         // On the stack:
         //      reg_target_addr         (saved: arg1)
         //      rax                     (saved, can be clobbered)
-        //      reg_source_addr         (cond. saved: IBL profiling)
+        //      reg_source_addr         (saved: IBL profiling, trace allocating)
         //      aithmetic flags         (saved)
         ibl.append(mov_imm_(
             reg::rax, int64_(reinterpret_cast<uint64_t>(mangled_target_pc))));
@@ -190,7 +184,7 @@ namespace granary {
 
         // Hit! We found the right target.
         insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
+        ibl.append(pop_(reg_source_addr));
         ibl.append(pop_(reg::rax));
 
         // CASE 2: The compare from case (1) succeeded, or we're coming in from
@@ -252,7 +246,7 @@ namespace granary {
         //      reg_target_addr         (saved: arg1, mangled address)
         //      rax                     (saved: can be clobbered)
         //      arithmetic flags        (saved)
-        //      reg_source_addr         (cond. saved: IBL profiling)
+        //      reg_source_addr         (saved: IBL profiling, trace allocating)
 
         IF_KERNEL( insert_restore_arithmetic_flags_after(
             ibl, ibl.last(), REG_AH_IS_DEAD); )
@@ -310,7 +304,7 @@ namespace granary {
             ibl, ibl.last(), REG_AH_IS_DEAD); )
 
         // Restore the source address if profiling.
-        IF_PROFILE_IBL( ibl.append(pop_(reg_source_addr)); )
+        ibl.append(pop_(reg_source_addr));
 
         ibl.append(pop_(reg::rax));
 
@@ -336,10 +330,10 @@ namespace granary {
         // file.
         reg_target_addr = reg::arg1;
         reg_target_addr_16 = reg::arg1_16;
-        IF_PROFILE_IBL( reg_source_addr = reg::arg2; )
+        reg_source_addr = reg::arg2;
 
         global_code_cache_find = unsafe_cast<app_pc>(
-            (app_pc (*)(mangled_address _IF_PROFILE_IBL(app_pc))) code_cache::find);
+            (app_pc (*)(mangled_address, app_pc)) code_cache::find);
 
         // Double check that our hash function is valid.
         app_pc i_ptr(nullptr);

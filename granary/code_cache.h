@@ -39,13 +39,13 @@ namespace granary {
         GRANARY_ENTRYPOINT
         __attribute__((hot))
         inline static app_pc find(
-            mangled_address target_addr
-            _IF_PROFILE_IBL(app_pc source_addr)
+            mangled_address target_addr,
+            app_pc indirect_cache_source_addr=nullptr
         ) throw() {
             IF_KERNEL( eflags flags(granary_disable_interrupts()); )
             cpu_state_handle cpu;
             enter(cpu);
-            app_pc ret(find(cpu, target_addr _IF_PROFILE_IBL(source_addr)));
+            app_pc ret(find(cpu, target_addr, indirect_cache_source_addr));
             IF_KERNEL( granary_store_flags(flags); )
             return ret;
         }
@@ -76,8 +76,8 @@ namespace granary {
         __attribute__((hot))
         static app_pc find(
             cpu_state_handle cpu,
-            const mangled_address addr
-            _IF_PROFILE_IBL( app_pc source_addr=nullptr )
+            const mangled_address addr,
+            app_pc indirect_cache_source_addr=nullptr
         ) throw();
 
 

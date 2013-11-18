@@ -124,23 +124,6 @@ namespace granary {
         if(dynamorio::OP_int3 == op_code()) {
             granary_do_break_on_translate = true;
         }
-
-        if(is_patchable()) {
-            enum {
-
-                // We use JMP length (5) instead of COND_JMP_LENGTH (6) because
-                // `instruction_list_mangler::align` treats conditional JMPs
-                // specially (by converting them into a 5-byte JMP followed by
-                // a 1-byte NOP).
-                JMP_LENGTH = 5
-            };
-
-            const uintptr_t addr(reinterpret_cast<uintptr_t>(pc_));
-            ASSERT(((addr % CONFIG_ARCH_CACHE_LINE_SIZE) + JMP_LENGTH)
-                    <= CONFIG_ARCH_CACHE_LINE_SIZE);
-
-            USED(*this);
-        }
 #endif
 
         // Address calculation for relative jumps uses the note

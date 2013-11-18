@@ -58,8 +58,6 @@ namespace granary {
             target = cti.cti_target();
         }
 
-        const app_pc cti_addr(cti.pc());
-
         // Isolate the IBL instructions (for the time being) because we don't
         // know if we're going to add them to stub code or to a basic block.
         instruction_list ibl(INSTRUCTION_LIST_STUB);
@@ -190,7 +188,7 @@ namespace granary {
             ls.insert_before(cti, ibl_in);
         }
 
-        ibl_lookup_stub(ls, cti, target_policy, cti_addr);
+        ibl_lookup_stub(ls, cti, target_policy);
         ls.remove(cti);
     }
 
@@ -795,29 +793,90 @@ namespace granary {
         instruction_list &ls,
         unsigned curr_align
     ) throw() {
+        enum {
+            JCC_OPCODE_SIZE = 2,
+            CALL_JMP_OPCODE_SIZE = 1,
+            REL32_OFFSET_SIZE = 4
+        };
+
         instruction in;
         instruction next_in;
         unsigned size(0);
 
         for(in = ls.first(); in.is_valid(); in = next_in) {
             next_in = in.next();
-            unsigned in_size(in.encoded_size());
+
+            const unsigned opcode_size(in.is_unconditional_cti()
+                ? CALL_JMP_OPCODE_SIZE : JCC_OPCODE_SIZE);
+
+            // Strip the instruction of branch hint prefixes if it has any.
+            if(JCC_OPCODE_SIZE == opcode_size
+            && (in.instr->prefixes & (PREFIX_JCC_NOT_TAKEN | PREFIX_JCC_TAKEN))) {
+                in.instr->prefixes &= ~(PREFIX_JCC_NOT_TAKEN | PREFIX_JCC_TAKEN);
+                in.invalidate_raw_bits();
+            }
+
             const bool is_hot_patchable(in.is_patchable());
-            const unsigned cache_line_offset(
-                curr_align % CONFIG_ARCH_CACHE_LINE_SIZE);
+            unsigned in_size(in.encoded_size());
+            if(!is_hot_patchable) {
+                curr_align += in_size;
+                size += in_size;
+                continue;
+            }
+
+            ASSERT(in_size == (opcode_size + REL32_OFFSET_SIZE));
+            ASSERT(in.is_cti());
+
+            const unsigned cache_line_offset(curr_align % CACHE_LINE_SIZE);
 
             // Make sure that hot-patchable instructions don't cross cache
             // line boundaries.
-            if(is_hot_patchable
-            && CONFIG_ARCH_CACHE_LINE_SIZE < (cache_line_offset + in_size)) {
-                ASSERT(in.prev().is_valid());
-                const unsigned forward_align(
-                    CONFIG_ARCH_CACHE_LINE_SIZE - cache_line_offset);
-                ASSERT(8 > forward_align);
+            if(CACHE_LINE_SIZE >= (cache_line_offset + in_size)) {
+                curr_align += in_size;
+                size += in_size;
+                continue;
+            }
+
+            unsigned forward_align(CACHE_LINE_SIZE - cache_line_offset);
+
+            // Fine-grained check: make sure that the RIP-relative component
+            // of the hot-patchable instruction doesn't cross a cache line
+            // boundary.
+            if(forward_align <= opcode_size) {
+                curr_align += in_size;
+                size += in_size;
+                continue;
+            }
+
+            // Only align the instruction far enough forward so that the RIP-
+            // rel32 component is in the next cache line.
+            forward_align -= opcode_size;
+
+            ASSERT(in.prev().is_valid());
+            ASSERT(8 > forward_align);
+
+            unsigned prefix_align(0);
+            if(JCC_OPCODE_SIZE == opcode_size) {
+                prefix_align = 1;
+                forward_align -= 1;
+            }
+
+            // For unconditional CTIs (JMP, CALL), or Jccs that need more
+            // than 1 byte of padding, we use NOP-based padding.
+            if(forward_align) {
                 insert_nops_after(ls, in.prev(), forward_align);
-                in_size += forward_align;
                 IF_PERF( perf::visit_align_nop(forward_align); )
             }
+
+            // For Jccs that need only 1 byte of alignment, we can use a
+            // 1-byte branch prediction prefix.
+            if(prefix_align) {
+                in.instr->prefixes |= PREFIX_JCC_NOT_TAKEN;
+                IF_PERF( perf::visit_align_prefix(); )
+            }
+
+            // Update the size of the instruction.
+            in_size += forward_align + prefix_align;
 
             curr_align += in_size;
             size += in_size;

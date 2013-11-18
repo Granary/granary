@@ -53,6 +53,7 @@ namespace granary {
         static void visit_mem_ref(unsigned) throw();
 
         static void visit_align_nop(unsigned) throw();
+        static void visit_align_prefix(void) throw();
 
         static void visit_functional_unit(void) throw();
 
