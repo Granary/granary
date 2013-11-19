@@ -38,20 +38,20 @@ namespace client {
             NUM_HIGH_ORDER_BITS         = WP_COUNTER_INDEX_WIDTH,
 
             /// Number of inherited index bits.
-            NUM_INHERITED_INDEX_BITS      = WP_INHERITED_INDEX_WIDTH,
+            NUM_INHERITED_INDEX_BITS    = WP_INHERITED_INDEX_WIDTH,
 
             /// Offset of inherited index bits.
-            INHERITED_INDEX_OFFSET        = WP_INHERITED_INDEX_GRANULARITY,
+            INHERITED_INDEX_OFFSET      = WP_INHERITED_INDEX_GRANULARITY,
 
             /// Mask for extracting the inherited index.
 #if WP_USE_INHERITED_INDEX
-            INHERITED_INDEX_MASK          = (
+            INHERITED_INDEX_MASK        = (
                 (((~0ULL)
                     << (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS))
                     >> (NUM_BITS_PER_ADDR - NUM_INHERITED_INDEX_BITS
                                           - INHERITED_INDEX_OFFSET))),
 #else
-            INHERITED_INDEX_MASK          = (1 << NUM_INHERITED_INDEX_BITS) - 1,
+            INHERITED_INDEX_MASK        = (1 << NUM_INHERITED_INDEX_BITS) - 1,
 #endif
 
             /// Maximum counter index (inclusive).
@@ -244,18 +244,6 @@ namespace client {
             watchpoint_tracker &tracker,
             granary::instruction_list &ls
         ) throw();
-
-
-#   if !CONFIG_ENV_KERNEL
-        /// Add in a user space redzone guard if necessary. This looks for a PUSH
-        /// instruction anywhere between `first` and `last` and if it finds one then
-        /// it guards the entire instrumented block with a redzone shift.
-        void guard_redzone(
-            granary::instruction_list &ls,
-            granary::instruction first,
-            granary::instruction last
-        ) throw();
-#   endif /* CONFIG_ENV_KERNEL */
 
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
@@ -713,8 +701,6 @@ namespace client {
                         Watcher::visit_write(bb, ls, tracker, i);
                     }
                 }
-
-                IF_USER( wp::guard_redzone(ls, first, last); )
             }
 
             // Apply any minor peephole optimisations to get rid of redundant

@@ -504,7 +504,8 @@ namespace granary {
             // so that a debugger can see the related source code nicely.
             if(dynamorio::OP_ud2a == in.op_code()
             || dynamorio::OP_ud2b == in.op_code()
-            || dynamorio::OP_int3 == in.op_code()) { // GDB breakpoints.
+            || dynamorio::OP_int3 == in.op_code() // GDB breakpoints.
+            IF_USER( || dynamorio::OP_hlt == in.op_code() )) {
                 *pc = in.pc();
                 fall_through_detach = true;
                 break;

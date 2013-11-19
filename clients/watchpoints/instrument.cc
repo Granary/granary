@@ -603,49 +603,131 @@ namespace client { namespace wp {
 
 
 #if !CONFIG_ENV_KERNEL
-    /// Add in a user space redzone guard if necessary. This looks for a PUSH
-    /// instruction anywhere between `first` and `last` and if it finds one then
-    /// it guards the entire instrumented block with a redzone shift.
-    void guard_redzone(
-        instruction_list &ls,
-        instruction first,
-        instruction last
-    ) throw() {
-        bool has_push(false);
-        for(instruction in(first.next());
-            in != last && in.is_valid();
-            in = in.next()) {
-
-            // TODO: Be more strict.
-            if(dynamorio::OP_push == in.op_code()
-            || dynamorio::OP_call == in.op_code()) {
-                has_push = true;
-                break;
+    /// Adjusts an argument for the redzone.
+    ///
+    /// TODO: Ignores operands with RSP as an index register.
+    static void adjust_base_disp_for_redzone(
+        operand_ref &op,
+        bool &observes_rsp,
+        bool &adjusted
+    ) {
+        if(dynamorio::BASE_DISP_kind != op->kind
+        || dynamorio::DR_REG_RSP != op->value.base_disp.base_reg) {
+            if(dynamorio::REG_kind == op->kind
+            && dynamorio::DR_REG_RSP == op->value.reg) {
+                observes_rsp = true;
             }
-        }
-
-        if(!has_push) {
             return;
         }
 
-        ls.insert_after(first, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
-
-        // TODO: Try to merge adjacent redzone guards.
-
-        ls.insert_before(last, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+        operand replacement(*op);
+        replacement.value.base_disp.disp += REDZONE_SIZE;
+        op.replace_with(replacement);
+        adjusted = true;
     }
 #endif
 
 
-    /// Post-process that instrumented instructions. This looks for
-    /// minor peephole optimisation opportunities.
+    /// Post-process that instrumented instructions. This adds in redzone guards
+    /// into the instruction list.
     void watchpoint_tracker::post_process_instructions(instruction_list &ls) {
         UNUSED(ls);
         /// TODO: Implement `TARGETED_BY_CTI` in instruction state bits, then
         ///       look for PUSH X; POP X or PUSH X; untargeted labels; POP X and
         ///       elide these instructions.
 
-        /// TODO: In user space, collapse adjacent redzone boundaries.
+#if !CONFIG_ENV_KERNEL
+
+        // If this is a stub list, then we're translating an indirect CTI as
+        // part of a bigger list. In this stub list, we assume that the
+        // redzone does not apply.
+        if(ls.is_stub()) {
+            return;
+        }
+
+        bool guarded(false);
+
+        instruction prev_in;
+
+        for(in = ls.last(); in.is_valid(); in = prev_in) {
+            prev_in = in.prev();
+
+            bool adjusted_instruction(false);
+            bool observes_rsp(false);
+
+            // Defer CTIs with memory operands to stub instrumentation.
+            if(in.is_cti()) {
+                if(guarded && in.pc()) {
+                    guarded = false;
+                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+                }
+                continue;
+
+            // Guarded, native instruction.
+            } else if(guarded) {
+
+                // Native instruction.
+                if(in.pc()) {
+
+                    // Boundary conditions; CALL and RET are caught by the CTI
+                    // check above, and PUSH and POP are the other two stack-
+                    // based instructions where we can't change the displacement
+                    // from RSP in the operand.
+                    if(dynamorio::OP_push == in.op_code()
+                    || dynamorio::OP_pop == in.op_code()
+                    || dynamorio::OP_enter == in.op_code()
+                    || dynamorio::OP_leave == in.op_code()) {
+                        guarded = false;
+                        ls.insert_after(
+                            in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+                    } else {
+                        in.for_each_operand(
+                            adjust_base_disp_for_redzone,
+                            observes_rsp,
+                            adjusted_instruction);
+                    }
+
+                // Introduced instruction.
+                } else {
+                    if(dynamorio::OP_push != in.op_code()
+                    && dynamorio::OP_pop != in.op_code()
+                    && dynamorio::OP_enter != in.op_code()
+                    && dynamorio::OP_leave != in.op_code()) {
+                        in.for_each_operand(
+                            adjust_base_disp_for_redzone,
+                            observes_rsp,
+                            adjusted_instruction);
+                    }
+                }
+
+            // Not guarded.
+            //
+            // Here, we're really trying to guard against things like PUSH, POP,
+            // and CALL (i.e. save, restore, do something) that have likely
+            // been introduced by the instrumentation.
+            } else {
+                if(!in.pc()) {
+                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                    guarded = true;
+                    prev_in = in; // re-visit this instruction.
+                }
+            }
+
+            // If we're guarded and we didn't adjust the instruction, but it
+            // reads from %RSP, then unguard and hope for the best. If we're
+            // writing to RSP, then we're changing the stack anyway, so unguard.
+            //
+            // TODO: MOV (%RSP), %RSP; LEA (%RSP), %RSP; etc.
+            if(guarded && !adjusted_instruction && observes_rsp) {
+                guarded = false;
+                ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+            }
+        }
+
+        if(guarded) {
+            ls.prepend(lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+        }
+#endif
     }
 
 

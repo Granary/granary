@@ -111,7 +111,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 0
+#define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 0
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
@@ -174,7 +174,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 0
+#define CONFIG_DEBUG_PERF_COUNTS 1
 
 
 /// Enable profiling of indirect jumps and indirect calls.
@@ -233,7 +233,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 0
+#define CONFIG_DEBUG_ASSERTIONS 1
 
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.
