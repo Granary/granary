@@ -680,7 +680,7 @@ namespace granary {
             used_reg = dead_reg_id;
             first_in = ls.insert_before(in, mov_imm_(used_reg, int64_(addr)));
 
-        // spill a register, then use that register to load the value from
+        // Spill a register, then use that register to load the value from
         // memory. Note: the ordering of managing `first_in` is intentional and
         // done for delay propagation.
         } else {

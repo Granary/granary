@@ -308,12 +308,10 @@ namespace client { namespace wp {
                 }
 
                 // Might be a signal that a second register should be spilled.
-                USED(in);
                 if(dynamorio::instr_get_eflags(prev_in) & EFLAGS_READ_CF) {
                     USED(in);
                     reads_carry_flag = true;
                 }
-                USED(in);
 
                 num_memory_ops += tracker.num_ops;
                 live_regs.visit(prev_in);
@@ -330,11 +328,12 @@ namespace client { namespace wp {
             }
 
             // Not an interesting region.
-            if(2 >= region_length || 3 >= num_memory_ops || !missing_dead_reg) {
+            if(2 > region_length || 2 > num_memory_ops || !missing_dead_reg) {
                 continue;
             }
 
-            // Always try to get two spill registers, even if we only car about one.
+            // Always try to get two spill registers, even if we only car
+            // about one.
             dynamorio::reg_id_t spill_reg_1(region_used_regs.get_zombie());
             dynamorio::reg_id_t spill_reg_2(region_used_regs.get_zombie());
             if(!spill_reg_1) {
@@ -486,7 +485,7 @@ namespace client { namespace wp {
         if(spill_reg) {
             tracker.spill_regs.revive(spill_reg);
             const operand dead_reg(spill_reg);
-            ls.insert_before(in, mov_st_(dead_reg, reg::rsp));
+            ls.insert_before(in, lea_(dead_reg, *reg::rsp));
             rsp_op.replace_with(dead_reg);
 
         } else {
@@ -645,8 +644,15 @@ namespace client { namespace wp {
             return;
         }
 
-        bool guarded(false);
+        // If this basic block contains a function call then don't guard
+        // against the redzone.
+        for(in = ls.last(); in.is_valid(); in = in.prev()) {
+            if(in.pc() && in.is_call()) {
+                return;
+            }
+        }
 
+        bool guarded(false);
         instruction prev_in;
 
         for(in = ls.last(); in.is_valid(); in = prev_in) {
@@ -687,8 +693,21 @@ namespace client { namespace wp {
                             adjusted_instruction);
                     }
 
+                // We need to watch out about something like:
+                //      LEA -8(%RSP), %RSP
+                // Which is introduced as part of the mangling process of
+                //      PUSH (...)
+                // Which is also introduced as part of:
+                //      MOV (...), %RSP
+                } else if(dynamorio::OP_lea == in.op_code()
+                       && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+                    guarded = false;
+                    ls.insert_after(
+                        in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+
                 // Introduced instruction.
                 } else {
+
                     if(dynamorio::OP_push != in.op_code()
                     && dynamorio::OP_pop != in.op_code()
                     && dynamorio::OP_enter != in.op_code()
@@ -705,12 +724,23 @@ namespace client { namespace wp {
             // Here, we're really trying to guard against things like PUSH, POP,
             // and CALL (i.e. save, restore, do something) that have likely
             // been introduced by the instrumentation.
-            } else {
-                if(!in.pc()) {
-                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                    guarded = true;
-                    prev_in = in; // re-visit this instruction.
+            } else if(!in.pc()) {
+
+                // We need to watch out about something like:
+                //      MOV (...), %RSP
+                // Which is mangled into something like:
+                //      ...
+                //      PUSH (...)      <-- also mangled
+                //      POP %RSP
+                if(dynamorio::OP_pop == in.op_code()
+                && dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
+                && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+                    continue;
                 }
+
+                ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                guarded = true;
+                prev_in = in; // re-visit this instruction.
             }
 
             // If we're guarded and we didn't adjust the instruction, but it

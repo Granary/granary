@@ -226,7 +226,7 @@
 #endif
 
 
-#if defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym && !defined(APP_WRAPPER_FOR_dlsym)
+#if 0 && defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym && !defined(APP_WRAPPER_FOR_dlsym)
 #   define APP_WRAPPER_FOR_dlsym
     FUNCTION_WRAPPER(APP, dlsym, (void *), (void *handle, const char *sym), {
         return dlsym(handle, sym);

@@ -7,6 +7,8 @@ Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 import re
 
 WHITELIST = set([
+  # Memory allocators, which we care about for watchpoints
+  # applications.
   "malloc",
   "__libc_malloc",
   "realloc",
@@ -17,6 +19,17 @@ WHITELIST = set([
   "free",
   "cfree",
   "__libc_free",
+
+  # vfork is tricky to handle, so we punt on it and
+  # pretend that turning it into a fork is okay (in
+  # reality it's not okay in all cases).
+  "vfork",
+
+  # Not re-entrant with respect to these.
+  "dlsym",
+  "dlopen",
+  "dlclose",
+  "dlerror",
 ])
 
 # TODO: currently have linker or platform errors for these.

@@ -97,6 +97,7 @@ if "__main__" == __name__:
     #O("#endif")
 
     if symbol in FUNCTION_NAMES:
+      O("#define CAN_WRAP_", symbol, " 1")
       O("WRAP_FOR_DETACH(", symbol, ")")
     else:
       O("DETACH(", symbol, ")")
