@@ -680,9 +680,6 @@ namespace client {
                     in.for_each_operand(wp::find_memory_operand, tracker);
                 }
 
-                IF_USER( instruction first(ls.insert_before(in, label_())); )
-                IF_USER( instruction last(ls.insert_after(in, label_())); )
-
                 // Apply generic watchpoint instrumentation to the necessary
                 // operands.
                 tracker.visit_operands(ls);

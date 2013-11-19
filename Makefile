@@ -473,7 +473,7 @@ endef
 	# This is so that we can augment the detach table with internal libc symbols,
 	# etc.
 	define GR_GET_LD_LIBRARIES
-		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_dll_detach_table.py >> $(GR_DETACH_FILE))
+		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_dll_detach_table.py $(GR_OUTPUT_TYPES) > $(GR_DETACH_FILE))
 endef
 
 # Kernel space.
@@ -581,6 +581,7 @@ endef
 
 	# get the addresses of kernel symbols
 	define GR_GET_LD_LIBRARIES
+		$$($(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) $(GR_DETACH_FILE))
 		$$($(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_detach_addresses.py $(GR_DETACH_FILE))
 endef
 endif
@@ -689,7 +690,6 @@ endif
 # auto-generate the hash table stuff needed for wrappers and detaching
 detach: types
 	@echo "  DETACH [GR] $(GR_DETACH_FILE)"
-	@$(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_detach_table.py $(GR_OUTPUT_TYPES) $(GR_DETACH_FILE)
 	@$(call GR_GET_LD_LIBRARIES)
 
 

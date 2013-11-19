@@ -6,6 +6,19 @@ Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 
 import re
 
+WHITELIST = set([
+  "malloc",
+  "__libc_malloc",
+  "realloc",
+  "valloc",
+  "__libc_valloc",
+  "calloc",
+  "__libc_calloc",
+  "free",
+  "cfree",
+  "__libc_free",
+])
+
 # TODO: currently have linker or platform errors for these.
 IGNORE = set([
   "add_profil",

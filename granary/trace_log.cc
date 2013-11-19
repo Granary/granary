@@ -144,7 +144,7 @@ namespace granary {
         instruction in
     ) throw() {
         IF_USER( in = ls.insert_after(in,
-            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])) );
+            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
 
         in = insert_cti_after(ls, in,
             trace_logger(),
@@ -154,7 +154,7 @@ namespace granary {
         in.set_mangled();
 
         IF_USER( in = ls.insert_after(in,
-            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])) );
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
     }
 #endif /* CONFIG_DEBUG_TRACE_EXECUTION */
 
