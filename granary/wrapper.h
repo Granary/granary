@@ -28,6 +28,7 @@ namespace granary {
     struct kernel_address;
 
 #       define DETACH(func)
+#       define WRAP_ALIAS(func, alias)
 #       define TYPED_DETACH(func)
 #       define WRAP_FOR_DETACH(func) \
     template <> \
@@ -43,6 +44,7 @@ namespace granary {
 #           include "granary/gen/user_detach.inc"
 #       endif
 #       undef DETACH
+#       undef WRAP_ALIAS
 #       undef TYPED_DETACH
 #       undef WRAP_FOR_DETACH
 #   endif

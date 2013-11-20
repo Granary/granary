@@ -20,6 +20,12 @@ namespace granary {
     }
 
 
+    /// Operand that represents a PC stored somewhere in memory.
+    operand mem_instr_(dynamorio::instr_t *in) {
+        return dynamorio::opnd_create_mem_instr(in, 0, dynamorio::OPSZ_PTR);
+    }
+
+
     /// used frequently in instruction functions
     typename dynamorio::dcontext_t *instruction::DCONTEXT = nullptr;
 

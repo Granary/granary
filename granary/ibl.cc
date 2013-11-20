@@ -83,7 +83,7 @@ namespace granary {
         // Spill the source address for use by the IBL profiling.
         ibl.insert_before(in, push_(reg_source_addr));
         instruction block_instr(ibl.insert_before(in, label_()));
-        ibl.insert_before(in, mov_imm_(reg_source_addr, instr_(block_instr)));
+        ibl.insert_before(in, lea_(reg_source_addr, mem_instr_(block_instr)));
 
         // On the stack:
         //      reg_target_addr         (saved: arg1, mangled target address)

@@ -12,58 +12,12 @@
 #include "granary/state.h"
 #include "granary/cpu_code_cache.h"
 
-#if !CONFIG_ENV_KERNEL
-#   ifndef _GNU_SOURCE
-#      define _GNU_SOURCE
-#   endif
-#   include <dlfcn.h>
-#else
-#   include "granary/kernel/linux/module.h"
-#endif
-
 namespace granary {
 
 
     /// Define two context-specific hash tables for finding detach points. These
     /// hash tables are only updated during Granary's initialisation.
     static static_data<cpu_private_code_cache> DETACH_HASH_TABLE[2];
-
-
-#if !CONFIG_ENV_KERNEL
-    static void wrap_user_address(
-        function_wrapper &wrapper,
-        runtime_context context,
-        app_pc wrapper_address,
-        uintptr_t dlsym_address
-    ) throw() {
-        if(wrapper.original_address) {
-            DETACH_HASH_TABLE[context]->store(
-                reinterpret_cast<app_pc>(wrapper.original_address),
-                wrapper_address);
-        }
-
-        auto dlsym_ = dlsym;
-
-        // This evil beast allows us to have something like `free` resolve
-        // to _GI___libc_free.
-        while(dlsym_address && wrapper.original_address != dlsym_address) {
-            DETACH_HASH_TABLE[context]->store(
-                reinterpret_cast<app_pc>(dlsym_address),
-                wrapper_address);
-
-            auto prev_dlsym_ = dlsym_;
-            dlsym_ = unsafe_cast<decltype(dlsym_)>(
-                prev_dlsym_(RTLD_NEXT, "dlsym"));
-
-            if(!dlsym_ || dlsym_ == prev_dlsym_) {
-                break;
-            }
-
-            dlsym_address = unsafe_cast<uintptr_t>(
-                dlsym_(RTLD_DEFAULT, wrapper.name));
-        }
-    }
-#endif
 
 
     STATIC_INITIALISE_ID(detach_hash_table, {
@@ -87,36 +41,6 @@ namespace granary {
                     reinterpret_cast<app_pc>(wrapper.host_wrapper_address));
             }
         } )
-
-        // Add internal dynamic symbols to the detach hash table.
-        IF_USER(IF_WRAPPERS( for(unsigned i(LAST_DETACH_ID + 1); ; ++i) {
-            function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
-
-            if(!wrapper.name) {
-                break;
-            }
-
-            uintptr_t dlsym_address(reinterpret_cast<uintptr_t>(
-                dlsym(RTLD_DEFAULT, wrapper.name)));
-
-            // While not necessary, this improves debugging when inspecting
-            // the wrapper in `gdb` with the `p-wrapper` command.
-            if(!wrapper.original_address) {
-                wrapper.original_address = dlsym_address;
-            }
-
-            wrap_user_address(
-                wrapper,
-                RUNNING_AS_APP,
-                reinterpret_cast<app_pc>(wrapper.app_wrapper_address),
-                dlsym_address);
-
-            wrap_user_address(
-                wrapper,
-                RUNNING_AS_HOST,
-                reinterpret_cast<app_pc>(wrapper.host_wrapper_address),
-                dlsym_address);
-        } ))
     })
 
 
@@ -141,7 +65,7 @@ namespace granary {
     app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
 
 #if CONFIG_ENV_KERNEL
-#   if !CONFIG_INSTRUMENT_WHOLE_KERNEL
+#   if !CONFIG_FEATURE_INSTRUMENT_HOST
         if(likely(RUNNING_AS_APP == context)) {
 #   else
         if(unlikely(RUNNING_AS_APP == context)) {
@@ -172,16 +96,5 @@ namespace granary {
     GRANARY_DETACH_POINT_ERROR(enter);
     GRANARY_DETACH_POINT_ERROR(granary_fault);
     GRANARY_DETACH_POINT_ERROR(granary_break_on_fault);
-
-#if CONFIG_ENV_KERNEL
-    extern "C" {
-        extern void module_load_notifier(void);
-        extern void granary_report(void);
-    }
-
-    GRANARY_DETACH_POINT(notify_module_state_change);
-    GRANARY_DETACH_POINT(module_load_notifier);
-    GRANARY_DETACH_POINT(granary_report);
-#endif
 }
 

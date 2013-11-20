@@ -18,6 +18,20 @@
 #endif
 
 
+// Make sure we've got the detach addresses.
+#if !CONFIG_FEATURE_WRAPPERS
+#   define WRAP_FOR_DETACH(func)
+#   define WRAP_ALIAS(func, alias)
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
+#   include "granary/gen/kernel_detach.inc"
+#   undef WRAP_ALIAS
+#   undef WRAP_FOR_DETACH
+#   undef DETACH
+#   undef TYPED_DETACH
+#endif
+
+
 extern "C" {
     void kernel_make_memory_writeable(void *addr);
 }

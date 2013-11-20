@@ -6,31 +6,40 @@ Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 
 import re
 
-WHITELIST = set([
+WHITELIST = {
   # Memory allocators, which we care about for watchpoints
   # applications.
-  "malloc",
-  "__libc_malloc",
-  "realloc",
-  "valloc",
-  "__libc_valloc",
-  "calloc",
-  "__libc_calloc",
-  "free",
-  "cfree",
-  "__libc_free",
+  "malloc":   ("malloc", "__libc_malloc"),
+  "valloc":   ("valloc", "__libc_valloc"),
+  "calloc":   ("calloc", "__libc_calloc"),
+  "realloc":  ("realloc", "__libc_realloc"),
+  "free":     ("free", "__libc_free", "cfree"),
 
   # vfork is tricky to handle, so we punt on it and
   # pretend that turning it into a fork is okay (in
   # reality it's not okay in all cases).
-  "vfork",
+  "vfork":    ("vfork", "__vfork"),
 
   # Not re-entrant with respect to these.
-  "dlsym",
-  "dlopen",
-  "dlclose",
-  "dlerror",
-])
+  "dlsym":                ("dlsym", "__libc_dlsym"),
+  "dlopen":               ("dlopen", "__libc_dlopen_mode"),
+  "dlclose":              ("dlclose", "__libc_dlclose"),
+  "_dl_runtime_resolve":  ("_dl_runtime_resolve",),
+  "_dl_fixup":            ("_dl_fixup",),
+  "_dl_lookup_symbol_x":  ("_dl_lookup_symbol_x",),
+  "_dl_name_match_p":     ("_dl_name_match_p",),
+  "do_lookup_x":          ("do_lookup_x",),
+
+  # Useful for user space debugging
+  "__assert_fail":  ("__assert_fail", "__GI___assert_fail"),
+
+  # For printing / debugging; we're not re-entrant with these.
+  #printf": ("printf", "_IO_printf"),
+  #vprintf": ("vprintf", "_IO_vprintf"),
+  #fprintf": ("fprintf", "_IO_fprintf"),
+  #vfprintf": ("vfprintf", "_IO_vfprintf"),
+  # ... there are more but whatever.
+}
 
 # TODO: currently have linker or platform errors for these.
 IGNORE = set([

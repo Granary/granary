@@ -378,7 +378,7 @@ opnd_t opnd_create_far_pc ( ushort seg_selector , app_pc pc ) ;
 opnd_t opnd_create_instr_ex ( instr_t * instr , opnd_size_t size , ushort shift ) ;
 opnd_t opnd_create_instr ( instr_t * instr ) ;
 opnd_t opnd_create_far_instr ( ushort seg_selector , instr_t * instr ) ;
- opnd_t opnd_create_mem_instr ( instr_t * instr , short disp , opnd_size_t data_size ) ;
+opnd_t opnd_create_mem_instr ( instr_t * instr , short disp , opnd_size_t data_size ) ;
 app_pc opnd_get_pc ( opnd_t opnd ) ;
 ushort opnd_get_segment_selector ( opnd_t opnd ) ;
 instr_t * opnd_get_instr ( opnd_t opnd ) ;

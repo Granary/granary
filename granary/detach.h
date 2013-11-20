@@ -47,17 +47,20 @@
 
 
 /// Bring in the detach addresses, regardless of whether wrappers are enabled.
-#define WRAP_FOR_DETACH(func)
-#define DETACH(func)
-#define TYPED_DETACH(func)
-#if CONFIG_ENV_KERNEL
+///
+/// Note: This is only relevant to kernel space (in user space we don't have a
+///       pre-defined set of detach addresses).
+#if GRANARY_ENV_KERNEL
+#   define WRAP_FOR_DETACH(func)
+#   define WRAP_ALIAS(func, alias)
+#   define DETACH(func)
+#   define TYPED_DETACH(func)
 #   include "granary/gen/kernel_detach.inc"
-#else
-#   include "granary/gen/user_detach.inc"
+#   undef WRAP_FOR_DETACH
+#   undef WRAP_ALIAS
+#   undef DETACH
+#   undef TYPED_DETACH
 #endif
-#undef WRAP_FOR_DETACH
-#undef DETACH
-#undef TYPED_DETACH
 
 namespace granary {
 
@@ -67,6 +70,7 @@ namespace granary {
 /// function kinds are not assigned IDs because their addresses are dynamically
 /// looked up.
 #   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
+#   define WRAP_ALIAS(func, alias)
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
     enum function_wrapper_id {
@@ -77,6 +81,7 @@ namespace granary {
 #   endif
         LAST_DETACH_ID
     };
+#   undef WRAP_ALIAS
 #   undef WRAP_FOR_DETACH
 #   undef DETACH
 #   undef TYPED_DETACH
@@ -86,9 +91,9 @@ namespace granary {
     /// Represents an entry in the detach hash table. Entries need to map
     /// original function addresses to wrapped function addresses.
     struct function_wrapper {
-        uintptr_t original_address;
-        uintptr_t app_wrapper_address;
-        uintptr_t host_wrapper_address;
+        app_pc original_address;
+        app_pc app_wrapper_address;
+        app_pc host_wrapper_address;
         const char * const name;
     };
 

@@ -91,14 +91,18 @@ if "__main__" == __name__:
     elif ".so" in dll:
       get_symbols_linux(dll, symbols)
 
-  for symbol in symbols & WHITELIST:
+  for symbol in symbols | set(WHITELIST):
     #O("#ifndef CAN_WRAP_", symbol)
     #O("    DETACH(", symbol, ")")
     #O("#endif")
 
-    if symbol in FUNCTION_NAMES:
+    if symbol in FUNCTION_NAMES and symbol in WHITELIST:
       O("#define CAN_WRAP_", symbol, " 1")
       O("WRAP_FOR_DETACH(", symbol, ")")
-    else:
-      O("DETACH(", symbol, ")")
+      for alias in WHITELIST[symbol]:
+        O("WRAP_ALIAS(", symbol, ", ", alias, ")")
+
+    elif symbol in WHITELIST:
+      for alias in WHITELIST[symbol]:
+        O("DETACH(", alias, ")")
   O()

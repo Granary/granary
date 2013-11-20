@@ -78,10 +78,11 @@ namespace granary {
 
     // First, generate detach entries for wrappers.
 #   define WRAP_FOR_DETACH(func) \
-    {   (uintptr_t) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
-        (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \
-        (uintptr_t) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_HOST, decltype(::func)>::apply, \
+    {   (app_pc) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
+        (app_pc) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \
+        (app_pc) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_HOST, decltype(::func)>::apply, \
         #func },
+#   define WRAP_ALIAS(func, alias)
 #   define DETACH(func)
 #   define TYPED_DETACH(func)
 #   if CONFIG_ENV_KERNEL
@@ -91,12 +92,14 @@ namespace granary {
 #   endif
         {0, 0, 0, nullptr}, // Sentinel.
 #   undef WRAP_FOR_DETACH
+#   undef WRAP_ALIAS
 #   undef DETACH
 #   undef TYPED_DETACH
 
     // Now, generate detach entries for dynamic symbols which must be
     // looked up using dlsym.
 #   define WRAP_FOR_DETACH(func)
+#   define WRAP_ALIAS(func, alias)
 #   define DETACH(func)  \
     { 0, 0, 0, #func },
 #   define TYPED_DETACH(func) DETACH(func)
@@ -107,6 +110,7 @@ namespace granary {
 #   endif
         {0, 0, 0, nullptr} // Sentinel.
 #   undef WRAP_FOR_DETACH
+#   undef WRAP_ALIAS
 #   undef DETACH
     };
 }

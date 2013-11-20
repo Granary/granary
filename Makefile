@@ -409,7 +409,8 @@ ifeq ($(KERNEL),0)
 	
 	# User-specific versions of granary functions.
 	GR_OBJS += $(BIN_DIR)/granary/user/state.o
-	GR_OBJS += $(BIN_DIR)/granary/user/printf.o
+	GR_OBJS += $(BIN_DIR)/granary/user/posix/printf.o
+	GR_OBJS += $(BIN_DIR)/granary/user/posix/detach.o
 	
 	ifneq ($(GR_DLL),1)
 		GR_OBJS += $(BIN_DIR)/main.o
@@ -517,10 +518,10 @@ else
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/user_address.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/wrappers.o
+	GR_OBJS += $(BIN_DIR)/granary/kernel/linux/printf.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/hotpatch.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/state.o
 	GR_OBJS += $(BIN_DIR)/granary/kernel/interrupt.o
-	GR_OBJS += $(BIN_DIR)/granary/kernel/printf.o
 	
 	# Toggle whole-kernel instrumentation.
 	ifeq (1,$(GR_WHOLE_KERNEL))
@@ -700,6 +701,7 @@ env:
 	@-mkdir bin > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/granary > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/granary/user > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/granary/user/posix > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/granary/kernel > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/granary/kernel/linux > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/granary/gen > /dev/null 2>&1 ||:

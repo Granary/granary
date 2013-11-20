@@ -44,6 +44,7 @@
 #include "granary/kernel/linux/module.h"
 
 #define WRAP_FOR_DETACH(func)
+#define WRAP_ALIAS(func, alias)
 #define DETACH(func)
 #define TYPED_DETACH(func)
 

@@ -152,3 +152,11 @@ extern "C" {
 #endif
     }
 }
+
+extern "C" {
+    extern void module_load_notifier(void);
+}
+
+GRANARY_DETACH_POINT(notify_module_state_change);
+GRANARY_DETACH_POINT(module_load_notifier);
+GRANARY_DETACH_POINT(granary_report);

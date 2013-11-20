@@ -58,6 +58,8 @@ if !$in_user_space
   b report_bug
   b dump_stack
   #b kernel/hung_task.c:101
+else
+  b __assert_fail
 end
 
 
