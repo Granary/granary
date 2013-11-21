@@ -259,7 +259,6 @@ endif
 ifeq ($(GR_CLIENT),cfg)
 	GR_CXX_FLAGS += -DCLIENT_CFG
 	GR_OBJS += $(BIN_DIR)/clients/cfg/instrument.o
-	GR_OBJS += $(BIN_DIR)/clients/cfg/events.o
 	GR_OBJS += $(BIN_DIR)/clients/cfg/report.o
 endif
 

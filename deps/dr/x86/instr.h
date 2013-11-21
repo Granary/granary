@@ -554,7 +554,7 @@ struct _opnd_t {
         } base_disp;            /* BASE_DISP_kind */
         void *addr;             /* REL_ADDR_kind and ABS_ADDR_kind */
     } value;
-};
+} __attribute__((packed));
 #endif /* DR_FAST_IR */
 /* DR_API EXPORT END */
 #ifndef DR_FAST_IR
@@ -1866,7 +1866,7 @@ struct _instr_t {
     instr_t   *prev;
     instr_t   *next;
 
-}; /* instr_t */
+} __attribute__((packed)); /* instr_t */
 #endif /* DR_FAST_IR */
 
 /****************************************************************************

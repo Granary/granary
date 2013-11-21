@@ -1310,10 +1310,7 @@ namespace granary {
             info->generating_num_instructions = block->num_decoded_instructions;
             info->num_instructions = block->num_encoded_instructions;
             info->state = block->state;
-
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
             info->allocator = cpu->current_fragment_allocator;
-#endif
 
 #if CONFIG_ENV_KERNEL
             info->user_exception_metadata = block->user_exception_metadata;

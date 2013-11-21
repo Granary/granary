@@ -26,18 +26,18 @@ struct kernel_module {
     void (**exit)(void);
 
     /// Various module addresses.
-    void *address;
+    uint8_t *address;
 
-    void *text_begin;
-    void *text_end;
+    uint8_t *text_begin;
+    uint8_t *text_end;
 
-    void *ro_text_begin;
-    void *ro_text_end;
+    uint8_t *ro_text_begin;
+    uint8_t *ro_text_end;
 
-    void *ro_init_begin;
-    void *ro_init_end;
+    uint8_t *ro_init_begin;
+    uint8_t *ro_init_end;
 
-    void *max_text_end;
+    uint8_t *max_text_end;
 
     /// The name.
     const char *name;

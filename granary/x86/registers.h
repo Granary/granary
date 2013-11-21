@@ -197,3 +197,12 @@ MAKE_REG(ret_32, REG_EAX)
 MAKE_REG(ret_16, REG_AX)
 MAKE_REG(ret_8, REG_AL)
 
+MAKE_REG(indirect_target_addr, REG_RDI)
+MAKE_REG(indirect_target_addr_32, REG_EDI)
+MAKE_REG(indirect_target_addr_16, REG_DI)
+MAKE_REG(indirect_target_addr_8, REG_DIL)
+
+MAKE_REG(indirect_clobber_reg, REG_RAX)
+MAKE_REG(indirect_clobber_reg_32, REG_EAX)
+MAKE_REG(indirect_clobber_reg_16, REG_AX)
+MAKE_REG(indirect_clobber_reg_8, REG_AL)

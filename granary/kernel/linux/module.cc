@@ -160,3 +160,4 @@ extern "C" {
 GRANARY_DETACH_POINT(notify_module_state_change);
 GRANARY_DETACH_POINT(module_load_notifier);
 GRANARY_DETACH_POINT(granary_report);
+

@@ -665,7 +665,10 @@ namespace granary {
     /// of bytes.
     ///
     /// Note: This will not do any fancy jump resolution, alignment, etc.
-    app_pc instruction_list::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+    app_pc instruction_list::stage_encode(
+        app_pc staged_pc,
+        app_pc final_pc
+    ) throw() {
         if(!length()) {
             return staged_pc;
         }

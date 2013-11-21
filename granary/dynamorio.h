@@ -251,11 +251,69 @@ struct instr_info_t ;
 enum { DR_REG_NULL , DR_REG_RAX , DR_REG_RCX , DR_REG_RDX , DR_REG_RBX , DR_REG_RSP , DR_REG_RBP , DR_REG_RSI , DR_REG_RDI , DR_REG_R8 , DR_REG_R9 , DR_REG_R10 , DR_REG_R11 , DR_REG_R12 , DR_REG_R13 , DR_REG_R14 , DR_REG_R15 , DR_REG_EAX , DR_REG_ECX , DR_REG_EDX , DR_REG_EBX , DR_REG_ESP , DR_REG_EBP , DR_REG_ESI , DR_REG_EDI , DR_REG_R8D , DR_REG_R9D , DR_REG_R10D , DR_REG_R11D , DR_REG_R12D , DR_REG_R13D , DR_REG_R14D , DR_REG_R15D , DR_REG_AX , DR_REG_CX , DR_REG_DX , DR_REG_BX , DR_REG_SP , DR_REG_BP , DR_REG_SI , DR_REG_DI , DR_REG_R8W , DR_REG_R9W , DR_REG_R10W , DR_REG_R11W , DR_REG_R12W , DR_REG_R13W , DR_REG_R14W , DR_REG_R15W , DR_REG_AL , DR_REG_CL , DR_REG_DL , DR_REG_BL , DR_REG_AH , DR_REG_CH , DR_REG_DH , DR_REG_BH , DR_REG_R8L , DR_REG_R9L , DR_REG_R10L , DR_REG_R11L , DR_REG_R12L , DR_REG_R13L , DR_REG_R14L , DR_REG_R15L , DR_REG_SPL , DR_REG_BPL , DR_REG_SIL , DR_REG_DIL , DR_REG_MM0 , DR_REG_MM1 , DR_REG_MM2 , DR_REG_MM3 , DR_REG_MM4 , DR_REG_MM5 , DR_REG_MM6 , DR_REG_MM7 , DR_REG_XMM0 , DR_REG_XMM1 , DR_REG_XMM2 , DR_REG_XMM3 , DR_REG_XMM4 , DR_REG_XMM5 , DR_REG_XMM6 , DR_REG_XMM7 , DR_REG_XMM8 , DR_REG_XMM9 , DR_REG_XMM10 , DR_REG_XMM11 , DR_REG_XMM12 , DR_REG_XMM13 , DR_REG_XMM14 , DR_REG_XMM15 , DR_REG_ST0 , DR_REG_ST1 , DR_REG_ST2 , DR_REG_ST3 , DR_REG_ST4 , DR_REG_ST5 , DR_REG_ST6 , DR_REG_ST7 , DR_SEG_ES , DR_SEG_CS , DR_SEG_SS , DR_SEG_DS , DR_SEG_FS , DR_SEG_GS , DR_REG_DR0 , DR_REG_DR1 , DR_REG_DR2 , DR_REG_DR3 , DR_REG_DR4 , DR_REG_DR5 , DR_REG_DR6 , DR_REG_DR7 , DR_REG_DR8 , DR_REG_DR9 , DR_REG_DR10 , DR_REG_DR11 , DR_REG_DR12 , DR_REG_DR13 , DR_REG_DR14 , DR_REG_DR15 , DR_REG_CR0 , DR_REG_CR1 , DR_REG_CR2 , DR_REG_CR3 , DR_REG_CR4 , DR_REG_CR5 , DR_REG_CR6 , DR_REG_CR7 , DR_REG_CR8 , DR_REG_CR9 , DR_REG_CR10 , DR_REG_CR11 , DR_REG_CR12 , DR_REG_CR13 , DR_REG_CR14 , DR_REG_CR15 , DR_REG_INVALID , DR_REG_YMM0 , DR_REG_YMM1 , DR_REG_YMM2 , DR_REG_YMM3 , DR_REG_YMM4 , DR_REG_YMM5 , DR_REG_YMM6 , DR_REG_YMM7 , DR_REG_YMM8 , DR_REG_YMM9 , DR_REG_YMM10 , DR_REG_YMM11 , DR_REG_YMM12 , DR_REG_YMM13 , DR_REG_YMM14 , DR_REG_YMM15 , } ;
 typedef byte reg_id_t ;
 typedef byte opnd_size_t ;
-struct _opnd_t { byte kind ; opnd_size_t size ; union { ushort far_pc_seg_selector ; reg_id_t segment : 8 ; ushort disp ; ushort shift ; } seg ; union { ptr_int_t immed_int ; float immed_float ; app_pc pc ; instr_t * instr ; reg_id_t reg ; struct { int disp ; reg_id_t base_reg : 8 ; reg_id_t index_reg : 8 ; byte scale : 4 ; byte encode_zero_disp : 1 ; byte force_full_disp : 1 ; byte disp_short_addr : 1 ; } base_disp ; void * addr ; } value ; } ;
+struct _opnd_t {
+    byte kind;
+    opnd_size_t size;
+    union {
+        ushort far_pc_seg_selector;
+        reg_id_t segment :8;
+        ushort disp;
+        ushort shift;
+    } seg;
+    union {
+        ptr_int_t immed_int;
+        float immed_float;
+        app_pc pc;
+        instr_t * instr;
+        reg_id_t reg;
+        struct {
+            int disp;
+            reg_id_t base_reg :8;
+            reg_id_t index_reg :8;
+            byte scale :4;
+            byte encode_zero_disp :1;
+            byte force_full_disp :1;
+            byte disp_short_addr :1;
+        } base_disp;
+        void * addr;
+    } value;
+} __attribute__((packed));
 enum { NULL_kind , IMMED_INTEGER_kind , IMMED_FLOAT_kind , PC_kind , INSTR_kind , REG_kind , BASE_DISP_kind , FAR_PC_kind , FAR_INSTR_kind , REL_ADDR_kind , ABS_ADDR_kind , MEM_INSTR_kind , LAST_kind , } ;
 
 #if 1
-enum { INSTR_DIRECT_EXIT = LINK_DIRECT , INSTR_INDIRECT_EXIT = LINK_INDIRECT , INSTR_RETURN_EXIT = LINK_RETURN , INSTR_CALL_EXIT = LINK_CALL , INSTR_JMP_EXIT = LINK_JMP , INSTR_IND_JMP_PLT_EXIT = ( INSTR_JMP_EXIT | INSTR_CALL_EXIT ) , INSTR_FAR_EXIT = LINK_FAR , INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT , INSTR_TRACE_CMP_EXIT = LINK_TRACE_CMP , INSTR_NI_SYSCALL_INT = LINK_NI_SYSCALL_INT , INSTR_NI_SYSCALL = LINK_NI_SYSCALL , INSTR_NI_SYSCALL_ALL = ( LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT ) , EXIT_CTI_TYPES = ( INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT | INSTR_RETURN_EXIT | INSTR_CALL_EXIT | INSTR_JMP_EXIT | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT | INSTR_TRACE_CMP_EXIT | INSTR_NI_SYSCALL_INT | INSTR_NI_SYSCALL ) , INSTR_OPERANDS_VALID = 0x00010000 , INSTR_FIRST_NON_LINK_SHARED_FLAG = INSTR_OPERANDS_VALID , INSTR_EFLAGS_VALID = 0x00020000 , INSTR_EFLAGS_6_VALID = 0x00040000 , INSTR_RAW_BITS_VALID = 0x00080000 , INSTR_RAW_BITS_ALLOCATED = 0x00100000 , INSTR_DO_NOT_MANGLE = 0x00200000 , INSTR_HAS_CUSTOM_STUB = 0x00400000 , INSTR_IND_CALL_DIRECT = 0x00800000 , INSTR_CLOBBER_RETADDR = 0x02000000 , INSTR_HOT_PATCHABLE = 0x04000000 , INSTR_DO_NOT_EMIT = 0x10000000 , INSTR_RIP_REL_VALID = 0x20000000 , INSTR_X86_MODE = 0x40000000 , INSTR_OUR_MANGLING = 0x80000000 , } ;
+enum {
+    INSTR_DIRECT_EXIT = LINK_DIRECT,
+    INSTR_INDIRECT_EXIT = LINK_INDIRECT,
+    INSTR_RETURN_EXIT = LINK_RETURN,
+    INSTR_CALL_EXIT = LINK_CALL,
+    INSTR_JMP_EXIT = LINK_JMP,
+    INSTR_IND_JMP_PLT_EXIT = (INSTR_JMP_EXIT | INSTR_CALL_EXIT),
+    INSTR_FAR_EXIT = LINK_FAR,
+    INSTR_BRANCH_SPECIAL_EXIT = LINK_SPECIAL_EXIT,
+    INSTR_TRACE_CMP_EXIT = LINK_TRACE_CMP,
+    INSTR_NI_SYSCALL_INT = LINK_NI_SYSCALL_INT,
+    INSTR_NI_SYSCALL = LINK_NI_SYSCALL,
+    INSTR_NI_SYSCALL_ALL = (LINK_NI_SYSCALL | LINK_NI_SYSCALL_INT),
+    EXIT_CTI_TYPES = (INSTR_DIRECT_EXIT | INSTR_INDIRECT_EXIT
+            | INSTR_RETURN_EXIT | INSTR_CALL_EXIT | INSTR_JMP_EXIT
+            | INSTR_FAR_EXIT | INSTR_BRANCH_SPECIAL_EXIT | INSTR_TRACE_CMP_EXIT
+            | INSTR_NI_SYSCALL_INT | INSTR_NI_SYSCALL),
+    INSTR_OPERANDS_VALID = 0x00010000,
+    INSTR_FIRST_NON_LINK_SHARED_FLAG = INSTR_OPERANDS_VALID,
+    INSTR_EFLAGS_VALID = 0x00020000,
+    INSTR_EFLAGS_6_VALID = 0x00040000,
+    INSTR_RAW_BITS_VALID = 0x00080000,
+    INSTR_RAW_BITS_ALLOCATED = 0x00100000,
+    INSTR_DO_NOT_MANGLE = 0x00200000,
+    INSTR_HAS_CUSTOM_STUB = 0x00400000,
+    INSTR_IND_CALL_DIRECT = 0x00800000,
+    INSTR_CLOBBER_RETADDR = 0x02000000,
+    INSTR_HOT_PATCHABLE = 0x04000000,
+    INSTR_DO_NOT_EMIT = 0x10000000,
+    INSTR_RIP_REL_VALID = 0x20000000,
+    INSTR_X86_MODE = 0x40000000,
+    INSTR_OUR_MANGLING = 0x80000000,
+};
 #endif
 typedef struct _dr_instr_label_data_t { ptr_uint_t data [ 4 ] ; } dr_instr_label_data_t ;
 struct _instr_t {
@@ -282,7 +340,7 @@ struct _instr_t {
     void * note;
     instr_t * prev;
     instr_t * next;
-};
+} __attribute__((packed));
 typedef enum { DR_FP_STATE , DR_FP_MOVE , DR_FP_CONVERT , DR_FP_MATH , } dr_fp_type_t ;
 enum { EFLAGS_CF = 0x00000001 , EFLAGS_PF = 0x00000004 , EFLAGS_AF = 0x00000010 , EFLAGS_ZF = 0x00000040 , EFLAGS_SF = 0x00000080 , EFLAGS_DF = 0x00000400 , EFLAGS_OF = 0x00000800 , } ;
 enum { RAW_OPCODE_nop = 0x90 , RAW_OPCODE_jmp_short = 0xeb , RAW_OPCODE_call = 0xe8 , RAW_OPCODE_ret = 0xc3 , RAW_OPCODE_jmp = 0xe9 , RAW_OPCODE_push_imm32 = 0x68 , RAW_OPCODE_jcc_short_start = 0x70 , RAW_OPCODE_jcc_short_end = 0x7f , RAW_OPCODE_jcc_byte1 = 0x0f , RAW_OPCODE_jcc_byte2_start = 0x80 , RAW_OPCODE_jcc_byte2_end = 0x8f , RAW_OPCODE_loop_start = 0xe0 , RAW_OPCODE_loop_end = 0xe3 , RAW_OPCODE_lea = 0x8d , RAW_PREFIX_jcc_not_taken = 0x2e , RAW_PREFIX_jcc_taken = 0x3e , RAW_PREFIX_lock = 0xf0 , } ;

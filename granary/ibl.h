@@ -53,7 +53,6 @@ namespace granary {
     app_pc ibl_exit_routine(
         app_pc mangled_target_pc,
         app_pc instrumented_target_pc
-        _IF_PROFILE_IBL( app_pc source_addr )
     ) throw();
 }
 

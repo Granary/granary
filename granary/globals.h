@@ -113,7 +113,7 @@
 /// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
-#define CONFIG_DEBUG_TRACE_RECORD_REGS 0
+#define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
 
 
@@ -175,16 +175,6 @@
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
 #define CONFIG_DEBUG_PERF_COUNTS 1
-
-
-/// Enable profiling of indirect jumps and indirect calls.
-///
-/// TODO: Re-implement IBL profiling.
-#if CONFIG_DEBUG_PERF_COUNTS
-#   define CONFIG_DEBUG_PROFILE_IBL 0
-#else
-#   define CONFIG_DEBUG_PROFILE_IBL 0 // can't change
-#endif
 
 
 /// Debug the initialisation of Granary, but make sure that it doesn't actually

@@ -7,7 +7,7 @@
  */
 
 #include "clients/cfg/instrument.h"
-#include "clients/cfg/events.h"
+#include "clients/cfg/config.h"
 
 #include "granary/hash_table.h"
 
@@ -26,90 +26,9 @@ extern "C" {
 namespace client {
 
 
-    enum {
-        NUM_START_EDGES = 2
-    };
-
-
     /// Used to link together all basic blocks.
     std::atomic<basic_block_state *> BASIC_BLOCKS = \
         ATOMIC_VAR_INIT(nullptr);
-
-
-    /// Entry point for the on-enter-function event handler.
-    static app_pc EVENT_ENTER_FUNCTION = nullptr;
-
-
-    /// Exit point for the on-exit-function event handler.
-    static app_pc EVENT_EXIT_FUNCTION = nullptr;
-
-
-    /// Exit point for the on-exit-function event handler.
-    static app_pc EVENT_AFTER_FUNCTION = nullptr;
-
-
-    /// Entry point for the on-enter-bb event handler.
-    static app_pc EVENT_ENTER_BASIC_BLOCK = nullptr;
-
-
-    /// Unique IDs for basic blocks.
-    static std::atomic<unsigned> BASIC_BLOCK_ID = ATOMIC_VAR_INIT(1);
-
-
-    enum allocator_kind {
-        MEMORY_ALLOCATOR,
-        MEMORY_DEALLOCATOR,
-        MEMORY_REALLOCATOR
-    };
-
-
-    /// Hashtable mapping memory allocators to de-allocators.
-    static static_data<hash_table<app_pc, allocator_kind>> MEMORY_ALLOCATORS;
-
-
-    static void init_cfg_allocator_map(void) throw() {
-#if CONFIG_ENV_KERNEL
-#   define CFG_MEMORY_ALLOCATOR(func) \
-        MEMORY_ALLOCATORS->store( \
-            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_ALLOCATOR);
-
-#   define CFG_MEMORY_DEALLOCATOR(func) \
-        MEMORY_ALLOCATORS->store( \
-            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_DEALLOCATOR);
-
-#   define CFG_MEMORY_REALLOCATOR(func) \
-        MEMORY_ALLOCATORS->store( \
-            unsafe_cast<app_pc>(CAT(DETACH_ADDR_, func)), MEMORY_REALLOCATOR);
-
-#   include "clients/cfg/kernel/linux/allocators.h"
-#   undef CFG_MEMORY_ALLOCATOR
-#   undef CFG_MEMORY_DEALLOCATOR
-#   undef CFG_MEMORY_REALLOCATOR
-#endif /* CONFIG_ENV_KERNEL */
-    }
-
-
-    /// Initialise the control-flow graph client.
-    STATIC_INITIALISE_ID(cfg_init, {
-        cpu_state_handle cpu;
-        cpu.free_transient_allocators();
-        EVENT_ENTER_FUNCTION = generate_clean_callable_address(
-            &event_enter_function);
-        cpu.free_transient_allocators();
-        EVENT_EXIT_FUNCTION = generate_clean_callable_address(
-            &event_exit_function);
-        cpu.free_transient_allocators();
-        EVENT_AFTER_FUNCTION = generate_clean_callable_address(
-            &event_after_function);
-        cpu.free_transient_allocators();
-        EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
-            &event_enter_basic_block);
-        cpu.free_transient_allocators();
-
-        MEMORY_ALLOCATORS.construct();
-
-        init_cfg_allocator_map();
-    })
 
 
     /// Chain the basic block into the list of basic blocks.
@@ -125,249 +44,138 @@ namespace client {
 
     /// Invoked if/when Granary discards a basic block (e.g. due to a race
     /// condition when two cores compete to translate the same basic block).
-    void discard_basic_block(basic_block_state &bb) throw() {
-        free_memory<basic_block_edge>(bb.edges, bb.num_edges);
+    void discard_basic_block(basic_block_state &) throw() { }
+
+
+    /// Add an entry to a basic block's set of indirect CALL/JMP targets.
+    void add_indirect_target(app_pc target_addr, app_pc source_bb) throw() {
+        //basic_block bb(source_bb);
+
+        (void) target_addr;
+        (void) source_bb;
+
+        //printf("%p\n", target_addr);
     }
 
 
-    /// Initialise the basic block state and add in calls to event handlers.
-    static void instrument_basic_block(
+    static app_pc EVENT_ADD_INDIRECT_TARGET = nullptr;
+
+
+    STATIC_INITIALISE_ID(event_add_indirect_target, {
+        EVENT_ADD_INDIRECT_TARGET = generate_clean_callable_address(
+            &add_indirect_target, EXIT_REGS_ABI_COMPATIBLE);
+    })
+
+
+    /// Add in instrumentation so that we can later figure out the control-flow
+    /// graph.
+    granary::instrumentation_policy cfg_policy::visit_app_instructions(
+        granary::cpu_state_handle,
         granary::basic_block_state &bb,
-        instruction_list &ls
+        granary::instruction_list &ls
     ) throw() {
-        
         // This is a recursive invocation of instrumentation on an indirect
-        // CTI that loads from memory.
-        if(bb.block_id) {
-            return;
+        // CTI that loads from memory. We can find the CTI's address in
+        // `reg::indirect_target_addr`.
+        if(ls.is_stub()) {
+            instruction in(ls.prepend(label_()));
+            insert_clean_call_after(ls, in, EVENT_ADD_INDIRECT_TARGET,
+                reg::indirect_target_addr, mem_instr_(&bb.label));
+
+            return *this;
         }
-        
-        instruction in(ls.last());
-        register_manager used_regs;
-        register_manager entry_regs;
 
-        bb.num_executions = 0;
-        IF_KERNEL( bb.num_interrupts = 0; )
+        bool added_exec_count(false);
+        IF_USER( bool redzone_safe(false); )
+#if CFG_RECORD_EXEC_COUNT
 
-        used_regs.kill_all();
-        entry_regs.kill_all();
+        unsigned eflags(0);
+        for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
 
-        IF_KERNEL( app_pc start_pc(nullptr); )
-        IF_KERNEL( app_pc end_pc(nullptr); )
+            // Assumes flags are dead before CALL/RET.
+            if(in.is_call() || in.is_return()) {
+                IF_USER( redzone_safe = true; )
+                goto found_insert_point;
+            }
 
-        for(instruction prev_in; in.is_valid(); in = prev_in) {
+            if(in.is_jump() && dynamorio::PC_kind != in.cti_target().kind) {
+                goto found_insert_point;
+            }
 
-            prev_in = in.prev();
+            eflags = dynamorio::instr_get_eflags(in);
+            if(!(eflags & EFLAGS_WRITE_ALL) || (eflags & EFLAGS_READ_ALL)) {
+                continue;
+            }
 
-            // Track the registers.
-            used_regs.revive(in);
-            entry_regs.visit(in);
+            // We've found a good insertion point for the execution counter
+            // increment.
+        found_insert_point:
 
-#if CONFIG_ENV_KERNEL
-            // Track the translation so that we can find the offset.
-            if(in.pc()) {
-                app_pc curr_pc(in.pc());
-                if(curr_pc) {
-                    start_pc = curr_pc;
-                    if(!end_pc) {
-                        end_pc = curr_pc;
-                    }
+            IF_USER(
+                if(!redzone_safe) {
+                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
                 }
-            }
-#endif /* CONFIG_ENV_KERNEL */
+            )
 
-            // Call, switch into a the entry basic block policy.
-            if(in.is_call()) {
+            ls.insert_before(in,
+                inc_(absmem_(&(bb.num_executions), dynamorio::OPSZ_8)));
 
-                instrumentation_policy target_policy =
-                    policy_for<cfg_entry_policy>();
-                target_policy.force_attach(true);
-                in.set_policy(target_policy);
-                insert_clean_call_after(ls, in, EVENT_AFTER_FUNCTION, &bb);
-
-            // Returning from a function.
-            } else if(in.is_return()) {
-
-                bb.is_function_exit = true;
-                in = ls.insert_before(in, label_());
-                insert_clean_call_after(ls, in, EVENT_EXIT_FUNCTION, &bb);
-
-            // Non-call CTI.
-            } else if(in.is_cti()) {
-                bb.num_outgoing_jumps += 1;
-
-                // Is this an indirect jump?
-                operand target(in.cti_target());
-                if(!dynamorio::opnd_is_pc(target)) {
-                    bb.has_outgoing_indirect_jmp = true;
+            IF_USER(
+                if(!redzone_safe) {
+                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
                 }
+            )
 
-                instrumentation_policy target_policy =
-                    policy_for<cfg_exit_policy>();
-                target_policy.force_attach(true);
-                in.set_policy(target_policy);
-            }
+            added_exec_count = true;
+            break;
         }
+#endif
 
-        bb.block_id = BASIC_BLOCK_ID.fetch_add(1);
-        bb.used_regs = used_regs.encode();
-        bb.entry_regs = entry_regs.encode();
+        // Add in a special label into the instruction list. This will give us
+        // access later on to the encoded location of this basic block, which
+        // will allow us to access its internal meta-info.
+        bb.label.opcode = dynamorio::OP_LABEL;
+        bb.label.flags |= dynamorio::INSTR_OPERANDS_VALID;
+        instruction label(&(bb.label));
+        ls.prepend(label);
 
-#if CONFIG_ENV_KERNEL
-
-        // Is this a memory allocator?
-        allocator_kind alloc_kind;
-        if(MEMORY_ALLOCATORS->load(start_pc, alloc_kind)) {
-            if(MEMORY_ALLOCATOR == alloc_kind) {
-                bb.is_allocator = true;
-            } else if(MEMORY_DEALLOCATOR == alloc_kind) {
-                bb.is_deallocator = true;
-            } else {
-                bb.is_allocator = true;
-                bb.is_deallocator = true;
-            }
+#if CFG_RECORD_EXEC_COUNT
+        // We didn't find a good place to add in the execution counter; place
+        // it at the beginning of the basic block.
+        if(!added_exec_count) {
+            IF_USER( ls.insert_before(label,
+                lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+            ls.insert_before(label, pushf_());
+            ls.insert_before(label,
+                inc_(absmem_(&(bb.num_executions), dynamorio::OPSZ_8)));
+            ls.insert_before(label, popf_());
+            IF_USER( ls.insert_before(label,
+                lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
+#endif
 
-        // Record the name and relative offset of the code within the
-        // module. We can correlate this offset with an `objdump` or do
-        // static instrumentation of the ELF/KO based on this offset.
-        const kernel_module *module(kernel_get_module(start_pc));
-        if(module) {
-            const uintptr_t app_begin(
-                reinterpret_cast<uintptr_t>(module->text_begin));
-
-            const uintptr_t start_pc_uint(
-                reinterpret_cast<uintptr_t>(start_pc));
-
-            bb.app_offset_begin = start_pc_uint - app_begin;
-
-            bb.num_bytes_in_block = reinterpret_cast<uintptr_t>(end_pc) \
-                                  - start_pc_uint;
-
-            bb.app_name = module->name;
-        }
-#endif /* CONFIG_ENV_KERNEL */
-
-        // Add the edges here because it's technically possible for a race to
-        // occur where one core will observe the basic block once it's been
-        // added to the code cache, but before it's been committed to.
-        bb.num_edges = NUM_START_EDGES;
-        bb.edges = allocate_memory<basic_block_edge>(NUM_START_EDGES);
+        return *this;
     }
 
 
-    granary::instrumentation_policy cfg_entry_policy::visit_app_instructions(
-        granary::cpu_state_handle,
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw() {
-        instrument_basic_block(bb, ls);
-        bb.is_function_entry = true;
-        bb.is_app_code = true;
-        bb.function_id = bb.block_id;
-
-        // Add an event handler that executes before the basic block executes.
-        instruction in(ls.prepend(label_()));
-        insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
-
-        return policy_for<cfg_exit_policy>();
-    }
-
-
-    granary::instrumentation_policy cfg_entry_policy::visit_host_instructions(
-        granary::cpu_state_handle,
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw() {
-        instrument_basic_block(bb, ls);
-        bb.is_function_entry = true;
-        bb.is_app_code = false;
-        bb.function_id = bb.block_id;
-
-        // Add an event handler that executes before the basic block executes.
-        instruction in(ls.prepend(label_()));
-        insert_clean_call_after(ls, in, EVENT_ENTER_FUNCTION, &bb);
-
-        return granary::policy_for<cfg_exit_policy>();
-    }
-
-
-    granary::instrumentation_policy cfg_root_policy::visit_app_instructions(
+    granary::instrumentation_policy cfg_policy::visit_host_instructions(
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
-        bb.is_root = true;
-        return cfg_entry_policy::visit_app_instructions(cpu, bb, ls);
-    }
-
-
-    granary::instrumentation_policy cfg_root_policy::visit_host_instructions(
-        granary::cpu_state_handle cpu,
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw() {
-        bb.is_root = true;
-        return cfg_entry_policy::visit_host_instructions(cpu, bb, ls);
-    }
-
-
-    granary::instrumentation_policy cfg_exit_policy::visit_app_instructions(
-        granary::cpu_state_handle,
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw() {
-        instrument_basic_block(bb, ls);
-        bb.is_function_entry = false;
-        bb.is_app_code = true;
-
-        // Add an event handler that executes before the basic block executes.
-        instruction in(ls.prepend(label_()));
-        insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
-
-        return policy_for<cfg_exit_policy>();
-    }
-
-
-    granary::instrumentation_policy cfg_exit_policy::visit_host_instructions(
-        granary::cpu_state_handle,
-        granary::basic_block_state &bb,
-        granary::instruction_list &ls
-    ) throw() {
-        instrument_basic_block(bb, ls);
-        bb.is_function_entry = false;
-        bb.is_app_code = false;
-
-        // Add an event handler that executes before the basic block executes.
-        instruction in(ls.prepend(label_()));
-        insert_clean_call_after(ls, in, EVENT_ENTER_BASIC_BLOCK, &bb);
-
-        return granary::policy_for<cfg_exit_policy>();
+        return visit_app_instructions(cpu, bb, ls);
     }
 
 
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
 
-    granary::interrupt_handled_state cfg_entry_policy::handle_interrupt(
+    granary::interrupt_handled_state cfg_policy::handle_interrupt(
         granary::cpu_state_handle,
         granary::thread_state_handle,
-        granary::basic_block_state &bb,
+        granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
     ) throw() {
-        bb.num_interrupts.fetch_add(1);
-        return granary::INTERRUPT_DEFER;
-    }
-
-
-    granary::interrupt_handled_state cfg_exit_policy::handle_interrupt(
-        granary::cpu_state_handle,
-        granary::thread_state_handle,
-        granary::basic_block_state &bb,
-        granary::interrupt_stack_frame &,
-        granary::interrupt_vector
-    ) throw() {
-        bb.num_interrupts.fetch_add(1);
         return granary::INTERRUPT_DEFER;
     }
 

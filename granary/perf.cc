@@ -11,8 +11,6 @@
 
 #if CONFIG_DEBUG_PERF_COUNTS
 
-#define DUMP_IBL_INFO 0
-
 #include <atomic>
 
 #include "granary/instruction.h"
@@ -185,16 +183,14 @@ namespace granary {
 
     struct ibl_entry {
         app_pc target;
-        IF_PROFILE_IBL( app_pc source; )
-        IF_PROFILE_IBL( uint64_t *count; )
     };
 
     enum {
-        NUM_IBL_PROFILE_ENTRIES = NUM_IBL_JUMP_TABLE_ENTRIES IF_PROFILE_IBL(* 4)
+        NUM_IBL_PROFILE_ENTRIES = NUM_IBL_JUMP_TABLE_ENTRIES
     };
 
     static ibl_entry IBL_TARGETS[NUM_IBL_PROFILE_ENTRIES] = {
-        {nullptr _IF_PROFILE_IBL(nullptr, nullptr) }
+        {nullptr}
     };
 
     static std::atomic<uint8_t> IB_USE_COUNT[
@@ -202,17 +198,11 @@ namespace granary {
     ] = {ATOMIC_VAR_INIT(0)};
 
 
-    void perf::visit_ibl_add_entry(
-        app_pc pc
-        _IF_PROFILE_IBL( app_pc source_addr )
-        _IF_PROFILE_IBL( uint64_t *count )
-    ) throw() {
+    void perf::visit_ibl_add_entry(app_pc pc) throw() {
         const unsigned i(NUM_IBL_HTABLE_ENTRIES.fetch_add(1));
 
         if(i < NUM_IBL_PROFILE_ENTRIES) {
             IBL_TARGETS[i].target = pc;
-            IF_PROFILE_IBL( IBL_TARGETS[i].source = source_addr; )
-            IF_PROFILE_IBL( IBL_TARGETS[i].count = count; )
         }
         IB_USE_COUNT[granary_ibl_hash(pc)].fetch_add(1);
     }
@@ -400,39 +390,6 @@ namespace granary {
             NUM_RECURSIVE_INTERRUPTS.load());
         printf("Number of interrupts due to insufficient wrapping: %lu\n\n",
             NUM_BAD_MODULE_EXECS.load());
-#endif
-
-#if DUMP_IBL_INFO
-        if(NUM_IBL_CONFLICTS.load()) {
-            printf("IBL Targets:\n");
-            char buff[200] = {'\0'};
-            int j(0);
-
-            const unsigned num_entries(NUM_IBL_HTABLE_ENTRIES.load());
-            for(unsigned i(0); i < num_entries;) {
-                if(!IBL_TARGETS[i].target) {
-                    break;
-                }
-                j += sprintf(
-                    &(buff[j]),
-                    "(%p" IF_PROFILE_IBL(",%p,%lu,%lu") "),",
-                    IF_PROFILE_IBL_((void *) IBL_TARGETS[i].source)
-                    (void *) IBL_TARGETS[i].target
-                    _IF_PROFILE_IBL(IBL_TARGETS[i].count[0], IBL_TARGETS[i].count[1]));
-
-                ++i;
-                if(!(i % IF_PROFILE_IBL_ELSE(2, 4))) {
-                    printf("%s\n", buff);
-                    j = 0;
-                }
-            }
-
-            if(j) {
-                printf("%s\n", buff);
-            }
-
-            printf("\n\n");
-        }
 #endif
     }
 }

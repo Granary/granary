@@ -35,8 +35,13 @@ namespace granary {
         uint64_t data,
         bool is_64_bit,
         bool is_signed,
-        int base
+        unsigned base
     ) throw() {
+        if(16 == base) {
+            *buff++ = '0';
+            *buff++ = 'x';
+        }
+
         if(!data) {
             *buff++ = '0';
             return buff;
@@ -44,8 +49,8 @@ namespace granary {
 
         // Sign-extend a 32-bit signed value to 64-bit.
         if(!is_64_bit && is_signed) {
-            data = static_cast<uint64_t>(
-                static_cast<int64_t>(static_cast<int32_t>(data & 0xFFFFFFFFULL)));
+            data = static_cast<uint64_t>(static_cast<int64_t>(
+                static_cast<int32_t>(data & 0xFFFFFFFFULL)));
         }
 
         // Treat everything as 64-bit.
@@ -57,14 +62,16 @@ namespace granary {
             }
         }
 
+        // TODO: There is bug in there somewhere.
         uint64_t max_base(base);
         for(; data / max_base; max_base *= base) { }
         for(max_base /= 10; max_base; max_base /= base) {
-            const uint64_t digit(data / max_base);
+            const uint64_t digit((data / max_base) % base);
+            ASSERT(digit < base);
             if(digit < 10) {
                 *buff++ = digit + '0';
             } else {
-                *buff++ = (digit - 10) + 'A';
+                *buff++ = (digit - 10) + 'a';
             }
             data -= digit * max_base;
         }
@@ -96,7 +103,7 @@ namespace granary {
 
         bool is_64_bit(false);
         bool is_signed(false);
-        int base(10);
+        unsigned base(10);
         const char *sub_string(nullptr);
         uint64_t generic_int_data(0);
 

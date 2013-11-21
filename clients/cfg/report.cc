@@ -6,12 +6,115 @@
  *      Author: Peter Goodman
  */
 
+#include "clients/cfg/config.h"
+
 #include "granary/client.h"
+
+#if CONFIG_ENV_KERNEL
+#   include "granary/kernel/linux/module.h"
+#endif
+
+#if CFG_RECORD_EXEC_COUNT
+#   define IF_REPORT_COUNT(...) __VA_ARGS__
+#   define _IF_REPORT_COUNT(...) , __VA_ARGS__
+#else
+#   define IF_REPORT_COUNT(...)
+#   define _IF_REPORT_COUNT(...)
+#endif
+
+using namespace granary;
 
 extern "C" {
     extern int sprintf(char *buf, const char *fmt, ...);
+    IF_KERNEL( extern const kernel_module *kernel_get_module(app_pc addr); )
 }
 
+namespace client {
+
+
+    enum {
+        LOG_BUFF_SIZE = 2048
+    };
+
+
+    /// Buffer used for logging.
+    static char LOG_BUFF[LOG_BUFF_SIZE] = {'\0'};
+
+
+    /// Used to link together all basic blocks.
+    extern std::atomic<basic_block_state *> BASIC_BLOCKS;
+
+
+    /// Default "unknown" module.
+
+
+
+    /// Log out information about an individual basic block.
+    static int report_bb(const basic_block_state *state) throw() {
+        const basic_block bb(state->label.translation);
+
+        int i(0);
+
+        IF_KERNEL( const kernel_module *module(
+            kernel_get_module(bb.info->generating_pc.unmangled_address())); )
+
+        i += sprintf(&(LOG_BUFF[i]),
+            "BB(%p,%u,%p" IF_REPORT_COUNT(",%lu") IF_KERNEL(",%x,%s") ")\n",
+            bb.cache_pc_start,
+            bb.info->num_bytes,
+            bb.info->allocator
+            _IF_REPORT_COUNT(state->num_executions)
+            _IF_KERNEL(bb.cache_pc_start - module->text_begin)
+            _IF_KERNEL(module->name));
+
+
+        LOG_BUFF[i] = '\0';
+        return i + 1;
+    }
+
+
+    /// Report on all instrumented basic blocks.
+    void report(void) throw() {
+        const basic_block_state *bb(BASIC_BLOCKS.load());
+
+        for(; bb; bb = bb->next) {
+
+            IF_KERNEL( const eflags flags(granary_disable_interrupts()); )
+            cpu_state_handle cpu;
+            granary::enter(cpu);
+            int report_len(report_bb(bb));
+            IF_KERNEL( granary_store_flags(flags); )
+
+            // Log with interrupts enabled.
+            log(&(LOG_BUFF[0]), report_len);
+        }
+    }
+}
+
+
+#if 0
+
+
+
+#if 0
+
+// Record the name and relative offset of the code within the
+// module. We can correlate this offset with an `objdump` or do
+// static instrumentation of the ELF/KO based on this offset.
+const kernel_module *module(kernel_get_module(start_pc));
+if(module) {
+    const uintptr_t app_begin(
+        reinterpret_cast<uintptr_t>(module->text_begin));
+
+    const uintptr_t start_pc_uint(
+        reinterpret_cast<uintptr_t>(start_pc));
+
+    bb.app_offset_begin = start_pc_uint - app_begin;
+    bb.num_bytes_in_block = reinterpret_cast<uintptr_t>(end_pc) \
+                          - start_pc_uint;
+    bb.app_name = module->name;
+}
+#endif
 
 namespace client {
 
@@ -136,3 +239,4 @@ namespace client {
         }
     }
 }
+#endif

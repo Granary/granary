@@ -83,19 +83,6 @@
 #endif
 
 
-#if CONFIG_DEBUG_PROFILE_IBL
-#   define IF_PROFILE_IBL_ELSE(a,b) a
-#   define IF_PROFILE_IBL(...) __VA_ARGS__
-#   define IF_PROFILE_IBL_(...) __VA_ARGS__ ,
-#   define _IF_PROFILE_IBL(...) , __VA_ARGS__
-#else
-#   define IF_PROFILE_IBL_ELSE(a,b) b
-
-#   define IF_PROFILE_IBL(...)
-#   define IF_PROFILE_IBL_(...)
-#   define _IF_PROFILE_IBL(...)
-#endif
-
 
 #if CONFIG_DEBUG_PERF_COUNTS
 #   define IF_PERF(...) __VA_ARGS__
