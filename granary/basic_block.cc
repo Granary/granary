@@ -24,6 +24,10 @@
 namespace granary {
 
 
+    IF_TEST( app_pc GDB_BREAKPOINT = nullptr; )
+    IF_TEST( instruction GDB_BREAKPOINT_INSTRUCTION; )
+
+
     enum {
 
         /// number of byte states (bit pairs) per byte, i.e. we have a 4-to-1
@@ -481,6 +485,15 @@ namespace granary {
                 fall_through_pc = true;
                 break;
             }
+
+#if CONFIG_DEBUG_ASSERTIONS
+            // This is a useful way for GDB to add a conditional breakpoint into
+            // the code cache.
+            if(GDB_BREAKPOINT
+            && *pc == GDB_BREAKPOINT) {
+                GDB_BREAKPOINT_INSTRUCTION = ls.append(label_());
+            }
+#endif
 
             in = instruction::decode(pc);
 
@@ -1338,6 +1351,15 @@ namespace granary {
         num_translated_bbs = trace.num_blocks;
 
         IF_PERF( perf::visit_trace(trace.num_blocks); )
+
+#if CONFIG_DEBUG_ASSERTIONS
+        // This is a useful way for GDB to add a conditional breakpoint into
+        // the code cache.
+        if(GDB_BREAKPOINT_INSTRUCTION.is_valid()) {
+            granary_break_on_translate(GDB_BREAKPOINT_INSTRUCTION.pc());
+            GDB_BREAKPOINT_INSTRUCTION = instruction();
+        }
+#endif
 
         return translated_start_pc;
     }

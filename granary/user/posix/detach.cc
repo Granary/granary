@@ -232,7 +232,7 @@ namespace granary {
             memcpy(last_path, path, path_len);
         }
 
-        void *handle(dlopen(path, RTLD_LAZY));
+        void *handle(dlopen(path, RTLD_NOW));
         if(nullptr == handle) {
             return;
         }

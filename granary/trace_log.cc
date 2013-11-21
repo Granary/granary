@@ -65,7 +65,11 @@ namespace granary {
         item->code_cache_addr = code_cache_addr;
 
 #       if CONFIG_DEBUG_TRACE_RECORD_REGS
-        item->state = *state;
+
+        // Have to use our internal `memcpy`, because even when telling the
+        // compiler not to use xmm registers, it will sometimes optimize an
+        // assignment of `item->state = *state` into a libc `memcpy`.
+        memcpy(&(item->state), state, sizeof *state);
 
 #       else
         (void) state;

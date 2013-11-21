@@ -26,16 +26,6 @@
 #define this this_
 #define typename typename_
 
-#define int8_t K_int8_t
-#define int16_t K_int16_t
-#define int32_t K_int32_t
-#define int64_t K_int64_t
-
-#define uint8_t K_uint8_t
-#define uint16_t K_uint16_t
-#define uint32_t K_uint32_t
-#define uint64_t K_uint64_t
-
 #define bool K_bool
 #define _Bool K_Bool
 

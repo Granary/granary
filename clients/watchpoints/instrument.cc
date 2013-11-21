@@ -205,10 +205,26 @@ namespace client { namespace wp {
             restore_carry_flag_after = false;
             return;
 
-        // For a specific propagation for CTIs.
+        // Be specific about how CTIs propagate the carry flag.
         } else if(in.is_cti()) {
-            next_reads_carry_flag = true;
-            restore_carry_flag_before = true;
+            switch(in.op_code()) {
+            case dynamorio::OP_ret:
+            case dynamorio::OP_ret_far:
+            case dynamorio::OP_call:
+            case dynamorio::OP_call_far:
+            case dynamorio::OP_call_ind:
+            case dynamorio::OP_call_far_ind:
+            case dynamorio::OP_jmp_ind:
+            case dynamorio::OP_jmp_far_ind:
+            case dynamorio::OP_iret:
+                next_reads_carry_flag = false;
+                restore_carry_flag_before = false;
+                break;
+            default:
+                next_reads_carry_flag = true;
+                restore_carry_flag_before = true;
+                break;
+            }
             restore_carry_flag_after = false;
             return;
         }
@@ -342,21 +358,23 @@ namespace client { namespace wp {
             
             // Make sure that if we want to spill a second register that we can.
             reads_carry_flag = reads_carry_flag && !!spill_reg_2;
+            const bool do_spill_reg_2(
+                spill_reg_2 && (reads_carry_flag || region_length > 3));
 
             // Add in the region ending POPs.
             ls.insert_after(in, mangled(pop_(operand(spill_reg_1))));
-            if(reads_carry_flag) {
+            if(do_spill_reg_2) {
                 ls.insert_after(in, mangled(pop_(operand(spill_reg_2))));
             }
 
             // Add in the region beginning PUSHes.
             if(prev_in.is_valid()) {
-                if(reads_carry_flag) {
+                if(do_spill_reg_2) {
                     ls.insert_after(prev_in, mangled(push_(operand(spill_reg_2))));
                 }
                 ls.insert_after(prev_in, mangled(push_(operand(spill_reg_1))));
             } else {
-                if(reads_carry_flag) {
+                if(do_spill_reg_2) {
                     ls.prepend(mangled(push_(operand(spill_reg_2))));
                 }
                 ls.prepend(mangled(push_(operand(spill_reg_1))));
@@ -644,14 +662,27 @@ namespace client { namespace wp {
             return;
         }
 
-        // If this basic block contains a function call then don't guard
-        // against the redzone.
+        // If this basic block contains a function call or an indirect JMP then
+        // don't guard against the redzone. If it doesn't contain a POP
+        // instruction that doesn't have a native PC then don't guard against
+        // the redzone. Otherwise guard.
         for(in = ls.last(); in.is_valid(); in = in.prev()) {
-            if(in.pc() && in.is_call()) {
-                return;
+            if(in.pc()) {
+                if(in.is_call()) {
+                    return;
+                } else if(in.is_jump()) {
+                    operand target(in.cti_target());
+                    if(dynamorio::PC_kind != target.kind) {
+                        return;
+                    }
+                }
+            } else if(dynamorio::OP_pop == in.op_code()) {
+                goto try_guard;
             }
         }
+        return;
 
+    try_guard:
         bool guarded(false);
         instruction prev_in;
 
@@ -701,13 +732,16 @@ namespace client { namespace wp {
                 //      MOV (...), %RSP
                 } else if(dynamorio::OP_lea == in.op_code()
                        && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+
+                    ASSERT(dynamorio::DR_REG_RSP
+                        == in.instr->u.o.src0.value.base_disp.base_reg);
+
                     guarded = false;
                     ls.insert_after(
                         in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
 
                 // Introduced instruction.
                 } else {
-
                     if(dynamorio::OP_push != in.op_code()
                     && dynamorio::OP_pop != in.op_code()
                     && dynamorio::OP_enter != in.op_code()
@@ -724,7 +758,7 @@ namespace client { namespace wp {
             // Here, we're really trying to guard against things like PUSH, POP,
             // and CALL (i.e. save, restore, do something) that have likely
             // been introduced by the instrumentation.
-            } else if(!in.pc()) {
+            } else if(!in.pc() && dynamorio::OP_pop == in.op_code()) {
 
                 // We need to watch out about something like:
                 //      MOV (...), %RSP
@@ -732,8 +766,7 @@ namespace client { namespace wp {
                 //      ...
                 //      PUSH (...)      <-- also mangled
                 //      POP %RSP
-                if(dynamorio::OP_pop == in.op_code()
-                && dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
+                if(dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
                 && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
                     continue;
                 }
@@ -741,6 +774,7 @@ namespace client { namespace wp {
                 ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
                 guarded = true;
                 prev_in = in; // re-visit this instruction.
+                continue;
             }
 
             // If we're guarded and we didn't adjust the instruction, but it
@@ -748,6 +782,10 @@ namespace client { namespace wp {
             // writing to RSP, then we're changing the stack anyway, so unguard.
             //
             // TODO: MOV (%RSP), %RSP; LEA (%RSP), %RSP; etc.
+            //
+            // This deals with things like stack/frame allocation, e.g.:
+            //      SUB $0x20, %RSP;
+            //      MOV %RSP, %RBP;
             if(guarded && !adjusted_instruction && observes_rsp) {
                 guarded = false;
                 ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));

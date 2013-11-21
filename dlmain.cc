@@ -15,13 +15,19 @@
 #include "granary/detach.h"
 #include "granary/perf.h"
 
-#include <unistd.h>
-#include <cstdio>
-#include <csignal>
 #include <ucontext.h>
 
 #define DEBUG_GDB_ATTACH_AT_INIT 1
 #define DEBUG_GDB_ATTACH_AT_SIGSEGV 0
+
+#if DEBUG_GDB_ATTACH_AT_SIGSEGV
+#   include <csignal>
+#endif
+
+
+#if DEBUG_GDB_ATTACH_AT_INIT || DEBUG_GDB_ATTACH_AT_SIGSEGV
+#   include <unistd.h>
+#endif
 
 using namespace granary;
 
@@ -33,7 +39,8 @@ extern "C" {
         detach();
         granary::printf("Process ID for attaching GDB: %d\n", (int) getpid());
         granary::printf("Press enter to continue.\n");
-        getchar();
+        char buff[1];
+        read(0, buff, 1);
     }
 
 
@@ -53,9 +60,10 @@ extern "C" {
     static void granary_begin_program(void) {
 
 #if DEBUG_GDB_ATTACH_AT_INIT
+        char buff[1];
         granary::printf("Process ID for attaching GDB: %d\n", (int) getpid());
         granary::printf("Press enter to continue.\n");
-        getchar();
+        read(0, buff, 1);
 #endif
 
         granary::init();

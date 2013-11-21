@@ -32,13 +32,6 @@ WHITELIST = {
 
   # Useful for user space debugging
   "__assert_fail":  ("__assert_fail", "__GI___assert_fail"),
-
-  # For printing / debugging; we're not re-entrant with these.
-  #printf": ("printf", "_IO_printf"),
-  #vprintf": ("vprintf", "_IO_vprintf"),
-  #fprintf": ("fprintf", "_IO_fprintf"),
-  #vfprintf": ("vfprintf", "_IO_vfprintf"),
-  # ... there are more but whatever.
 }
 
 # TODO: currently have linker or platform errors for these.

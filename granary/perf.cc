@@ -437,6 +437,7 @@ namespace granary {
     }
 }
 
+GRANARY_DETACH_POINT(granary::perf::report);
 
 #endif /* CONFIG_DEBUG_PERF_COUNTS */
 

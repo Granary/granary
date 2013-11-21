@@ -80,7 +80,7 @@ GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time -Wshadow
 
 GR_EXTRA_CC_FLAGS ?=
 GR_EXTRA_CXX_FLAGS ?=
-GR_EXTRA_LD_FLAGS ?=
+GR_EXTRA_LD_FLAGS ?= "-Wl,--defsym=memset=granary_memset" "-Wl,--defsym=memcpy=granary_memcpy"
 
 # Options for generating type information.
 GR_TYPE_CC = $(GR_CC)
@@ -401,7 +401,10 @@ ifeq ($(KERNEL),0)
 	ifeq ($(GR_GCC),1)
 		GR_FLOAT_FLAGS += -mpreferred-stack-boundary=4
 	endif
-
+	
+	# Try to disable memset/memcpy/memmove synthesizing optimizations.
+	GR_FLOAT_FLAGS += -fno-builtin -ffreestanding
+	
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
 	GR_OUTPUT_TYPES = $(SOURCE_DIR)/granary/gen/user_types.h
 	GR_OUTPUT_WRAPPERS = $(SOURCE_DIR)/granary/gen/user_wrappers.h
@@ -448,8 +451,8 @@ ifeq ($(KERNEL),0)
 		GR_LD_SUFFIX_SPECIFIC = -lrt -ldl -lcrypt
 	endif
 	
-	GR_LD_PREFIX_FLAGS += $(GR_EXTRA_LD_FLAGS) $(GR_LD_PREFIX_SPECIFIC)
-	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC)
+	GR_LD_PREFIX_FLAGS += $(GR_LD_PREFIX_SPECIFIC)
+	GR_LD_SUFFIX_FLAGS += -lm $(GR_LD_SUFFIX_SPECIFIC) $(GR_EXTRA_LD_FLAGS)
 	GR_ASM_FLAGS += -DCONFIG_ENV_KERNEL=0
 	GR_CC_FLAGS += -DCONFIG_ENV_KERNEL=0 $(GR_FLOAT_FLAGS)
 	GR_CXX_FLAGS += -DCONFIG_ENV_KERNEL=0 $(GR_FLOAT_FLAGS)

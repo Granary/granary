@@ -13,9 +13,9 @@
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
 #   include <cstddef>
 #   include <new>
+#   include <stdint.h>
 #endif
 
-#include <stdint.h>
 
 #ifndef GRANARY
 #   define GRANARY 1
@@ -113,7 +113,7 @@
 /// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
-#define CONFIG_DEBUG_TRACE_RECORD_REGS 0
+#define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
 
 
@@ -276,7 +276,7 @@ namespace granary {
 
     /// Program counter type.
     typedef dynamorio::app_pc app_pc;
-    typedef const uint8_t *const_app_pc;
+    typedef const unsigned char *const_app_pc;
 
 
     enum {
@@ -482,14 +482,6 @@ extern "C" {
 #endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 
 
-    /// Perform an 8-byte atomic write.
-    extern void granary_atomic_write8(uint64_t, uint64_t *);
-
-
-    /// Get the current stack pointer.
-    extern uint64_t granary_get_stack_pointer(void);
-
-
     /// Used for switching to a CPU-private stack.
     extern void granary_enter_private_stack(void);
     extern void granary_exit_private_stack(void);
@@ -505,19 +497,20 @@ extern "C" {
 
 #include "granary/allocator.h"
 #include "granary/utils.h"
-#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
-#   include "granary/bump_allocator.h"
-#endif
 #include "granary/init.h"
 #include "granary/perf.h"
 #include "granary/printf.h"
 #include "granary/trace_log.h"
 
-#include "granary/kernel/interrupt.h"
 
+#ifndef GRANARY_DONT_INCLUDE_CSTDLIB
+#   include "granary/bump_allocator.h"
+#   include "granary/kernel/interrupt.h"
 #if CONFIG_FEATURE_INSTRUMENT_HOST && CONFIG_ENV_KERNEL
-#   include "granary/kernel/syscall.h"
+#       include "granary/kernel/syscall.h"
 #endif
+#endif
+
 
 namespace granary {
     /// Log some data from Granary to the external world.

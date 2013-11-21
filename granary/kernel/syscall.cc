@@ -48,6 +48,8 @@ namespace granary {
 
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(true);
+        policy.return_address_in_code_cache(true);
+        policy.begins_functional_unit(true);
 
         mangled_address am(native_syscall_handler, policy);
         native_syscall_handler = code_cache::find(cpu, am);

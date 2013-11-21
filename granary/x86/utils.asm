@@ -113,22 +113,6 @@ GLOBAL_LABEL(granary_get_fs_base:)
 END_FUNC(granary_get_fs_base)
 
 
-/// Atomically write 8 bytes to memory.
-DECLARE_FUNC(granary_atomic_write8)
-GLOBAL_LABEL(granary_atomic_write8:)
-    lock xchg %ARG1, (%ARG2);
-    ret;
-END_FUNC(granary_atomic_write8)
-
-
-DECLARE_FUNC(granary_get_stack_pointer)
-GLOBAL_LABEL(granary_get_stack_pointer:)
-    mov %rsp, %rax;
-    lea 0x8(%rax), %rax;
-    ret;
-END_FUNC(granary_get_stack_pointer)
-
-
 DECLARE_FUNC(granary_disable_interrupts)
 GLOBAL_LABEL(granary_disable_interrupts:)
     pushf;
