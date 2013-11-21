@@ -132,7 +132,7 @@ define get-bb-info
   set $__pc = (granary::app_pc) $arg0
   set $__base_addr = (unsigned long) GRANARY_EXEC_START
   set $__offs = $__addr - $__base_addr
-  set $__index = $__offs / granary::FRAGMENT_SLAB_SIZE
+  set $__index = $__offs / granary::SLAB_SIZE
   set $__locator = (granary::fragment_locator *) granary::detail::FRAGMENT_SLABS[$__index]
 
   # Binary search in the locator to find the fragment's

@@ -9,6 +9,8 @@
 #include "clients/cfg/instrument.h"
 #include "clients/cfg/events.h"
 
+#include "granary/hash_table.h"
+
 using namespace granary;
 
 
@@ -65,24 +67,7 @@ namespace client {
     static static_data<hash_table<app_pc, allocator_kind>> MEMORY_ALLOCATORS;
 
 
-    /// Initialise the control-flow graph client.
-    void init(void) throw() {
-        cpu_state_handle cpu;
-        cpu.free_transient_allocators();
-        EVENT_ENTER_FUNCTION = generate_clean_callable_address(
-            &event_enter_function);
-        cpu.free_transient_allocators();
-        EVENT_EXIT_FUNCTION = generate_clean_callable_address(
-            &event_exit_function);
-        cpu.free_transient_allocators();
-        EVENT_AFTER_FUNCTION = generate_clean_callable_address(
-            &event_after_function);
-        cpu.free_transient_allocators();
-        EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
-            &event_enter_basic_block);
-        cpu.free_transient_allocators();
-        MEMORY_ALLOCATORS.construct();
-
+    static void init_cfg_allocator_map(void) throw() {
 #if CONFIG_ENV_KERNEL
 #   define CFG_MEMORY_ALLOCATOR(func) \
         MEMORY_ALLOCATORS->store( \
@@ -102,6 +87,29 @@ namespace client {
 #   undef CFG_MEMORY_REALLOCATOR
 #endif /* CONFIG_ENV_KERNEL */
     }
+
+
+    /// Initialise the control-flow graph client.
+    STATIC_INITIALISE_ID(cfg_init, {
+        cpu_state_handle cpu;
+        cpu.free_transient_allocators();
+        EVENT_ENTER_FUNCTION = generate_clean_callable_address(
+            &event_enter_function);
+        cpu.free_transient_allocators();
+        EVENT_EXIT_FUNCTION = generate_clean_callable_address(
+            &event_exit_function);
+        cpu.free_transient_allocators();
+        EVENT_AFTER_FUNCTION = generate_clean_callable_address(
+            &event_after_function);
+        cpu.free_transient_allocators();
+        EVENT_ENTER_BASIC_BLOCK = generate_clean_callable_address(
+            &event_enter_basic_block);
+        cpu.free_transient_allocators();
+
+        MEMORY_ALLOCATORS.construct();
+
+        init_cfg_allocator_map();
+    })
 
 
     /// Chain the basic block into the list of basic blocks.

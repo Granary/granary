@@ -15,12 +15,17 @@
 ///     2)  Define the `void init(void) throw()` function within the `client`
 ///         namespace within your client code.
 
+/// When to use an init function:
+///     Your client needs *late* initialisation, after all entrypoints have
+///     taken over (e.g. interrupts), etc.
+
+/// When NOT to use an init function, and instead use a STATIC_INITIALISE[_ID]:
+///     Your client needs to initialise data structures used by your
+///     instrumentation code. This is not suitable for an init function because
+///     the init will only be called after certain entrypoints have been
+///     translated been translated (e.g. syscalls, interrupts).
+
 #ifdef CLIENT_WATCHPOINT_LEAK
-#   define CLIENT_init
-#endif
-
-
-#ifdef CLIENT_CFG
 #   define CLIENT_init
 #endif
 

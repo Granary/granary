@@ -113,7 +113,7 @@
 /// of basic blocks as they execute for later inspection by gdb.
 #define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
-#define CONFIG_DEBUG_TRACE_RECORD_REGS 1
+#define CONFIG_DEBUG_TRACE_RECORD_REGS 0
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
 
 
@@ -457,14 +457,13 @@ extern "C" {
     extern granary::eflags granary_load_flags(void);
     extern void granary_store_flags(granary::eflags);
 
-    extern uintptr_t granary_get_gs_base(void);
-    extern uintptr_t granary_get_fs_base(void);
 
     extern void *granary_memcpy(void *, const void *, size_t);
     extern void *granary_memset(void *, int, size_t);
     extern int granary_memcmp(const void *, const void *, size_t);
     extern size_t granary_strlen(const char *);
     extern char *granary_strncpy(char *destination, const char *source, size_t num);
+
 
 #   define memcpy granary_memcpy
 #   define memset granary_memset

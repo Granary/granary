@@ -62,11 +62,18 @@ GR_DEBUG_LEVEL = -g3
 # be added to the kernel. This is required by things like the `rcudbg` tool.
 GR_ANNOTATIONS ?= 0
 
+
+GR_EXTRA_CC_FLAGS ?=
+GR_EXTRA_CXX_FLAGS ?=
+GR_EXTRA_LD_FLAGS ?= 
+
+
 # Optimisation level.
 ifeq ($(KERNEL),0)
 	GR_DEBUG_LEVEL += -O0
 else
 	GR_DEBUG_LEVEL += -O3
+	#GR_EXTRA_LD_FLAGS += "-Wl,--strip-all"
 endif
 
 GR_LD_PREFIX_FLAGS = 
@@ -76,11 +83,18 @@ GR_CC_FLAGS = -I$(SOURCE_DIR)/ $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(SOURCE_DIR)/ $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
-GR_CXX_FLAGS += -Wno-format-security -funit-at-a-time -Wshadow
+GR_CXX_FLAGS += -Wno-format-security -Wshadow
 
-GR_EXTRA_CC_FLAGS ?=
-GR_EXTRA_CXX_FLAGS ?=
-GR_EXTRA_LD_FLAGS ?= "-Wl,--defsym=memset=granary_memset" "-Wl,--defsym=memcpy=granary_memcpy"
+GR_CC_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time
+GR_CXX_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time
+
+# Try to mask some symbols.
+GR_EXTRA_LD_FLAGS += "-Wl,--defsym=memset=granary_memset"
+GR_EXTRA_LD_FLAGS += "-Wl,--defsym=memcpy=granary_memcpy"
+GR_EXTRA_LD_FLAGS += "-Wl,--defsym=memcmp=granary_memcmp"
+GR_EXTRA_LD_FLAGS += "-Wl,--defsym=strlen=granary_strlen"
+GR_EXTRA_LD_FLAGS += "-Wl,--defsym=strncpy=granary_strncpy"
+GR_EXTRA_LD_FLAGS += "-Wl,--gc-sections"
 
 # Options for generating type information.
 GR_TYPE_CC = $(GR_CC)
@@ -393,7 +407,10 @@ ifeq (1,$(GR_TESTS))
 	GR_OBJS += $(BIN_DIR)/tests/test_trace_block_split.o
 endif
 
+# Try to disable memset/memcpy/memmove synthesizing optimisations, as well as
+# optimisations that use SSE registers.
 GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
+GR_FLOAT_FLAGS += -fno-builtin -ffreestanding
 
 # User space.
 ifeq ($(KERNEL),0)
@@ -401,9 +418,6 @@ ifeq ($(KERNEL),0)
 	ifeq ($(GR_GCC),1)
 		GR_FLOAT_FLAGS += -mpreferred-stack-boundary=4
 	endif
-	
-	# Try to disable memset/memcpy/memmove synthesizing optimizations.
-	GR_FLOAT_FLAGS += -fno-builtin -ffreestanding
 	
 	GR_INPUT_TYPES = $(SOURCE_DIR)/granary/user/posix/types.h
 	GR_OUTPUT_TYPES = $(SOURCE_DIR)/granary/gen/user_types.h
