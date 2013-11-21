@@ -50,7 +50,7 @@
 ///
 /// Note: This is only relevant to kernel space (in user space we don't have a
 ///       pre-defined set of detach addresses).
-#if GRANARY_ENV_KERNEL
+#if CONFIG_ENV_KERNEL
 #   define WRAP_FOR_DETACH(func)
 #   define WRAP_ALIAS(func, alias)
 #   define DETACH(func)
