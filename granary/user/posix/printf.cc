@@ -62,11 +62,10 @@ namespace granary {
             }
         }
 
-        // TODO: There is bug in there somewhere.
         uint64_t max_base(base);
         for(; data / max_base; max_base *= base) { }
-        for(max_base /= 10; max_base; max_base /= base) {
-            const uint64_t digit((data / max_base) % base);
+        for(max_base /= base; max_base; max_base /= base) {
+            const uint64_t digit(data / max_base);
             ASSERT(digit < base);
             if(digit < 10) {
                 *buff++ = digit + '0';

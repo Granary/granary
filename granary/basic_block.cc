@@ -892,7 +892,6 @@ namespace granary {
             block_translator *block(find_block_translator(
                 head, target_pc, target_policy));
 
-
             // Defer splitting until later.
             if(block && block->start_pc != target_pc) {
                 continue;

@@ -24,6 +24,12 @@ namespace client {
     struct basic_block_state;
 
 
+    union edge_table {
+        basic_block_state *state;
+        edge_table *next_table;
+    };
+
+
     /// State that is automatically maintained for each instrumented basic
     /// basic block.
     struct basic_block_state {
@@ -40,10 +46,19 @@ namespace client {
 #if CFG_RECORD_EXEC_COUNT
         /// Number of times this basic block was executed.
         uint64_t num_executions;
+
+#   if CFG_RECORD_FALL_THROUGH_COUNT
+        /// Number of times the fall-through of this basic block was
+        /// executed.
+        uint64_t num_fall_through_executions;
+#   endif
 #endif
 
         /// Outgoing edges to indirect CTI targets.
-        basic_block_state *indirect_edges;
+
+        mutable granary::atomic_spin_lock edge_table_lock;
+        mutable unsigned num_tables;
+        mutable std::atomic<edge_table *> indirect_edges;
     };
 }
 

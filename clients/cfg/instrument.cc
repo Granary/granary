@@ -47,14 +47,21 @@ namespace client {
     void discard_basic_block(basic_block_state &) throw() { }
 
 
+#if CFG_RECORD_INDIRECT_TARGETS
     /// Add an entry to a basic block's set of indirect CALL/JMP targets.
     void add_indirect_target(app_pc target_addr, app_pc source_bb) throw() {
-        //basic_block bb(source_bb);
+        /*const basic_block bb(source_bb);
+        const basic_block_state *state(bb.state());
 
-        (void) target_addr;
-        (void) source_bb;
+        state->edge_table_lock.acquire();
+        const unsigned num_tables(state->num_tables);
+        const edge_table *table(state->indirect_edges);
+        state->edge_table_lock.release();
 
-        //printf("%p\n", target_addr);
+        unsigned num_entries(1 << num_tables);
+        */
+        UNUSED(target_addr);
+        UNUSED(source_bb);
     }
 
 
@@ -65,6 +72,7 @@ namespace client {
         EVENT_ADD_INDIRECT_TARGET = generate_clean_callable_address(
             &add_indirect_target, EXIT_REGS_ABI_COMPATIBLE);
     })
+#endif
 
 
     /// Add in instrumentation so that we can later figure out the control-flow
@@ -74,21 +82,24 @@ namespace client {
         granary::basic_block_state &bb,
         granary::instruction_list &ls
     ) throw() {
+
         // This is a recursive invocation of instrumentation on an indirect
         // CTI that loads from memory. We can find the CTI's address in
         // `reg::indirect_target_addr`.
         if(ls.is_stub()) {
-            instruction in(ls.prepend(label_()));
-            insert_clean_call_after(ls, in, EVENT_ADD_INDIRECT_TARGET,
+#if CFG_RECORD_INDIRECT_TARGETS
+            insert_clean_call_after(ls, ls.last(), EVENT_ADD_INDIRECT_TARGET,
                 reg::indirect_target_addr, mem_instr_(&bb.label));
-
+#endif
             return *this;
         }
 
-        bool added_exec_count(false);
-        IF_USER( bool redzone_safe(false); )
-#if CFG_RECORD_EXEC_COUNT
+        // This isn't a recursive invocation for an indirect CTI, instrument the
+        // basic block.
 
+#if CFG_RECORD_EXEC_COUNT
+        IF_USER( bool redzone_safe(false); )
+        bool added_exec_count(false);
         unsigned eflags(0);
         for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
 
@@ -152,6 +163,33 @@ namespace client {
             IF_USER( ls.insert_before(label,
                 lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
         }
+
+#   if CFG_RECORD_FALL_THROUGH_COUNT
+        // Cound how many times we skip over a conditional branch and execute
+        // the fall-through basic block.
+        for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
+            if(!in.is_cti() || !dynamorio::instr_is_cbr(in)) {
+                continue;
+            }
+
+            in = in.next();
+            IF_USER(
+                if(!redzone_safe) {
+                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+                }
+            )
+            ls.insert_before(in, pushf_());
+            ls.insert_before(in,
+                inc_(absmem_(&(bb.num_fall_through_executions), dynamorio::OPSZ_8)));
+            ls.insert_before(in, popf_());
+            IF_USER(
+                if(!redzone_safe) {
+                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                }
+            )
+            break;
+        }
+#   endif
 #endif
 
         return *this;

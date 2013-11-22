@@ -151,19 +151,10 @@ namespace granary {
 
         // Instrument the memory instructions needed to complete this CALL
         // or JMP.
-        instruction ibl_tail_end(ibl_tail.append(label_()));
-
         if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
             instrumentation_policy tail_policy(policy);
 
-            // Kill all flags so that the instrumentation can use them if
-            // possible.
-            //if(IBL_ENTRY_CALL == ibl_kind) {
-            //    ibl_tail.append(mangled(popf_()));
-            //}
-
             // Make sure all other registers appear live.
-            ibl_tail.append(mangled(jmp_(instr_(ibl_tail_end))));
             tail_policy.instrument(cpu, bb, ibl_tail);
             instruction_list_mangler sub_mangler(
                 cpu, bb, ibl_tail, stub_ls, policy, estimator_pc);
@@ -174,13 +165,7 @@ namespace granary {
 
         // Add the instructions back into the stub.
         for(instruction ibl_in(ibl.first()), next_ibl_in;
-            ibl_in.is_valid();
-            ibl_in = next_ibl_in) {
-
-            if(ibl_in == ibl_tail_end) {
-                break;
-            }
-
+            ibl_in.is_valid(); ibl_in = next_ibl_in) {
             next_ibl_in = ibl_in.next();
             ibl.remove(ibl_in);
             ls.insert_before(cti, ibl_in);

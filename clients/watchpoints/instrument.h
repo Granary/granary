@@ -624,6 +624,9 @@ namespace client {
 
                 // Makes it so that we can't overwrite any registers used in
                 // the instruction.
+                if(!in.next().is_valid()) {
+                    tracker.live_regs.revive_all();
+                }
                 tracker.live_regs.revive(in);
 
                 // Track the carry flag. The carry flag will be used to detect

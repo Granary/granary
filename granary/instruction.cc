@@ -393,6 +393,10 @@ namespace granary {
     /// Note: This removed all elements from the argument list.
     void instruction_list::extend(instruction_list &that) throw() {
 
+        if(!that.length_) {
+            return;
+        }
+
         length_ += that.length_;
 
         if(!last_) {

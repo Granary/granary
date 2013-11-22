@@ -51,7 +51,12 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-        CODE_CACHE_SIZE = 20 * _1_MB,
+
+#if CONFIG_ENABLE_TRACE_ALLOCATOR
+        CODE_CACHE_SIZE = 30 * _1_MB,
+#else
+        CODE_CACHE_SIZE = 5 * _1_MB,
+#endif
 
         // Maximum size of the part of the code cache containing basic blocks /
         // fragments.

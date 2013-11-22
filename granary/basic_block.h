@@ -205,7 +205,7 @@ namespace granary {
 
         /// Return a pointer to the basic block state structure of this basic
         /// block.
-        inline basic_block_state *state(void) const throw() {
+        inline const basic_block_state *state(void) const throw() {
             return info->state;
         }
     };
