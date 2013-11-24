@@ -51,7 +51,9 @@ namespace granary {
 
     /// The globally shared code cache. This maps policy-mangled code
     /// code addresses to translated addresses.
-    static static_data<locked_hash_table<app_pc, app_pc>> CODE_CACHE;
+    static static_data<
+        locked_hash_table<app_pc, app_pc>
+    > CODE_CACHE;
 
 
     STATIC_INITIALISE_ID(code_cache_hash_table, {

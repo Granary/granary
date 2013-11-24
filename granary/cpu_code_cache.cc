@@ -27,7 +27,7 @@ namespace granary {
     }
 
     /// Find an entry in the CPU-private code cache.
-    app_pc cpu_private_code_cache::find(const app_pc key) const throw() {
+    app_pc cpu_private_code_cache::find(app_pc key) const throw() {
         if(!entries) {
             return nullptr;
         }

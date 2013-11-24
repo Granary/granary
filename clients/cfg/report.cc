@@ -33,14 +33,17 @@
 
 using namespace granary;
 
+
 extern "C" {
     extern int sprintf(char *buf, const char *fmt, ...);
     IF_KERNEL( extern const kernel_module *kernel_get_module(app_pc addr); )
 }
 
+
 extern "C" {
     extern app_pc GRANARY_EXEC_START;
 }
+
 
 namespace client {
 
@@ -82,15 +85,13 @@ namespace client {
     /// Log out information about an individual basic block.
     static int report_bb(const basic_block_state *state) throw() {
         const basic_block bb(state->label.translation);
-
-        int i(0);
-
         const app_pc native_pc_start(
             bb.info->generating_pc.unmangled_address());
 
         IF_KERNEL( const kernel_module *module(
             kernel_get_module(native_pc_start)); )
 
+        int i(0);
         i += sprintf(&(LOG_BUFF[i]),
             "BB(%x,%u,%p,%u,%p" IF_REPORT_COUNT(",%lu") IF_KERNEL(",%x,%s") ")\n",
             bb.cache_pc_start - GRANARY_EXEC_START,

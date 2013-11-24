@@ -462,7 +462,7 @@ namespace granary {
     ) throw() {
         app_pc local_pc(start_pc);
         app_pc *pc(&local_pc);
-        const const_app_pc desired_end_pc(end_pc);
+        const app_pc desired_end_pc(end_pc);
 
         bool fall_through_pc(false);
         bool fall_through_cond_cti(false);
@@ -715,7 +715,8 @@ namespace granary {
 
         bool visit_branches(
             cpu_state_handle cpu,
-            block_translator *head
+            block_translator *head,
+            unsigned &num_fall_throughs
         ) throw();
 
         bool fixup_branches(
@@ -763,8 +764,8 @@ namespace granary {
         num_decoded_instructions = 0;
         num_encoded_instructions = 0;
 
+        client::discard_basic_block(*state);
         if(state) {
-            client::discard_basic_block(*state);
             memset(state, 0, sizeof *state);
             new (state) basic_block_state;
         }
@@ -772,9 +773,7 @@ namespace granary {
 
 
     /// Translate an individual basic block.
-    void block_translator::run(
-        cpu_state_handle cpu
-    ) throw() {
+    void block_translator::run(cpu_state_handle cpu) throw() {
 
         num_decoded_instructions = basic_block::decode(
             ls, incoming_policy,
@@ -820,23 +819,42 @@ namespace granary {
     /// fall-through targets of conditional branches.
     bool block_translator::visit_branches(
         cpu_state_handle cpu,
-        block_translator *head
+        block_translator *head,
+        unsigned &num_fall_throughs
     ) throw() {
         bool found_successor(false);
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
 
-            // Filter out all non-JMP instructions.
-            if(in.is_mangled() || !in.is_jump()) {
+            if(in.is_mangled() || !in.is_cti()
+            || in.is_call() || in.is_return()) {
                 continue;
             }
 
-#if !CONFIG_FOLLOW_CONDITIONAL_BRANCHES
+            bool is_fall_through(false);
+
+            // Filter out all non-JMP instructions.
+            if(dynamorio::instr_is_cbr(in)) {
+#if CONFIG_FOLLOW_CONDITIONAL_BRANCHES && CONFIG_FOLLOW_FALL_THROUGH_BRANCHES
+                // If we're doing ahead-of-time translation of conditional jumps
+                // as well, then we benefit from the fall-throughs being ordered
+                // before the conditional jumps because of how we do insertion
+                // into the block translator list.
+#else
+                continue;
+#endif
             // If we're tracing conditional branches, then follow their fall-
             // through jumps. Otherwise we'll only follow direct JMPs.
-            if(in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
-                continue;
+            } else if(in.has_flag(instruction::COND_CTI_FALL_THROUGH)) {
+                ASSERT(in.is_jump());
+                if(!num_fall_throughs) {
+                    continue;
+                }
+                is_fall_through = true;
+
+            // Just double check that we're only seeing JMPs or CBRs.
+            } else {
+                ASSERT(in.is_jump());
             }
-#endif
 
             // Filter out indirect JMPs.
             const operand target(in.cti_target());
@@ -873,7 +891,7 @@ namespace granary {
             // because the mangler will do the rest for us. Here, we only want
             // to avoid bringing in full on duplicates of basic blocks if we
             // can.
-            if(is_jump && !translated_target_pc) {
+            if(!translated_target_pc) {
                 mangled_address am(target_pc, target_policy);
                 translated_target_pc = code_cache::lookup(am.as_address);
             }
@@ -899,6 +917,10 @@ namespace granary {
 
             // We don't have a block! Need to go make one.
             if(!block) {
+                if(is_fall_through && num_fall_throughs) {
+                    --num_fall_throughs;
+                }
+
                 block = cpu->transient_allocator.allocate<block_translator>();
                 block->start_pc = target_pc;
                 block->incoming_policy = target_policy;
@@ -1090,6 +1112,8 @@ namespace granary {
         trace_bbs->start_pc = start_pc;
         trace_bbs->incoming_policy = policy;
 
+        unsigned num_fall_throughs(CONFIG_FOLLOW_FALL_THROUGH_BRANCHES);
+
         for(bool changed(true); changed; ) {
             changed = false;
 
@@ -1104,7 +1128,7 @@ namespace granary {
                 // split. This comes up when one instruction is jumping into
                 // another, which compilers *do* generate (e.g. jumping after a
                 // LOCK prefix).
-                const const_app_pc old_split_end_pc(block->split_end_pc);
+                const app_pc old_split_end_pc(block->split_end_pc);
                 if(old_split_end_pc) {
                     block->reinitialise_for_split();
                     block->split_end_pc = nullptr;
@@ -1121,7 +1145,7 @@ namespace granary {
                         IF_PERF( perf::visit_unsplittable_block(); )
                     }
 
-                    if(block->visit_branches(cpu, trace_bbs)) {
+                    if(block->visit_branches(cpu, trace_bbs, num_fall_throughs)) {
                         changed = true;
                     }
                 }
@@ -1227,7 +1251,7 @@ namespace granary {
         // us to properly align hot-patchable instructions.
         cpu->current_fragment_allocator->allocate_array<uint8_t>(
             trace_max_size);
-        cpu->current_fragment_allocator->free_last();
+        cpu->current_fragment_allocator->free_last(FREE_HINT_KEEP_SLAB);
         const uintptr_t estimator_addr(reinterpret_cast<uintptr_t>(
             cpu->current_fragment_allocator->allocate_staged<uint8_t>()));
 
@@ -1283,11 +1307,6 @@ namespace granary {
             memset(stub_pc, 0xCC, stub_size);
             patch_stubs.encode(stub_pc, stub_size);
         }
-
-        // Record the "requested" trace entrypoint. We don't return the
-        // `trace.start_pc` to future-proof against re-organising basic blocks
-        // within the trace.
-        const app_pc translated_start_pc(trace_original_bb->start_label.pc());
 
         // Create the basic block info for each trace basic block.
         unsigned i(0);
@@ -1357,6 +1376,6 @@ namespace granary {
         }
 #endif
 
-        return translated_start_pc;
+        return trace_original_bb->start_label.pc();
     }
 }

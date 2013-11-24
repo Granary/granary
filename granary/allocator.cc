@@ -53,7 +53,7 @@ namespace granary { namespace detail {
         _1_MB = 1048576,
 
 #if CONFIG_ENABLE_TRACE_ALLOCATOR
-        CODE_CACHE_SIZE = 30 * _1_MB,
+        CODE_CACHE_SIZE = 10 * _1_MB,
 #else
         CODE_CACHE_SIZE = 5 * _1_MB,
 #endif

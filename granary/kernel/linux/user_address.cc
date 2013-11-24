@@ -72,7 +72,7 @@ namespace granary {
     /// entry.
     bool kernel_code_accesses_user_data(
         instruction_list &ls,
-        app_pc start_pc
+        const app_pc start_pc
     ) throw() {
 
         // Go through the array of exceptions.

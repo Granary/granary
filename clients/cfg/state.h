@@ -53,12 +53,6 @@ namespace client {
         uint64_t num_fall_through_executions;
 #   endif
 #endif
-
-        /// Outgoing edges to indirect CTI targets.
-
-        mutable granary::atomic_spin_lock edge_table_lock;
-        mutable unsigned num_tables;
-        mutable std::atomic<edge_table *> indirect_edges;
     };
 }
 

@@ -142,6 +142,22 @@ namespace granary {
         fragment_locator **slab_(granary_find_fragment_slab(trace.start_pc));
         if(unlikely(!*slab_)) {
             *slab_ = allocate_memory<fragment_locator>();
+
+            fragment_locator **end_slab_(
+                granary_find_fragment_slab(trace.start_pc + trace.num_bytes - 1));
+
+            // A very long trace spanning multiple logical slabs.
+            if(unlikely(end_slab_ != slab_)) {
+                for(fragment_locator **next_slab_(slab_ + 1);
+                    next_slab_ <= end_slab_;
+                    ++next_slab_) {
+
+                    ASSERT(nullptr == *next_slab_);
+
+                    // Initialize using the same slab.
+                    *next_slab_ = *slab_;
+                }
+            }
         }
 
         fragment_locator *slab(*slab_);

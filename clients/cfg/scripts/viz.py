@@ -38,8 +38,9 @@ BB_ALIGN = 64
 PAGE_SIZE = 4096
 SLAB_SIZE = PAGE_SIZE
 EDGE_STRINGS = {}
-MAX_SLABS_X_AXIS = 8
-BYTE_RATIO = 16
+MAX_SLABS_X_AXIS = 16
+BYTE_RATIO = 8
+MAX_SLAB_WIDTH_PX = 32
 
 if __name__ == "__main__":
   with open(sys.argv[1], "r") as lines:
@@ -60,6 +61,7 @@ if __name__ == "__main__":
   aligned_max_cache_pc = ((max_cache_pc + (PAGE_SIZE - 1)) / PAGE_SIZE) * PAGE_SIZE
   aligned_min_cache_pc = (min_cache_pc / PAGE_SIZE) * PAGE_SIZE
 
+  print "Number of basic blocks:", len(BBS)
   print "Code cache size:", (aligned_max_cache_pc / 2.0**20)
 
   min_slab_id = min_cache_pc / SLAB_SIZE
@@ -82,23 +84,30 @@ if __name__ == "__main__":
   #num_slabs = len(slabs)
 
   max_height = max(len(slab) for slab in slabs)
-  max_width = max((bb.num_bytes + (BB_ALIGN - 1)) / BYTE_RATIO for bb in BBS)
+  max_width = min(
+    MAX_SLAB_WIDTH_PX,
+    max((bb.num_bytes + (BB_ALIGN - 1)) / BYTE_RATIO for bb in BBS))
 
   num_slab_rows = (num_slabs + MAX_SLABS_X_AXIS - 1) / MAX_SLABS_X_AXIS
 
   WIDTH_PX = max_width * MAX_SLABS_X_AXIS
   HEIGHT_PX = max_height * num_slab_rows
 
-  import Image
+  import Image, ImageDraw, ImageFont
+  font = ImageFont.load("/home/pag/Code/pilfonts/courB08.pil")
   img = Image.new('RGB', (WIDTH_PX, HEIGHT_PX), "black")
 
   allocators = set(bb.allocator for bb in BBS)
+  allocators = list(allocators)
+  allocators.sort()
+  allocator_nums = dict(zip(allocators, range(len(allocators))))
+  allocators = set(allocators)
 
   # Get a color palette: http://stackoverflow.com/a/876872/247591
   import colorsys
   N = len(allocators)
   print "Number of used allocators:", N
-  HSV_tuples = [(x*1.0/N, 0.5, 0.5) for x in range(N)]
+  HSV_tuples = [(x*1.0/N, (N-x)*1.0/N, 0.5) for x in range(N)]
   RGB_tuples = map(lambda x: colorsys.hsv_to_rgb(*x), HSV_tuples)
   
   colors = {}
@@ -107,7 +116,8 @@ if __name__ == "__main__":
     colors[allocator] = color
 
   pixels = img.load() # create the pixel map
-  
+  draw = ImageDraw.Draw(img)
+
   for i, slab in enumerate(slabs):
     start_x = (i % MAX_SLABS_X_AXIS) * max_width
     y_mult = i / MAX_SLABS_X_AXIS
@@ -117,12 +127,24 @@ if __name__ == "__main__":
 
       bb.x = start_x
       bb.y = start_y
-      width = (bb.num_bytes + (BYTE_RATIO - 1)) / BYTE_RATIO
+      width = min(
+        MAX_SLAB_WIDTH_PX,
+        max(1, (bb.num_bytes + (BYTE_RATIO - 1)) / BYTE_RATIO))
       for x_off in range(width):
         color = colors[bb.allocator]
         if not bb.count:
           color = (0xff, 0, 0)
+
         pixels[start_x + x_off, start_y] = color
+
+    if slab:
+      some_allocator = slab[0].allocator
+      draw.text(
+        (start_x + MAX_SLAB_WIDTH_PX / 3, max_height * (1 + y_mult) - 20),
+        str(allocator_nums[some_allocator]),
+        font=font)
+
+
 
   #for i in range(img.size[0]):    # for every pixel:
   #  for j in range(img.size[1]):

@@ -38,7 +38,7 @@ namespace client {
         do {
             prev = BASIC_BLOCKS.load();
             curr->next = prev;
-        } while(!BASIC_BLOCKS.compare_exchange_weak(prev, curr));
+        } while(!BASIC_BLOCKS.compare_exchange_strong(prev, curr));
     }
 
 
@@ -50,16 +50,6 @@ namespace client {
 #if CFG_RECORD_INDIRECT_TARGETS
     /// Add an entry to a basic block's set of indirect CALL/JMP targets.
     void add_indirect_target(app_pc target_addr, app_pc source_bb) throw() {
-        /*const basic_block bb(source_bb);
-        const basic_block_state *state(bb.state());
-
-        state->edge_table_lock.acquire();
-        const unsigned num_tables(state->num_tables);
-        const edge_table *table(state->indirect_edges);
-        state->edge_table_lock.release();
-
-        unsigned num_entries(1 << num_tables);
-        */
         UNUSED(target_addr);
         UNUSED(source_bb);
     }
@@ -165,7 +155,7 @@ namespace client {
         }
 
 #   if CFG_RECORD_FALL_THROUGH_COUNT
-        // Cound how many times we skip over a conditional branch and execute
+        // Count how many times we skip over a conditional branch and execute
         // the fall-through basic block.
         for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
             if(!in.is_cti() || !dynamorio::instr_is_cbr(in)) {

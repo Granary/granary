@@ -125,7 +125,7 @@
 /// building by having a basic block fragment allocated in the same slab (if
 /// possible) as its successor basic block.
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_ENABLE_TRACE_ALLOCATOR 0
+#   define CONFIG_ENABLE_TRACE_ALLOCATOR 1
 #else
 #   define CONFIG_ENABLE_TRACE_ALLOCATOR 0 // Can't change.
 #endif
@@ -159,6 +159,14 @@
 #define CONFIG_TRACE_ALLOCATE_ENTRY_CPU 0
 
 
+/// Should we do a delayed takeover of the kernel table? This is only relevant
+/// for whole-kernel instrumentation.
+///
+/// Note: Disable with 0, or enable by setting N >= 1 as the number of
+///       milliseconds to pause between takeover periods.
+#define CONFIG_DELAYED_TAKEOVER 0
+
+
 /// Should we try to aggressively build traces at basic block translation
 /// time? This implies a more transactional approach to filling the code cache.
 ///
@@ -167,6 +175,16 @@
 ///
 /// Note: This is a very very aggressive translation approach, and might
 ///       perform badly with policies.
+///
+/// Note: If a non-zero number is given, then that number represents the maximum
+///       number of conditional branch fall-throughs to follow.
+#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 10000
+
+
+/// If we're following fall-through branches, then this option lets us also
+/// follow conditional branches.
+///
+/// Note: This doesn't really work :-S
 #define CONFIG_FOLLOW_CONDITIONAL_BRANCHES 0
 
 
@@ -223,7 +241,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 0
+#define CONFIG_DEBUG_ASSERTIONS 1
 
 
 #if CONFIG_ENV_KERNEL

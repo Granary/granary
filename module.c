@@ -68,7 +68,7 @@ MODULE_LICENSE("GPL");
 
 
 /// Configuration for RelayFS.
-#define SUBBUF_SIZE 262144
+#define SUBBUF_SIZE 1048576
 #define N_SUBBUFS 4
 struct rchan *GRANARY_RELAY_CHANNEL = NULL;
 

@@ -62,7 +62,10 @@ namespace granary {
     /// Returns:
     ///     A translated target address, or nullptr if this isn't a
     ///     detach target.
-    app_pc find_detach_target(app_pc detach_addr, runtime_context context) throw() {
+    app_pc find_detach_target(
+        app_pc detach_addr,
+        runtime_context context
+    ) throw() {
 
 #if CONFIG_ENV_KERNEL
 #   if !CONFIG_FEATURE_INSTRUMENT_HOST

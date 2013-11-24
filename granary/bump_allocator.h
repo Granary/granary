@@ -40,6 +40,12 @@ namespace granary {
     };
 
 
+    enum free_memory_hint {
+        FREE_HINT_KEEP_SLAB,
+        FREE_HINT_TRY_FREE_SLAB
+    };
+
+
     /// Defines a generic bump pointer allocator. The allocator is configured
     /// by the Config type.
     ///
@@ -374,8 +380,8 @@ namespace granary {
 
     private:
 
-        bool try_free_curr(void) throw() {
-            if(!curr->index) {
+        bool try_free_curr(bool had_slab) throw() {
+            if(!had_slab || !curr->index) {
                 bump_pointer_slab *dead_slab(curr);
                 curr = curr->next;
                 dead_slab->next = free;
@@ -401,8 +407,9 @@ namespace granary {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
+            bool had_slab(curr != nullptr);
             void *ret(allocate_bare(MIN_ALIGN, 0));
-            if(SHARE_DEAD_SLABS && try_free_curr()) {
+            if(SHARE_DEAD_SLABS && try_free_curr(had_slab)) {
                 try_share_free();
             }
             release();
@@ -440,7 +447,7 @@ namespace granary {
         /// If this is a shared allocator, or if the allocator isn't shared but
         /// follows a locking discipline that uses `lock_coarse` (coarse-grained
         /// allocator locking) then this function should be used VERY carefully.
-        void free_last(void) throw() {
+        void free_last(free_memory_hint hint=FREE_HINT_TRY_FREE_SLAB) throw() {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
@@ -463,7 +470,9 @@ namespace granary {
                     MEMSET_VALUE,
                     last_allocation_size);
 
-                if(SHARE_DEAD_SLABS && try_free_curr()) {
+                if(FREE_HINT_TRY_FREE_SLAB == hint
+                && SHARE_DEAD_SLABS
+                && try_free_curr(true)) {
                     try_share_free();
                 }
             }

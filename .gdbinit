@@ -248,6 +248,7 @@ define p-bb-info-impl
 
   # Print the info.
   printf "Basic block info:\n"
+  printf "   State: %p\n", (void *) $__bb->state
   printf "   App:\n"
   printf "      Code: %p\n", (void *) $__gen_pc
   printf "      Num instructions: %d\n", $__bb->generating_num_instructions

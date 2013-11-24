@@ -16,6 +16,7 @@
 #include "granary/perf.h"
 #include "granary/test.h"
 #include "granary/wrapper.h"
+#include "granary/types.h"
 
 #include "granary/x86/asm_defines.asm"
 #include "granary/x86/asm_helpers.asm"
@@ -30,6 +31,8 @@
 #   undef GRANARY_DONT_INCLUDE_CSTDLIB
 #endif
 
+#define printf types::printk
+
 using namespace granary;
 
 extern "C" {
@@ -37,6 +40,11 @@ extern "C" {
 
     extern void granary_before_module_bootstrap(struct kernel_module *module);
     extern void granary_before_module_init(struct kernel_module *module);
+
+
+#if CONFIG_DELAYED_TAKEOVER
+    extern bool granary_takeover_next_syscall_entry(void);
+#endif
 
 
     /// Make a special init function that sets certain page permissions before
@@ -140,6 +148,14 @@ extern "C" {
         printf("[granary] Initialising Granary...\n");
         init();
         printf("[granary] Initialised.\n");
+
+#if CONFIG_DELAYED_TAKEOVER
+        printf("[granary] Beginning delayed takeover...\n");
+        while(granary_takeover_next_syscall_entry()) {
+            types::msleep(CONFIG_DELAYED_TAKEOVER);
+        }
+        printf("[granary] Done delayed takeover.");
+#endif
     }
 
 

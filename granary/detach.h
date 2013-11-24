@@ -123,7 +123,7 @@ namespace granary {
 	/// Returns:
 	///		A translated target address, or nullptr if this isn't a
 	/// 	detach target.
-	app_pc find_detach_target(app_pc pc, runtime_context) throw();
+    app_pc find_detach_target(app_pc pc, runtime_context) throw();
 
 
 	/// Detach Granary.
