@@ -161,7 +161,7 @@ namespace granary {
 
 
         bool granary_takeover_next_syscall_entry(void) {
-#if !CONFIG_DELAYED_TAKEOVER
+#if !CONFIG_DELAYED_TAKEOVER || !CONFIG_FEATURE_INSTRUMENT_HOST
             return false;
 #else
             static unsigned next_entry(0);

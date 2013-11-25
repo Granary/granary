@@ -22,6 +22,11 @@ namespace granary {
 
     /// Data structure that tracks direct control flow instructions that must
     /// be patched, and how to patch them.
+    ///
+    /// TODO: Find a way do to garbage collection on these. Alternatively, keep
+    ///       them around as a way of re-wiring the code cache, although this
+    ///       is redundant because there is already enough information contained
+    ///       in `basic_block_info` to effectively re-wire things.
     struct direct_branch_patch_info {
 
         /// Always the same; the function that actually performs the patch.
@@ -47,12 +52,6 @@ namespace granary {
             DBL_UNCONDITIONAL
         } kind;
     };
-
-
-    static instruction bad_instr_(dynamorio::opnd_t) throw() {
-        ASSERT(false);
-        return instruction();
-    }
 
 
     enum {
