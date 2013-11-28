@@ -316,6 +316,7 @@ namespace granary {
         // Linux-specific special case: Optimise for syscall entry points.
         // Note: We depend on sign-extension of the 32-bit displacement here.
         if(NATIVE_SYSCALL_TABLE && SHADOW_SYSCALL_TABLE
+        && target_policy.base_policy() == START_POLICY.base_policy()
         && dynamorio::BASE_DISP_kind == target.kind
         && NATIVE_SYSCALL_TABLE == (intptr_t) target.value.base_disp.disp) {
             target.value.base_disp.disp = (int) SHADOW_SYSCALL_TABLE;

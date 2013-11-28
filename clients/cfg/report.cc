@@ -103,10 +103,22 @@ namespace client {
             _IF_KERNEL(native_pc_start - module->text_begin)
             _IF_KERNEL(module->name));
 
+        cpu_state_handle cpu;
+
         // Decode the original instructions and extract the CTIs.
         app_pc decode_pc(native_pc_start);
         for(unsigned j(0); j < bb.info->generating_num_instructions; ++j) {
+
+            // Note: Some module code might fault when decoding (e.g. if it was
+            //       some of the initialization code). So, we need to recover
+            //       from here.
+            if(!granary_try_access(decode_pc)) {
+                break;
+            }
+
             instruction in(instruction::decode(&decode_pc));
+
+
             if(!in.is_cti() || in.is_return()) {
                 continue;
             }

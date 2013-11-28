@@ -77,6 +77,10 @@ namespace granary {
     static app_pc COMMON_HANDLER_END = nullptr;
 
 
+    static app_pc TRY_ACCESS_PC = nullptr;
+    static app_pc FAIL_ACCESS_PC = nullptr;
+
+
     /// Initialise the stack alignment table. Note: the stack grows down, and
     /// we will use this table with XLATB to align the pseudo stack pointer in
     /// one shot.
@@ -84,6 +88,9 @@ namespace granary {
         for(unsigned i(0); i < 256; ++i) {
             STACK_ALIGN[i] = i - (i % 16);
         }
+
+        TRY_ACCESS_PC = unsafe_cast<app_pc>(granary_try_access);
+        FAIL_ACCESS_PC = unsafe_cast<app_pc>(granary_fail_access);
     })
 
 
@@ -494,6 +501,15 @@ namespace granary {
             memcpy(FAULTED_STACK, reinterpret_cast<void *>(rsp), rsp_base - rsp);
         }
 #endif
+
+        // We tried to access some memory that might fault, and we faulted.
+        // Recover from the fault.
+        if(VECTOR_PAGE_FAULT == vector
+        && isf->instruction_pointer == TRY_ACCESS_PC) {
+            isf->instruction_pointer = FAIL_ACCESS_PC;
+            return INTERRUPT_IRET;
+        }
+
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         granary::enter(cpu);
         return client::handle_kernel_interrupt(

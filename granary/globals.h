@@ -192,7 +192,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 0
+#define CONFIG_DEBUG_PERF_COUNTS 1
 
 
 /// Debug the initialisation of Granary, but make sure that it doesn't actually
@@ -481,6 +481,8 @@ extern "C" {
 #   define strncpy granary_strncpy
 
 #if CONFIG_ENV_KERNEL
+    extern bool granary_try_access(const void *);
+    extern bool granary_fail_access(void);
     extern void kernel_log(const char *, size_t);
 #endif /* CONFIG_ENV_KERNEL */
 

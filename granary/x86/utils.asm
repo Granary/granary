@@ -5,6 +5,21 @@
 START_FILE
 
 
+DECLARE_FUNC(granary_try_access)
+GLOBAL_LABEL(granary_try_access:)
+    movb (%rdi), %al; // might fault!
+    mov $1, %eax;
+    ret;
+END_FUNC(granary_try_access)
+
+
+DECLARE_FUNC(granary_fail_access)
+GLOBAL_LABEL(granary_fail_access:)
+    xor %rax, %rax;
+    ret;
+END_FUNC(granary_fail_access)
+
+
 /// Hash function for an address going into the IBL. Takes in an address and
 /// returns an index.
 DECLARE_FUNC(granary_ibl_hash)

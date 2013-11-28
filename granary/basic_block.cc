@@ -41,6 +41,7 @@ namespace granary {
     };
 
 
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
     /// Get the state of a byte in the basic block.
     inline static code_cache_byte_state
     get_state(const uint8_t *states, unsigned i) throw() {
@@ -89,7 +90,6 @@ namespace granary {
     };
 
 
-#if CONFIG_FEATURE_INTERRUPT_DELAY
     /// Get the state of all bytes of an instruction.
     static code_cache_byte_state
     get_instruction_state(
@@ -208,20 +208,8 @@ namespace granary {
 
         return num_state_bytes;
     }
-#endif
 
 
-    /// Return the meta information for the current basic block, given some
-    /// pointer into the instructions of the basic block.
-    basic_block::basic_block(app_pc current_pc_) throw()
-        : info(find_basic_block_info(current_pc_))
-        , policy(instrumentation_policy(info->generating_pc))
-        , cache_pc_start(info->start_pc)
-        , cache_pc_current(current_pc_)
-    { }
-
-
-#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
     /// Returns true iff this interrupt must be delayed. If the interrupt
     /// must be delayed then the arguments are updated in place with the
     /// range of code that must be copied and re-relativised in order to
@@ -276,9 +264,6 @@ namespace granary {
         return end && begin;
     }
 #endif
-
-
-
 #if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
     /// Get the counter operand for a REP instruction.
     operand rep_counter(instruction in) throw() {
@@ -449,6 +434,16 @@ namespace granary {
         }
         return size;
     }
+
+
+    /// Return the meta information for the current basic block, given some
+    /// pointer into the instructions of the basic block.
+    basic_block::basic_block(app_pc current_pc_) throw()
+        : info(find_basic_block_info(current_pc_))
+        , policy(instrumentation_policy(info->generating_pc))
+        , cache_pc_start(info->start_pc)
+        , cache_pc_current(current_pc_)
+    { }
 
 
     /// Decode some instructions for use as a basic block. Returns the number
