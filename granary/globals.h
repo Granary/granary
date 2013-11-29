@@ -67,7 +67,7 @@
 
 /// Can client code handle interrupts?
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0
+#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 1
 #else
 #   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif

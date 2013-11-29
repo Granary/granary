@@ -185,7 +185,7 @@ namespace granary {
         /// when we've met the ending conditions for a basic block.
         static unsigned decode(
             instruction_list &ls,
-            instrumentation_policy policy,
+            instrumentation_policy &policy,
             const app_pc start_pc,
             app_pc &end_pc
             _IF_KERNEL( void *&user_exception_metadata )

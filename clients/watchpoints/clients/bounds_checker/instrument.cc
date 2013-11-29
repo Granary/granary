@@ -151,6 +151,9 @@ namespace client { namespace wp {
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
+
+        // TODO: Handle roll-over across a 4GB boundary.
+        ASSERT(desc->upper_bound > desc->lower_bound);
     }
 
 

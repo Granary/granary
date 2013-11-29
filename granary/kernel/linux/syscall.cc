@@ -107,10 +107,12 @@ namespace granary {
             enter(cpu);
 
             instruction_list ls;
-            register_manager rm;
-            rm.kill_all();
+            ls.append(pushf_());
+            ls.append(cli_());
 
             // Get ready to switch stacks and call out to the handler.
+            register_manager rm;
+            rm.kill_all();
             instruction in(save_and_restore_registers(rm, ls, ls.last()));
 
             // Switch to the private stack.
@@ -141,6 +143,8 @@ namespace granary {
             target_label.instr->bytes = target_label.instr->translation;
             target_label.instr->note = target_label.instr->translation;
 
+            ls.append(popf_());
+
             // Jump to the newly created syscall entrypoint.
             ls.append(jmp_ind_(mem_instr_(target_label)));
 
@@ -149,6 +153,8 @@ namespace granary {
             app_pc routine(reinterpret_cast<app_pc>(
                 global_state::FRAGMENT_ALLOCATOR-> \
                     allocate_untyped(CACHE_LINE_SIZE, size)));
+
+
 
             ls.encode(routine, size);
 

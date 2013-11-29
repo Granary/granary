@@ -126,12 +126,6 @@ namespace granary {
         ASSERT(instr);
         ASSERT(pc_);
 
-#if CONFIG_DEBUG_ASSERTIONS
-        if(dynamorio::OP_int3 == op_code()) {
-            granary_do_break_on_translate = true;
-        }
-#endif
-
         // Address calculation for relative jumps uses the note
         // field; second-pass encoding for hot patchable instructions
         // takes advantage of this.

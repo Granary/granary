@@ -286,13 +286,7 @@ namespace granary {
 #endif
 
 
-    /// Translate any loop instructions into a 3- or 4-instruction form, and
-    /// return the number of loop instructions found. This is done here instead
-    /// of at mangle time so that we can potentially benefit from
-    /// `resolve_local_branches`. Also, we do this before mangling so that if
-    /// complex memory-operand-related instrumentation is needed, then that
-    /// instrumentation does not have to special-case instructions with a REP
-    /// prefix.
+    /// Translate any loop instructions into a 3- or 4-instruction form.
     static void translate_loops(instruction_list &ls) throw() {
 
         instruction in(ls.first());
@@ -450,7 +444,7 @@ namespace granary {
     /// of decoded instructions.
     unsigned basic_block::decode(
         instruction_list &ls,
-        instrumentation_policy policy,
+        instrumentation_policy &policy,
         const app_pc start_pc,
         app_pc &end_pc
         _IF_KERNEL( void *&user_exception_metadata )
@@ -638,9 +632,7 @@ namespace granary {
             // That is, if we match the binary pattern, then that is sufficient
             // to trigger future exception table searches which are more
             // precise.
-            if(!policy.accesses_user_data()) {
-                policy.access_user_data(true);
-            }
+            policy.access_user_data(true);
         }
 #endif
 
@@ -720,7 +712,7 @@ namespace granary {
             app_pc trace_end_pc
         ) throw();
 
-        void optimise_branches(void) throw();
+        void optimise(void) throw();
     };
 
 
@@ -1038,11 +1030,17 @@ namespace granary {
     }
 
 
-    void block_translator::optimise_branches(void) throw() {
+    void block_translator::optimise(void) throw() {
         for(instruction in(ls.first()), next_in; in.is_valid(); in = next_in) {
             next_in = in.next();
 
             if(!in.is_cti()) {
+
+                // Remove unnecessary NOP instructions.
+                if(dynamorio::instr_is_nop(in)) {
+                    ls.remove(in);
+                }
+
                 continue;
             }
 
@@ -1190,7 +1188,7 @@ namespace granary {
 
             // Perform a final peephole optimisation pass on the instructions
             // now that everything is fully resolved.
-            block->optimise_branches();
+            block->optimise();
 
             // Add labels to bound the basic block, so that we can connect
             // blocks together in the trace, while still knowing where
@@ -1355,6 +1353,14 @@ namespace granary {
         // After everything is emitted, store the meta-information in a way
         // that can be later queried by interrupt handlers, GDB, etc.
         store_trace_meta_info(trace);
+
+#if CONFIG_DEBUG_ASSERTIONS
+        for(block_translator *block(trace_bbs);
+            nullptr != block;
+            block = block->next) {
+            ASSERT(nullptr != find_basic_block_info(block->start_label.pc()));
+        }
+#endif
 
         // Output parameter to tell `code_cache::find` how many blocks were
         // translated as part of this operation.

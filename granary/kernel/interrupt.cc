@@ -427,7 +427,7 @@ namespace granary {
         granary::enter(cpu);
         instrumentation_policy policy(bb.policy);
         return policy.handle_interrupt(
-            cpu, thread_state_handle(cpu), *bb.state(), *isf, vector);
+            cpu, thread_state_handle(cpu), *(bb.info->state), *isf, vector);
 
 #   else
         return INTERRUPT_DEFER;
