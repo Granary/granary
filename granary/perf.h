@@ -61,6 +61,7 @@ namespace granary {
         static void visit_address_lookup_cpu(bool) throw();
 
 #if CONFIG_ENV_KERNEL
+        static void visit_takeover_interrupt(void) throw();
         static void visit_interrupt(void) throw();
         static void visit_recursive_interrupt(void) throw();
         static void visit_delayed_interrupt(void) throw();

@@ -30,7 +30,7 @@ if "__main__" == __name__:
     "module_alloc_update_bounds", "process_one_work", "idt_table",
     "rcu_process_callbacks", "flush_tlb_mm_range", "printk",
     "__schedule_bug", "show_fault_oops", "__stack_chk_fail",
-    "sys_call_table",
+    "sys_call_table", "early_idt_handlers",
   ])
   EXTRA_SYMBOLS.update(SYSCALL_NAMES)
   

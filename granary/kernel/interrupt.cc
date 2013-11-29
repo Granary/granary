@@ -912,6 +912,105 @@ namespace granary {
     }
 
 
+#if CONFIG_FEATURE_INSTRUMENT_HOST
+    /// Pretty big hack: look for the last CALL instruction before a JMP in an
+    /// interrupt vector, and assume that:
+    ///     1) The call is made on a safe stack;
+    ///     2) The call goes into the kernel's interrupt handler code.
+    static app_pc create_interrupt_entrypoint(app_pc native_entrypoint) throw() {
+
+        // Free up memory.
+        cpu_state_handle cpu;
+        IF_TEST( cpu->in_granary = false; )
+        cpu.free_transient_allocators();
+
+        instruction_list ls;
+
+        instruction last_call;
+        IF_TEST( bool seen_jump; )
+
+        for(;;) {
+            instruction in(instruction::decode(&native_entrypoint));
+
+            ls.append(in);
+
+            if(in.is_call()) {
+                last_call = in;
+            } else if(in.is_jump()) {
+                // Handle cases that do a PUSH then a JMP to something that
+                // goes to `common_interrupt`.
+                if(!last_call.is_valid()) {
+                    operand target(in.cti_target());
+                    ASSERT(dynamorio::PC_kind == target.kind);
+                    native_entrypoint = target.value.pc;
+                    ls.remove(in);
+                    continue;
+                } else {
+                    IF_TEST( seen_jump = true; )
+                    break;
+                }
+            } else if(dynamorio::OP_iret == in.op_code()) {
+                break;
+            }
+        }
+
+        ASSERT(seen_jump);
+        ASSERT(last_call.is_valid());
+
+        operand call_target(last_call.cti_target());
+
+        // This is a total hack, and is mostly for machine check exceptions.
+        if(dynamorio::PC_kind != call_target.kind) {
+            ASSERT(dynamorio::REL_ADDR_kind == call_target.kind
+                && dynamorio::OP_call_ind == last_call.op_code());
+
+            app_pc *target(unsafe_cast<app_pc *>(call_target.value.addr));
+
+            ASSERT(is_valid_address(*target));
+            ASSERT(is_host_address(*target));
+
+            call_target.value.pc = *target;
+            call_target.kind = dynamorio::PC_kind;
+
+            last_call = ls.insert_before(last_call, call_(call_target));
+            ls.remove(last_call.next());
+        }
+
+        ASSERT(dynamorio::PC_kind == call_target.kind);
+
+        instrumentation_policy policy(START_POLICY);
+        policy.in_host_context(true);
+        policy.return_address_in_code_cache(true);
+        policy.begins_functional_unit(true);
+
+        mangled_address am(call_target.value.pc, policy);
+        call_target.value.pc = code_cache::find(cpu, am);
+
+        last_call.set_cti_target(call_target);
+
+        const unsigned size(ls.encoded_size());
+        native_entrypoint = global_state::FRAGMENT_ALLOCATOR-> \
+            allocate_array<uint8_t>(size);
+        ls.encode(native_entrypoint, size);
+
+        return native_entrypoint;
+    }
+
+
+    static bool is_valid_interrupt_handler(app_pc addr) throw() {
+#   ifdef DETACH_ADDR_early_idt_handlers
+        const app_pc kernel_early_idt_table(reinterpret_cast<app_pc>(
+            DETACH_ADDR_early_idt_handlers));
+        return !(kernel_early_idt_table <= addr
+              && addr < &(kernel_early_idt_table[DETACH_LENGTH_early_idt_handlers]));
+#   else
+        UNUSED(addr);
+        return true;
+#   endif
+    }
+#endif
+
+
     /// Used to share IDTs across multiple CPUs.
     static system_table_register_t PREV_IDTR = {0, nullptr};
     static system_table_register_t PREV_IDTR_GEN = {0, nullptr};
@@ -974,8 +1073,20 @@ namespace granary {
                     continue;
                 }
 
-                app_pc target(native_handler);
+                NATIVE_VECTOR_HANDLER[i] = native_handler;
 
+#if CONFIG_FEATURE_INSTRUMENT_HOST
+                // Instrument the interrupt handling code.
+                if(VECTOR_NMI != i
+                && VECTOR_DOUBLE_FAULT != i
+                && VECTOR_SECURITY_EXCEPTION != i
+                && VECTOR_SYSCALL != i
+                && is_valid_interrupt_handler(native_handler)
+                && 0U != *unsafe_cast<uint16_t *>(native_handler)) {
+                    native_handler = create_interrupt_entrypoint(native_handler);
+                }
+#endif
+                app_pc target(native_handler);
 #if !CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT && !CONFIG_FEATURE_INTERRUPT_DELAY
                 // If clients aren't handling interrupts, and we don't care
                 // about delaying interrupts.
@@ -1001,8 +1112,11 @@ namespace granary {
                         common_vector_handler);
                 }
 
+                if(is_gencode_address(native_handler)) {
+                    IF_PERF( perf::visit_takeover_interrupt(); )
+                }
+
                 // Cache, just in case some CPUs use different IDTs.
-                NATIVE_VECTOR_HANDLER[i] = native_handler;
                 VECTOR_HANDLER[i] = target;
 
                 // Set the target into our IDT.

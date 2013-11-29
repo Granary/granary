@@ -96,6 +96,8 @@ namespace granary {
     static std::atomic<unsigned> NUM_RECURSIVE_INTERRUPTS(ATOMIC_VAR_INIT(0U));
     static std::atomic<unsigned long> NUM_DELAYED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
     static std::atomic<unsigned long> NUM_BAD_MODULE_EXECS(ATOMIC_VAR_INIT(0UL));
+
+    static std::atomic<unsigned> NUM_CONTROLLED_INTERRUPTS(ATOMIC_VAR_INIT(0UL));
 #endif
 
 
@@ -270,6 +272,12 @@ namespace granary {
 
 
 #if CONFIG_ENV_KERNEL
+
+    void perf::visit_takeover_interrupt(void) throw() {
+        NUM_CONTROLLED_INTERRUPTS.fetch_add(1);
+    }
+
+
     void perf::visit_interrupt(void) throw() {
         NUM_INTERRUPTS.fetch_add(1);
     }
@@ -384,6 +392,8 @@ namespace granary {
 #if CONFIG_ENV_KERNEL
         printf("Number of interrupts: %lu\n",
             NUM_INTERRUPTS.load());
+        printf("Number of taken over interrupt vectors: %lu\n",
+            NUM_CONTROLLED_INTERRUPTS.load());
         printf("Number of delayed interrupts: %lu\n",
             NUM_DELAYED_INTERRUPTS.load());
         printf("Number of recursive interrupts (these are bad): %u\n",
