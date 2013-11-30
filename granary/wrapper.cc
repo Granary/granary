@@ -51,11 +51,15 @@
 /// and app/host to take precedence over auto-generated.
 #if CONFIG_ENV_KERNEL
 #   include "clients/kernel/linux/wrappers.h"
-#   include "granary/kernel/linux/wrappers.h"
+#   if !CONFIG_FEATURE_INSTRUMENT_HOST && CONFIG_FEATURE_WRAPPERS
+#       include "granary/kernel/linux/wrappers.h"
+#   endif
 #   include "granary/gen/kernel_wrappers.h"
 #else
 #   include "clients/user/posix/wrappers.h"
-#   include "granary/user/posix/wrappers.h"
+#   if CONFIG_FEATURE_WRAPPERS
+#       include "granary/user/posix/wrappers.h"
+#   endif
 #   include "granary/gen/user_wrappers.h"
 #endif
 #include "granary/wrappers.h"
@@ -67,7 +71,6 @@
 #   pragma GCC diagnostic pop
 #endif
 
-#if CONFIG_FEATURE_WRAPPERS
 
 /// Auto-generated table of all detachable functions and their wrapper
 /// instantiations. These depend on the partial specialisations from
@@ -77,43 +80,41 @@ namespace granary {
     function_wrapper FUNCTION_WRAPPERS[] = {
 
     // First, generate detach entries for wrappers.
-#   define WRAP_FOR_DETACH(func) \
+#define WRAP_FOR_DETACH(func) \
     {   (app_pc) IF_USER_ELSE(::func, DETACH_ADDR_ ## func), \
         (app_pc) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_APP, decltype(::func)>::apply, \
         (app_pc) wrapper_of<DETACH_ID_ ## func, RUNNING_AS_HOST, decltype(::func)>::apply, \
         #func },
-#   define WRAP_ALIAS(func, alias)
-#   define DETACH(func)
-#   define TYPED_DETACH(func)
-#   if CONFIG_ENV_KERNEL
-#       include "granary/gen/kernel_detach.inc"
-#   else
-#       include "granary/gen/user_detach.inc"
-#   endif
+#define WRAP_ALIAS(func, alias)
+#define DETACH(func)
+#define TYPED_DETACH(func)
+#if CONFIG_ENV_KERNEL
+#   include "granary/gen/kernel_detach.inc"
+#else
+#   include "granary/gen/user_detach.inc"
+#endif
         {0, 0, 0, nullptr}, // Sentinel.
-#   undef WRAP_FOR_DETACH
-#   undef WRAP_ALIAS
-#   undef DETACH
-#   undef TYPED_DETACH
+#undef WRAP_FOR_DETACH
+#undef WRAP_ALIAS
+#undef DETACH
+#undef TYPED_DETACH
 
     // Now, generate detach entries for dynamic symbols which must be
     // looked up using dlsym.
-#   define WRAP_FOR_DETACH(func)
-#   define WRAP_ALIAS(func, alias)
-#   define DETACH(func)  \
+#define WRAP_FOR_DETACH(func)
+#define WRAP_ALIAS(func, alias)
+#define DETACH(func)  \
     { 0, 0, 0, #func },
-#   define TYPED_DETACH(func) DETACH(func)
-#   if CONFIG_ENV_KERNEL
-#       include "granary/gen/kernel_detach.inc"
-#   else
-#       include "granary/gen/user_detach.inc"
-#   endif
+#define TYPED_DETACH(func) DETACH(func)
+#if CONFIG_ENV_KERNEL
+#   include "granary/gen/kernel_detach.inc"
+#else
+#   include "granary/gen/user_detach.inc"
+#endif
         {0, 0, 0, nullptr} // Sentinel.
-#   undef WRAP_FOR_DETACH
-#   undef WRAP_ALIAS
-#   undef DETACH
+#undef WRAP_FOR_DETACH
+#undef WRAP_ALIAS
+#undef DETACH
     };
 }
-
-#endif /* CONFIG_FEATURE_WRAPPERS */
 

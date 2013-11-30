@@ -607,17 +607,12 @@ namespace granary {
         // to recover. This is an instance where we are likely missing a
         // wrapper.
         } else if(is_app_address(pc)) {
-
-            /*
             if(VECTOR_PAGE_FAULT == vector) {
                 IF_PERF( perf::visit_protected_module() );
                 ret = handle_module_interrupt(cpu, isf);
             } else {
                 ret = INTERRUPT_DEFER;
-            }*/
-
-            // TODO: Re-enable page-protecting the module code.
-            ret = INTERRUPT_DEFER;
+            }
 
         // Assume it's an interrupt in a host-address location.
         } else {

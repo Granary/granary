@@ -64,28 +64,25 @@
 
 namespace granary {
 
-#if CONFIG_FEATURE_WRAPPERS
-
 /// Assigns unique IDs to each wrapped function. The `DETACH` and `TYPED_DETACH`
 /// function kinds are not assigned IDs because their addresses are dynamically
 /// looked up.
-#   define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
-#   define WRAP_ALIAS(func, alias)
-#   define DETACH(func)
-#   define TYPED_DETACH(func)
+#define WRAP_FOR_DETACH(func) DETACH_ID_ ## func,
+#define WRAP_ALIAS(func, alias)
+#define DETACH(func)
+#define TYPED_DETACH(func)
     enum function_wrapper_id {
-#   if CONFIG_ENV_KERNEL
-#       include "granary/gen/kernel_detach.inc"
-#   else
-#       include "granary/gen/user_detach.inc"
-#   endif
+#if CONFIG_ENV_KERNEL
+#   include "granary/gen/kernel_detach.inc"
+#else
+#   include "granary/gen/user_detach.inc"
+#endif
         LAST_DETACH_ID
     };
-#   undef WRAP_ALIAS
-#   undef WRAP_FOR_DETACH
-#   undef DETACH
-#   undef TYPED_DETACH
-#endif /* CONFIG_FEATURE_WRAPPERS */
+#undef WRAP_ALIAS
+#undef WRAP_FOR_DETACH
+#undef DETACH
+#undef TYPED_DETACH
 
 
     /// Represents an entry in the detach hash table. Entries need to map
@@ -98,13 +95,11 @@ namespace granary {
     };
 
 
-#if CONFIG_FEATURE_WRAPPERS
     /// Represents the entries of the detach hash table. The indexes of each
     /// function in this array are found in `granary/gen/detach.h`. The actual
     /// entries of this array are statically populated in
     /// `granary/gen/detach.cc`.
     extern function_wrapper FUNCTION_WRAPPERS[];
-#endif
 
 
     /// Add a detach target to the hash table.

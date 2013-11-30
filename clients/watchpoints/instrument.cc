@@ -1151,6 +1151,15 @@ namespace client { namespace wp {
             this->sizes[i] = static_cast<operand_size>(
                 dynamorio::opnd_size_in_bytes(original_op.size));
 
+            // E.g. fxrstor
+            if(this->sizes[i] > 16) {
+                this->sizes[i] = OP_SIZE_16;
+
+            // E.g. invlpg
+            } else if(!this->sizes[i]) {
+                this->sizes[i] = OP_SIZE_1;
+            }
+
             // On the slow path, we might still need to restore `original_addr`
             // later, so make sure it's saved before we overwrite
             // `original_addr`.

@@ -26,8 +26,12 @@ namespace granary {
         DETACH_HASH_TABLE[RUNNING_AS_HOST].construct();
 
         // Add all wrappers to the detach hash table.
-        IF_WRAPPERS( for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
+        for(unsigned i(0); i < LAST_DETACH_ID; ++i) {
             const function_wrapper &wrapper(FUNCTION_WRAPPERS[i]);
+
+            if(!wrapper.original_address) {
+                continue;
+            }
 
             if(wrapper.app_wrapper_address) {
                 DETACH_HASH_TABLE[RUNNING_AS_APP]->store(
@@ -40,7 +44,7 @@ namespace granary {
                     reinterpret_cast<app_pc>(wrapper.original_address),
                     reinterpret_cast<app_pc>(wrapper.host_wrapper_address));
             }
-        } )
+        }
     })
 
 

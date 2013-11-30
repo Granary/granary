@@ -39,13 +39,6 @@ namespace granary {
         cpu_state_handle cpu;
         enter(cpu);
 
-        app_pc target_wrapper(nullptr);
-
-        // Fast path: we've already wrapped this.
-        if(wrappers->load(wrappee, target_wrapper)) {
-            return target_wrapper;
-        }
-
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(is_host_address(wrappee));
         policy.begins_functional_unit(true);
@@ -55,13 +48,20 @@ namespace granary {
         //      2) Code cache if the wrapper tailcalls (JMPs) to the code cache.
         policy.return_address_in_code_cache(true);
 
-        app_pc target_code_cache;
+        app_pc target_code_cache(nullptr);
 
         // In order to avoid checks for whether this function is wrapped or
         // not, we will just pretend that `wrappee` is a code cache target.
         if(policy.is_in_host_context() && !policy.is_host_auto_instrumented()) {
+            if(wrappers->load(wrappee, target_code_cache)) {
+                return target_code_cache;
+            }
             target_code_cache = wrappee;
         } else {
+            if(wrappers->load(wrappee, target_code_cache)) {
+                return target_code_cache;
+            }
+
             mangled_address am(wrappee, policy);
             target_code_cache = code_cache::find(cpu, am);
         }
@@ -80,8 +80,8 @@ namespace granary {
 
         // Encode the wrapper.
         const unsigned size(ls.encoded_size());
-        target_wrapper = global_state::WRAPPER_ALLOCATOR-> \
-            allocate_array<uint8_t>(size);
+        app_pc target_wrapper(global_state::WRAPPER_ALLOCATOR-> \
+            allocate_array<uint8_t>(size));
         ls.encode(target_wrapper, size);
 
         // Store it for later and return.

@@ -154,8 +154,6 @@ namespace granary {
                 global_state::FRAGMENT_ALLOCATOR-> \
                     allocate_untyped(CACHE_LINE_SIZE, size)));
 
-
-
             ls.encode(routine, size);
 
             // Duplicate here so that this works for both delayed and normal

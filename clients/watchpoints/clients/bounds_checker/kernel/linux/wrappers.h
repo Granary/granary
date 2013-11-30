@@ -24,6 +24,7 @@ using namespace client::wp;
 #if defined(CAN_WRAP___kmalloc) && CAN_WRAP___kmalloc
 #   define APP_WRAPPER_FOR___kmalloc
     FUNCTION_WRAPPER(APP, __kmalloc, (void *), (size_t size, gfp_t gfp), {
+        WRAP_FUNCTION_ONCE(__kmalloc);
         void *ret(__kmalloc(size, gfp));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -37,6 +38,7 @@ using namespace client::wp;
 #if defined(CAN_WRAP___kmalloc_track_caller) && CAN_WRAP___kmalloc_track_caller
 #   define APP_WRAPPER_FOR___kmalloc_track_caller
     FUNCTION_WRAPPER(APP, __kmalloc_track_caller, (void *), (size_t size, gfp_t gfp, unsigned long caller), {
+        WRAP_FUNCTION_ONCE(__kmalloc_track_caller);
         void *ret(__kmalloc_track_caller(size, gfp, caller));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -49,6 +51,7 @@ using namespace client::wp;
 #if defined(CAN_WRAP___kmalloc_node) && CAN_WRAP___kmalloc_node
 #   define APP_WRAPPER_FOR___kmalloc_node
     FUNCTION_WRAPPER(APP, __kmalloc_node, (void *), (size_t size, gfp_t gfp, int node), {
+        WRAP_FUNCTION_ONCE(__kmalloc_node);
         void *ret(__kmalloc_node(size, gfp, node));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -61,6 +64,7 @@ using namespace client::wp;
 #if defined(CAN_WRAP___kmalloc_node_track_caller) && CAN_WRAP___kmalloc_node_track_caller
 #   define APP_WRAPPER_FOR___kmalloc_node_track_caller
     FUNCTION_WRAPPER(APP, __kmalloc_node_track_caller, (void *), (size_t size, gfp_t gfp, int node, unsigned long caller), {
+        WRAP_FUNCTION_ONCE(__kmalloc_node_track_caller);
         void *ret(__kmalloc_node_track_caller(size, gfp, node, caller));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -79,6 +83,7 @@ using namespace client::wp;
             ptr = unwatched_address(ptr);
         }
 
+        WRAP_FUNCTION_ONCE(__krealloc);
         void *ret(__krealloc(ptr, size, gfp));
         add_watchpoint(ret, ret, size);
         return ret;
@@ -96,6 +101,7 @@ using namespace client::wp;
             ptr = unwatched_address(ptr);
         }
 
+        WRAP_FUNCTION_ONCE(krealloc);
         void *ret(krealloc(ptr, size, gfp));
         add_watchpoint(ret, ret, size);
         return ret;
@@ -111,6 +117,8 @@ using namespace client::wp;
             free_descriptor_of(ptr);
             ptr = unwatched_address(ptr);
         }
+
+        WRAP_FUNCTION_ONCE(kfree);
         return kfree(ptr);
     })
 #endif
@@ -123,6 +131,8 @@ using namespace client::wp;
             free_descriptor_of(ptr);
             ptr = unwatched_address(ptr);
         }
+
+        WRAP_FUNCTION_ONCE(kzfree);
         return kzfree(ptr);
     })
 #endif
@@ -132,6 +142,8 @@ using namespace client::wp;
 #   define APP_WRAPPER_FOR_kmem_cache_alloc
     FUNCTION_WRAPPER(APP, kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
         PRE_OUT_WRAP(cache);
+
+        WRAP_FUNCTION_ONCE(kmem_cache_alloc);
         void *ptr(kmem_cache_alloc(cache, gfp));
         if(!ptr) {
             return ptr;
@@ -160,6 +172,7 @@ using namespace client::wp;
             WRAP_FUNCTION(cache->ctor);
         }
 
+        WRAP_FUNCTION_ONCE(kmem_cache_alloc_trace);
         void *ptr(kmem_cache_alloc_trace(cache, gfp, size));
         if(!ptr) {
             return ptr;
@@ -183,6 +196,7 @@ using namespace client::wp;
     FUNCTION_WRAPPER(APP, kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
         PRE_OUT_WRAP(cache);
 
+        WRAP_FUNCTION_ONCE(kmem_cache_alloc_node);
         void *ptr(kmem_cache_alloc_node(cache, gfp, node));
         if(!ptr) {
             return ptr;
@@ -210,6 +224,7 @@ using namespace client::wp;
         }
 
         PRE_OUT_WRAP(cache);
+        WRAP_FUNCTION_ONCE(kmem_cache_free);
         kmem_cache_free(cache, ptr);
     })
 #endif
@@ -219,6 +234,7 @@ using namespace client::wp;
 #   ifndef APP_WRAPPER_FOR___get_free_pages
 #       define APP_WRAPPER_FOR___get_free_pages
     FUNCTION_WRAPPER(APP, __get_free_pages, (unsigned long), ( gfp_t gfp_mask , unsigned int order ), {
+        WRAP_FUNCTION_ONCE(__get_free_pages);
         unsigned long ret(__get_free_pages(gfp_mask, order));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, reinterpret_cast<void *>(ret), (1 << order) * PAGE_SIZE);
@@ -233,6 +249,7 @@ using namespace client::wp;
 #   ifndef APP_WRAPPER_FOR_get_zeroed_page
 #       define APP_WRAPPER_FOR_get_zeroed_page
     FUNCTION_WRAPPER(APP, get_zeroed_page, (unsigned long), ( gfp_t gfp_mask ), {
+        WRAP_FUNCTION_ONCE(get_zeroed_page);
         unsigned long ret(get_zeroed_page(gfp_mask));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, reinterpret_cast<void *>(ret), PAGE_SIZE);
@@ -247,6 +264,7 @@ using namespace client::wp;
 #   ifndef APP_WRAPPER_FOR_alloc_pages_exact
 #       define APP_WRAPPER_FOR_alloc_pages_exact
     FUNCTION_WRAPPER(APP, alloc_pages_exact, (void *), ( size_t size, gfp_t gfp_mask ), {
+        WRAP_FUNCTION_ONCE(alloc_pages_exact);
         void *ret(alloc_pages_exact(size, gfp_mask));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -265,6 +283,8 @@ using namespace client::wp;
             free_descriptor_of(virt);
             virt = unwatched_address(virt);
         }
+
+        WRAP_FUNCTION_ONCE(free_pages_exact);
         free_pages_exact(virt, size);
     })
 #   endif
@@ -275,6 +295,7 @@ using namespace client::wp;
 #   ifndef APP_WRAPPER_FOR_alloc_pages_exact_nid
 #       define APP_WRAPPER_FOR_alloc_pages_exact_nid
     FUNCTION_WRAPPER(APP, alloc_pages_exact_nid, (void *), ( int node, size_t size, gfp_t gfp_mask ), {
+        WRAP_FUNCTION_ONCE(alloc_pages_exact_nid);
         void *ret(alloc_pages_exact_nid(node, size, gfp_mask));
         if(is_valid_address(ret)) {
             add_watchpoint(ret, ret, size);
@@ -293,6 +314,8 @@ using namespace client::wp;
             free_descriptor_of(addr);
             addr = unwatched_address(addr);
         }
+
+        WRAP_FUNCTION_ONCE(free_pages);
         free_pages(addr, order);
     })
 #   endif
@@ -307,6 +330,8 @@ using namespace client::wp;
             free_descriptor_of(addr);
             addr = unwatched_address(addr);
         }
+
+        WRAP_FUNCTION_ONCE(free_memcg_kmem_pages);
         free_memcg_kmem_pages(addr, order);
     })
 #   endif

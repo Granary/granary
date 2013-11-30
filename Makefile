@@ -311,16 +311,6 @@ ifeq ($(GR_CLIENT),everything_watched_aug)
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/report.o
-	
-	# Note: augmenting doesn't use the default handle_kernel_interrupt function
-	#       because if we know we're faulting, then we don't want to go to the
-	# 		"null" policy and want to immediately go to the augmented "watched"
-	# 		policy.	
-	ifeq ($(KERNEL),1)
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
-	else
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
-	endif
 endif
 ifeq ($(GR_CLIENT),bounds_checker)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
@@ -332,29 +322,6 @@ ifeq ($(GR_CLIENT),bounds_checker)
 	ifeq ($(KERNEL),0)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
 	endif
-endif
-ifeq ($(GR_CLIENT),leak_detector)
-    GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
-    GR_WP_INCLUDE_DEFAULT = 1
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/access_descriptor.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/instrument.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/descriptor.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/thread.o
-    
-    ifeq ($(KERNEL),1)
-		GR_MOD_OBJS += clients/watchpoints/clients/leak_detector/kernel/leakpolicy_scan.o
-	else
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
-	endif
-endif
-ifeq ($(GR_CLIENT),shadow_memory)
-    GR_CXX_FLAGS += -DCLIENT_SHADOW_MEMORY
-    GR_WP_INCLUDE_DEFAULT = 1
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/shadow_update.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/instrument.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/descriptor.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/thread.o
-    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/shadow_memory/shadow_report.o    
 endif
 ifeq ($(GR_CLIENT),rcudbg)
 	ifeq ($(KERNEL),1)
@@ -379,7 +346,6 @@ ifeq ($(GR_WP_INCLUDE_DEFAULT),1)
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/utils.o
 	ifeq ($(KERNEL),1)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/interrupt.o
-		GR_OBJS += $(BIN_DIR)/clients/watchpoints/kernel/linux/detach.o
 	endif
 	# TODO: `else` for user and signals.
 endif

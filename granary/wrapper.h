@@ -15,22 +15,18 @@
 #   include "granary/kernel/hotpatch.h"
 #endif
 
-#define P(...)
-//__VA_ARGS__
 
 namespace granary {
 
 
-#if CONFIG_FEATURE_WRAPPERS
-
-#if     CONFIG_ENV_KERNEL
+#if CONFIG_ENV_KERNEL
     template <enum function_wrapper_id>
     struct kernel_address;
 
-#       define DETACH(func)
-#       define WRAP_ALIAS(func, alias)
-#       define TYPED_DETACH(func)
-#       define WRAP_FOR_DETACH(func) \
+#   define DETACH(func)
+#   define WRAP_ALIAS(func, alias)
+#   define TYPED_DETACH(func)
+#   define WRAP_FOR_DETACH(func) \
     template <> \
     struct kernel_address< DETACH_ID_ ## func > { \
     public: \
@@ -38,18 +34,12 @@ namespace granary {
             VALUE = DETACH_ADDR_ ## func \
         }; \
     };
-#       if CONFIG_ENV_KERNEL
-#           include "granary/gen/kernel_detach.inc"
-#       else
-#           include "granary/gen/user_detach.inc"
-#       endif
-#       undef DETACH
-#       undef WRAP_ALIAS
-#       undef TYPED_DETACH
-#       undef WRAP_FOR_DETACH
-#   endif
-#endif /* CONFIG_FEATURE_WRAPPERS */
-
+#   include "granary/gen/kernel_detach.inc"
+#   undef DETACH
+#   undef WRAP_ALIAS
+#   undef TYPED_DETACH
+#   undef WRAP_FOR_DETACH
+#endif
 
     /// The identity of a type.
     template <typename T>
@@ -461,7 +451,6 @@ namespace granary {
     WRAP_BASIC_TYPE_IMPL(const volatile basic_type *)
 
 
-#if CONFIG_FEATURE_WRAPPERS
 
     /// Tracks whether the function is already wrapped (by a custom function
     /// wrapper).
@@ -471,7 +460,6 @@ namespace granary {
             VALUE = false
         };
     };
-#endif /* CONFIG_FEATURE_WRAPPERS */
 
 
     /// Wrapping operators.
@@ -600,7 +588,6 @@ namespace granary {
         }
     };
 
-#if CONFIG_FEATURE_WRAPPERS
 
     /// Represents a manual function wrapper.
     struct custom_wrapped_function { };
@@ -651,17 +638,24 @@ namespace granary {
 
         typedef R func_type(Args...);
 
-
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INSTRUMENT_HOST
+        /// When instrumenting the whole kernel, by default, don't detach
+        /// on things if we don't (i.e. inherit=false) have a custom wrapper
+        /// already defined.
+        enum {
+            apply = 0
+        };
+#else
         /// Call the function to be wrapped. Before calling, this will first
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static R apply(Args... args) throw() {
-#if CONFIG_ENV_KERNEL
+#   if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
-#else
+#   else
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
-#endif
+#   endif
 
             apply_to_values<pre_out_wrap, Args...>::apply(args...);
             R ret(func(args...));
@@ -669,6 +663,7 @@ namespace granary {
             return_out_wrap::template apply<R>(ret);
             return ret;
         }
+#endif
     };
 
 
@@ -701,22 +696,30 @@ namespace granary {
         typedef void R;
         typedef R func_type(Args...);
 
-
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INSTRUMENT_HOST
+        /// When instrumenting the whole kernel, by default, don't detach
+        /// on things if we don't (i.e. inherit=false) have a custom wrapper
+        /// already defined.
+        enum {
+            apply = 0
+        };
+#else
         /// Call the function to be wrapped. Before calling, this will first
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
         static void apply(Args... args) throw() {
-#if CONFIG_ENV_KERNEL
+#   if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
-#else
+#   else
             func_type *func(
                 (func_type *) FUNCTION_WRAPPERS[id].original_address);
-#endif
+#   endif
 
             apply_to_values<pre_out_wrap, Args...>::apply(args...);
             func(args...);
             apply_to_values<post_out_wrap, Args...>::apply(args...);
         }
+#endif
     };
 
 
@@ -732,9 +735,15 @@ namespace granary {
         false,
         custom_wrapped_function
     > {
-        // There is no `apply` method/value here to purposefully raise a
-        // compiler error about something (e.g. having C-style variadict
-        // arguments) that should be manually wrapped.
+#if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INSTRUMENT_HOST
+       enum : uintptr_t {
+           apply = 0
+       };
+#else
+       // There is no `apply` method/value here to purposefully raise a
+       // compiler error about something (e.g. having C-style variadic
+       // arguments) that should be manually wrapped.
+#endif
     };
 
 
@@ -800,9 +809,6 @@ namespace granary {
     struct wrapper_of<id, context, R (Args...)>
         : public wrapped_function<id, context, R, Args...>
     {};
-
-
-#endif /* CONFIG_FEATURE_WRAPPERS */
 
 
     /// A pretty ugly hack to pass the target address from gencode into a
@@ -889,9 +895,9 @@ namespace granary {
         // Make sure we're not wrapping libc/kernel code, or double-wrapping a
         // wrapper; and make sure that what we're wrapping is sane, i.e. that
         // we're not trying to wrap some garbage memory (it's an app address).
-        if(is_host_address(app_addr_pc) // TODO: host instrumentation.
-        IF_KERNEL( || is_wrapper_address(app_addr_pc) )
-        IF_KERNEL( || !is_app_address(app_addr) )) {
+        if(is_wrapper_address(app_addr_pc)
+        || is_gencode_address(app_addr_pc)
+        || is_code_cache_address(app_addr_pc)) {
             return false;
         }
 
@@ -919,9 +925,6 @@ namespace granary {
         }
 
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
-
-        ASSERT(!is_code_cache_address(app_addr_pc));
-
         app_pc wrapper_func(unsafe_cast<app_pc>(
             dynamically_wrapped_function<R, Args...>::apply));
 
@@ -967,7 +970,6 @@ namespace granary {
     };
 }
 
-#if CONFIG_FEATURE_WRAPPERS
 
 #define TYPE_WRAPPER_FUNCTION(prefix) \
     FORCE_INLINE static void \
@@ -975,7 +977,7 @@ namespace granary {
         if(0 < depth__) { \
             impl__::CAT(prefix, _wrap)(arg__, depth__ - 1); \
         } \
-    } \
+    }
 
 
 #define TYPE_WRAPPER_FUNCTION_FORWARD(prefix) \
@@ -987,7 +989,8 @@ namespace granary {
         if(0 < depth__) { \
             impl__::CAT(prefix, _wrap)(arg__, depth__); \
         } \
-    } \
+    }
+
 
 #define TYPE_WRAPPER(type_name, wrap_code) \
     namespace granary { \
@@ -1133,6 +1136,7 @@ namespace granary {
         struct type_wrapper<type_name> : public type_wrapper<aliased_type_name> { }; \
     }
 
+
 #define FUNCTION_WRAPPER_DETACH(context, function_name) \
     namespace granary { \
         template <> \
@@ -1174,8 +1178,9 @@ namespace granary {
         public: \
             typedef referenceless<PARAMS return_type>::type R; \
             static R apply arg_list throw() { \
-                IF_KERNEL(auto function_name((decltype(::function_name) *) \
-                    CAT(DETACH_ADDR_, function_name) );) \
+                IF_KERNEL( typedef R (*func_type__) arg_list; ) \
+                IF_KERNEL( func_type__ function_name((func_type__) \
+                    CAT(DETACH_ADDR_, function_name) ); ) \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
@@ -1202,8 +1207,9 @@ namespace granary {
         public: \
             typedef void R; \
             static void apply arg_list throw() { \
-                IF_KERNEL(auto function_name((decltype(::function_name) *) \
-                    CAT(DETACH_ADDR_, function_name) );) \
+                IF_KERNEL( typedef R (*func_type__) arg_list; ) \
+                IF_KERNEL( func_type__ function_name((func_type__) \
+                    CAT(DETACH_ADDR_, function_name) ); ) \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
@@ -1211,18 +1217,6 @@ namespace granary {
         }; \
     }
 
-#else /* !CONFIG_FEATURE_WRAPPERS */
-#   define TYPE_WRAPPER_FUNCTION(prefix)
-#   define TYPE_WRAPPER_FUNCTION_FORWARD(prefix)
-#   define TYPE_WRAPPER(type_name, wrap_code)
-#   define POINTER_WRAPPER_QUAL(qual, wrap_code)
-#   define POINTER_WRAPPER(wrap_code)
-#   define POINTER_WRAPPER(wrap_code)
-#   define TYPEDEF_WRAPPER(type_name, aliased_type_name)
-#   define FUNCTION_WRAPPER_DETACH(context, function_name)
-#   define FUNCTION_WRAPPER(context, function_name, return_type, arg_list, wrapper_code)
-#   define FUNCTION_WRAPPER_VOID(context, function_name, arg_list, wrapper_code)
-#endif /* CONFIG_FEATURE_WRAPPERS */
 
 #if CONFIG_ENV_KERNEL
 #   define PATCH_WRAPPER(function_name, return_type, arg_list, wrapper_code) \
@@ -1243,14 +1237,14 @@ namespace granary {
         (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
         \
         STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
-            app_pc original_addr(unsafe_cast<app_pc>( \
+            app_pc original_addr(granary::unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
             prepare_redirect_function(original_addr); \
             app_pc new_addr(copy_and_rerelativize_function(\
                 original_addr, \
                 CAT(DETACH_LENGTH_, function_name)));\
             CAT(patched_, function_name)::function_name = \
-                unsafe_cast<\
+                granary::unsafe_cast<\
                     decltype(CAT(patched_, function_name)::function_name)\
                 >(new_addr); \
         }); \
@@ -1260,7 +1254,7 @@ namespace granary {
                 CAT(DETACH_ADDR_, function_name))); \
             redirect_function(\
                 original_addr, \
-                unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
+                granary::unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
         }); \
     }
 
@@ -1283,28 +1277,28 @@ namespace granary {
         (*CAT(patched_, function_name)::function_name)arg_list = nullptr; \
         \
         STATIC_INITIALISE_ID(CAT(prepare_patch_, function_name), {\
-            app_pc original_addr(unsafe_cast<app_pc>( \
+            app_pc original_addr(granary::unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
             prepare_redirect_function(original_addr); \
             app_pc new_addr(copy_and_rerelativize_function(\
                 original_addr, \
                 CAT(DETACH_LENGTH_, function_name)));\
             CAT(patched_, function_name)::function_name = \
-                unsafe_cast<\
+                granary::unsafe_cast<\
                     decltype(CAT(patched_, function_name)::function_name)\
                 >(new_addr); \
         }); \
         \
         STATIC_INITIALISE_SYNC(CAT(patch_, function_name), {\
-            app_pc original_addr(unsafe_cast<app_pc>( \
+            app_pc original_addr(granary::unsafe_cast<app_pc>( \
                 CAT(DETACH_ADDR_, function_name))); \
             redirect_function(\
                 original_addr, \
-                unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
+                granary::unsafe_cast<app_pc>(&CAT(patched_, function_name)::apply));\
         }); \
     }
-
 #endif /* CONFIG_ENV_KERNEL */
+
 
 #define WRAP_FUNCTION(lvalue) \
     { \
@@ -1314,6 +1308,16 @@ namespace granary {
                 dynamic_wrapper_of(lvalue); \
         } \
     } (void) depth__
+
+
+#define WRAP_FUNCTION_ONCE(lvalue) \
+    { \
+        static bool was_wrapped__(false); \
+        if(!was_wrapped__) { \
+            was_wrapped__ = true; \
+            WRAP_FUNCTION(lvalue); \
+        } \
+    }
 
 
 #define ABORT_IF_FUNCTION_IS_WRAPPED(lvalue) \

@@ -65,7 +65,7 @@ extern "C" {
         app_pc init_pc(unsafe_cast<app_pc>(*(module->init)));
         app_pc init_cc(code_cache::find(init_pc, policy));
 
-        // build a dynamic wrapper-like construct that makes sure that certain
+        // Build a dynamic wrapper-like construct that makes sure that certain
         // data is readable/writable in the module before init() executes.
         instruction_list ls;
         ls.append(mov_imm_(reg::arg1, int64_(reinterpret_cast<uint64_t>(module))));

@@ -65,7 +65,9 @@
 #endif
 
 
-/// Can client code handle interrupts?
+/// Can client code handle interrupts? This is needed for things like kernel-
+/// space watchpoints clients (where we need to recover from a GP fault in
+/// native code).
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 1
 #else
@@ -212,9 +214,9 @@
 ///       circumstance (which is addressable) and partly because of its
 ///       inability to regain control in the proper policy.
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_FEATURE_WRAPPERS (!CONFIG_FEATURE_INSTRUMENT_HOST)
-#else
 #   define CONFIG_FEATURE_WRAPPERS 1
+#else
+#   define CONFIG_FEATURE_WRAPPERS 1 // Don't change?
 #endif
 
 

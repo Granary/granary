@@ -39,6 +39,7 @@ namespace client {
         app_pc translated_target(nullptr);
         if(!cpu->code_cache.load(target.as_address, translated_target)) {
             translated_target = code_cache::find(cpu, target);
+            cpu->code_cache.store(target.as_address, translated_target);
         }
 
         isf.instruction_pointer = translated_target;

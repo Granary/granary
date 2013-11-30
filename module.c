@@ -294,17 +294,11 @@ static void set_page_perms(
 
 /// Set a module's text to be non-executable
 static void module_set_exec_perms(struct kernel_module *module) {
-    (void) module;
-
-    // TODO: Have this disabled now for performance reasons, but we should
-    //       eventually re-enable it.
-
-    /*
     set_page_perms(
         set_memory_nx,
         module->text_begin,
         module->text_end
-    ); */
+    );
 }
 
 

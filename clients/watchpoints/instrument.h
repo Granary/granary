@@ -183,7 +183,7 @@ namespace client {
 
 
             /// The number of operands that need to be instrumented.
-            unsigned num_ops;
+            uint8_t num_ops;
 
 
             /// Track the carry flag.

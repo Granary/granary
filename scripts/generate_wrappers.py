@@ -222,6 +222,10 @@ def wrap_function(ctype, orig_ctype, func):
   if func.startswith("__"):
     addr_check = " && defined(DETACH_ADDR_%s)" % func
 
+  # TODO: re-enable auto-wrapping of variadic functions?
+  if ctype.is_variadic:
+    return
+
   O("#if defined(CAN_WRAP_", func, ") && CAN_WRAP_", func, addr_check)
   O("#ifndef APP_WRAPPER_FOR_", func)
   O("#define APP_WRAPPER_FOR_", func)
