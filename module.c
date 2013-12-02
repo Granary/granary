@@ -379,6 +379,11 @@ static struct kernel_module *find_internal_module(void *vmod) {
 
     for(; NULL != module; module = module->next) {
         if(module->text_begin == mod->module_core) {
+
+            // If we're re-loading this module then re-initialise it.
+            if(MODULE_STATE_COMING == mod->state) {
+                break;
+            }
             return module;
         }
         next_link = &(module->next);
@@ -390,12 +395,14 @@ static struct kernel_module *find_internal_module(void *vmod) {
         return NULL;
     }
 
-    module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
+    if(!module) {
+        module = kmalloc(sizeof(struct kernel_module), GFP_KERNEL);
 
-    // Make sure to convert module pointer into an unwatched address, just
-    // in case we're using watchpoints and patch-wrapping kmalloc return
-    // addresses.
-    module = (struct kernel_module *) ((0xFFFFULL << 48) | ((uintptr_t) module));
+        // Make sure to convert module pointer into an unwatched address, just
+        // in case we're using watchpoints and patch-wrapping kmalloc return
+        // addresses.
+        module = (struct kernel_module *) ((0xFFFFULL << 48) | ((uintptr_t) module));
+    }
 
     // Initialise.
     module->is_granary = is_granary;

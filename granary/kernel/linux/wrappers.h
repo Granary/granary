@@ -106,6 +106,7 @@
 #   define IF_WRAP_DEPTH_1(...)
 #endif
 
+
 /// Custom wrapping for net devices.
 #ifndef APP_WRAPPER_FOR_struct_net_device
 #   define APP_WRAPPER_FOR_struct_net_device
@@ -156,26 +157,26 @@
 #endif
 
 
-#if defined(CAN_WRAP_netif_napi_add) && CAN_WRAP_netif_napi_add && !defined(APP_WRAPPER_FOR_netif_napi_add)
+#if 0 && defined(CAN_WRAP_netif_napi_add) && CAN_WRAP_netif_napi_add && !defined(APP_WRAPPER_FOR_netif_napi_add)
 #   define APP_WRAPPER_FOR_netif_napi_add
     FUNCTION_WRAPPER_VOID(APP, netif_napi_add, \
         (struct granary_net_device *dev, struct napi_struct *napi,
         int (*poll)(struct napi_struct *, int), int weight \
     ), {
         // Double-up on the wrapping of the device (pre & post).
-        PRE_OUT_WRAP(dev);
-        POST_OUT_WRAP(dev);
+        //PRE_OUT_WRAP(dev);
+        //POST_OUT_WRAP(dev);
 
         WRAP_FUNCTION(poll);
         PRE_OUT_WRAP(napi);
         netif_napi_add(dev, napi, poll, weight);
         POST_OUT_WRAP(napi);
-        POST_OUT_WRAP(dev);
+        //POST_OUT_WRAP(dev);
     })
 #endif
 
 
-#if defined(CAN_WRAP_register_netdev) && CAN_WRAP_register_netdev && !defined(APP_WRAPPER_FOR_register_netdev)
+#if 0 && defined(CAN_WRAP_register_netdev) && CAN_WRAP_register_netdev && !defined(APP_WRAPPER_FOR_register_netdev)
 #   define APP_WRAPPER_FOR_register_netdev
     FUNCTION_WRAPPER(APP, register_netdev, (int), (struct granary_net_device * dev), {
         PRE_OUT_WRAP(dev);
@@ -186,11 +187,11 @@
 #endif
 
 
-#if defined(CAN_WRAP_register_netdevice) && CAN_WRAP_register_netdevice && !defined(APP_WRAPPER_FOR_register_netdevice)
+#if 0 && defined(CAN_WRAP_register_netdevice) && CAN_WRAP_register_netdevice && !defined(APP_WRAPPER_FOR_register_netdevice)
 #   define APP_WRAPPER_FOR_register_netdevice
     FUNCTION_WRAPPER(APP, register_netdevice, (int), (struct granary_net_device * dev), {
         PRE_OUT_WRAP(dev);
-        int ret(register_netdev(dev));
+        int ret(register_netdevice(dev));
         POST_OUT_WRAP(dev);
         return ret;
     })

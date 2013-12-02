@@ -182,7 +182,7 @@ namespace granary {
 
         // TODO: It's a bit weird that this works in user space but not kernel
         //       space!!
-#   if !CONFIG_ENV_KERNEL
+#   if 0 && !CONFIG_ENV_KERNEL
         for(in = in_next; in.is_valid(); in = in_next) {
             in_next = in.next();
             if(in.is_return()) {

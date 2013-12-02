@@ -16,7 +16,13 @@ using namespace client::wp;
 
 /// Bounds checking watchpoint policy wrappers.
 #ifdef CLIENT_WATCHPOINT_BOUND
+#   define WRAP_CONTEXT APP
 #   include "clients/watchpoints/clients/bounds_checker/kernel/linux/wrappers.h"
+#   if CONFIG_FEATURE_INSTRUMENT_HOST
+#       undef WRAP_CONTEXT
+#       define WRAP_CONTEXT HOST
+#       include "clients/watchpoints/clients/bounds_checker/kernel/linux/wrappers.h"
+#   endif
 #endif
 
 

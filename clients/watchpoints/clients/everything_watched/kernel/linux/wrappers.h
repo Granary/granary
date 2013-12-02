@@ -137,7 +137,6 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc) && CAN_WRAP_kmem_cache_alloc
 #   define APP_WRAPPER_FOR_kmem_cache_alloc
     FUNCTION_WRAPPER(APP, kmem_cache_alloc, (void *), (struct kmem_cache *cache, gfp_t gfp), {
-        cache = unwatched_address_check(cache);
         PRE_OUT_WRAP(cache);
 
         WRAP_FUNCTION_ONCE(kmem_cache_alloc);
@@ -146,12 +145,14 @@ namespace client { namespace wp {
             return ptr;
         }
 
+        struct kmem_cache *unwatched_cache(unwatched_address(cache));
+
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
-        memset(ptr, 0, cache->object_size);
+        memset(ptr, 0, unwatched_cache->object_size);
         add_watchpoint(ptr);
-        if(is_valid_address(cache->ctor)) {
-            cache->ctor(ptr);
+        if(is_valid_address(unwatched_cache->ctor)) {
+            unwatched_cache->ctor(ptr);
         }
 
         return ptr;
@@ -162,7 +163,6 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc_trace) && CAN_WRAP_kmem_cache_alloc_trace
 #   define APP_WRAPPER_FOR_kmem_cache_alloc_trace
     FUNCTION_WRAPPER(APP, kmem_cache_alloc_trace, (void *), (struct kmem_cache *cache, gfp_t gfp, size_t size), {
-        cache = unwatched_address_check(cache);
         PRE_OUT_WRAP(cache);
 
         WRAP_FUNCTION_ONCE(kmem_cache_alloc_trace);
@@ -171,12 +171,14 @@ namespace client { namespace wp {
             return ptr;
         }
 
+        struct kmem_cache *unwatched_cache(unwatched_address(cache));
+
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
         memset(ptr, 0, size);
         add_watchpoint(ptr);
-        if(is_valid_address(cache->ctor)) {
-            cache->ctor(ptr);
+        if(is_valid_address(unwatched_cache->ctor)) {
+            unwatched_cache->ctor(ptr);
         }
 
         return ptr;
@@ -187,7 +189,6 @@ namespace client { namespace wp {
 #if defined(CAN_WRAP_kmem_cache_alloc_node) && CAN_WRAP_kmem_cache_alloc_node
 #   define APP_WRAPPER_FOR_kmem_cache_alloc_node
     FUNCTION_WRAPPER(APP, kmem_cache_alloc_node, (void *), (struct kmem_cache *cache, gfp_t gfp, int node), {
-        cache = unwatched_address_check(cache);
         PRE_OUT_WRAP(cache);
 
         WRAP_FUNCTION_ONCE(kmem_cache_alloc_node);
@@ -196,12 +197,14 @@ namespace client { namespace wp {
             return ptr;
         }
 
+        struct kmem_cache *unwatched_cache(unwatched_address(cache));
+
         // Add watchpoint before constructor so that internal pointers
         // maintain their invariants (e.g. list_head structures).
-        memset(ptr, 0, cache->object_size);
+        memset(ptr, 0, unwatched_cache->object_size);
         add_watchpoint(ptr);
-        if(is_valid_address(cache->ctor)) {
-            cache->ctor(ptr);
+        if(is_valid_address(unwatched_cache->ctor)) {
+            unwatched_cache->ctor(ptr);
         }
 
         return ptr;

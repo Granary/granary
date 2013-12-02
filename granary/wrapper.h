@@ -30,7 +30,7 @@ namespace granary {
     template <> \
     struct kernel_address< DETACH_ID_ ## func > { \
     public: \
-        enum { \
+        enum : uintptr_t { \
             VALUE = DETACH_ADDR_ ## func \
         }; \
     };
@@ -739,10 +739,14 @@ namespace granary {
        enum : uintptr_t {
            apply = 0
        };
+#elif CONFIG_ENV_KERNEL
+        // There is no `apply` method/value here, so just treat the function
+        // as a detach point.
+        enum : uintptr_t {
+            apply = kernel_address<id>::VALUE
+        };
 #else
-       // There is no `apply` method/value here to purposefully raise a
-       // compiler error about something (e.g. having C-style variadic
-       // arguments) that should be manually wrapped.
+        // Let this trigger an error.
 #endif
     };
 
@@ -1530,14 +1534,14 @@ namespace granary {
 
 
 #define WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(\
+    static FORCE_INLINE void kind ## _wrap(\
         typename referenced<wrapped_type__>::type arg,\
         int depth__\
     ) throw()
 
 
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
-    static inline void kind ## _wrap(\
+    static FORCE_INLINE void kind ## _wrap(\
         typename referenced<wrapped_type__>::type,\
         int\
     ) throw() { }

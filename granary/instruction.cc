@@ -175,8 +175,11 @@ namespace granary {
             }
             if(instr->num_srcs) {
                 if(instr->u.o.src0.kind != instr2->u.o.src0.kind) {
-                    if(4 == instr->u.o.src0.kind
-                    && 3 == instr2->u.o.src0.kind){
+                    if(dynamorio::INSTR_kind == instr->u.o.src0.kind
+                    && dynamorio::PC_kind == instr2->u.o.src0.kind){
+                        ASSERT(instr->u.o.src0.value.instr->translation == instr2->u.o.src0.value.pc);
+                    } else if(dynamorio::MEM_INSTR_kind == instr->u.o.src0.kind
+                           && dynamorio::REL_ADDR_kind == instr2->u.o.src0.kind){
                         ASSERT(instr->u.o.src0.value.instr->translation == instr2->u.o.src0.value.pc);
                     } else {
                         ASSERT(false);

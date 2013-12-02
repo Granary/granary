@@ -102,6 +102,17 @@ namespace granary {
                 return true;
             }
 
+            if(dynamorio::OP_invlpg == in.op_code()
+            || dynamorio::OP_invlpga == in.op_code()
+            || dynamorio::OP_clflush == in.op_code()) {
+                return true;
+            }
+
+            if(dynamorio::OP_prefetchnta <= in.op_code()
+            && dynamorio::OP_prefetchw >= in.op_code()) {
+                return true;
+            }
+
             if(nullptr == bytes) {
                 continue;
             }

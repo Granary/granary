@@ -28,7 +28,7 @@ set-user-detect
 
 # Kernel setup
 if !$in_user_space
-  file ~/Code/linux/vmlinux
+  file ~/Code/linuxrcu/vmlinux
   target remote : 9999
   source ~/Code/Granary/granary.syms
 end
@@ -45,6 +45,7 @@ b granary_break_on_curiosity
 if !$in_user_space
   #b granary_break_on_interrupt
   b granary_break_on_nested_interrupt
+  b granary_break_on_gp_in_granary
   #b granary_break_on_nested_task
   b granary_break_on_gs_zero
   b panic
@@ -54,9 +55,13 @@ if !$in_user_space
   b do_general_protection
   b __schedule_bug
   b __stack_chk_fail
+  b __die
   b do_spurious_interrupt_bug
   b report_bug
   b dump_stack
+  b show_stack
+  b show_trace
+  b show_trace_log_lvl
   #b kernel/hung_task.c:101
 else
   b __assert_fail
@@ -274,6 +279,35 @@ define p-bb-info-impl
   end
 
   dont-repeat
+end
+
+
+# p-bt <num>
+#
+# Print a backtrace.
+def p-bt
+  set $__num_frames = $arg0
+  set $__rsp = (uint64_t *) $rsp
+  set $__last_addr = 0
+  set $__max_trackback = 200
+  while $__num_frames > 0 && $__max_trackback > 0
+    set $__max_trackback = $__max_trackback - 1
+    set $__addr = *$__rsp
+    if GRANARY_EXEC_START <= $__addr && $__addr < granary::detail::CODE_CACHE_END && $__addr != $__last_addr
+      set $__last_addr = $__addr
+
+      printf "Code Cache Address: %lx\n", $__addr
+      get-bb-info $__addr
+
+      set $__gen_pc = $__bb->generating_pc.as_uint
+      unmangle-address $__gen_pc
+      info sym $unmangled_address
+      set $__num_frames = $__num_frames - 1
+      printf "\n"
+
+    end
+    set $__rsp = $__rsp + 1
+  end
 end
 
 
@@ -599,7 +633,7 @@ set $__reg_rcx = 0
 set $__reg_rax = 0
 set $__reg_rsp = 0
 set $__reg_eflags = 0
-
+set $__reg_rip = 0
 set $__regs_saved = 0
 
 
@@ -623,6 +657,7 @@ define save-regs
   set $__reg_rax = $rax
   set $__reg_rsp = $rsp
   set $__reg_eflags = $eflags
+  set $__reg_rip = $rip
   dont-repeat
 end
 
@@ -647,6 +682,7 @@ define restore-regs
   set $rax = $__reg_rax
   set $rsp = $__reg_rsp
   set $eflags = $__reg_eflags
+  set $rip = $__reg_rip
   dont-repeat
 end
 
@@ -720,4 +756,15 @@ define restore-regs-state
   set $rax = $__regs->ax
   set $rsp = $__regs->sp
   set $eflags = $__regs->flags
+  set $rip = $__regs->ip
+end
+
+
+# p-descriptor-of <addr>
+#
+# Print the watchpoint descriptor for a given watched address.
+def p-descriptor-of
+  set $__addr = (unsigned long long) $arg0
+  set $__index = $__addr >> 49
+  p client::wp::DESCRIPTORS[$__index]
 end

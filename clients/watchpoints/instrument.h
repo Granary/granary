@@ -14,6 +14,19 @@
 #include "clients/watchpoints/config.h"
 
 
+#define DEFINE_GENERIC_WP_DESCRIPTOR(desc_type, alloc_and_init, reinit_watched_ptrs) \
+    namespace wp { \
+        template <typename> \
+        struct descriptor_type { \
+            typedef desc_type type; \
+            enum { \
+                ALLOC_AND_INIT = !!alloc_and_init, \
+                REINIT_WATCHED_POINTERS = !!reinit_watched_ptrs \
+            }; \
+        }; \
+    }
+
+
 namespace client {
 
     namespace wp {
@@ -571,6 +584,29 @@ namespace client {
             ptr_ = granary::unsafe_cast<T>(ptr);
 
             return status;
+        }
+
+
+        /// Taint an address.
+        template <typename T>
+        void taint(T &ptr_, uintptr_t counter_index) throw() {
+
+            if(!granary::is_valid_address(ptr_)) {
+                return;
+            }
+
+            counter_index &= MAX_COUNTER_INDEX;
+            counter_index <<= 1;
+            counter_index |= DISTINGUISHING_BIT;
+            counter_index <<= DISTINGUISHING_BIT_OFFSET;
+
+            uintptr_t ptr(granary::unsafe_cast<uintptr_t>(ptr_));
+            ptr &= CLEAR_INDEX_MASK;
+            ptr |= counter_index;
+
+            ASSERT(is_watched_address(ptr));
+
+            ptr_ = granary::unsafe_cast<T>(ptr);
         }
     }
 

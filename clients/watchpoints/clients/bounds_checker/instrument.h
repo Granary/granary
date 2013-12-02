@@ -32,11 +32,16 @@ namespace client {
                     /// m16&16 parameter suffices (as opposed to m32&32).
                     uint32_t lower_bound;
                     uint32_t upper_bound;
-                };
+                } __attribute__((packed));
 
                 /// Descriptor index of the next-freed object.
                 uint64_t next_free_index;
-            };
+
+            } __attribute__((packed));
+
+            /// Low 32 bits of the return address of the code that allocated
+            /// this watched object.
+            uint32_t return_address;
 
             /// Descriptor index of this descriptor within the descriptor table.
             uint32_t my_index;
@@ -57,7 +62,8 @@ namespace client {
             static void init(
                 bound_descriptor *,
                 void *base_address,
-                size_t size
+                size_t size,
+                void *return_address
             ) throw();
 
 
@@ -70,6 +76,10 @@ namespace client {
             static bound_descriptor *access(uintptr_t index) throw();
 
         } __attribute__((packed));
+
+
+        static_assert(16 == sizeof(bound_descriptor),
+            "Bound descriptor type should be 16 bytes.");
 
 
         /// Specify the descriptor type to the generic watchpoint framework.

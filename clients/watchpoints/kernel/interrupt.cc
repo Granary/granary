@@ -12,6 +12,21 @@
 #   error "The watchpoints system requires `CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT`."
 #endif
 
+#if CONFIG_ENV_KERNEL && CONFIG_DEBUG_ASSERTIONS
+#   include "granary/kernel/linux/module.h"
+
+extern "C" {
+    const kernel_module *kernel_get_module(granary::app_pc);
+}
+
+
+DONT_OPTIMISE
+void granary_break_on_gp_in_granary(granary::interrupt_stack_frame *isf) throw() {
+    USED(isf);
+}
+
+#endif
+
 using namespace granary;
 
 namespace client {
@@ -29,6 +44,14 @@ namespace client {
             return INTERRUPT_DEFER;
         }
 
+#if CONFIG_DEBUG_ASSERTIONS && CONFIG_ENV_KERNEL
+        const kernel_module *module(
+            kernel_get_module(isf.instruction_pointer));
+        if(module && module->is_granary) {
+            granary_break_on_gp_in_granary(&isf);
+        }
+#endif
+
         instrumentation_policy policy(START_POLICY);
         policy.in_host_context(true);
         policy.force_attach(true);
@@ -38,8 +61,11 @@ namespace client {
         mangled_address target(isf.instruction_pointer, policy);
         app_pc translated_target(nullptr);
         if(!cpu->code_cache.load(target.as_address, translated_target)) {
+            IF_PERF( perf::visit_address_lookup_cpu(false); )
             translated_target = code_cache::find(cpu, target);
             cpu->code_cache.store(target.as_address, translated_target);
+        } else {
+            IF_PERF( perf::visit_address_lookup_cpu(true); )
         }
 
         isf.instruction_pointer = translated_target;

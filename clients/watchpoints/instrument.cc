@@ -758,23 +758,29 @@ namespace client { namespace wp {
             // Here, we're really trying to guard against things like PUSH, POP,
             // and CALL (i.e. save, restore, do something) that have likely
             // been introduced by the instrumentation.
-            } else if(!in.pc() && dynamorio::OP_pop == in.op_code()) {
+            } else if(!in.pc()) {
 
-                // We need to watch out about something like:
-                //      MOV (...), %RSP
-                // Which is mangled into something like:
-                //      ...
-                //      PUSH (...)      <-- also mangled
-                //      POP %RSP
-                if(dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
-                && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+                if(dynamorio::OP_pop == in.op_code()) {
+                    // We need to watch out about something like:
+                    //      MOV (...), %RSP
+                    // Which is mangled into something like:
+                    //      ...
+                    //      PUSH (...)      <-- also mangled
+                    //      POP %RSP
+                    if(dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
+                    && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+                        continue;
+                    }
+
+                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                    guarded = true;
+                    prev_in = in; // re-visit this instruction.
                     continue;
-                }
 
-                ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                guarded = true;
-                prev_in = in; // re-visit this instruction.
-                continue;
+                } else if(in.is_call()) {
+                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                    guarded = true;
+                }
             }
 
             // If we're guarded and we didn't adjust the instruction, but it

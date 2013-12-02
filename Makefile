@@ -85,8 +85,8 @@ GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
 GR_CXX_FLAGS += -Wno-format-security -Wshadow
 
-GR_CC_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time
-GR_CXX_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time
+GR_CC_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time -fomit-frame-pointer
+GR_CXX_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time -fomit-frame-pointer
 
 # Try to mask some symbols.
 GR_EXTRA_LD_FLAGS += "-Wl,--defsym=memset=granary_memset"
@@ -329,7 +329,6 @@ ifeq ($(GR_CLIENT),rcudbg)
         GR_WP_INCLUDE_DEFAULT = 1
 		
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/carat.o
-        GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/descriptor.o
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/events.o
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/instrument.o
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/log.o

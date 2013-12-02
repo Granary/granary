@@ -112,7 +112,7 @@ namespace granary {
     /// between user and kernel addresses, and user space addresses will appear
     /// invalid.
     FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
-        return 0 != (addr & 0x0000800000000000ULL);
+        return 1U & (addr >> 47U);
     }
 
 

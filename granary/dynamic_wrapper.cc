@@ -43,6 +43,11 @@ namespace granary {
         policy.in_host_context(is_host_address(wrappee));
         policy.begins_functional_unit(true);
 
+        // Enable us to both wrap *and* instrument some code.
+        if(policy.is_in_host_context() && policy.is_host_auto_instrumented()) {
+            policy.force_attach(true);
+        }
+
         // Will directly return to:
         //      1) Wrapper code if the wrapper CALLs the code cache.
         //      2) Code cache if the wrapper tailcalls (JMPs) to the code cache.

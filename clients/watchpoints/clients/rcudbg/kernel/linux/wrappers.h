@@ -18,6 +18,7 @@
 
 #include "clients/watchpoints/clients/rcudbg/events.h"
 
+
 /// Wrapper for `rcu_dereference`. The purpose of this wrapper to to add a
 /// de-reference watchpoint.
 #if defined(CAN_WRAP___granary_rcu_dereference) && CAN_WRAP___granary_rcu_dereference
@@ -35,8 +36,8 @@
        void ** derefed_ptr,
        void * ptr,
        const char * carat
-   ), {
-       return client::event_rcu_dereference(derefed_ptr, ptr, carat);
+    ), {
+        return client::event_rcu_dereference(derefed_ptr, ptr, carat);
     })
 #endif
 

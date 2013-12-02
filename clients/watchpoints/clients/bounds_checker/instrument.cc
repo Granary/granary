@@ -142,7 +142,8 @@ namespace client { namespace wp {
     void bound_descriptor::init(
         bound_descriptor *desc,
         void *base_address,
-        size_t size
+        size_t size,
+        void *ret_address
     ) throw() {
         if(!is_valid_address(desc)) {
             return;
@@ -151,6 +152,8 @@ namespace client { namespace wp {
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
+        desc->return_address = static_cast<uint32_t>(
+            reinterpret_cast<uintptr_t>(ret_address));
 
         // TODO: Handle roll-over across a 4GB boundary.
         ASSERT(desc->upper_bound > desc->lower_bound);
@@ -215,7 +218,7 @@ namespace client { namespace wp {
         const unsigned reg_index = register_to_index(tracker.regs[i].value.reg);
         const unsigned size_index = operand_size_order(tracker.sizes[i]);
 
-        ASSERT(reg_index < 16);
+        ASSERT(reg_index < 15);
         ASSERT(size_index < 5);
 
         instruction call(insert_cti_after(ls, tracker.labels[i],
@@ -240,11 +243,11 @@ namespace client { namespace wp {
     /// Visit a buffer overflow. This is invoked by
     void visit_overflow(
         uintptr_t watched_addr,
-        app_pc addr_in_bb,
-        unsigned size
+        unsigned size,
+        app_pc *return_address_in_bb
     ) throw() {
         USED(watched_addr);
-        USED(addr_in_bb);
+        USED(return_address_in_bb);
         USED(size);
         //printf("Access of size %u to %p in basic block %p overflowed\n",
         //    size, watched_addr, addr_in_bb);

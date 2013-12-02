@@ -14,8 +14,11 @@
 
 START_FILE
 
-    .extern SYMBOL(_ZN6client2wp11DESCRIPTORSE)
-    .extern SYMBOL(_ZN6client2wp14visit_overflowEmPhj)
+#define DESCRIPTORS SYMBOL(_ZN6client2wp11DESCRIPTORSE)
+#define VISIT_OVERFLOW SYMBOL(_ZN6client2wp14visit_overflowEmjPPh)
+
+    .extern DESCRIPTORS
+    .extern VISIT_OVERFLOW
 
 
 /// Watchpoint descriptor.
@@ -26,115 +29,106 @@ START_FILE
 #define TABLE(reg) SPILL_REG_NOT_RAX(DESC(reg))
 
 
-/// Define a register-specific and operand-size specific bounds checker.
 #define BOUNDS_CHECKER(reg, size) \
     DECLARE_FUNC(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg)) @N@\
     GLOBAL_LABEL(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg):) @N@@N@\
-        COMMENT(Save the flags.) \
-        pushf;@N@\
-        \
-        COMMENT(Spill some registers. The DEST and TABLE registers are) \
-        COMMENT(guaranteed to not be RAX. We unconditionally spill RAX.) \
-        pushq %rax;@N@\
-        pushq %DESC(reg);@N@ \
-        pushq %TABLE(reg);@N@ \
-        @N@\
-        \
-        COMMENT(Save the watched address for indexing and in RAX) \
-        mov %reg, %DESC(reg);@N@\
-        IF_INHERITED_INDEX( mov %reg, %TABLE(reg);@N@ )\
-        mov %reg, %rax; @N@\
-        @N@\
-        \
-        COMMENT(Compute the combined index.) \
-        IF_INHERITED_INDEX( shl $ WP_INHERITED_INDEX_LSH, %TABLE(reg);@N@ ) \
-        IF_INHERITED_INDEX( shr $ WP_INHERITED_INDEX_RSH, %TABLE(reg);@N@ ) \
-        shr $ WP_COUNTER_INDEX_RSH, %DESC(reg);@N@ \
-        IF_INHERITED_INDEX( shl $ WP_INHERITED_INDEX_WIDTH, %DESC(reg);@N@ ) \
-        IF_INHERITED_INDEX( or %TABLE(reg), %DESC(reg);@N@ ) \
-        @N@\
-        \
-        COMMENT(Get the descriptor pointer from the index.) \
-        lea SYMBOL(_ZN6client2wp11DESCRIPTORSE)(%rip), %TABLE(reg);@N@\
-        lea (%TABLE(reg),%DESC(reg),8), %DESC(reg);@N@\
-        \
-        movq (%DESC(reg)), %DESC(reg);@N@\
-        @N@\
-        \
-        COMMENT(Compare against the lower bound.) \
-        cmp (%DESC(reg)), %eax;@N@\
-        jl .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
-        @N@\
-        \
-        COMMENT(Compare against the upper bound.) \
-        mov %rax, %TABLE(reg); \
-        addq $ (size - 1), %TABLE(reg); \
-        cmp %REG64_TO_REG32(TABLE(reg)), 4(%DESC(reg));@N@\
-        jle .CAT(Lbounds_check_fail_, CAT(reg, size));@N@\
-        jmp .CAT(Lbounds_check_passed_, CAT(reg, size));@N@\
-        @N@\
-        \
-    .CAT(Lbounds_check_fail_, CAT(reg, size)): @N@\
-        COMMENT(Trigger an overflow exception if a bounds check fails.) \
-        callq SHARED_SYMBOL(CAT(granary_overflow_handler_, CAT(CAT(size, _), rax))); \
-        @N@\
-        \
-    .CAT(Lbounds_check_passed_, CAT(reg, size)): @N@\
-        \
-        COMMENT(Unspill.) \
-        popq %TABLE(reg);@N@\
-        popq %DESC(reg);@N@\
-        popq %rax;@N@\
-        \
-        COMMENT(Restore the flags.) \
-        popf;@N@\
-        @N@\
-        ret;@N@\
+    push %rdi; @N@\
+    mov %reg, %rdi; @N@\
+    @N@\
+    COMMENT(Tail-call to a generic bounds checker.) @N@\
+    jmp SHARED_SYMBOL(CAT(granary_bounds_check_, size)); @N@\
     END_FUNC(CAT(CAT(granary_bounds_check_, CAT(size, _)), reg)) @N@@N@@N@
 
 
-/// An overflow handler.
-#define OVERFLOW_HANDLER(reg, size) \
-    DECLARE_FUNC(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg))) @N@\
-    GLOBAL_LABEL(CAT(granary_overflow_handler_, CAT(CAT(size, _), reg)):) @N@\
-        COMMENT(Save all register state.)\
-        @PUSH_ALL_REGS@ @N@\
-        @N@\
-        \
-        COMMENT(Save the overflowed address and the return address as)\
-        COMMENT(arguments for a common overflow handler.)\
-        movq %reg, %ARG1; @N@\
-        mov 160(%rsp), %ARG2; @N@\
-        movq $ size, %ARG3; @N@\
-        @N@\
-        \
-        COMMENT(Align the stack.)\
-        push %rsp; @N@\
-        push (%rsp); @N@\
-        and $-0x10, %rsp; @N@\
-        @N@\
-        \
-        IF_USER(COMMENT(Save the XMM registers.)) \
-        IF_USER(@PUSH_ALL_XMM_REGS@) \
-        IF_USER(@N@) \
-        \
-        COMMENT(Call out to our common handler.)\
-        callq SYMBOL(_ZN6client2wp14visit_overflowEmPhj); @N@\
-        @N@\
-        \
-        IF_USER(COMMENT(Restore the XMM registers.)) \
-        IF_USER(@POP_ALL_XMM_REGS@) \
-        IF_USER(@N@) \
-        \
-        COMMENT(Unalign the stack.)\
-        mov 8(%rsp), %rsp; @N@\
-        @N@\
-        \
-        COMMENT(Restore all register state.)\
-        @POP_ALL_REGS@ @N@\
-        ret;@N@\
-    END_FUNC(CAT(granary_overflow_, CAT(CAT(size, _), reg))) @N@\
-    @N@
+#define GENERIC_BOUNDS_CHECKER(size) \
+    DECLARE_FUNC(CAT(granary_bounds_check_, size)) @N@\
+    GLOBAL_LABEL(CAT(granary_bounds_check_, size):) @N@@N@\
+    push %rsi; @N@\
+    push %rdx; @N@\
+    push %rax; @N@\
+    lahf; COMMENT(Save the arithmetic flags) @N@\
+    @N@\
+    COMMENT(Get the index into AX, while preserving AL.) @N@\
+    bswap %rax; @N@\
+    bswap %rdi; @N@\
+    mov %di, %ax; @N@\
+    bswap %rdi; @N@\
+    xchg %al, %ah; @N@\
+    shr $1, %ax; COMMENT(Got the index.) @N@\
+    @N@\
+    COMMENT(Get the descriptor. Each descriptor is a pointer to a 16 byte) @N@\
+    COMMENT(data structure.) @N@\
+    lea DESCRIPTORS(%rip), %rsi; @N@\
+    movzwl %ax, %edx; @N@\
+    lea (%rsi,%rdx,8), %rsi; @N@\
+    bswap %rax; COMMENT(Restore AH, which has the flags)@N@\
+    mov (%rsi), %rsi; @N@\
+    @N@\
+    COMMENT(Check the lower bounds against the low 32 bits.) @N@\
+    cmp (%rsi), %edi; @N@\
+    jl .CAT(Lgranary_underflow_, size); @N@\
+    mov 4(%rsi), %rsi; @N@\
+    sub $ size, %rsi; @N@\
+    cmp %edi, %esi; @N@\
+    jmp .CAT(Lgranary_done_, size); @N@\
+.CAT(Lgranary_underflow_, size): @N@\
+    mov $ size, %rsi; @N@\
+    jmp granary_detected_overflow; @N@\
+.CAT(Lgranary_overflow_, size): @N@\
+    mov $ size, %rsi; @N@\
+    jmp granary_detected_overflow; @N@\
+.CAT(Lgranary_done_, size): @N@\
+    sahf; COMMENT(Restore the arithmetic flags) @N@\
+    pop %rax; @N@\
+    @N@\
+    pop %rdx; @N@\
+    pop %rsi; @N@\
+    COMMENT(Finish off the individual bounds checker that brought us here.) @N@\
+    pop %rdi; @N@\
+    ret; @N@\
+    END_FUNC(CAT(granary_bounds_check_, size)) @N@@N@@N@
+
+
+DECLARE_FUNC(granary_detected_overflow)
+GLOBAL_LABEL(granary_detected_overflow:)
+    // Arg1 (rdi) has the watched address.
+    // Arg2 (rsi) has the operand size.
+
+    // Get the return address into the basic block as Arg3 (rdx).
+    lea 32(%rsp), %rdx;
+
+    // Save the scratch registers.
+    push %rcx;
+    push %r8;
+    push %r9;
+    push %r10;
+    push %r11;
+
+    call VISIT_OVERFLOW;
+
+    // Restore scratch registers.
+    pop %r11;
+    pop %r10;
+    pop %r9;
+    pop %r8;
+    pop %rcx;
+
+    pop %rdx;
+
+    // Restore the flags.
+    sahf;
+    pop %rax;
+    pop %rdx;
+    pop %rsi;
+    pop %rdi;
+    ret;
+END_FUNC(granary_detected_overflow)
+
+GENERIC_BOUNDS_CHECKER(1)
+GENERIC_BOUNDS_CHECKER(2)
+GENERIC_BOUNDS_CHECKER(4)
+GENERIC_BOUNDS_CHECKER(8)
+GENERIC_BOUNDS_CHECKER(16)
 
 
 /// Define a bounds checker and splat the rest of the checkers.
@@ -152,26 +146,8 @@ START_FILE
     BOUNDS_CHECKER(reg, 16)
 
 
-/// Define an overflow handler and splat the rest of the checkers.
-#define DEFINE_HANDLERS(reg, rest) \
-    DEFINE_HANDLER(reg) \
-    rest
-
-
-/// Define the last overflow handler.
-#define DEFINE_HANDLER(reg) \
-    OVERFLOW_HANDLER(reg, 1) \
-    OVERFLOW_HANDLER(reg, 2) \
-    OVERFLOW_HANDLER(reg, 4) \
-    OVERFLOW_HANDLER(reg, 8) \
-    OVERFLOW_HANDLER(reg, 16)
-
-
 /// Define all of the bounds checkers.
 GLOBAL_LABEL(granary_first_bounds_checker:)
 ALL_REGS(DEFINE_CHECKERS, DEFINE_CHECKER)
 GLOBAL_LABEL(granary_last_bounds_checker:)
-
-DEFINE_HANDLER(rax)
-
 END_FILE

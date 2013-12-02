@@ -464,7 +464,7 @@ namespace granary {
 
         // Ensure that the start PC of the basic block is always somewhere in
         // the instruction stream.
-        instruction in(ls.append(label_()));
+        instruction in(ls.append(mangled(label_())));
         in.set_pc(start_pc);
 
         for(;;) {
@@ -837,6 +837,12 @@ namespace granary {
                     continue;
                 }
                 is_fall_through = true;
+
+            // Don't trace unconditional JMPs if they were introduced by
+            // instrumentation.
+            } else if(!in.pc()) {
+                ASSERT(in.is_jump());
+                continue;
 
             // Just double check that we're only seeing JMPs or CBRs.
             } else {

@@ -278,7 +278,21 @@ struct _opnd_t {
         void * addr;
     } value;
 } __attribute__((packed));
-enum { NULL_kind , IMMED_INTEGER_kind , IMMED_FLOAT_kind , PC_kind , INSTR_kind , REG_kind , BASE_DISP_kind , FAR_PC_kind , FAR_INSTR_kind , REL_ADDR_kind , ABS_ADDR_kind , MEM_INSTR_kind , LAST_kind , } ;
+enum {
+    NULL_kind,
+    IMMED_INTEGER_kind,
+    IMMED_FLOAT_kind,
+    PC_kind,
+    INSTR_kind,
+    REG_kind,
+    BASE_DISP_kind,
+    FAR_PC_kind,
+    FAR_INSTR_kind,
+    REL_ADDR_kind,
+    ABS_ADDR_kind,
+    MEM_INSTR_kind,
+    LAST_kind,
+};
 
 #if 1
 enum {

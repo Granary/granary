@@ -232,23 +232,30 @@ namespace client {
             "Basic block alignment must be at least 16 bytes to enable "
             "easy patching of RCU-upgradable basic blocks.");
 
+        // Don't add a patch point into recursive invocations that are used to
+        // instrument memory loads for indirect control flow.
         if(ls.is_stub()) {
             return *this;
         }
+
+        instruction first(ls.first());
+        ASSERT(dynamorio::OP_LABEL == first.op_code());
+        ASSERT(first.pc());
 
         // Upgrade patch point for write-side debugging. If this basic block
         // faults while running (i.e. because it writes to an RCU-protected
         // data structure) then it is either in an area where the writer is
         // updating the data structure, or doing something wrong.
+        instruction after_patch(label_());
+        instruction upgrade_jump(jmp_(pc_(first.pc())));
 
-        instruction first(ls.first());
-        instruction patch_target(label_());
+        ls.insert_before(first, mangled(jmp_short_(instr_(after_patch))));
+        ls.insert_before(first, upgrade_jump);
+        ls.insert_before(first, after_patch);
 
-        // We will upgrade in two steps:
-        //  1) Hot patch the long jump (patch_jump).
-        //  2) Hot patch the short jump to point to the long jump.
-        ls.insert_before(first, patchable(mangled(jmp_(instr_(patch_target)))));
-        ls.insert_before(first, patch_target);
+        instrumentation_policy upgrade_policy = policy_for<rcu_watched>();
+        upgrade_policy.inherit_properties(*this, INHERIT_JMP);
+        upgrade_jump.set_policy(upgrade_policy);
 
         unsigned curr_depth(0);
         instrumentation_policy curr_policy(policy_for_depth(curr_depth));
@@ -346,20 +353,10 @@ namespace client {
         }
 
         enum {
-            OP_JMP_SHORT = 0xEB,
-            OP_JMP = 0xE9
+            OP_JMP_SHORT = 0xEB
         };
 
-        // Re-encode the basic block using the rcu_watched policy and hot-
-        // patch the first instruction to redirect execution.
         basic_block faulting_bb(isf.instruction_pointer);
-        instrumentation_policy policy = policy_for<rcu_watched>();
-        policy.force_attach(true);
-        policy.access_user_data(faulting_bb.policy.accesses_user_data());
-        policy.in_host_context(faulting_bb.policy.is_in_host_context());
-        policy.in_xmm_context(faulting_bb.policy.is_in_xmm_context());
-        policy.begins_functional_unit(
-            faulting_bb.policy.is_beginning_of_functional_unit());
 
         // Figure out the location of the hot-patchable entry-point. If the
         // trace logger is being used then we need to shift by 8 bytes.
@@ -367,36 +364,45 @@ namespace client {
         app_pc patch_pc(faulting_bb.cache_pc_start);
 #if CONFIG_DEBUG_TRACE_EXECUTION
         patch_pc += 5; // Size of a `CALL`.
-        patch_pc += ALIGN_TO(reinterpret_cast<uintptr_t>(patch_pc), 8);
 #endif
 
-        uint64_t *patch_target(reinterpret_cast<uint64_t *>(patch_pc));
-        uint64_t patch(*patch_target);
+        ASSERT(OP_JMP_SHORT == *patch_pc);
 
-        ASSERT(OP_JMP_SHORT == *patch_pc || OP_JMP == *patch_pc);
+        app_pc instruction_to_patch(patch_pc);
+        app_pc first_ins(nullptr);
+        instruction jmp_short(instruction::decode(&instruction_to_patch));
 
-        mangled_address am(
-            reinterpret_cast<app_pc>(
-                faulting_bb.info->generating_pc.unmangled_address()),
-            policy);
+        // Patch the near JMP at the beginning of the basic block to have a
+        // zero relative displacement, so that execution falls through to the
+        // JMP that brings execution to the next basic block, but under the
+        // `rcu_watched` policy.
+        ++patch_pc;
+        if(0 != *patch_pc) {
 
-        // Stage a patched JMP to the upgraded basic block.
-        app_pc upgraded_bb_pc(code_cache::find(cpu, am));
-        instruction patch_jmp(jmp_(pc_(upgraded_bb_pc)));
-        patch_jmp.stage_encode(unsafe_cast<app_pc>(&patch), patch_pc);
+            // Only compute the actual first instruction target when we know
+            // that the instruction wasn't already patched, where the check
+            // MUST happen *after* we decode the instruction.
+            first_ins = jmp_short.cti_target().value.pc;
 
-        // Apply the patch.
-        std::atomic_thread_fence(std::memory_order_acquire);
-        *patch_target = patch;
-        std::atomic_thread_fence(std::memory_order_release);
+            std::atomic_thread_fence(std::memory_order_acquire);
+            *patch_pc = 0;
+            std::atomic_thread_fence(std::memory_order_release);
+        }
 
         // Build the tail if we didn't fault at the first instruction.
         // Redirect the interrupt to resume where watchpoints are tested
         // for.
-        const app_pc first_ins(patch_pc + 8);
         if(first_ins == isf.instruction_pointer) {
-            isf.instruction_pointer = upgraded_bb_pc;
+            isf.instruction_pointer = faulting_bb.cache_pc_start;
         } else {
+            instrumentation_policy policy = policy_for<rcu_watched>();
+            policy.force_attach(true);
+            policy.access_user_data(faulting_bb.policy.accesses_user_data());
+            policy.in_host_context(faulting_bb.policy.is_in_host_context());
+            policy.in_xmm_context(faulting_bb.policy.is_in_xmm_context());
+            policy.begins_functional_unit(
+                faulting_bb.policy.is_beginning_of_functional_unit());
+
             isf.instruction_pointer = rcu_watched_tail(
                 cpu, bb, isf.instruction_pointer, policy);
         }
