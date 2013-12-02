@@ -85,6 +85,19 @@ using namespace client::wp;
     FUNCTION_WRAPPER(APP, __libc_calloc, (void *), (size_t count, size_t size), CALLOCATOR(__libc_calloc, count, size))
 #endif
 
+#if defined(CAN_WRAP_free) && CAN_WRAP_free
+#   define APP_WRAPPER_FOR_free
+	FUNCTION_WRAPPER_VOID(APP, free, (void *ptr), {
+		free(unwatched_address_check(ptr));
+	})
+#endif
+		
+#if defined(CAN_WRAP___libc_free) && CAN_WRAP___libc_free
+#   define APP_WRAPPER_FOR____libc_free
+	FUNCTION_WRAPPER_VOID(APP, __libc_free, (void *ptr), {
+		__libc_free(unwatched_address_check(ptr));
+	})
+#endif
 
 #if defined(CAN_WRAP_stat) && CAN_WRAP_stat
 #   define APP_WRAPPER_FOR_stat
