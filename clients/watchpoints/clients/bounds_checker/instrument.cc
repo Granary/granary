@@ -246,11 +246,11 @@ namespace client { namespace wp {
         unsigned size,
         app_pc *return_address_in_bb
     ) throw() {
-        USED(watched_addr);
-        USED(return_address_in_bb);
-        USED(size);
-        //printf("Access of size %u to %p in basic block %p overflowed\n",
-        //    size, watched_addr, addr_in_bb);
+        //UNUSED(watched_addr);
+        //UNUSED(addr_in_bb);
+        //UNUSED(size);
+        printf("Access of size %u to %p in basic block %p overflowed\n",
+            size, unwatched_address_check(watched_addr), addr_in_bb);
     }
 
 
