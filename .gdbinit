@@ -759,7 +759,6 @@ define restore-regs-state
   set $rip = $__regs->ip
 end
 
-
 # p-descriptor-of <addr>
 #
 # Print the watchpoint descriptor for a given watched address.
@@ -767,4 +766,25 @@ def p-descriptor-of
   set $__addr = (unsigned long long) $arg0
   set $__index = $__addr >> 49
   p client::wp::DESCRIPTORS[$__index]
+end
+
+# p-bt <num>
+#
+# Print a backtrace.
+
+def p-bt
+  set $__num_frames = $arg0
+  set $__rsp = (uint64_t *) $rsp
+  while $__num_frames > 0
+    set $__addr = *$__rsp
+    if GRANARY_EXEC_START <= $__addr && $__addr < granary::detail::CODE_CACHE_END
+      get-bb-info $__addr
+
+      set $__gen_pc = $__bb->generating_pc.as_uint
+      unmangle-address $__gen_pc
+      info sym $unmangled_address
+      set $__num_frames = $__num_frames - 1  
+    end
+    set $__rsp = $__rsp + 1
+  end
 end
