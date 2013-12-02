@@ -33,7 +33,7 @@ WHITELIST = {
   # Useful for user space debugging
   "__assert_fail":  ("__assert_fail", "__GI___assert_fail"),
   "stat": ("stat"),
-  "__xstat": ("__xstat"),
+  "__xstat": ("__xstat", "__xstat64"),
   "open": ("open"),
   "open64": ("open64"),
   "fopen": ("fopen"),
@@ -43,6 +43,10 @@ WHITELIST = {
   "execvpe": ("execvpe"),
   "read": ("read"),
   "write": ("write"),
+
+  "fread": ("fread"),
+  "fwrite": ("fwrite"),
+  "getc": ("getc", "_IO_getc"),
 }
 
 # TODO: currently have linker or platform errors for these.

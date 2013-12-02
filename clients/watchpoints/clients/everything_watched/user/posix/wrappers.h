@@ -104,14 +104,14 @@ using namespace client::wp;
 #if defined(CAN_WRAP___xstat) && CAN_WRAP___xstat
 #   define APP_WRAPPER_FOR___xstat
     FUNCTION_WRAPPER(APP, __xstat, (int), (int vers, const char *path, struct stat *buf), {
-		return stat(unwatched_address_check(path), unwatched_address_check(buf));	
+		return __xstat(vers, unwatched_address_check(path), unwatched_address_check(buf));	
     })
 #endif
 
 #if defined(CAN_WRAP___xstat64) && CAN_WRAP___xstat64
 #   define APP_WRAPPER_FOR___xstat64
     FUNCTION_WRAPPER(APP, __xstat64, (int), (int vers, const char *path, struct stat *buf), {
-		return stat(unwatched_address_check(path), unwatched_address_check(buf));	
+		return __xstat64(vers, unwatched_address_check(path), unwatched_address_check(buf));	
     })
 #endif
 
@@ -204,7 +204,7 @@ using namespace client::wp;
 	})
 #endif
 
-#if defined(CAN_WRAP_raed) && CAN_WRAP_read
+#if defined(CAN_WRAP_read) && CAN_WRAP_read
 #	define APP_WRAPPER_FOR_read
 	FUNCTION_WRAPPER(APP, read, (ssize_t), (int fd, void *buf, size_t count), {
 		return read(fd, unwatched_address_check(buf), count);
@@ -215,6 +215,13 @@ using namespace client::wp;
 #	define APP_WRAPPER_FOR_write
 	FUNCTION_WRAPPER(APP, write, (ssize_t), (int fd, const void *buf, size_t count), {
 		return write(fd, unwatched_address_check(buf), count);
+	})
+#endif
+
+#if defined(CAN_WRAP_fwrite) && CAN_WRAP_fwrite
+#	define APP_WRAPPER_FOR_fwrite
+	FUNCTION_WRAPPER(APP, fwrite, (size_t), (const void *ptr, size_t size, size_t nmemb, FILE *stream), {
+		return fwrite(unwatched_address_check(ptr), size, nmemb, unwatched_address_check(stream));
 	})
 #endif
 
