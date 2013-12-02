@@ -916,7 +916,6 @@ namespace granary {
     ///     1) The call is made on a safe stack;
     ///     2) The call goes into the kernel's interrupt handler code.
     static app_pc create_interrupt_entrypoint(app_pc native_entrypoint) throw() {
-        return native_entrypoint;
 
         // Free up memory.
         cpu_state_handle cpu;
@@ -924,7 +923,6 @@ namespace granary {
         cpu.free_transient_allocators();
 
         instruction_list ls;
-
         instruction last_call;
         IF_TEST( bool seen_jump; )
 
