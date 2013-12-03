@@ -249,8 +249,8 @@ namespace client { namespace wp {
         UNUSED(watched_addr);
         UNUSED(return_address_in_bb);
         UNUSED(size);
-        /*printf("Access of size %u to %p in basic block %p overflowed\n",
-            size, unwatched_address(watched_addr), *return_address_in_bb);*/
+        IF_USER( printf("Access of size %u to %p in basic block %p overflowed\n",
+            size, unwatched_address(watched_addr), *return_address_in_bb); )
     }
 
 

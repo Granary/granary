@@ -676,7 +676,8 @@ namespace client { namespace wp {
                         return;
                     }
                 }
-            } else if(dynamorio::OP_pop == in.op_code() || in.is_call()) {
+            } else if(dynamorio::OP_pop == in.op_code()
+                   || dynamorio::OP_call == in.op_code()) {
                 goto try_guard;
             }
         }
@@ -703,7 +704,7 @@ namespace client { namespace wp {
                 // operands.
                 } else if(!guarded && !in.pc()
                        && dynamorio::OP_call == in.op_code()) {
-                    guarded = true;
+                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
                     ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
                 }
                 continue;
@@ -720,7 +721,9 @@ namespace client { namespace wp {
                 //
                 // We also need to watch out for stack protector / PAX craziness,
                 // where GCC will insert large LEA-based shifts of the stack
-                // pointer at the beginning of functions.
+                // pointer at the beginning of functions. Sometimes these large
+                // shifts can even overflow when added to the REDZONE size,
+                // which causes issues!
                 if(dynamorio::OP_lea == in.op_code()
                 && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
 

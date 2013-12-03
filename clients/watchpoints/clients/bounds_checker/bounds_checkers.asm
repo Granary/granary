@@ -45,8 +45,6 @@ GLOBAL_LABEL(granary_detected_overflow:)
     pop %r8;
     pop %rcx;
 
-    pop %rdx;
-
     // Restore the flags.
     sahf;
     pop %rax;
@@ -76,20 +74,18 @@ END_FUNC(granary_detected_overflow)
     push %rax; @N@\
     lahf; COMMENT(Save the arithmetic flags) @N@\
     @N@\
-    COMMENT(Get the index into AX, while preserving AL.) @N@\
-    bswap %rax; @N@\
+    COMMENT(Get the index into RDX.) @N@\
     bswap %rdi; @N@\
-    mov %di, %ax; @N@\
+    mov %di, %dx; @N@\
     bswap %rdi; @N@\
-    xchg %al, %ah; @N@\
-    shr $1, %ax; COMMENT(Got the index.) @N@\
+    xchg %dl, %dh; @N@\
+    movzwl %dx, %edx; @N@\
+    shr $1, %edx; @N@\
     @N@\
     COMMENT(Get the descriptor. Each descriptor is a pointer to a 16 byte) @N@\
     COMMENT(data structure.) @N@\
     lea DESCRIPTORS(%rip), %rsi; @N@\
-    movzwl %ax, %edx; @N@\
     lea (%rsi,%rdx,8), %rsi; @N@\
-    bswap %rax; COMMENT(Restore AH, which has the flags)@N@\
     mov (%rsi), %rsi; @N@\
     @N@\
     COMMENT(Check the lower bounds against the low 32 bits.) @N@\
@@ -106,12 +102,10 @@ END_FUNC(granary_detected_overflow)
     mov $ size, %rsi; @N@\
     jmp SHARED_SYMBOL(granary_detected_overflow); @N@\
 .CAT(Lgranary_done_, size): @N@\
-    sahf; COMMENT(Restore the arithmetic flags) @N@\
+    sahf; @N@\
     pop %rax; @N@\
-    @N@\
     pop %rdx; @N@\
     pop %rsi; @N@\
-    COMMENT(Finish off the individual bounds checker that brought us here.) @N@\
     pop %rdi; @N@\
     ret; @N@\
     END_FUNC(CAT(granary_bounds_check_, size)) @N@@N@@N@
