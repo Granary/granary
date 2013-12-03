@@ -37,6 +37,7 @@ WHITELIST = {
   "lstat": ("lstat",),
   "__lxstat": ("__lxstat", "__lxstat64"),
   "open": ("open", "open64"),
+  "openat": ("openat", "openat64",),
   "fopen": ("fopen",),
   "execve": ("execve",),
   "execv": ("execv",),
@@ -44,6 +45,7 @@ WHITELIST = {
   "execvpe": ("execvpe",),
   "read": ("read",),
   "write": ("write",),
+  "readlink": ("readlink", "__readlink_chk"),
 
   "getc": ("getc", "_IO_getc",),
 }

@@ -130,7 +130,7 @@ namespace granary {
         }
 
         enum {
-            LINE_SIZE = 255
+            LINE_SIZE = 4095
         };
 
         char path_buff[LINE_SIZE + 1] = {'\0'};

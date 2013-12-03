@@ -81,17 +81,27 @@ using namespace client::wp;
 ///       version of the function.
 #if defined(CAN_WRAP_open) && CAN_WRAP_open
 #   define APP_WRAPPER_FOR_open
-    FUNCTION_WRAPPER(APP, open, (int), (const char *file, int mode), {
-        return open(unwatched_address_check(file), mode);
+    FUNCTION_WRAPPER(APP, open, (int), (const char *file, int flags, mode_t mode), {
+        return open(unwatched_address_check(file), flags, mode);
     })
 #endif
 
-#if defined(CAN_WRAP_open64) && CAN_WRAP_open64
-#   define APP_WRAPPER_FOR_open64
-    FUNCTION_WRAPPER(APP, open64, (int), (const char *file, int mode), {
-        return open64(unwatched_address_check(file), mode);
+
+#if defined(CAN_WRAP_openat) && CAN_WRAP_openat
+#   define APP_WRAPPER_FOR_openat
+    FUNCTION_WRAPPER(APP, openat, (int), (int dirfd, const char *file, int flags, mode_t mode), {
+        return openat(dirfd, unwatched_address_check(file), flags, mode);
     })
 #endif
+
+
+#if defined(CAN_WRAP_readlink) && CAN_WRAP_readlink
+#   define APP_WRAPPER_FOR_readlink
+    FUNCTION_WRAPPER(APP, readlink, (ssize_t), (const char *path , char *buf , size_t len), {
+        return readlink(unwatched_address_check(path), unwatched_address_check(buf), len);
+    })
+#endif
+
 
 #if defined(CAN_WRAP_dlopen) && CAN_WRAP_dlopen
 #   define APP_WRAPPER_FOR_dlopen
@@ -99,6 +109,7 @@ using namespace client::wp;
         return dlopen(unwatched_address_check(filename), flag);
     })
 #endif
+
 
 #if defined(CAN_WRAP_dlsym) && CAN_WRAP_dlsym
 #   define APP_WRAPPER_FOR_dlsym
