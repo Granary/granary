@@ -482,13 +482,13 @@ namespace client {
                     return ADDRESS_NOT_WATCHED;
                 }
 
+                ASSERT(counter_index <= MAX_COUNTER_INDEX);
+
                 if(desc) {
                     const uintptr_t index(
                         combined_index(counter_index, inherited_index));
                     desc_type::assign(desc, index);
                 }
-
-                ASSERT(counter_index <= MAX_COUNTER_INDEX);
 
                 return ADDRESS_WATCHED;
             }

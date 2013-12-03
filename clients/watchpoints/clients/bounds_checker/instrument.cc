@@ -112,7 +112,6 @@ namespace client { namespace wp {
                 free_list = nullptr;
             }
         }
-
         IF_KERNEL( granary_store_flags(flags); )
 
         // We got one from the free list.
@@ -139,15 +138,25 @@ namespace client { namespace wp {
 
 
     /// Initialise a watchpoint descriptor.
-    void bound_descriptor::init(
-        bound_descriptor *desc,
+    bool bound_descriptor::allocate_and_init(
+        bound_descriptor *&desc,
+        uintptr_t &counter_index,
+        const uintptr_t inherited_index,
         void *base_address,
         size_t size,
         void *ret_address
     ) throw() {
-        if(!is_valid_address(desc)) {
-            return;
+
+        if(!size) {
+            return false;
         }
+
+        if(!allocate(desc, counter_index, inherited_index)) {
+            return false;
+        }
+
+        ASSERT(is_valid_address(desc));
+        ASSERT(is_code_cache_address(unsafe_cast<const_app_pc>(ret_address)));
 
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
@@ -157,6 +166,8 @@ namespace client { namespace wp {
 
         // TODO: Handle roll-over across a 4GB boundary.
         ASSERT(desc->upper_bound > desc->lower_bound);
+
+        return true;
     }
 
 
@@ -246,11 +257,29 @@ namespace client { namespace wp {
         unsigned size,
         app_pc *return_address_in_bb
     ) throw() {
-        UNUSED(watched_addr);
-        UNUSED(return_address_in_bb);
-        UNUSED(size);
-        IF_USER( printf("Access of size %u to %p in basic block %p overflowed\n",
-            size, unwatched_address(watched_addr), *return_address_in_bb); )
+
+        const bound_descriptor *descriptor(descriptor_of(watched_addr));
+        const uintptr_t unwatched_addr(unwatched_address(watched_addr));
+
+        uint32_t low_32(static_cast<uint32_t>(
+            reinterpret_cast<uintptr_t>(watched_addr)));
+
+        // Underflow.
+        if(low_32 < descriptor->lower_bound) {
+            IF_USER( printf("Access of size %u to %p in basic block %p underflowed\n",
+                size, unwatched_addr, *return_address_in_bb); )
+
+        // Overflow.
+        } else {
+            ASSERT((low_32 + size) > descriptor->upper_bound);
+            IF_USER( printf("Access of size %u to %p in basic block %p overflowed\n",
+                size, unwatched_addr, *return_address_in_bb); )
+        }
+
+        USED(descriptor);
+        USED(watched_addr);
+        USED(return_address_in_bb);
+        USED(size);
     }
 
 

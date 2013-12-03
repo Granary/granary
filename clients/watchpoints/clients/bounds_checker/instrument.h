@@ -59,8 +59,10 @@ namespace client {
 
 
             /// Initialise a watchpoint descriptor.
-            static void init(
-                bound_descriptor *,
+            static bool allocate_and_init(
+                bound_descriptor *&,
+                uintptr_t &,
+                const uintptr_t,
                 void *base_address,
                 size_t size,
                 void *return_address
@@ -87,7 +89,7 @@ namespace client {
         struct descriptor_type {
             typedef bound_descriptor type;
             enum {
-                ALLOC_AND_INIT = false,
+                ALLOC_AND_INIT = true,
                 REINIT_WATCHED_POINTERS = false
             };
         };
