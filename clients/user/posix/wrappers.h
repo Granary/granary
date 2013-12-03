@@ -10,9 +10,7 @@
 #define CLIENT_USER_POSIX_WRAPPERS_H_
 
 
-#if defined(CLIENT_WATCHPOINT_BOUND) \
- || defined(CLIENT_WATCHPOINT_WATCHED) \
- || defined(CLIENT_WATCHPOINT_STATS)
+#if defined(CLIENT_WATCHPOINTS)
 #   include "clients/watchpoints/user/posix/wrappers.h"
 #endif
 

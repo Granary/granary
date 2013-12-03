@@ -70,7 +70,18 @@ using namespace client::wp;
             PRE_IN_WRAP(*unwatched_address_check(arg));
         }
         INHERIT_POST_INOUT
-        INHERIT_RETURN_INOUT
+        RETURN_IN {
+            if(!is_valid_address(arg)) {
+                return;
+            }
+            RETURN_IN_WRAP(*unwatched_address_check(arg));
+        }
+        RETURN_OUT {
+            if(!is_valid_address(arg)) {
+                return;
+            }
+            RETURN_OUT_WRAP(*unwatched_address_check(arg));
+        }
     })
 #endif
 

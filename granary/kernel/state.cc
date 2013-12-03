@@ -63,7 +63,7 @@ namespace granary {
 #if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE && 0
         check_cpu_access_safety();
 #endif
-        return &((*kernel_get_cpu_state(CPU_STATES))->percpu_stack.top[0]);
+        return &((*kernel_get_cpu_state(CPU_STATES))->stack.top[0]);
     }
 
     namespace detail {

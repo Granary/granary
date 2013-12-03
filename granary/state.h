@@ -21,6 +21,7 @@
 namespace granary {
 
 
+    /// Forward declarations.
     struct thread_state;
     struct cpu_state;
     struct stack_state;
@@ -32,11 +33,32 @@ namespace granary {
     struct interrupt_stack_frame;
 
 
-    /// Notify that we're entering granary.
+    /// Notify that we're entering granary. This is responsible for clearing out
+    /// some transiently allocated data, and resetting the current fragment
+    /// (i.e. sequence of instructions in a basic block) allocator to the
+    /// current CPU's private fragment allocator.
     void enter(cpu_state_handle cpu) throw();
 
 
-    struct stack_state {
+    /// Represents one of Granary's private call stacks. In kernel space, each
+    /// CPU has a private stack on which Granary operates. Kernel stacks tend
+    /// to be small (1 to 2 pages), and Granary has deep call stacks (especially
+    /// with the DynamoRIO side of things), which leads to a high potential for
+    /// Granary to overflow normal kernel stacks. Therefore, any code that
+    /// performs instruction translation should operand from one of Granary's
+    /// private stacks.
+    ///
+    /// To enter/exit a private stack from assembly, do:
+    ///         call granary_enter_private_stack;
+    ///         call <function that should operate on private stack>;
+    ///         call granary_exit_private_stack;
+    ///
+    /// When operating on a private stack, interrupts MUST be disabled. Also,
+    /// then enter/exit routines clobber the `%RAX` register, and so that must
+    /// be saved ahead of time. Finally, if the function called on the private
+    /// stack has a return value, then it is suggested that it be saved (e.g.
+    /// into `%RDI`) before calling `granary_exit_private_stack`.
+    struct private_call_stack {
         char base[CONFIG_PRIVATE_STACK_SIZE];
         uint64_t top[0];
     } __attribute__((aligned (CONFIG_ARCH_PAGE_SIZE), packed));
@@ -267,8 +289,9 @@ namespace granary {
         /// is used by DynamoRIO for privately encoding instructions.
         app_pc temp_instr_buffer;
 
+
         /// CPU-private stack.
-        stack_state percpu_stack;
+        private_call_stack stack;
 
 
         /// Used by granary for early initialisation of the CPU state.

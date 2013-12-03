@@ -265,7 +265,7 @@ endif
 GR_WP_INCLUDE_DEFAULT = 0
 
 ifeq ($(GR_CLIENT),watchpoint_null)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_NULL -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/null/instrument.o
 	
@@ -286,19 +286,19 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 endif
 
 ifeq ($(GR_CLIENT),watchpoint_user)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_USER
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_USER -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/user/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/user/report.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_stats)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_STATS
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_STATS -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/stats/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/stats/report.o
 endif
 ifeq ($(GR_CLIENT),everything_watched)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_WATCHED -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched/instrument.o
 	
@@ -307,13 +307,13 @@ ifeq ($(GR_CLIENT),everything_watched)
 	endif
 endif
 ifeq ($(GR_CLIENT),everything_watched_aug)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_AUGMENT
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_AUGMENT -DCLIENT_WATCHPOINTS
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/everything_watched_aug/report.o
 endif
 ifeq ($(GR_CLIENT),bounds_checker)
-	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND
+	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_BOUND -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
 	
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/bounds_checker/instrument.o
@@ -325,7 +325,7 @@ ifeq ($(GR_CLIENT),bounds_checker)
 endif
 ifeq ($(GR_CLIENT),rcudbg)
 	ifeq ($(KERNEL),1)
-        GR_CXX_FLAGS += -DCLIENT_RCUDBG
+        GR_CXX_FLAGS += -DCLIENT_RCUDBG -DCLIENT_WATCHPOINTS
         GR_WP_INCLUDE_DEFAULT = 1
 		
         GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/rcudbg/carat.o

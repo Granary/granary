@@ -261,13 +261,20 @@
 #endif
 
 
+#ifdef CLIENT_WATCHPOINTS
+#   define VALID_ADDRESS(a) client::wp::unwatched_address(a)
+#else
+#   define VALID_ADDRESS(a)
+#endif
+
+
 #if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(APP_WRAPPER_FOR_iget_locked)
 #   define APP_WRAPPER_FOR_iget_locked
     FUNCTION_WRAPPER(APP, iget_locked, (struct inode *), (struct granary_super_block *sb, unsigned long ino), {
         IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
         PRE_OUT_WRAP(sb);
         inode *inode(iget_locked(sb, ino));
-        PRE_OUT_WRAP(inode->i_mapping);
+        PRE_OUT_WRAP(VALID_ADDRESS(inode)->i_mapping);
         return inode;
     })
 #endif
@@ -277,9 +284,9 @@
 #   define APP_WRAPPER_FOR_unlock_new_inode
     FUNCTION_WRAPPER(APP, unlock_new_inode, (void), (struct inode *inode), {
         IF_WRAP_DEPTH_1( RELAX_WRAP_DEPTH; )
-        PRE_OUT_WRAP(inode->i_op);
-        PRE_OUT_WRAP(inode->i_fop);
-        PRE_OUT_WRAP(inode->i_mapping);
+        PRE_OUT_WRAP(VALID_ADDRESS(inode)->i_op);
+        PRE_OUT_WRAP(VALID_ADDRESS(inode)->i_fop);
+        PRE_OUT_WRAP(VALID_ADDRESS(inode)->i_mapping);
         unlock_new_inode(inode);
     })
 #endif

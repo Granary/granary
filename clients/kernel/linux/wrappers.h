@@ -9,12 +9,7 @@
 #ifndef CLIENT_KERNEL_LINUX_WRAPPERS_H_
 #define CLIENT_KERNEL_LINUX_WRAPPERS_H_
 
-#if defined(CLIENT_WATCHPOINT_NULL) \
- || defined(CLIENT_WATCHPOINT_BOUND) \
- || defined(CLIENT_WATCHPOINT_WATCHED) \
- || defined(CLIENT_WATCHPOINT_STATS) \
- || defined(CLIENT_RCUDBG) \
- || defined(CLIENT_WATCHPOINT_AUGMENT)
+#if defined(CLIENT_WATCHPOINTS)
 #   include "clients/watchpoints/kernel/linux/wrappers.h"
 #endif
 

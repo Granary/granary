@@ -577,7 +577,7 @@ namespace granary {
         // Granary.
         const uintptr_t private_stack_check(
             reinterpret_cast<uintptr_t>(isf->stack_pointer) ^
-            reinterpret_cast<uintptr_t>(cpu->percpu_stack.top));
+            reinterpret_cast<uintptr_t>(cpu->stack.top));
         
         if(0 == (private_stack_check >> 16)) {
             granary_break_on_nested_interrupt(isf, vector, cpu);
