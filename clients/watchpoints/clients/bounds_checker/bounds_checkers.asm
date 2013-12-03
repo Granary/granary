@@ -75,17 +75,13 @@ END_FUNC(granary_detected_overflow)
     lahf; COMMENT(Save the arithmetic flags) @N@\
     @N@\
     COMMENT(Get the index into RDX.) @N@\
-    bswap %rdi; @N@\
-    mov %di, %dx; @N@\
-    bswap %rdi; @N@\
-    xchg %dl, %dh; @N@\
-    movzwl %dx, %edx; @N@\
-    shr $1, %edx; @N@\
+    mov %rdi, %rdx; COMMENT(Copy the watched address into RDX.)@N@\
+    shr $49, %rdx; COMMENT(Shift the index into the low 15 bits.)@N@\
+    shl $4, %rdx; COMMENT(Scale the index by sizeof(bound_descriptor).)@N@\
     @N@\
     COMMENT(Get the descriptor. Each descriptor is a pointer to a 16 byte) @N@\
     COMMENT(data structure.) @N@\
     lea DESCRIPTORS(%rip), %rsi; @N@\
-    shl $4, %rdx; COMMENT(Scale the index by sizeof(bound_descriptor).) @N@\
     add %rdx, %rsi; COMMENT(Add the scaled index to &(DESCRIPTORS[0]).)@N@\
     @N@\
     COMMENT(Check the lower bounds against the low 32 bits.) @N@\
