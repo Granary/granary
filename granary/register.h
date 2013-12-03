@@ -341,9 +341,10 @@ namespace granary {
             general_purpose_register rdx;
             general_purpose_register rcx;
             general_purpose_register rax;
+            general_purpose_register rsp;
         };
 
-        general_purpose_register regs[15];
+        general_purpose_register regs[16];
 
         general_purpose_register &operator[](dynamorio::reg_id_t) throw();
     };

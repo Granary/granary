@@ -663,7 +663,7 @@ namespace client { namespace wp {
         }
 
         // If this basic block contains a function call or an indirect JMP then
-        // don't guard against the redzone. If it doesn't contain a POP
+        // don't guard against the redzone. If it doesn't contain a POP or CALL
         // instruction that doesn't have a native PC then don't guard against
         // the redzone. Otherwise guard.
         for(in = ls.last(); in.is_valid(); in = in.prev()) {
@@ -676,7 +676,7 @@ namespace client { namespace wp {
                         return;
                     }
                 }
-            } else if(dynamorio::OP_pop == in.op_code()) {
+            } else if(dynamorio::OP_pop == in.op_code() || in.is_call()) {
                 goto try_guard;
             }
         }
@@ -697,14 +697,42 @@ namespace client { namespace wp {
                 if(guarded && in.pc()) {
                     guarded = false;
                     ls.insert_after(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+
+                // Only care about direct calls; indirect ones happen through
+                // the IBL and through recursive instrumentation of memory
+                // operands.
+                } else if(!guarded && !in.pc()
+                       && dynamorio::OP_call == in.op_code()) {
+                    guarded = true;
+                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
                 }
                 continue;
 
-            // Guarded, native instruction.
+            // Guarded.
             } else if(guarded) {
 
+                // We need to watch out about something like:
+                //      LEA -8(%RSP), %RSP
+                // Which is introduced as part of the mangling process of
+                //      PUSH (...)
+                // Which is also introduced as part of:
+                //      MOV (...), %RSP
+                //
+                // We also need to watch out for stack protector / PAX craziness,
+                // where GCC will insert large LEA-based shifts of the stack
+                // pointer at the beginning of functions.
+                if(dynamorio::OP_lea == in.op_code()
+                && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
+
+                    ASSERT(dynamorio::DR_REG_RSP
+                        == in.instr->u.o.src0.value.base_disp.base_reg);
+
+                    guarded = false;
+                    ls.insert_after(
+                        in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+
                 // Native instruction.
-                if(in.pc()) {
+                } else if(in.pc()) {
 
                     // Boundary conditions; CALL and RET are caught by the CTI
                     // check above, and PUSH and POP are the other two stack-
@@ -713,11 +741,7 @@ namespace client { namespace wp {
                     if(dynamorio::OP_push == in.op_code()
                     || dynamorio::OP_pop == in.op_code()
                     || dynamorio::OP_enter == in.op_code()
-                    || dynamorio::OP_leave == in.op_code()
-                    || (dynamorio::OP_lea == in.op_code() && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg)) {
-					//XXX: pag should comment on this little hack
-					//relating to inserting a redzone guard when code to be 
-					//instrumented was compiled with -fstack-protector-all (a gcc option)
+                    || dynamorio::OP_leave == in.op_code()) {
                         guarded = false;
                         ls.insert_after(
                             in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
@@ -728,33 +752,18 @@ namespace client { namespace wp {
                             adjusted_instruction);
                     }
 
-                // We need to watch out about something like:
-                //      LEA -8(%RSP), %RSP
-                // Which is introduced as part of the mangling process of
-                //      PUSH (...)
-                // Which is also introduced as part of:
-                //      MOV (...), %RSP
-                } else if(dynamorio::OP_lea == in.op_code()
-                       && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
-
-                    ASSERT(dynamorio::DR_REG_RSP
-                        == in.instr->u.o.src0.value.base_disp.base_reg);
-
-                    guarded = false;
-                    ls.insert_after(
-                        in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
 
                 // Introduced instruction.
-                } else {
-                    if(dynamorio::OP_push != in.op_code()
-                    && dynamorio::OP_pop != in.op_code()
-                    && dynamorio::OP_enter != in.op_code()
-                    && dynamorio::OP_leave != in.op_code()) {
-                        in.for_each_operand(
-                            adjust_base_disp_for_redzone,
-                            observes_rsp,
-                            adjusted_instruction);
-                    }
+                } else if(dynamorio::OP_push != in.op_code()
+                       && dynamorio::OP_pop != in.op_code()
+                       && dynamorio::OP_enter != in.op_code()
+                       && dynamorio::OP_leave != in.op_code()
+                       && !in.is_call()) {
+
+                    in.for_each_operand(
+                        adjust_base_disp_for_redzone,
+                        observes_rsp,
+                        adjusted_instruction);
                 }
 
             // Not guarded.
@@ -762,29 +771,22 @@ namespace client { namespace wp {
             // Here, we're really trying to guard against things like PUSH, POP,
             // and CALL (i.e. save, restore, do something) that have likely
             // been introduced by the instrumentation.
-            } else if(!in.pc()) {
-
-                if(dynamorio::OP_pop == in.op_code()) {
-                    // We need to watch out about something like:
-                    //      MOV (...), %RSP
-                    // Which is mangled into something like:
-                    //      ...
-                    //      PUSH (...)      <-- also mangled
-                    //      POP %RSP
-                    if(dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
-                    && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
-                        continue;
-                    }
-
-                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                    guarded = true;
-                    prev_in = in; // re-visit this instruction.
+            } else if(!in.pc() && dynamorio::OP_pop == in.op_code()) {
+                // We need to watch out about something like:
+                //      MOV (...), %RSP
+                // Which is mangled into something like:
+                //      ...
+                //      PUSH (...)      <-- also mangled
+                //      POP %RSP
+                if(dynamorio::REG_kind == in.instr->u.o.dsts[0].kind
+                && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg) {
                     continue;
-
-                } else if(in.is_call()) {
-                    ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                    guarded = true;
                 }
+
+                ls.insert_after(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
+                guarded = true;
+                prev_in = in; // re-visit this instruction.
+                continue;
             }
 
             // If we're guarded and we didn't adjust the instruction, but it

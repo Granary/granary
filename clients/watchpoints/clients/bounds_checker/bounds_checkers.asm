@@ -21,12 +21,40 @@ START_FILE
     .extern VISIT_OVERFLOW
 
 
-/// Watchpoint descriptor.
-#define DESC(reg) SPILL_REG_NOT_RAX(reg)
+DECLARE_FUNC(granary_detected_overflow)
+GLOBAL_LABEL(granary_detected_overflow:)
+    // Arg1 (rdi) has the watched address.
+    // Arg2 (rsi) has the operand size.
 
+    // Get the return address into the basic block as Arg3 (rdx).
+    lea 32(%rsp), %rdx;
 
-/// Table address, as well as temporary for calculating the descriptor index.
-#define TABLE(reg) SPILL_REG_NOT_RAX(DESC(reg))
+    // Save the scratch registers.
+    push %rcx;
+    push %r8;
+    push %r9;
+    push %r10;
+    push %r11;
+
+    call VISIT_OVERFLOW;
+
+    // Restore scratch registers.
+    pop %r11;
+    pop %r10;
+    pop %r9;
+    pop %r8;
+    pop %rcx;
+
+    pop %rdx;
+
+    // Restore the flags.
+    sahf;
+    pop %rax;
+    pop %rdx;
+    pop %rsi;
+    pop %rdi;
+    ret;
+END_FUNC(granary_detected_overflow)
 
 
 #define BOUNDS_CHECKER(reg, size) \
@@ -73,10 +101,10 @@ START_FILE
     jmp .CAT(Lgranary_done_, size); @N@\
 .CAT(Lgranary_underflow_, size): @N@\
     mov $ size, %rsi; @N@\
-    jmp granary_detected_overflow; @N@\
+    jmp SHARED_SYMBOL(granary_detected_overflow); @N@\
 .CAT(Lgranary_overflow_, size): @N@\
     mov $ size, %rsi; @N@\
-    jmp granary_detected_overflow; @N@\
+    jmp SHARED_SYMBOL(granary_detected_overflow); @N@\
 .CAT(Lgranary_done_, size): @N@\
     sahf; COMMENT(Restore the arithmetic flags) @N@\
     pop %rax; @N@\
@@ -88,41 +116,6 @@ START_FILE
     ret; @N@\
     END_FUNC(CAT(granary_bounds_check_, size)) @N@@N@@N@
 
-
-DECLARE_FUNC(granary_detected_overflow)
-GLOBAL_LABEL(granary_detected_overflow:)
-    // Arg1 (rdi) has the watched address.
-    // Arg2 (rsi) has the operand size.
-
-    // Get the return address into the basic block as Arg3 (rdx).
-    lea 32(%rsp), %rdx;
-
-    // Save the scratch registers.
-    push %rcx;
-    push %r8;
-    push %r9;
-    push %r10;
-    push %r11;
-
-    call VISIT_OVERFLOW;
-
-    // Restore scratch registers.
-    pop %r11;
-    pop %r10;
-    pop %r9;
-    pop %r8;
-    pop %rcx;
-
-    pop %rdx;
-
-    // Restore the flags.
-    sahf;
-    pop %rax;
-    pop %rdx;
-    pop %rsi;
-    pop %rdi;
-    ret;
-END_FUNC(granary_detected_overflow)
 
 GENERIC_BOUNDS_CHECKER(1)
 GENERIC_BOUNDS_CHECKER(2)

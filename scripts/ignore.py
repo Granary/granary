@@ -34,6 +34,8 @@ WHITELIST = {
   "__assert_fail":  ("__assert_fail", "__GI___assert_fail"),
   "stat": ("stat",),
   "__xstat": ("__xstat", "__xstat64"),
+  "lstat": ("lstat",),
+  "__lxstat": ("__lxstat", "__lxstat64"),
   "open": ("open", "open64"),
   "fopen": ("fopen",),
   "execve": ("execve",),

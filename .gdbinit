@@ -468,6 +468,7 @@ define p-trace-entry-regs
   printf "   rdx: 0x%lx\n", $trace_entry->state.rdx.value_64
   printf "   rcx: 0x%lx\n", $trace_entry->state.rcx.value_64
   printf "   rax: 0x%lx\n", $trace_entry->state.rax.value_64
+  printf "   rsp: 0x%lx\n", $trace_entry->state.rsp.value_64
   dont-repeat
 end
 
@@ -768,23 +769,3 @@ def p-descriptor-of
   p client::wp::DESCRIPTORS[$__index]
 end
 
-# p-bt <num>
-#
-# Print a backtrace.
-
-def p-bt
-  set $__num_frames = $arg0
-  set $__rsp = (uint64_t *) $rsp
-  while $__num_frames > 0
-    set $__addr = *$__rsp
-    if GRANARY_EXEC_START <= $__addr && $__addr < granary::detail::CODE_CACHE_END
-      get-bb-info $__addr
-
-      set $__gen_pc = $__bb->generating_pc.as_uint
-      unmangle-address $__gen_pc
-      info sym $unmangled_address
-      set $__num_frames = $__num_frames - 1  
-    end
-    set $__rsp = $__rsp + 1
-  end
-end

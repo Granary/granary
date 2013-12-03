@@ -30,6 +30,7 @@ extern "C" {
     /// Auto-added GDB breakpoint.
     DONT_OPTIMISE
     void granary_break_on_translate(void *addr) {
+        ASM("nop;");
         //granary::printf("%p\n", addr);
         USED(addr);
     }

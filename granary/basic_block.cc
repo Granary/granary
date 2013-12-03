@@ -501,6 +501,12 @@ namespace granary {
                 break;
             }
 
+            if(dynamorio::OP_sub == in.op_code()
+            && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg
+            && 0xa8 == in.instr->u.o.src0.value.immed_int) {
+                granary_do_break_on_translate = true;
+            }
+
             // Useful to relate back to the kernel's BUG_ON macro. We need to
             // make sure to restore *pc to the address of the UD2 instruction
             // so that a debugger can see the related source code nicely.

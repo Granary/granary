@@ -70,6 +70,7 @@ namespace granary {
         // compiler not to use xmm registers, it will sometimes optimize an
         // assignment of `item->state = *state` into a libc `memcpy`.
         memcpy(&(item->state), state, sizeof *state);
+        item->state.rsp.value_64 += IF_USER_ELSE(REDZONE_SIZE + 8, 8);
 
 #       else
         (void) state;
@@ -100,6 +101,8 @@ namespace granary {
 
         all_regs.kill_all();
 
+        ls.append(push_(reg::rsp));
+
         in = save_and_restore_registers(all_regs, ls, ls.last());
         in = ls.insert_after(in,
             mov_ld_(reg::arg1, reg::rsp[sizeof(simple_machine_state)]));
@@ -113,7 +116,7 @@ namespace granary {
 
         xmm_tail = ls.insert_after(in, label_());
 
-#   if !CONFIG_ENV_KERNEL
+#   if 0 && !CONFIG_ENV_KERNEL
         // In some user space programs (e.g. kcachegrind), we need to
         // unconditionally save all XMM registers.
         in = save_and_restore_xmm_registers(
@@ -128,6 +131,7 @@ namespace granary {
         xmm_tail = insert_restore_old_stack_alignment_after(ls, xmm_tail);
         xmm_tail = insert_restore_flags_after(ls, xmm_tail);
 
+        ls.append(lea_(reg::rsp, reg::rsp[8]));
         ls.append(ret_());
 
         // Encode.
