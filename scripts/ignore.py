@@ -32,12 +32,24 @@ WHITELIST = {
 
   # Useful for user space debugging
   "__assert_fail":  ("__assert_fail", "__GI___assert_fail"),
+  "stat": ("stat",),
+  "__xstat": ("__xstat", "__xstat64"),
+  "open": ("open", "open64"),
+  "fopen": ("fopen",),
+  "execve": ("execve",),
+  "execv": ("execv",),
+  "execvp": ("execvp",),
+  "execvpe": ("execvpe",),
+  "read": ("read",),
+  "write": ("write",),
+
+  "getc": ("getc", "_IO_getc",),
 }
 
 # TODO: currently have linker or platform errors for these.
 IGNORE = set([
   "add_profil",
-  
+
   "profil",
   "unwhiteout",
   "zopen",
@@ -136,5 +148,5 @@ def should_ignore(name):
 
   elif "printf" in name or "printk" in name:
     return True
-    
+
   return False

@@ -713,7 +713,11 @@ namespace client { namespace wp {
                     if(dynamorio::OP_push == in.op_code()
                     || dynamorio::OP_pop == in.op_code()
                     || dynamorio::OP_enter == in.op_code()
-                    || dynamorio::OP_leave == in.op_code()) {
+                    || dynamorio::OP_leave == in.op_code()
+                    || (dynamorio::OP_lea == in.op_code() && dynamorio::DR_REG_RSP == in.instr->u.o.dsts[0].value.reg)) {
+					//XXX: pag should comment on this little hack
+					//relating to inserting a redzone guard when code to be 
+					//instrumented was compiled with -fstack-protector-all (a gcc option)
                         guarded = false;
                         ls.insert_after(
                             in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
