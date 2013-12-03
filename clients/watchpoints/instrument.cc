@@ -19,7 +19,7 @@ namespace client { namespace wp {
 
 
     /// Return the next counter index.
-    uintptr_t next_counter_index(void) throw() {
+    uintptr_t next_counter_index(uintptr_t) throw() {
         return NEXT_COUNTER_INDEX.fetch_add(1);
     }
 

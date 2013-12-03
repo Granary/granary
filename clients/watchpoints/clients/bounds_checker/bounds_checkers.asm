@@ -85,8 +85,8 @@ END_FUNC(granary_detected_overflow)
     COMMENT(Get the descriptor. Each descriptor is a pointer to a 16 byte) @N@\
     COMMENT(data structure.) @N@\
     lea DESCRIPTORS(%rip), %rsi; @N@\
-    lea (%rsi,%rdx,8), %rsi; @N@\
-    mov (%rsi), %rsi; @N@\
+    shl $4, %rdx; COMMENT(Scale the index by sizeof(bound_descriptor).) @N@\
+    add %rdx, %rsi; COMMENT(Add the scaled index to &(DESCRIPTORS[0]).)@N@\
     @N@\
     COMMENT(Check the lower bounds against the low 32 bits.) @N@\
     cmp (%rsi), %edi; @N@\

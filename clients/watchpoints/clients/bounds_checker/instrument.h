@@ -26,25 +26,19 @@ namespace client {
                 FREE_LIST_END = ~static_cast<uint64_t>(0ULL)
             };
 
-            union {
-                struct {
-                    /// Most objects won't be more than 16 pages big, so an
-                    /// m16&16 parameter suffices (as opposed to m32&32).
-                    uint32_t lower_bound;
-                    uint32_t upper_bound;
-                } __attribute__((packed));
-
-                /// Descriptor index of the next-freed object.
-                uint64_t next_free_index;
-
+            struct {
+                /// Most objects won't be more than 16 pages big, so an
+                /// m16&16 parameter suffices (as opposed to m32&32).
+                uint32_t lower_bound;
+                uint32_t upper_bound;
             } __attribute__((packed));
 
             /// Low 32 bits of the return address of the code that allocated
             /// this watched object.
-            uint32_t return_address;
-
-            /// Descriptor index of this descriptor within the descriptor table.
-            uint32_t my_index;
+            union {
+                void *return_address;
+                bound_descriptor *next_free_descriptor;
+            } __attribute__((packed));
 
             /// Allocate a watchpoint descriptor.
             static bool allocate(
@@ -71,7 +65,7 @@ namespace client {
 
             /// Notify the bounds policy that the descriptor can be assigned to
             /// the index.
-            static void assign(bound_descriptor *desc, uintptr_t index) throw();
+            static void assign(bound_descriptor *, uintptr_t) throw() { }
 
 
             /// Get the assigned descriptor for a given index.

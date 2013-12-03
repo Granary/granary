@@ -72,23 +72,16 @@ namespace client { namespace wp {
     };
 
 
-    /// Allocator for the bound descriptors.
-    static granary::static_data<
-        granary::bump_pointer_allocator<descriptor_allocator_config>
-    > DESCRIPTOR_ALLOCATOR;
-
-
-    /// Initialise the descriptor allocator.
-    STATIC_INITIALISE({
-        DESCRIPTOR_ALLOCATOR.construct();
-    })
-
-
     /// Pointers to the descriptors.
     ///
     /// Note: Note `static` so that we can access by the mangled name in
     ///       x86/bound_policy.asm.
-    bound_descriptor *DESCRIPTORS[MAX_NUM_WATCHPOINTS] = {nullptr};
+    bound_descriptor DESCRIPTORS[MAX_NUM_WATCHPOINTS];
+
+
+    inline static uintptr_t index_of(const bound_descriptor *desc) throw() {
+        return desc - &(DESCRIPTORS[0]);
+    }
 
 
     /// Allocate a watchpoint descriptor and assign `desc` and `index`
@@ -96,7 +89,7 @@ namespace client { namespace wp {
     bool bound_descriptor::allocate(
         bound_descriptor *&desc,
         uintptr_t &counter_index,
-        const uintptr_t
+        const uintptr_t inherited_index
     ) throw() {
         counter_index = 0;
         desc = nullptr;
@@ -106,32 +99,32 @@ namespace client { namespace wp {
         bound_descriptor *&free_list(state->free_list);
         if(free_list) {
             desc = free_list;
-            if(bound_descriptor::FREE_LIST_END != desc->next_free_index) {
-                free_list = DESCRIPTORS[desc->next_free_index];
-            } else {
-                free_list = nullptr;
-            }
+            free_list = free_list->next_free_descriptor;
         }
         IF_KERNEL( granary_store_flags(flags); )
 
-        // We got one from the free list.
+        // We got a descriptor from the CPU-private free list.
+        //
+        // TODO: Make the free-list support the idea of inherited index, even
+        //       though the assembly does not yet support this indexing method.
         counter_index = 0;
         if(desc) {
             uintptr_t inherited_index_;
             destructure_combined_index(
-                desc->my_index, counter_index, inherited_index_);
+                index_of(desc), counter_index, inherited_index_);
 
-        // Try to allocate one.
+        // No descriptors in the free list, try to allocate one from our global
+        // pool of descriptors.
         } else {
-            counter_index = next_counter_index();
-            if(counter_index > MAX_COUNTER_INDEX) {
+            counter_index = next_counter_index(inherited_index);
+            if(counter_index > MAX_NUM_WATCHPOINTS) {
                 return false;
             }
-
-            desc = DESCRIPTOR_ALLOCATOR->allocate<bound_descriptor>();
+            desc = &(DESCRIPTORS[counter_index]);
         }
 
         ASSERT(counter_index <= MAX_COUNTER_INDEX);
+        ASSERT(counter_index <= MAX_NUM_WATCHPOINTS);
 
         return true;
     }
@@ -161,8 +154,7 @@ namespace client { namespace wp {
         const uintptr_t base(reinterpret_cast<uintptr_t>(base_address));
         desc->lower_bound = static_cast<uint32_t>(base);
         desc->upper_bound = static_cast<uint32_t>(base + size);
-        desc->return_address = static_cast<uint32_t>(
-            reinterpret_cast<uintptr_t>(ret_address));
+        desc->return_address = ret_address;
 
         // TODO: Handle roll-over across a 4GB boundary.
         ASSERT(desc->upper_bound > desc->lower_bound);
@@ -171,27 +163,12 @@ namespace client { namespace wp {
     }
 
 
-    /// Notify the bounds policy that the descriptor can be assigned to
-    /// the index.
-    void bound_descriptor::assign(
-        bound_descriptor *desc,
-        uintptr_t index
-    ) throw() {
-        if(!is_valid_address(desc)) {
-            return;
-        }
-        ASSERT(index < MAX_NUM_WATCHPOINTS);
-        desc->my_index = index;
-        DESCRIPTORS[index] = desc;
-    }
-
-
     /// Get the descriptor of a watchpoint based on its index.
     bound_descriptor *bound_descriptor::access(
         uintptr_t index
     ) throw() {
         ASSERT(index < MAX_NUM_WATCHPOINTS);
-        return DESCRIPTORS[index];
+        return &(DESCRIPTORS[index]);
     }
 
 
@@ -200,22 +177,15 @@ namespace client { namespace wp {
         bound_descriptor *desc,
         uintptr_t IF_TEST( index )
     ) throw() {
-        if(!is_valid_address(desc)) {
-            return;
-        }
-        ASSERT(index == desc->my_index);
+
+        ASSERT(is_valid_address(desc));
+        ASSERT(index == index_of(desc));
 
         IF_KERNEL( eflags flags(granary_disable_interrupts()); )
         cpu_state_handle state;
         bound_descriptor *&free_list(state->free_list);
-
-        if(free_list) {
-            desc->next_free_index = free_list->my_index;
-        } else {
-            desc->next_free_index = bound_descriptor::FREE_LIST_END;
-        }
+        desc->next_free_descriptor = free_list;
         free_list = desc;
-
         IF_KERNEL( granary_store_flags(flags); )
     }
 
@@ -276,10 +246,11 @@ namespace client { namespace wp {
                 size, unwatched_addr, *return_address_in_bb); )
         }
 
-        USED(descriptor);
-        USED(watched_addr);
-        USED(return_address_in_bb);
-        USED(size);
+        UNUSED(descriptor);
+        UNUSED(watched_addr);
+        UNUSED(unwatched_addr);
+        UNUSED(return_address_in_bb);
+        UNUSED(size);
     }
 
 
