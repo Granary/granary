@@ -264,7 +264,7 @@
 #ifdef CLIENT_WATCHPOINTS
 #   define VALID_ADDRESS(a) client::wp::unwatched_address(a)
 #else
-#   define VALID_ADDRESS(a)
+#   define VALID_ADDRESS(a) a
 #endif
 
 

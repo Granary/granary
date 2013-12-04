@@ -79,14 +79,16 @@ END_FUNC(granary_detected_overflow)
     shr $49, %rdx; COMMENT(Shift the index into the low 15 bits.)@N@\
     shl $4, %rdx; COMMENT(Scale the index by sizeof(bound_descriptor).)@N@\
     @N@\
-    COMMENT(Get the descriptor. Each descriptor is a pointer to a 16 byte) @N@\
-    COMMENT(data structure.) @N@\
+    COMMENT(Get a pointer to the descriptor. The descriptor table is an array) @N@\
+    COMMENT(of bound_descriptor structures, each of which is 16 bytes.) @N@\
     lea DESCRIPTORS(%rip), %rsi; @N@\
     add %rdx, %rsi; COMMENT(Add the scaled index to &(DESCRIPTORS[0]).)@N@\
     @N@\
-    COMMENT(Check the lower bounds against the low 32 bits.) @N@\
+    COMMENT(Check the lower bounds against the low 32 bits of the watched address.) @N@\
     cmp (%rsi), %edi; @N@\
     jl .CAT(Lgranary_underflow_, size); @N@\
+    @N@\
+    COMMENT(Check the upper bounds against the low 32 bits of the watched address.) @N@\
     mov 4(%rsi), %rsi; @N@\
     sub $ size, %rsi; @N@\
     cmp %edi, %esi; @N@\
@@ -98,7 +100,7 @@ END_FUNC(granary_detected_overflow)
     mov $ size, %rsi; @N@\
     jmp SHARED_SYMBOL(granary_detected_overflow); @N@\
 .CAT(Lgranary_done_, size): @N@\
-    sahf; @N@\
+    sahf; COMMENT(Restore the arithmetic flags.) @N@\
     pop %rax; @N@\
     pop %rdx; @N@\
     pop %rsi; @N@\
