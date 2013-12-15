@@ -442,10 +442,14 @@ namespace granary {
 
         /// Inherit the properties of another policy.
         inline void inherit_properties(
-            instrumentation_policy that,
+            instrumentation_policy that_,
             property_inherit_constraint constraint=INHERIT_ALL
         ) throw() {
             const uint16_t id(u.id);
+
+            // Make sure that we don't inherit the temporary properties.
+            instrumentation_policy that(that_.base_policy());
+
             as_raw_bits = 0;
             if(INHERIT_ALL == constraint
             || INHERIT_JMP == constraint

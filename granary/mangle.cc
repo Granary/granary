@@ -76,28 +76,20 @@ namespace granary {
             // If this was a call, then the stack offset was shifted by
             // the push of the return address
             stack_offset = sizeof(uintptr_t);
-
-        // Atomic swap, unfortunately, but we only expect this in user space,
-        // and it hits the stack so it should be contention free.
-        } else if(IBL_ENTRY_RETURN == ibl_kind) {
-            ls.insert_before(cti, xchg_(*reg::rsp, reg::indirect_target_addr));
-            target = reg::indirect_target_addr;
         }
 
-        // Returns have already swapped `reg_target_addr` onto the stack.
+        // Spill `indirect_target_addr` onto the stack, and load the the target
+        // into `indirect_target_addr`.
         if(IBL_ENTRY_RETURN != ibl_kind) {
             ibl.append(push_(reg::indirect_target_addr));
             stack_offset += sizeof(uintptr_t);
-        }
 
-        // Spill `reg::indirect_clobber_reg`. We defer saving the flags on the
-        // stack so that we can store the source address in RAX, and used it
-        // for hashing.
-        //
-        // We spill in here to give stub lists (in clients) access to one
-        // guaranteed dead register, and the target address register.
-        ibl.append(push_(reg::indirect_clobber_reg));
-        stack_offset += sizeof(uintptr_t);
+        // Atomic swap, unfortunately, but we only expect this in user space,
+        // and it hits the stack so it should be free of contention.
+        } else {
+            ls.insert_before(cti, xchg_(*reg::rsp, reg::indirect_target_addr));
+            target = reg::indirect_target_addr;
+        }
 
         // Adjust the target operand if it's on the stack
         if(dynamorio::BASE_DISP_kind == target.kind
@@ -149,12 +141,28 @@ namespace granary {
             ibl_tail.append(mov_ld_(reg::indirect_target_addr, target));
         }
 
+        // Save the flags; RAX will now the clobbered with the AFLAGS.
+        ibl_tail.append(push_(reg::indirect_clobber_reg));
+        ibl_tail.append(push_(reg::indirect_source_addr));
+
+        insert_save_arithmetic_flags_after(
+            ibl_tail, ibl_tail.last(), REG_AH_IS_DEAD);
+
+        // On the stack:
+        //      indirect_target_addr    (saved: arg1, mangled target address)
+        //      indirect_clobber_reg    (saved: rax)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: rax, AFLAGS)
+
         // Instrument the memory instructions needed to complete this CALL
         // or JMP.
         if(IBL_ENTRY_CALL == ibl_kind || IBL_ENTRY_JMP == ibl_kind) {
             instrumentation_policy tail_policy(policy);
 
-            // Make sure all other registers appear live.
+            // The recursive call to the instrumentation function has access
+            // `reg_clobber_reg` and `reg_source_addr`, which can both be
+            // clobbered, and `reg_target_addr`, which contains the target
+            // address of the CTI.
             tail_policy.instrument(cpu, bb, ibl_tail);
             instruction_list_mangler sub_mangler(
                 cpu, bb, ibl_tail, stub_ls, policy, estimator_pc);

@@ -222,6 +222,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   H('    inline operand far_instr_(uint16_t sel, dynamorio::instr_t *instr) { return dynamorio::opnd_create_far_instr(sel, instr); }')
   H('    operand mem_pc_(app_pc *);')
   H('    operand mem_instr_(dynamorio::instr_t *);')
+  H('    instruction persistent_label_(dynamorio::instr_t *);')
 
   lines = list(lines_)
   i = 0

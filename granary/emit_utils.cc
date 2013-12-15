@@ -14,6 +14,56 @@
 namespace granary {
 
 
+    /// Find a safe place to insert instructions into an instruction list where
+    /// the arithmetic flags can be safely clobbered.
+    ///
+    /// Returns true if a safe point is found. If a safe point is found then
+    /// `in` is updated to point to an instruction before which new instructions
+    /// can be added in.
+    ///
+    /// Also updates `redzone_safe` as to whether or not one should guard
+    /// against the redzone (assuming the user of the function will change the
+    /// stack).
+    bool find_arith_flags_dead_after(
+        instruction_list &ls,
+        instruction &in,
+        bool &redzone_safe
+    ) throw() {
+        redzone_safe = IF_USER_ELSE(false, true);
+        unsigned eflags(0);
+        for(instruction in_(ls.first()); in_.is_valid(); in_ = in_.next()) {
+
+            // Assumes flags are dead before CALL/RET.
+            if(in_.is_call() || in_.is_return()) {
+                IF_USER( redzone_safe = true; )
+                in = in_;
+                return true;
+            }
+
+            // Assumes flags are dead before an indirect JMP.
+            if(in_.is_jump() && dynamorio::PC_kind != in_.cti_target().kind) {
+                in = in_;
+                return true;
+            }
+
+            // Never walk past a conditional branch.
+            if(dynamorio::instr_is_cbr(in_)) {
+                return false;
+            }
+
+            eflags = dynamorio::instr_get_eflags(in_);
+            if(!(eflags & EFLAGS_WRITE_ALL) || (eflags & EFLAGS_READ_ALL)) {
+                continue;
+            }
+
+            in = in_;
+            return true;
+        }
+
+        return false;
+    }
+
+
     /// Injects the equivalent of N bytes of NOPs.
     ///
     /// Note: this does not need to propagate a delay region as it would only

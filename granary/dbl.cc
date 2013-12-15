@@ -35,7 +35,7 @@ namespace granary {
         /// This is pretty evil: We use a non CPU-private allocated instruction,
         /// and put it into the instruction stream directly. This gives us
         /// access to the instruction's location after it has been patched.
-        dynamorio::instr_t in_to_patch;
+        persistent_instruction in_to_patch;
 
         /// The target of the instruction to patch.
         mangled_address target_address;

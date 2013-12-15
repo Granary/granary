@@ -202,6 +202,11 @@ MAKE_REG(indirect_target_addr_32, REG_EDI)
 MAKE_REG(indirect_target_addr_16, REG_DI)
 MAKE_REG(indirect_target_addr_8, REG_DIL)
 
+MAKE_REG(indirect_source_addr, REG_RSI)
+MAKE_REG(indirect_source_addr_32, REG_ESI)
+MAKE_REG(indirect_source_addr_16, REG_SI)
+MAKE_REG(indirect_source_addr_8, REG_SIL)
+
 MAKE_REG(indirect_clobber_reg, REG_RAX)
 MAKE_REG(indirect_clobber_reg_32, REG_EAX)
 MAKE_REG(indirect_clobber_reg_16, REG_AX)

@@ -26,6 +26,14 @@ namespace granary {
     }
 
 
+    instruction persistent_label_(dynamorio::instr_t *in_ptr) {
+        memset(in_ptr, 0, sizeof *in_ptr);
+        in_ptr->opcode = dynamorio::OP_LABEL;
+        in_ptr->flags |= dynamorio::INSTR_OPERANDS_VALID;
+        return instruction(in_ptr);
+    }
+
+
     /// used frequently in instruction functions
     typename dynamorio::dcontext_t *instruction::DCONTEXT = nullptr;
 
@@ -732,6 +740,8 @@ namespace granary {
         if(DECODE_WIDEN_CTI == constraint) {
             widen_if_cti();
         }
+
+        add_flag(NATIVE_INSTRUCTION);
     }
 
 

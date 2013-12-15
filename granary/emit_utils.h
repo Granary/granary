@@ -15,6 +15,33 @@
 namespace granary {
 
 
+    /// Find a safe place to insert instructions into an instruction list where
+    /// the arithmetic flags can be safely clobbered.
+    ///
+    /// Returns true if a safe point is found. If a safe point is found then
+    /// `in` is updated to point to an instruction before which new instructions
+    /// can be added in.
+    ///
+    /// Also updates `redzone_safe` as to whether or not one should guard
+    /// against the redzone (assuming the user of the function will change the
+    /// stack).
+    bool find_arith_flags_dead_after(
+        instruction_list &ls,
+        instruction &in,
+        bool &redzone_safe
+    ) throw();
+
+
+    /// Find a safe place to insert instructions into an instruction list where
+    /// the arithmetic flags can be safely clobbered.
+    inline bool find_arith_flags_dead_after(
+        instruction_list &ls,
+        instruction &in
+    ) throw() {
+        bool redzone_safe(IF_USER_ELSE(false, true));
+        return find_arith_flags_dead_after(ls, in, redzone_safe);
+    }
+
     /// Injects the equivalent of N bytes of NOPs.
     ///
     /// Note: this does not need to propagate a delay region as it would only

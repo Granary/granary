@@ -32,6 +32,10 @@ namespace granary {
     };
 
 
+    /// Defines a "persistent" instruction as a DR instruction.
+    typedef dynamorio::instr_t persistent_instruction;
+
+
     /// Defines an operand generator for LEA operands
     struct operand_base_disp {
     public:
@@ -281,7 +285,10 @@ namespace granary {
             HOT_PATCHABLE           = (1 << 4),
 
             /// This is the fall-through jump of a conditional CTI.
-            COND_CTI_FALL_THROUGH   = (1 << 5)
+            COND_CTI_FALL_THROUGH   = (1 << 5),
+
+            /// Is this a native instruction? That is, did we decode it?
+            NATIVE_INSTRUCTION      = (1 << 6)
         };
 
         typename dynamorio::instr_t *instr;
@@ -648,6 +655,11 @@ namespace granary {
     inline instruction patchable(instruction in) throw() {
         in.set_patchable();
         return in;
+    }
+
+
+    inline instruction persistent_label_(persistent_instruction &in) {
+        return persistent_label_(in);
     }
 
 

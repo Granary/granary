@@ -47,6 +47,13 @@
 #endif
 
 
+#ifdef CLIENT_WATCHPOINTS
+#   define VALID_ADDRESS(a) client::wp::unwatched_address_check(a)
+#else
+#   define VALID_ADDRESS(a) a
+#endif
+
+
 /// Order of wrapper inclusion allows clients to take precedence over app/host,
 /// and app/host to take precedence over auto-generated.
 #if CONFIG_ENV_KERNEL

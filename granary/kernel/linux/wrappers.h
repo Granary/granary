@@ -261,13 +261,6 @@
 #endif
 
 
-#ifdef CLIENT_WATCHPOINTS
-#   define VALID_ADDRESS(a) client::wp::unwatched_address(a)
-#else
-#   define VALID_ADDRESS(a) a
-#endif
-
-
 #if defined(CAN_WRAP_iget_locked) && CAN_WRAP_iget_locked && !defined(APP_WRAPPER_FOR_iget_locked)
 #   define APP_WRAPPER_FOR_iget_locked
     FUNCTION_WRAPPER(APP, iget_locked, (struct inode *), (struct granary_super_block *sb, unsigned long ino), {

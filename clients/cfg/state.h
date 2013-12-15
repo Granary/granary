@@ -12,21 +12,29 @@
 #define CLIENT_basic_block_state
 #define CLIENT_commit_to_basic_block_state
 
-#include "granary/register.h"
-#include "granary/spin_lock.h"
-
 #include "clients/cfg/config.h"
+
+#if CFG_RECORD_INDIRECT_TARGETS
+#   include "granary/spin_lock.h"
+#endif
 
 namespace client {
 
 
-    /// Forward declaration.
-    struct basic_block_state;
+    /// Data recorded about each indirect CTI.
+    struct indirect_cti {
 
+        /// The last indirect target. This is a single entry cache.
+        granary::app_pc last_indirect_target;
 
-    union edge_table {
-        basic_block_state *state;
-        edge_table *next_table;
+        /// The full set of indirect targets for this
+        granary::app_pc *indirect_targets;
+
+        /// The number of indirect targets.
+        unsigned num_indirect_targets;
+
+        /// Lock for modifying the number of indirect targets.
+        granary::atomic_spin_lock update_lock;
     };
 
 
@@ -37,7 +45,7 @@ namespace client {
 
         /// An instruction that's encoded into the code cache. This will give
         /// us access (later)
-        dynamorio::instr_t label;
+        granary::persistent_instruction label;
 
         /// Used to chain all constructed basic blocks together for later
         /// iterating / dumping.
@@ -52,6 +60,15 @@ namespace client {
         /// executed.
         uint64_t num_fall_through_executions;
 #   endif
+#endif
+
+#if CFG_RECORD_INDIRECT_TARGETS
+        /// There can be more than one indirect control-flow transfers in a
+        /// single basic block. Each one is associated with its own recorded
+        /// info.
+        indirect_cti *indirect_ctis;
+
+        unsigned num_indirect_ctis;
 #endif
     };
 }

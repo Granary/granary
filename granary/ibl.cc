@@ -48,10 +48,6 @@ namespace granary {
     static app_pc global_code_cache_find(nullptr);
 
 
-    /// Nice names for registers used by the IBL.
-    static operand reg_source_addr;
-
-
     static app_pc GLOBAL_CODE_CACHE_ROUTINE = nullptr;
 
 
@@ -65,41 +61,44 @@ namespace granary {
     ) throw() {
 
         // On the stack:
-        //      reg_target_addr         (saved: arg1)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: rax, AFLAGS)
 
         // Mangle the target address.
         ibl.insert_before(in, bswap_(reg::indirect_target_addr));
-        ibl.insert_before(in, mov_imm_(
+        ibl.insert_before(in, IF_USER_ELSE(or_, and_)(
             reg::indirect_target_addr_16,
             int16_((int64_t) (int16_t) granary_bswap16(policy.encode()))));
         ibl.insert_before(in, bswap_(reg::indirect_target_addr));
 
-        // Spill the source address for use by the IBL profiling.
-        instruction block_instr(ibl.insert_before(in, label_()));
-        ibl.insert_before(in, lea_(reg_source_addr, mem_instr_(block_instr)));
-        ibl.insert_before(in, push_(reg_source_addr));
+        // Get the base of the table into `reg_source_addr`.
+        ibl.insert_before(in,
+            lea_(reg::indirect_source_addr, mem_instr_(&IBL_JUMP_TABLE_INSTR)));
 
-        // Save the flags.
-        insert_save_arithmetic_flags_after(ibl, in.prev(), REG_AH_IS_DEAD);
+        // Hash the target in `indirect_clobber_reg`.
+        ibl.insert_before(in, mov_ld_(
+            reg::indirect_clobber_reg, reg::indirect_target_addr));
+
+        ibl.insert_before(in, shl_(reg::indirect_clobber_reg, int8_(48)));
+        ibl.insert_before(in, shr_(reg::indirect_clobber_reg, int8_(48 + 5)));
+
+        ibl.insert_before(in, lea_(
+            reg::indirect_clobber_reg,
+            reg::indirect_source_addr + reg::indirect_clobber_reg * 8));
+
+        // Get a source address into the basic block for trace allocator
+        // propagation.
+        instruction block_instr(ibl.insert_before(in, label_()));
+        ibl.insert_before(in,
+            lea_(reg::indirect_source_addr, mem_instr_(block_instr)));
 
         // On the stack:
-        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
-        //      reg_source_addr         (saved: cache source address)
-        //      saved flags             (saved: EFLAGS)
-        ibl.insert_before(in,
-            lea_(reg_source_addr, mem_instr_(&IBL_JUMP_TABLE_INSTR)));
-
-        // Hash the target address.
-        //
-        // TODO: Perhaps in future, we should re-order the flags saving and
-        //       source address to XOR the source address with the dest address.
-        //       This tends to give a better hash function, but potentially
-        //       results in more IBL exit stubs!
-        ibl.insert_before(in, mov_ld_(reg::ax, reg::indirect_target_addr_16));
-        ibl.insert_before(in, shr_(reg::ax, int8_(5)));
-        ibl.insert_before(in, shl_(reg::ax, int8_(3)));
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: rax, AFLAGS)
 
         const uintptr_t jump_table_base(
             reinterpret_cast<uintptr_t>(IBL_JUMP_TABLE_INSTR.translation));
@@ -111,7 +110,7 @@ namespace granary {
         }
 
         // Go off to either `code_cache::find` or a target-specific checker.
-        ibl.insert_before(in, mangled(jmp_ind_(*reg::rax)));
+        ibl.insert_before(in, mangled(jmp_ind_(*reg::indirect_clobber_reg)));
     }
 
 
@@ -140,10 +139,10 @@ namespace granary {
         //         a chained exit routine that was part of the IBL jump table.
         //
         // On the stack:
-        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
-        //      reg_source_addr         (saved: cache source address)
-        //      saved flags             (saved: EFLAGS)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: rax, AFLAGS)
         ibl.append(mov_imm_(
             reg::rax, int64_(reinterpret_cast<uint64_t>(mangled_target_pc))));
         ibl.append(cmp_(reg::rax, reg::indirect_target_addr));
@@ -151,7 +150,7 @@ namespace granary {
 
         // Hit! We found the right target.
         insert_restore_arithmetic_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
-        ibl.append(pop_(reg_source_addr));
+        ibl.append(pop_(reg::indirect_source_addr));
         ibl.append(pop_(reg::indirect_clobber_reg));
 
         // CASE 2: The compare from case (1) succeeded, or we're coming in from
@@ -209,28 +208,30 @@ namespace granary {
         instruction_list ibl;
 
         // On the stack:
-        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
-        //      reg_source_addr         (saved: cache source address)
-        //      saved flags             (saved: EFLAGS)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: rax, AFLAGS)
 
+#if CONFIG_ENV_KERNEL
         insert_restore_arithmetic_flags_after(
             ibl, ibl.last(), REG_AH_IS_DEAD);
 
-        ibl.append(pop_(reg_source_addr));
-
         insert_save_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
+#endif
 
         // On the stack:
-        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
-        //      saved flags             (saved: RFLAGS)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: pushf, RFLAGS)
 
         // save all registers for the IBL.
         register_manager all_regs;
         all_regs.kill_all();
         all_regs.revive(reg::indirect_target_addr);
         all_regs.revive(reg::indirect_clobber_reg);
+        all_regs.revive(reg::indirect_source_addr);
 
         // Restore callee-saved registers, because the global code cache routine
         // respects the ABI.
@@ -247,9 +248,6 @@ namespace granary {
         // and restored.
         instruction safe(
             save_and_restore_registers(all_regs, ibl, ibl.last()));
-
-        // Set the source address as an argument.
-        safe = ibl.insert_after(safe, mov_ld_(reg::arg2, reg_source_addr));
 
         // Find the local private stack to use. %rax is safe to clobber for
         // the target address because `granary_enter_private_stack` will
@@ -276,14 +274,16 @@ namespace granary {
             CTI_CALL); )
 
         // On the stack:
-        //      reg_target_addr         (saved: arg1, mangled target address)
+        //      indirect_target_addr    (saved: arg1, mangled target address)
         //      indirect_clobber_reg    (saved: rax)
-        //      saved flags             (saved: RFLAGS)
+        //      indirect_source_addr    (saved: arg2, cache source address)
+        //      saved flags             (saved: pushf, RFLAGS)
 
         // Restore the flags.
         insert_restore_flags_after(ibl, ibl.last(), REG_AH_IS_DEAD);
 
-        // Restore the source address if profiling.
+        // Restore the source address and clobber reg.
+        ibl.append(pop_(reg::indirect_source_addr));
         ibl.append(pop_(reg::indirect_clobber_reg));
 
         // Jump to the target. The target in this case is an IBL exit routine,
@@ -303,10 +303,6 @@ namespace granary {
 
 
     STATIC_INITIALISE_ID(ibl, {
-
-        // Set the initial values for global static variables used in this
-        // file.
-        reg_source_addr = reg::indirect_clobber_reg;
 
         global_code_cache_find = unsafe_cast<app_pc>(
             (app_pc (*)(mangled_address, app_pc)) code_cache::find);

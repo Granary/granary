@@ -44,12 +44,18 @@ namespace client {
 
     /// Invoked if/when Granary discards a basic block (e.g. due to a race
     /// condition when two cores compete to translate the same basic block).
-    void discard_basic_block(basic_block_state &) throw() { }
+    void discard_basic_block(basic_block_state &bb) throw() {
+#if CFG_RECORD_INDIRECT_TARGETS
+        if(bb.indirect_ctis) {
+            free_memory<indirect_cti>(bb.indirect_ctis, bb.num_indirect_ctis);
+        }
+#endif
+    }
 
 
 #if CFG_RECORD_INDIRECT_TARGETS
     /// Add an entry to a basic block's set of indirect CALL/JMP targets.
-    void add_indirect_target(app_pc target_addr, app_pc source_bb) throw() {
+    void add_indirect_target(app_pc target_addr, indirect_cti *cti) throw() {
         UNUSED(target_addr);
         UNUSED(source_bb);
     }
@@ -65,6 +71,36 @@ namespace client {
 #endif
 
 
+    /// Insert an execution counter that saves and restores the flags, as well
+    /// as protects against the user space red zone.
+    static void insert_exec_count_before(
+        instruction_list &ls,
+        instruction in,
+        uint64_t *counter
+    ) throw() {
+        IF_USER( ls.insert_before(in,
+            lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
+        ls.insert_before(in, pushf_());
+        ls.insert_before(in, inc_(absmem_(counter, dynamorio::OPSZ_8)));
+        ls.insert_before(in, popf_());
+        IF_USER( ls.insert_before(in,
+            lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+    }
+
+
+    /// Add in the instrumentation for an individual indirect CTI.
+    static void instrument_indirect_cti(
+        instruction_list &ls,
+        granary::basic_block_state &bb,
+        indirect_cti &cti
+    ) throw() {
+        cti.indirect_targets = allocate_memory<app_pc>(4);
+        cti.num_indirect_targets = 4;
+        insert_clean_call_after(ls, ls.last(), EVENT_ADD_INDIRECT_TARGET,
+            reg::indirect_target_addr, mem_instr_(&bb.label));
+    }
+
+
     /// Add in instrumentation so that we can later figure out the control-flow
     /// graph.
     granary::instrumentation_policy cfg_policy::visit_app_instructions(
@@ -78,110 +114,79 @@ namespace client {
         // `reg::indirect_target_addr`.
         if(ls.is_stub()) {
 #if CFG_RECORD_INDIRECT_TARGETS
-            insert_clean_call_after(ls, ls.last(), EVENT_ADD_INDIRECT_TARGET,
-                reg::indirect_target_addr, mem_instr_(&bb.label));
+            ASSERT(nullptr != bb.indirect_ctis);
+            for(unsigned i(0); i < bb.num_indirect_ctis; ++i) {
+                if(!bb.indirect_ctis[i].indirect_targets) {
+                    instrument_indirect_cti(ls, bb, bb.indirect_ctis[i]);
+                    break;
+                }
+            }
+
 #endif
             return *this;
         }
 
-        // This isn't a recursive invocation for an indirect CTI, instrument the
-        // basic block.
+        // This isn't a recursive invocation for an indirect CTI, instrument
+        // the basic block.
 
-#if CFG_RECORD_EXEC_COUNT
-        IF_USER( bool redzone_safe(false); )
-        bool added_exec_count(false);
-        unsigned eflags(0);
-        for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
+        instruction in;
+        UNUSED(in);
 
-            // Assumes flags are dead before CALL/RET.
-            if(in.is_call() || in.is_return()) {
-                IF_USER( redzone_safe = true; )
-                goto found_insert_point;
-            }
-
-            if(in.is_jump() && dynamorio::PC_kind != in.cti_target().kind) {
-                goto found_insert_point;
-            }
-
-            eflags = dynamorio::instr_get_eflags(in);
-            if(!(eflags & EFLAGS_WRITE_ALL) || (eflags & EFLAGS_READ_ALL)) {
+#if CFG_RECORD_INDIRECT_TARGETS
+        // Count the number of indirect CTIs.
+        unsigned num_indirect_ctis(0);
+        for(in = ls.first(); in.is_valid(); in = in.next()) {
+            if(!in.is_cti()) {
                 continue;
             }
 
-            // We've found a good insertion point for the execution counter
-            // increment.
-        found_insert_point:
-
-            IF_USER(
-                if(!redzone_safe) {
-                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
-                }
-            )
-
-            ls.insert_before(in,
-                inc_(absmem_(&(bb.num_executions), dynamorio::OPSZ_8)));
-
-            IF_USER(
-                if(!redzone_safe) {
-                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                }
-            )
-
-            added_exec_count = true;
-            break;
+            const operand target(in.cti_target());
+            if(dynamorio::PC_kind != target) {
+                ++num_indirect_ctis;
+            }
         }
+
+        indirect_cti *ctis(nullptr);
+        if(0 < num_indirect_ctis) {
+            ctis = allocate_memory<indirect_cti>(num_indirect_ctis);
+        }
+        bb.indirect_ctis = ctis;
 #endif
 
         // Add in a special label into the instruction list. This will give us
         // access later on to the encoded location of this basic block, which
         // will allow us to access its internal meta-info.
-        bb.label.opcode = dynamorio::OP_LABEL;
-        bb.label.flags |= dynamorio::INSTR_OPERANDS_VALID;
-        instruction label(&(bb.label));
-        ls.prepend(label);
+        instruction label(ls.prepend(persistent_label_(bb.label)));
 
 #if CFG_RECORD_EXEC_COUNT
+
+        // We found a good place to insert the increment where the flags
+        // modifications done by the increment won't alter the behaviour
+        // of the instrumented program.
+        if(find_arith_flags_dead_after(ls, in)) {
+            ls.insert_before(in,
+                inc_(absmem_(&(bb.num_executions), dynamorio::OPSZ_8)));
+
         // We didn't find a good place to add in the execution counter; place
         // it at the beginning of the basic block.
-        if(!added_exec_count) {
-            IF_USER( ls.insert_before(label,
-                lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
-            ls.insert_before(label, pushf_());
-            ls.insert_before(label,
-                inc_(absmem_(&(bb.num_executions), dynamorio::OPSZ_8)));
-            ls.insert_before(label, popf_());
-            IF_USER( ls.insert_before(label,
-                lea_(reg::rsp, reg::rsp[REDZONE_SIZE])); )
+        } else {
+            insert_exec_count_before(ls, label, &(bb.num_executions));
         }
 
 #   if CFG_RECORD_FALL_THROUGH_COUNT
         // Count how many times we skip over a conditional branch and execute
         // the fall-through basic block.
-        for(instruction in(ls.last()); in.is_valid(); in = in.prev()) {
+        for(in = ls.last(); in.is_valid(); in = in.prev()) {
             if(!in.is_cti() || !dynamorio::instr_is_cbr(in)) {
                 continue;
             }
 
             in = in.next();
-            IF_USER(
-                if(!redzone_safe) {
-                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
-                }
-            )
-            ls.insert_before(in, pushf_());
-            ls.insert_before(in,
-                inc_(absmem_(&(bb.num_fall_through_executions), dynamorio::OPSZ_8)));
-            ls.insert_before(in, popf_());
-            IF_USER(
-                if(!redzone_safe) {
-                    ls.insert_before(in, lea_(reg::rsp, reg::rsp[REDZONE_SIZE]));
-                }
-            )
+            insert_exec_count_before(ls, in, &(bb.num_fall_through_executions));
             break;
         }
 #   endif
 #endif
-
         return *this;
     }
 
