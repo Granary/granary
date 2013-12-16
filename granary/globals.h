@@ -110,6 +110,14 @@
 #define CONFIG_OPTIMISE_DIRECT_RETURN CONFIG_ENV_KERNEL
 
 
+/// Should profile guided optimisation be enabled? This can / should only be
+/// toggled from the Makefile when a profile file is supplied to the
+/// `GR_PGO_PROFILE` command-line argument.
+#ifndef CONFIG_OPTIMISE_PGO
+#   define CONFIG_OPTIMISE_PGO 0 // can't change.
+#endif
+
+
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.

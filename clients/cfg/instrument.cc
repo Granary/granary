@@ -56,8 +56,35 @@ namespace client {
 #if CFG_RECORD_INDIRECT_TARGETS
     /// Add an entry to a basic block's set of indirect CALL/JMP targets.
     void add_indirect_target(app_pc target_addr, indirect_cti *cti) throw() {
-        UNUSED(target_addr);
-        UNUSED(source_bb);
+        cti->update_lock.acquire();
+
+        app_pc *new_targets(nullptr);
+
+        // Search and possibly add.
+        for(unsigned i(0); i < cti->num_indirect_targets; ++i) {
+            if(!cti->indirect_targets[i]) {
+                cti->indirect_targets[i] = target_addr;
+                goto done;
+            } else if(target_addr == cti->indirect_targets[i]) {
+                goto done;
+            }
+        }
+
+        // Resize and copy.
+        new_targets = allocate_memory<app_pc>(cti->num_indirect_targets * 2);
+        memcpy(
+            new_targets, cti->indirect_targets,
+            cti->num_indirect_targets * sizeof(app_pc));
+
+        // Free
+        free_memory<app_pc>(cti->indirect_targets, cti->num_indirect_targets);
+
+        // Update
+        cti->num_indirect_targets *= 2;
+        cti->indirect_targets = new_targets;
+
+    done:
+        cti->update_lock.release();
     }
 
 
@@ -91,13 +118,33 @@ namespace client {
     /// Add in the instrumentation for an individual indirect CTI.
     static void instrument_indirect_cti(
         instruction_list &ls,
-        granary::basic_block_state &bb,
         indirect_cti &cti
     ) throw() {
+        instruction hit_in_last_indirect_target(label_());
+        ls.append(lea_(
+            reg::indirect_clobber_reg,
+            data_label_(&(cti.last_indirect_target))));
+
+        // Check if our current target is in our one-item cache. If not, then
+        // update the cache and ensure that it's in the set, otherwise jump
+        // around the update and clean call and go right to the IBL.
+        ls.append(cmp_(reg::indirect_target_addr, *reg::indirect_clobber_reg));
+        ls.append(jz_(instr_(hit_in_last_indirect_target)));
+
+        // Update the `last_indirect_target` in the `indirect_cti` with the
+        // current target.
+        ls.append(mov_st_(*reg::indirect_clobber_reg, reg::indirect_target_addr));
+
+        // Call out and update the indirect target.
+        insert_clean_call_after(ls, ls.last(), EVENT_ADD_INDIRECT_TARGET,
+            reg::indirect_target_addr, data_label_(&cti));
+
+        ls.append(hit_in_last_indirect_target);
+
+        // Initialize the `indirect_cti` data structure for this jump.
         cti.indirect_targets = allocate_memory<app_pc>(4);
         cti.num_indirect_targets = 4;
-        insert_clean_call_after(ls, ls.last(), EVENT_ADD_INDIRECT_TARGET,
-            reg::indirect_target_addr, mem_instr_(&bb.label));
+
     }
 
 
@@ -114,14 +161,17 @@ namespace client {
         // `reg::indirect_target_addr`.
         if(ls.is_stub()) {
 #if CFG_RECORD_INDIRECT_TARGETS
+            if(!bb.num_indirect_ctis) {
+                return *this;
+            }
+
             ASSERT(nullptr != bb.indirect_ctis);
             for(unsigned i(0); i < bb.num_indirect_ctis; ++i) {
                 if(!bb.indirect_ctis[i].indirect_targets) {
-                    instrument_indirect_cti(ls, bb, bb.indirect_ctis[i]);
+                    instrument_indirect_cti(ls, bb.indirect_ctis[i]);
                     break;
                 }
             }
-
 #endif
             return *this;
         }
@@ -141,7 +191,7 @@ namespace client {
             }
 
             const operand target(in.cti_target());
-            if(dynamorio::PC_kind != target) {
+            if(dynamorio::PC_kind != target.kind) {
                 ++num_indirect_ctis;
             }
         }
@@ -150,6 +200,7 @@ namespace client {
         if(0 < num_indirect_ctis) {
             ctis = allocate_memory<indirect_cti>(num_indirect_ctis);
         }
+        bb.num_indirect_ctis = num_indirect_ctis;
         bb.indirect_ctis = ctis;
 #endif
 

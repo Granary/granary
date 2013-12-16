@@ -100,15 +100,6 @@ namespace granary {
         //      indirect_source_addr    (saved: arg2, cache source address)
         //      saved flags             (saved: rax, AFLAGS)
 
-        const uintptr_t jump_table_base(
-            reinterpret_cast<uintptr_t>(IBL_JUMP_TABLE_INSTR.translation));
-        const uint8_t jump_table_mask(((jump_table_base >> 8) & 0xFFU));
-        if(jump_table_mask) {
-            ibl.insert_before(in, or_(
-                reg::ah,
-                int8_((int64_t) (int8_t) jump_table_mask)));
-        }
-
         // Go off to either `code_cache::find` or a target-specific checker.
         ibl.insert_before(in, mangled(jmp_ind_(*reg::indirect_clobber_reg)));
     }

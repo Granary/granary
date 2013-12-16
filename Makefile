@@ -41,6 +41,11 @@ GR_TESTS ?= 0
 # Should Granary be used to instrument the whole kernel?
 GR_WHOLE_KERNEL ?= 0
 
+# Should a profile-guided optimization call graph be used as part of the
+# compilation?
+GR_PGO_PROFILE ?=
+GR_PGO_TARGET =
+
 # Compilation toolchain
 GR_CPP = cpp
 GR_CC = gcc-4.8
@@ -212,6 +217,7 @@ GR_OBJS += $(BIN_DIR)/granary/cpu_code_cache.o
 GR_OBJS += $(BIN_DIR)/granary/register.o
 GR_OBJS += $(BIN_DIR)/granary/policy.o
 GR_OBJS += $(BIN_DIR)/granary/perf.o
+GR_OBJS += $(BIN_DIR)/granary/pgo.o
 GR_OBJS += $(BIN_DIR)/granary/utils.o
 GR_OBJS += $(BIN_DIR)/granary/trace_log.o
 GR_OBJS += $(BIN_DIR)/granary/dynamic_wrapper.o
@@ -457,6 +463,10 @@ endef
 	define GR_GET_LD_LIBRARIES
 		$$($(GR_LDD) $(shell which $(GR_CC)) | $(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_dll_detach_table.py $(GR_OUTPUT_TYPES) > $(GR_DETACH_FILE))
 endef
+	
+	# In user space we don't use profile-guided optimisation.
+	define GR_GENERATE_PGO_TABLES
+endef
 
 # Kernel space.
 else
@@ -468,6 +478,19 @@ else
 	else # gcc
 		GR_COMMON_KERNEL_FLAGS += -mcmodel=kernel -maccumulate-outgoing-args
 		GR_COMMON_KERNEL_FLAGS += -nostdlib -nostartfiles -nodefaultlibs
+	endif
+	
+	# Toggle profile-guided optimization if we've been given a an input
+	# profile recorded by the `cfg` tool.
+	ifneq (,$(GR_PGO_PROFILE))
+		GR_CXX_FLAGS += -DCONFIG_OPTIMISE_PGO=1
+		GR_PGO_TARGET = pgo
+		define GR_GENERATE_PGO_TABLES
+			$$($(GR_PYTHON) $(SOURCE_DIR)/scripts/pgo.py $(GR_PGO_PROFILE) > $(SOURCE_DIR)/granary/gen/kernel_profile.cc)
+endef
+	else
+		define GR_GENERATE_PGO_TABLES
+endef
 	endif
 	
 	# Toggle Granary-specific kernel annotation inclusion when parsing the
@@ -734,9 +757,11 @@ env:
 	
 	@echo "  [.] The current directory is now setup for compiling Granary."
 
+pgo:
+	@$(call GR_GENERATE_PGO_TABLES)
 
 # Compile granary
-all: $(GR_OBJS)
+all: $(GR_PGO_TARGET) $(GR_OBJS)
 	@$(GR_MAKE)
 	@echo "  [.] Granary has been built."
 

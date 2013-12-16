@@ -658,8 +658,13 @@ namespace granary {
     }
 
 
+    /// Convert a persistent instruction into a label to the persistent
+    /// instruction. This label can be embedded into an instruction list, and
+    /// then the persistent instruction can later access the location in memory
+    /// where label was encoded.
+    instruction persistent_label_(persistent_instruction *in_ptr);
     inline instruction persistent_label_(persistent_instruction &in) {
-        return persistent_label_(in);
+        return persistent_label_(&in);
     }
 
 
@@ -853,5 +858,23 @@ namespace granary {
 }
 
 #include "granary/gen/instruction.h"
+
+
+namespace granary {
+    /// Create an instruction label to some (almost) arbitrary data. The label
+    /// can be used to get the address of the data using LEA.
+    template <typename T>
+    operand data_label_(T *data) throw() {
+        instruction label = label_();
+        label.instr->note = unsafe_cast<void *>(data);
+        label.instr->translation = unsafe_cast<app_pc>(data);
+        switch(sizeof(T)) {
+        case 8: return dynamorio::opnd_create_mem_instr(label, 0, dynamorio::OPSZ_8);
+        case 4: return dynamorio::opnd_create_mem_instr(label, 0, dynamorio::OPSZ_4);
+        case 2: return dynamorio::opnd_create_mem_instr(label, 0, dynamorio::OPSZ_2);
+        default: return dynamorio::opnd_create_mem_instr(label, 0, dynamorio::OPSZ_1);
+        }
+    }
+}
 
 #endif /* granary_INSTRUCTION_H_ */

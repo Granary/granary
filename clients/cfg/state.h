@@ -12,6 +12,8 @@
 #define CLIENT_basic_block_state
 #define CLIENT_commit_to_basic_block_state
 
+#include "granary/instruction.h"
+
 #include "clients/cfg/config.h"
 
 #if CFG_RECORD_INDIRECT_TARGETS
@@ -27,6 +29,8 @@ namespace client {
         /// The last indirect target. This is a single entry cache.
         granary::app_pc last_indirect_target;
 
+        char padding[CONFIG_ARCH_CACHE_LINE_SIZE - sizeof(granary::app_pc)];
+
         /// The full set of indirect targets for this
         granary::app_pc *indirect_targets;
 
@@ -35,7 +39,8 @@ namespace client {
 
         /// Lock for modifying the number of indirect targets.
         granary::atomic_spin_lock update_lock;
-    };
+
+    } __attribute__((aligned (CONFIG_ARCH_CACHE_LINE_SIZE)));
 
 
     /// State that is automatically maintained for each instrumented basic

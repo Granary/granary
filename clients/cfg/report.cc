@@ -107,6 +107,7 @@ namespace client {
 
         // Decode the original instructions and extract the CTIs.
         app_pc decode_pc(native_pc_start);
+        unsigned cti_num(0);
         for(unsigned j(0); j < bb.info->generating_num_instructions; ++j) {
 
             // Note: Some module code might fault when decoding (e.g. if it was
@@ -125,10 +126,28 @@ namespace client {
 
             operand target(in.cti_target());
             if(dynamorio::PC_kind != target.kind) {
-                continue;
-            }
+                const char *format(nullptr);
+                if(in.is_call()) {
+                    format = "CALL*(%p,%p)\n";
+                } else if(in.is_jump()) {
+                    format = "JMP*(%p,%p)\n";
+                } else {
+                    ASSERT(false);
+                }
 
-            if(in.is_call()) {
+                const indirect_cti &cti(bb.state()->indirect_ctis[cti_num++]);
+                for(unsigned k(0); k < cti.num_indirect_targets; ++k) {
+                    if(!cti.indirect_targets[k]) {
+                        break;
+                    }
+
+                    i += sprintf(
+                        &(LOG_BUFF[i]),
+                        format,
+                        in.pc(), cti.indirect_targets[k]);
+                }
+
+            } else if(in.is_call()) {
                 i += sprintf(&(LOG_BUFF[i]), "CALL(%p)\n", target.value.pc);
             } else if(in.is_jump()) {
                 i += sprintf(&(LOG_BUFF[i]), "JMP(%p)\n", target.value.pc);

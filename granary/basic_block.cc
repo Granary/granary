@@ -14,6 +14,7 @@
 #include "granary/mangle.h"
 #include "granary/emit_utils.h"
 #include "granary/code_cache.h"
+#include "granary/pgo.h"
 
 #if CONFIG_ENV_KERNEL
 #   include "granary/kernel/linux/user_address.h"
@@ -603,6 +604,7 @@ namespace granary {
                 } else {
                     fall_through_pc = true;
                     fall_through_cond_cti = true;
+                    *pc = profile_optimise_jcc(in, start_pc, *pc);
                     break;
                 }
 
