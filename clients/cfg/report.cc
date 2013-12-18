@@ -126,6 +126,7 @@ namespace client {
 
             operand target(in.cti_target());
             if(dynamorio::PC_kind != target.kind) {
+#if CFG_RECORD_INDIRECT_TARGETS
                 const char *format(nullptr);
                 if(in.is_call()) {
                     format = "CALL*(%p,%p)\n";
@@ -146,7 +147,7 @@ namespace client {
                         format,
                         in.pc(), cti.indirect_targets[k]);
                 }
-
+#endif
             } else if(in.is_call()) {
                 i += sprintf(&(LOG_BUFF[i]), "CALL(%p)\n", target.value.pc);
             } else if(in.is_jump()) {
@@ -161,6 +162,7 @@ namespace client {
             }
         }
 
+        UNUSED(cti_num);
         LOG_BUFF[i] = '\0';
         return i;
     }

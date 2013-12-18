@@ -21,6 +21,6 @@
 
 
 /// Should we record indirect branch targets?
-#define CFG_RECORD_INDIRECT_TARGETS 1
+#define CFG_RECORD_INDIRECT_TARGETS 0
 
 #endif /* CFG_CONFIG_H_ */

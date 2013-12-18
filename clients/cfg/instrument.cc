@@ -49,6 +49,8 @@ namespace client {
         if(bb.indirect_ctis) {
             free_memory<indirect_cti>(bb.indirect_ctis, bb.num_indirect_ctis);
         }
+#else
+        UNUSED(bb);
 #endif
     }
 
@@ -115,6 +117,7 @@ namespace client {
     }
 
 
+#if CFG_RECORD_INDIRECT_TARGETS
     /// Add in the instrumentation for an individual indirect CTI.
     static void instrument_indirect_cti(
         instruction_list &ls,
@@ -146,6 +149,7 @@ namespace client {
         cti.num_indirect_targets = 4;
 
     }
+#endif
 
 
     /// Add in instrumentation so that we can later figure out the control-flow
