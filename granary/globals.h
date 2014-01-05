@@ -69,7 +69,7 @@
 /// space watchpoints clients (where we need to recover from a GP fault in
 /// native code).
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 1
+#   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0
 #else
 #   define CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT 0 // can't change in user space
 #endif
@@ -89,12 +89,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 1
+#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 0
 
 
 /// Should Granary double check that any time CPU private data is accessed, that
 /// interrupts are disabled?
-#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 1
+#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 0
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -102,7 +102,7 @@
 /// which goes into an interrupt handler which tries the same thing over again,
 /// which faults again, etc. The current mechanism for debugging this problem
 /// assumes that Granary is compiled with frame pointers.
-#define CONFIG_DEBUG_CPU_RESET 1
+#define CONFIG_DEBUG_CPU_RESET 0
 
 
 /// Should the direct return optimisation be enabled? This is not available for
@@ -121,7 +121,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 1
+#define CONFIG_DEBUG_TRACE_EXECUTION 0
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
@@ -135,7 +135,7 @@
 /// building by having a basic block fragment allocated in the same slab (if
 /// possible) as its successor basic block.
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_ENABLE_TRACE_ALLOCATOR 1
+#   define CONFIG_ENABLE_TRACE_ALLOCATOR 0
 #else
 #   define CONFIG_ENABLE_TRACE_ALLOCATOR 0 // Can't change.
 #endif
@@ -188,7 +188,7 @@
 ///
 /// Note: If a non-zero number is given, then that number represents the maximum
 ///       number of conditional branch fall-throughs to follow.
-#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 10000
+#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 1000
 
 
 /// If we're following fall-through branches, then this option lets us also
@@ -202,7 +202,7 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 1
+#define CONFIG_DEBUG_PERF_COUNTS 0
 
 
 /// Debug the initialisation of Granary, but make sure that it doesn't actually
@@ -222,7 +222,7 @@
 ///       circumstance (which is addressable) and partly because of its
 ///       inability to regain control in the proper policy.
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_FEATURE_WRAPPERS 1
+#   define CONFIG_FEATURE_WRAPPERS 0
 #else
 #   define CONFIG_FEATURE_WRAPPERS 1 // Don't change?
 #endif
@@ -251,11 +251,11 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 1
+#define CONFIG_DEBUG_ASSERTIONS 0
 
 
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_DEBUG_RUN_TEST_CASES 1 // don't change.
+#   define CONFIG_DEBUG_RUN_TEST_CASES 0 // don't change.
 #else
 #   define CONFIG_DEBUG_RUN_TEST_CASES (!GRANARY_USE_PIC && CONFIG_DEBUG_ASSERTIONS)
 #endif
