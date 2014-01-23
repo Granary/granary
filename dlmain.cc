@@ -14,7 +14,7 @@
 #include "granary/attach.h"
 #include "granary/detach.h"
 #include "granary/perf.h"
-
+#include "clients/report.h"
 #include <ucontext.h>
 
 #define DEBUG_GDB_ATTACH_AT_INIT 1
@@ -56,13 +56,36 @@ extern "C" {
     })
 #endif
 
+#if DEBUG_GDB_ATTACH_AT_INIT
+    static unsigned buffer_pid(char *buff, uint64_t data) throw() {
+        if(!data) {
+            *buff++ = '0';
+            *buff++ = '\0';
+            return 2;
+        }
+
+        uint64_t max_base(10);
+        unsigned num_chars(1);
+        for(; data / max_base; max_base *= 10) { }
+        for(max_base /= 10; max_base; max_base /= 10) {
+            const uint64_t digit(data / max_base);
+            *buff++ = digit + '0';
+            data -= digit * max_base;
+            ++num_chars;
+        }
+        *buff++ = '\0';
+        return num_chars;
+    }
+#endif
+
     __attribute__((constructor))
     static void granary_begin_program(void) {
 
 #if DEBUG_GDB_ATTACH_AT_INIT
-        char buff[1];
-        granary::printf("Process ID for attaching GDB: %d\n", (int) getpid());
-        granary::printf("Press enter to continue.\n");
+        char buff[20];
+        write(2, "Process ID for attaching GDB: ", 31);
+        write(2, buff, buffer_pid(buff, getpid()));
+        write(2, "\nPress enter to continue.\n", 27);
         read(0, buff, 1);
 #endif
 
@@ -70,16 +93,15 @@ extern "C" {
         granary::attach(granary::START_POLICY);
     }
 
-
-#if CONFIG_DEBUG_PERF_COUNTS
-
-    __attribute__((destructor))
-    static void granary_end_program(void) {
-        granary::perf::report();
-    }
-
-    GRANARY_DETACH_POINT(granary_end_program)
+    __attribute__((destructor, noinline, used))
+    void granary_end_program(void) {
+#ifdef CLIENT_report
+        client::report();
 #endif
+#if CONFIG_DEBUG_PERF_COUNTS
+        granary::perf::report();
+#endif
+    }
 
 } /* extern C */
 

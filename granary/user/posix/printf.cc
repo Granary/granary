@@ -13,12 +13,14 @@
 
 #if LOG
 #   include <unistd.h>
+#   include <fcntl.h>
 #   include <cstdarg>
 #endif
 
 namespace granary {
 #if LOG
-    static int granary_out(2); // STDERR
+    static int granary_out(-1); // STDERR
+    static bool opened_granary_out(false);
 
 
     static unsigned cstr_length(const char *ch) throw() {
@@ -85,6 +87,11 @@ namespace granary {
         (void) format;
         return 0;
 #else
+        if(-1 == granary_out && !opened_granary_out) {
+            opened_granary_out = true;
+            granary_out = open("granary.log", O_CREAT | O_WRONLY);
+        }
+
         ASSERT(-1 != granary_out);
 
         enum {

@@ -89,12 +89,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 0
+#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 1
 
 
 /// Should Granary double check that any time CPU private data is accessed, that
 /// interrupts are disabled?
-#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 0
+#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 1
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -102,7 +102,7 @@
 /// which goes into an interrupt handler which tries the same thing over again,
 /// which faults again, etc. The current mechanism for debugging this problem
 /// assumes that Granary is compiled with frame pointers.
-#define CONFIG_DEBUG_CPU_RESET 0
+#define CONFIG_DEBUG_CPU_RESET 1
 
 
 /// Should the direct return optimisation be enabled? This is not available for
@@ -121,7 +121,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 0
+#define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
@@ -202,12 +202,12 @@
 /// things like number of translated bytes, number of code cache bytes, etc.
 /// These counters allow us to get a sense of how (in)efficient Granary is with
 /// memory, etc.
-#define CONFIG_DEBUG_PERF_COUNTS 0
+#define CONFIG_DEBUG_PERF_COUNTS 1
 
 
 /// Debug the initialisation of Granary, but make sure that it doesn't actually
 /// take over anything.
-#define CONFIG_DEBUG_INITIALISE 0
+#define CONFIG_DEBUG_INITIALISE 1
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically
@@ -251,7 +251,7 @@
 
 
 /// Set the 1 iff we should run test cases (before doing anything else).
-#define CONFIG_DEBUG_ASSERTIONS 0
+#define CONFIG_DEBUG_ASSERTIONS 1
 
 
 #if CONFIG_ENV_KERNEL
@@ -490,8 +490,9 @@ extern "C" {
 #   define strlen granary_strlen
 #   define strncpy granary_strncpy
 
-#if CONFIG_ENV_KERNEL
     extern bool granary_try_access(const void *);
+
+#if CONFIG_ENV_KERNEL
     extern bool granary_fail_access(void);
     extern void kernel_log(const char *, size_t);
 #endif /* CONFIG_ENV_KERNEL */
@@ -536,7 +537,7 @@ namespace granary {
     /// Log some data from Granary to the external world.
     inline void log(const char *data, size_t IF_KERNEL( size ) ) throw() {
         IF_KERNEL(kernel_log(data, size);)
-        IF_USER(printf(data);)
+        IF_USER(granary::printf("%s", data);)
     }
 }
 

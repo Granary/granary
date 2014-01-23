@@ -103,5 +103,11 @@ namespace granary {
     GRANARY_DETACH_POINT_ERROR(enter);
     GRANARY_DETACH_POINT_ERROR(granary_fault);
     GRANARY_DETACH_POINT_ERROR(granary_break_on_fault);
+
+#if !CONFIG_ENV_KERNEL && GRANARY_USE_PIC
+    extern "C" void granary_end_program(void);
+    GRANARY_DETACH_POINT(granary_end_program)
+#endif
+
 }
 
