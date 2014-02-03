@@ -63,8 +63,7 @@
 #define IOCTL_RUN_COMMAND _IOR(MAJOR_NUM, 0, char *)
 
 
-/// It's a trap!
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
 
 
 /// Configuration for RelayFS.
