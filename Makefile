@@ -568,6 +568,7 @@ endef
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/include/generated/uapi
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include
 	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include/generated 
+	GR_TYPE_INCLUDE += -isystem $(KERNEL_DIR)/arch/x86/include/uapi
 	
 	ifeq ($(DEFAULT_KERNEL_DIR),$(KERNEL_DIR))
 		GR_TYPE_INCLUDE += -isystem /usr/src/linux-headers-$(KERNEL_VERSION)/include/
