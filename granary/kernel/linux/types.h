@@ -88,6 +88,12 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
+#ifdef __ASSEMBLY__
+#   undef __ASSEMBLY__
+#endif
+#ifdef __EXPORTED_HEADERS__
+#   undef __EXPORTED_HEADERS__
+#endif
 #include <linux/types.h>
 #include <linux/sched.h>
 #include <linux/slab.h>

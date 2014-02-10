@@ -54,8 +54,10 @@ namespace granary { namespace detail {
 
 #if CONFIG_ENABLE_TRACE_ALLOCATOR
         CODE_CACHE_SIZE = 10 * _1_MB,
-#else
+#elif CONFIG_ENV_KERNEL
         CODE_CACHE_SIZE = 5 * _1_MB,
+#else
+        CODE_CACHE_SIZE = 30 * _1_MB,
 #endif
 
         // Maximum size of the part of the code cache containing basic blocks /

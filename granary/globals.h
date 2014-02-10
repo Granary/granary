@@ -89,12 +89,12 @@
 /// decode every encoded instruction to double check that the DynamoRIO side of
 /// things is doing something sane and that some illegal operands weren't passed
 /// to the DynamoRIO side of things.
-#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 1
+#define CONFIG_DEBUG_CHECK_INSTRUCTION_ENCODE 0
 
 
 /// Should Granary double check that any time CPU private data is accessed, that
 /// interrupts are disabled?
-#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 1
+#define CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE 0
 
 
 /// If one is experiencing triple faults / spurious CPU rests, they might be
@@ -102,7 +102,7 @@
 /// which goes into an interrupt handler which tries the same thing over again,
 /// which faults again, etc. The current mechanism for debugging this problem
 /// assumes that Granary is compiled with frame pointers.
-#define CONFIG_DEBUG_CPU_RESET 1
+#define CONFIG_DEBUG_CPU_RESET 0
 
 
 /// Should the direct return optimisation be enabled? This is not available for
@@ -143,7 +143,7 @@
 
 /// Optional trace allocator sub-option: Should all syscall entrypoints be
 /// treated as distinct traces?
-#define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 1
+#define CONFIG_TRACE_ALLOCATE_ENTRY_SYSCALL 0
 
 
 /// Optional trace allocator sub-option, which can be combined with other
@@ -151,8 +151,8 @@
 /// code into their own trace allocators?
 ///
 /// Note: These cannot be combined with functional unit tracing.
-#define CONFIG_TRACE_ALLOCATE_MM 1
-#define CONFIG_TRACE_ALLOCATE_SCHEDULE 1
+#define CONFIG_TRACE_ALLOCATE_MM 0
+#define CONFIG_TRACE_ALLOCATE_SCHEDULE 0
 
 
 /// Optional trace allocator sub-option: Should all functional units be treated
@@ -188,7 +188,7 @@
 ///
 /// Note: If a non-zero number is given, then that number represents the maximum
 ///       number of conditional branch fall-throughs to follow.
-#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 1000
+#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 8
 
 
 /// If we're following fall-through branches, then this option lets us also
@@ -207,7 +207,7 @@
 
 /// Debug the initialisation of Granary, but make sure that it doesn't actually
 /// take over anything.
-#define CONFIG_DEBUG_INITIALISE 1
+#define CONFIG_DEBUG_INITIALISE 0
 
 
 /// Enable wrappers. If wrappers are enabled, then Granary will automatically

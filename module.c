@@ -640,7 +640,7 @@ static void exit_granary(void) {
 
     printk("Unloading Granary... Goodbye!\n");
     unregister_module_notifier(&NOTIFIER_BLOCK);
-    misc_register(&device);
+    misc_deregister(&device);
 
     // free the memory associated with internal modules
     for(; NULL != mod; mod = next_mod) {
