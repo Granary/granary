@@ -46,27 +46,7 @@
 #   define LINUX_PATCH_VERSION ((LINUX_VERSION_CODE >> 0)  & 0xFF)
 #endif
 
-#if LINUX_MAJOR_VERSION > 3
-#   include <linux/kconfig.h>
-#elif 3 == LINUX_MAJOR_VERSION && LINUX_MINOR_VERSION >= 1
-#   include <linux/kconfig.h>
-#else
-#   if 2 == LINUX_MAJOR_VERSION && 6 == LINUX_MINOR_VERSION && 32 >= LINUX_PATCH_VERSION
-#       include <linux/autoconf.h>
-#   else
-#       include <generated/autoconf.h>
-#   endif
-#   ifndef IS_ENABLED
-#       define IS_ENABLED(option) \
-            (__enabled_ ## option || __enabled_ ## option ## _MODULE)
-#   endif
-#   ifndef IS_BUILTIN
-#       define IS_BUILTIN(option) __enabled_ ## option
-#   endif
-#   ifndef IS_MODULE
-#       define IS_MODULE(option) __enabled_ ## option ## _MODULE
-#   endif
-#endif
+#include <linux/kconfig.h>
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -87,6 +67,7 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+/*
 #include <linux/kernel.h>
 #ifdef __ASSEMBLY__
 #   undef __ASSEMBLY__
@@ -95,6 +76,7 @@
 #   undef __EXPORTED_HEADERS__
 #endif
 #include <linux/types.h>
+*/
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -116,15 +98,12 @@
 /* Also taken from e1000 */
 
 #include <linux/stddef.h>
-#include <linux/module.h>
-#include <linux/types.h>
 #include <asm/byteorder.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
 #include <linux/pci.h>
-#include <linux/kernel.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
@@ -167,7 +146,6 @@
 #include <linux/inetdevice.h>
 
 /* Taken from ext4 */
-#include <linux/types.h>
 #include <linux/blkdev.h>
 #include <linux/magic.h>
 #include <linux/jbd2.h>
@@ -254,11 +232,15 @@
 void __init_work(struct work_struct *work, int onstack);
 bool __rcu_reclaim(char *rn, struct rcu_head *head);
 
+/*
 #if KERNEL_VERSION(3,6,0) <= LINUX_VERSION_CODE
 #   include <uapi/linux/posix_types.h>
 #else
 #   include <linux/posix_types.h>
 #endif
+*/
+
+
 #include <linux/rcupdate.h>
 #include <linux/rcutree.h>
 
