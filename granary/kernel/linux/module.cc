@@ -37,6 +37,7 @@ using namespace granary;
 
 extern "C" {
 
+    extern int set_memory_rw ( unsigned long addr , int numpages ) ;
 
     extern void granary_before_module_bootstrap(struct kernel_module *module);
     extern void granary_before_module_init(struct kernel_module *module);
@@ -104,6 +105,9 @@ extern "C" {
             granary_before_module_bootstrap(module);
 
             if(module->init) {
+                // TODO: This is annoying if it's necessary :-/
+                unsigned long mod_addr(reinterpret_cast<unsigned long>(module));
+                set_memory_rw((mod_addr / 4096) * 4096, 1);
 
                 eflags flags = granary_disable_interrupts();
 
