@@ -291,6 +291,13 @@ ifeq ($(GR_CLIENT),watchpoint_null)
 	endif
 endif
 
+ifeq ($(GR_CLIENT),lifetime)
+	GR_CXX_FLAGS += -DCLIENT_LIFETIME -DCLIENT_WATCHPOINTS
+	GR_WP_INCLUDE_DEFAULT = 1
+	GR_OBJS += $(BIN_DIR)/clients/lifetime/metadata.o
+	GR_OBJS += $(BIN_DIR)/clients/lifetime/instrument.o
+	GR_OBJS += $(BIN_DIR)/clients/lifetime/report.o
+endif
 ifeq ($(GR_CLIENT),watchpoint_user)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_USER -DCLIENT_WATCHPOINTS
 	GR_WP_INCLUDE_DEFAULT = 1
@@ -720,6 +727,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/instr_dist > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/cfg > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/lifetime > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/user > /dev/null 2>&1 ||:

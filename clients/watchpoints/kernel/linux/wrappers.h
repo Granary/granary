@@ -54,6 +54,10 @@ using namespace client::wp;
 #endif
 
 
+#ifdef CLIENT_LIFETIME
+#   include "clients/lifetime/kernel_wrappers.h"
+#endif
+
 #ifndef APP_WRAPPER_FOR_pointer
 #   define APP_WRAPPER_FOR_pointer
     POINTER_WRAPPER({

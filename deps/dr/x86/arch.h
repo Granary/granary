@@ -739,6 +739,7 @@ is_shared_gencode(generated_code_t *code)
 
 extern bool get_x86_mode(dcontext_t *);
 
+#ifndef GRANARY
 static inline generated_code_t *
 get_shared_gencode(dcontext_t *dcontext _IF_X64(gencode_mode_t mode))
 {
@@ -998,7 +999,7 @@ void global_do_syscall_syscall(void);
 #endif
 void get_xmm_caller_saved(dr_ymm_t *xmm_caller_saved_buf);
 void get_ymm_caller_saved(dr_ymm_t *ymm_caller_saved_buf);
-
+#endif  /* !GRANARY */
 /* in encode.c */
 byte *instr_encode_ignore_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc);
 byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, byte *pc,
@@ -1006,6 +1007,7 @@ byte *instr_encode_check_reachability(dcontext_t *dcontext_t, instr_t *instr, by
 byte *copy_and_re_relativize_raw_instr(dcontext_t *dcontext, instr_t *instr,
                                        byte *dst_pc, byte *final_pc);
 
+#ifndef GRANARY
 /* in instr.c */
 uint
 move_mm_reg_opcode(bool aligned16, bool aligned32);
@@ -1023,6 +1025,6 @@ get_call_return_address(dcontext_t *dcontext, instrlist_t *ilist, instr_t *instr
 void
 translate_x86_to_x64(dcontext_t *dcontext, instrlist_t *ilist, INOUT instr_t **instr);
 #endif
-
+#endif /* !GRANARY */
 #endif /* X86_ARCH_H */
 

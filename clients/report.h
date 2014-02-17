@@ -20,7 +20,8 @@
  || defined(CLIENT_WATCHPOINT_PROFILE) \
  || defined(CLIENT_WATCHPOINT_AUGMENT) \
  || defined(CLIENT_WATCHPOINT_USER) \
- || defined(CLIENT_RCUDBG)
+ || defined(CLIENT_RCUDBG) \
+ || defined(CLIENT_LIFETIME)
 #   define CLIENT_report
 #endif
 

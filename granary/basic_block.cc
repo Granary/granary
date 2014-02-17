@@ -848,9 +848,9 @@ namespace granary {
 
             // Just double check that we're only seeing JMPs or CBRs.
             } else if (! in.pc()) {
-				continue;
-			}
-			else {
+                continue;
+            }
+            else {
                 ASSERT(in.is_jump());
             }
 

@@ -390,7 +390,7 @@ namespace client {
 
 
         /// Return the next counter index.
-        uintptr_t next_counter_index(uintptr_t) throw();
+        uintptr_t next_counter_index(uintptr_t inherited_index=0) throw();
 
 
         /// Destructure a combined index into its counter and inherited indexes.

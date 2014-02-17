@@ -115,6 +115,12 @@
 #endif
 
 
+/// Object lifetime watchpoint tool.
+#ifdef CLIENT_LIFETIME
+#   include "clients/lifetime/instrument.h"
+#endif
+
+
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY
 #   error "`GRANARY_INIT_POLICY` not defined; did you forget to include a file in `clients/instrument.h`?"
