@@ -47,7 +47,7 @@ extern "C" {
     extern bool granary_takeover_next_syscall_entry(void);
 #endif
 
-
+#if 0
     /// Make a special init function that sets certain page permissions before
     /// executing the module's init function.
     GRANARY_ENTRYPOINT
@@ -83,6 +83,7 @@ extern "C" {
         *(module->init) = unsafe_cast<int (*)(void)>(wrapped_init_pc);
 #endif
     }
+#endif
 
 
     extern void granary_enter_private_stack(void);
@@ -103,12 +104,8 @@ extern "C" {
                 module->name);
 
             granary_before_module_bootstrap(module);
-
+#if 0
             if(module->init) {
-                // TODO: This is annoying if it's necessary :-/
-                unsigned long mod_addr(reinterpret_cast<unsigned long>(module));
-                set_memory_rw((mod_addr / 4096) * 4096, 1);
-
                 eflags flags = granary_disable_interrupts();
 
                 ASM(
@@ -125,6 +122,7 @@ extern "C" {
 
                 granary_store_flags(flags);
             }
+#endif
 
             if(module->exit) {
                 *(module->exit) = dynamic_wrapper_of(*(module->exit));
