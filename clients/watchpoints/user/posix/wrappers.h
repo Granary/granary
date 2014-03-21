@@ -25,6 +25,10 @@
 #   include "clients/watchpoints/clients/bounds_checker/user/posix/wrappers.h"
 #endif
 
+#ifdef CLIENT_LIFETIME
+#   include "clients/lifetime/user_wrappers.h"
+#endif
+
 
 using namespace client::wp;
 

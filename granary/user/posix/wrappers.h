@@ -97,7 +97,6 @@
     })
 #endif
 
-
 #if defined(CAN_WRAP_readlink) && CAN_WRAP_readlink
 #   define APP_WRAPPER_FOR_readlink
     FUNCTION_WRAPPER(APP, readlink, (ssize_t), (const char *path , char *buf , size_t len), {
