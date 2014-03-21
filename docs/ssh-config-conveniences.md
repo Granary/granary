@@ -94,9 +94,9 @@ deb7vm:otherfile otherfile` and it will work without further authentication.
 ## Step 4: Use the remote load script
 
 Now you can easily push a freshly recompiled Granary module to a running VM, by
-using the helper tool under `scripts/remoteload.py` as follows:
+using the helper tool under `scripts/fastload.py` as follows:
 
 ```basemake
-$ ./scripts/remoteload.py --remote deb7vm
+$ ./scripts/fastload.py --remote deb7vm
 ```
 
