@@ -8,7 +8,7 @@ using namespace granary;
 namespace client {
 
 // A function invoked on every memory read of a watched address `addr`.
-void on_read(uintptr_t addr, int num_bytes) {
+void on_read(uintptr_t addr, unsigned long num_bytes) {
   auto obj_meta = wp::descriptor_of(addr);
   auto ds_meta = obj_meta->data_structure;
   auto byte_offset_in_struct = addr - obj_meta->base_addr;
@@ -37,6 +37,10 @@ void on_write(uintptr_t addr, unsigned long num_bytes) {
   granary::printf(
       "Writing %d bytes to address %lx, %u bytes into struct of size %u\n",
       num_bytes, addr, byte_offset_in_struct, ds_meta->num_bytes);
+
+  // TODO(akshay): Similar to above, but for writes. For writes we don't care
+  //               about the value being written, because specializing on writes
+  //               is unlikely to lead very far at a large scale.
 }
 
 // Versions of the above functions that are safe to call from within
@@ -55,10 +59,14 @@ void init(void) {
   on_write_func = generate_clean_callable_address(on_write);
 }
 
+// Inject a function call to `on_read` before every memory read of a
+// watched address.
 DEFINE_READ_VISITOR(lifetime, {
   insert_clean_call_after(ls, label, on_read_func, op, (unsigned long) size);
 })
 
+// Inject a function call to `on_write` before every memory write to a
+// watched address.
 DEFINE_WRITE_VISITOR(lifetime, {
   insert_clean_call_after(ls, label, on_write_func, op, (unsigned long) size);
 })
