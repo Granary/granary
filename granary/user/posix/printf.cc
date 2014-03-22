@@ -19,8 +19,8 @@
 namespace granary {
 namespace {
 
-static int granary_out(-1); // STDERR
-static bool opened_granary_out(false);
+static int granary_out(2); // STDERR
+static bool opened_granary_out(true);
 
 static unsigned cstr_length(const char *ch) throw() {
   unsigned len(0);

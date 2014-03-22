@@ -663,22 +663,25 @@ namespace client { namespace wp {
         }
 
         // If this basic block contains a function call or an indirect JMP then
-        // don't guard against the redzone. If it doesn't contain a POP or CALL
-        // instruction that doesn't have a native PC then don't guard against
-        // the redzone. Otherwise guard.
+        // don't guard against the redzone.
         for(in = ls.last(); in.is_valid(); in = in.prev()) {
             if(in.pc()) {
-                if(in.is_call()) {
+                if(in.is_call()
+                || (in.is_jump() &&
+                    dynamorio::PC_kind != in.cti_target().kind)) {
                     return;
-                } else if(in.is_jump()) {
-                    operand target(in.cti_target());
-                    if(dynamorio::PC_kind != target.kind) {
-                        return;
-                    }
                 }
-            } else if(dynamorio::OP_pop == in.op_code()
-                   || dynamorio::OP_call == in.op_code()) {
-                goto try_guard;
+            }
+        }
+
+        // If it doesn't contain a POP or CALL instruction that doesn't have a
+        // native PC then don't guard against the redzone. Otherwise guard.
+        for(in = ls.last(); in.is_valid(); in = in.prev()) {
+            if(in.pc()) {
+                if(dynamorio::OP_pop == in.op_code()
+                || dynamorio::OP_call == in.op_code()) {
+                  goto try_guard;
+                }
             }
         }
         return;
@@ -748,6 +751,10 @@ namespace client { namespace wp {
                         guarded = false;
                         ls.insert_after(
                             in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
+                    } else if (in.is_cti() /* jmp, jcc */) {
+                      guarded = false;
+                      ls.insert_before(
+                          in, lea_(reg::rsp, reg::rsp[-REDZONE_SIZE]));
                     } else {
                         in.for_each_operand(
                             adjust_base_disp_for_redzone,

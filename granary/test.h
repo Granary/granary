@@ -15,10 +15,8 @@
 #include "granary/state.h"
 #include "granary/emit_utils.h"
 
-#if CONFIG_DEBUG_RUN_TEST_CASES
-#   include "granary/x86/asm_defines.asm"
-#   include "granary/detach.h"
-#endif
+#include "granary/x86/asm_defines.asm"
+#include "granary/detach.h"
 
 namespace granary {
 
@@ -66,7 +64,6 @@ namespace granary {
 
     };
 
-#if CONFIG_DEBUG_RUN_TEST_CASES
     /// Used for static initialisation of test cases.
     struct static_test_list {
         void (*func)(void);
@@ -79,7 +76,6 @@ namespace granary {
     };
 
     void run_tests(void) throw();
-#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 
 }
 

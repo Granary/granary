@@ -85,8 +85,6 @@ namespace granary {
 #endif
 
 
-#if CONFIG_DEBUG_RUN_TEST_CASES
-
     /// List of test cases to run.
     static static_test_list STATIC_TEST_LIST_HEAD;
 
@@ -154,6 +152,5 @@ namespace granary {
             }
         }
     }
-#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
 } /* granary */
 

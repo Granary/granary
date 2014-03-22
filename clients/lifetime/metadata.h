@@ -7,11 +7,28 @@
 
 namespace client {
 
+// Meta-data about data structures themselves.
+struct data_structure_metadata {
+  // Size of the data-structure in bytes.
+  unsigned num_bytes;
+
+  // Number of reads/writes to the various bytes of the data-structures.
+  unsigned *num_reads;
+  unsigned *num_writes;
+
+  void *allocator_address;
+};
+
 // Meta-data about allocated objects.
-struct metadata {
+struct object_metadata {
+  uintptr_t base_addr;
+  data_structure_metadata *data_structure;
+
+  // IGNORE STUFF BELOW HERE: it's just watchpoints-specific stuff.
+
   static bool allocate_and_init(
       // Fixed arguments required by the watchpoints system.
-      metadata *&desc,
+      object_metadata *&desc,
       uintptr_t &counter_index,
       const uintptr_t inherited_index,
 
@@ -22,16 +39,13 @@ struct metadata {
       void *allocator_addr_) throw();
 
   // Get the descriptor of a watchpoint based on its index.
-  static metadata *access(uintptr_t index) throw();
+  static object_metadata *access(uintptr_t index) throw();
+
+  // Free the descriptor.
+  static void free(object_metadata *, uintptr_t) throw();
 
   // Not used but needed.
-  static void free(metadata *, uintptr_t) throw() {}
-  static void assign(metadata *, uintptr_t) throw() {}
-
-  // Fill me in!
-  void *addr;
-  unsigned size;
-  void *allocator_addr;
+  static void assign(object_metadata *, uintptr_t) throw() {}
 };
 
 namespace wp {
@@ -39,7 +53,7 @@ namespace wp {
 // Tell the watchpoints framework that
 template <typename>
 struct descriptor_type {
-  typedef metadata type;
+  typedef object_metadata type;
   enum {
     ALLOC_AND_INIT = true,
     REINIT_WATCHED_POINTERS = false

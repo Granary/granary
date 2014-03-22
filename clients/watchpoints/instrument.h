@@ -862,7 +862,9 @@ namespace client {
             const operand &op(tracker.regs[i]); \
             const instruction &label(tracker.labels[i]); \
             const instruction &pre_label(tracker.pre_labels[i]); \
+            auto size = tracker.sizes[i]; \
             (void) bb; (void) ls; (void) op; (void) label; (void) pre_label; \
+            (void) size; \
             __VA_ARGS__ \
         } \
     }
@@ -879,7 +881,9 @@ namespace client {
             const operand &op(tracker.regs[i]); \
             const instruction &label(tracker.labels[i]); \
             const instruction &pre_label(tracker.pre_labels[i]); \
+            auto size = tracker.sizes[i]; \
             (void) bb; (void) ls; (void) op; (void) label; (void) pre_label; \
+            (void) size; \
             __VA_ARGS__ \
         } \
     }

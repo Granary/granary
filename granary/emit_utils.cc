@@ -480,13 +480,6 @@ namespace granary {
             register_manager dead_regs(find_used_regs_in_func(
                 func_pc, used_reg_constraint));
 
-            // Assume that the caller does not care about saving argument
-            // registers which it likely clobbered (and had to save on its
-            // own).
-            for(unsigned i(num_args); i--; ) {
-                dead_regs.revive(ARGUMENT_REGISTERS[i]);
-            }
-
             // Don't bother saving callee-saved registers if the callee is
             // following the ABI.
             if(EXIT_REGS_ABI_COMPATIBLE == constraint) {
@@ -504,6 +497,19 @@ namespace granary {
                 dead_regs.kill(dynamorio::DR_REG_R9);
                 dead_regs.kill(dynamorio::DR_REG_R10);
                 dead_regs.kill(dynamorio::DR_REG_R11);
+            }
+
+            // Assume that the caller does not care about saving argument
+            // registers which it likely clobbered (and had to save on its
+            // own).
+            for(unsigned i(num_args); i--; ) {
+                dead_regs.revive(ARGUMENT_REGISTERS[i]);
+            }
+
+            // Need to save the other argument registers that are not saved by
+            // the caller when building the arguments.
+            for(unsigned i(num_args); i < 5; ++i) {
+                dead_regs.kill(ARGUMENT_REGISTERS[i]);
             }
 
             instruction_list ls;

@@ -411,12 +411,7 @@ namespace granary {
 
     /// Forward declarations.
     struct basic_block;
-
-
-#if CONFIG_DEBUG_RUN_TEST_CASES
     extern void run_tests(void) throw();
-#endif /* CONFIG_DEBUG_RUN_TEST_CASES */
-
 
 #if CONFIG_ENV_KERNEL
     template <typename T>

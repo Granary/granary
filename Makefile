@@ -297,6 +297,7 @@ ifeq ($(GR_CLIENT),lifetime)
 	GR_OBJS += $(BIN_DIR)/clients/lifetime/metadata.o
 	GR_OBJS += $(BIN_DIR)/clients/lifetime/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/lifetime/report.o
+	GR_OBJS += $(BIN_DIR)/tests/test_lifetime.o
 endif
 ifeq ($(GR_CLIENT),watchpoint_user)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_USER -DCLIENT_WATCHPOINTS

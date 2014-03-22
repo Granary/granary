@@ -12,14 +12,10 @@
 #include "granary/test.h"
 
 int main(void) throw() {
-
     using namespace granary;
 
     init();
-
-#if CONFIG_DEBUG_RUN_TEST_CASES
     run_tests();
-#endif
 
     IF_PERF( perf::report(); )
     return 0;
