@@ -92,7 +92,7 @@ END_FUNC(granary_detected_overflow)
     mov 4(%rsi), %rsi; @N@\
     sub $ size, %rsi; @N@\
     cmp %edi, %esi; @N@\
-    jmp .CAT(Lgranary_done_, size); @N@\
+    jge .CAT(Lgranary_done_, size); @N@\
 .CAT(Lgranary_underflow_, size): @N@\
     mov $ size, %rsi; @N@\
     jmp SHARED_SYMBOL(granary_detected_overflow); @N@\
