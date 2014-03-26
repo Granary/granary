@@ -10,6 +10,7 @@ The following is a list of people who have contributed to Granary (in alphabetic
  * [Olantuji Ruwase](https://github.com/tjruwase)
  * [Peter Goodman](https://github.com/pgoodman)
  * [Peter McCormick](https://github.com/pdmccormick)
+ * [Ren Zhen](https://github.com/renzhengeek)
  * [Tyler Dixon](https://github.com/ZymoticB)
 
 Granary's original implementation (not contained in this source code repository) was primarily
