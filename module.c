@@ -107,7 +107,7 @@ const void *kernel_search_exception_tables(void *pc) {
         (const void *(*)(void *)) DETACH_ADDR_search_exception_tables;
     return search_exception_tables(pc);
 #else
-#   return nullptr;
+    return nullptr;
 #endif
 }
 
