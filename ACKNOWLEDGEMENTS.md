@@ -1,7 +1,7 @@
 # Acknowledgements
 
 ## Granary
-As of September 2013, the bulk of the Granary code base was written by [Peter Goodman](https://github.com/pgoodman).
+As of April 2014, the bulk of the Granary code base was written by [Peter Goodman](https://github.com/pgoodman).
 
 The following is a list of people who have contributed to Granary (in alphabetical order):
 
