@@ -320,6 +320,20 @@ ifeq ($(GR_CLIENT),everything_watched)
 		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
 	endif
 endif
+ifeq ($(GR_CLIENT),leak_detector)
+    GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_LEAK
+    GR_WP_INCLUDE_DEFAULT = 1
+    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/access_descriptor.o
+    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/instrument.o
+    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/descriptor.o
+    GR_OBJS += $(BIN_DIR)/clients/watchpoints/clients/leak_detector/thread.o
+    
+    ifeq ($(KERNEL),1)
+		GR_MOD_OBJS += ${BIN_DIR}/leakpolicy_scan.o
+	else
+		GR_OBJS += $(BIN_DIR)/clients/watchpoints/user/posix/signal.o
+	endif
+endif
 ifeq ($(GR_CLIENT),everything_watched_aug)
 	GR_CXX_FLAGS += -DCLIENT_WATCHPOINT_AUGMENT -DCLIENT_WATCHPOINTS
 	GR_OBJS += $(BIN_DIR)/clients/watchpoints/instrument.o
@@ -557,6 +571,7 @@ endef
 	# dir; there's probably a better way to do this.
 	GR_MAKE = cp $(SOURCE_DIR)/module.c $(BIN_DIR)/module.c ;
 	GR_MAKE += cp $(SOURCE_DIR)/Makefile $(BIN_DIR)/Makefile ;
+	GR_MAKE += cp  clients/watchpoints/clients/leak_detector/kernel/leakpolicy_scan.c  $(BIN_DIR)/ ;
 	GR_MAKE += make -C $(KERNEL_DIR) M=$(BIN_DIR) GR_KBUILD_SOURCE_DIR=$(SOURCE_DIR) modules
 	GR_CLEAN = cp $(SOURCE_DIR)/Makefile $(BIN_DIR)/Makefile ;
 	GR_CLEAN += make -C $(KERNEL_DIR) M=$(BIN_DIR) GR_KBUILD_SOURCE_DIR=$(SOURCE_DIR) clean
