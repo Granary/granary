@@ -118,6 +118,10 @@ def emit_instr_function(lines, i, instr, args):
 
   arg_list = build_typed_arg_list(typed_arg, args[1:])
   copied_code = "\n    ".join(sub_lines)
+
+  # filter out floating point instructions.
+  if "float" in copied_code or "double" in copied_code:
+    return i
   
   func_name = instr + "_"
   if "jecxz" == instr:
@@ -196,7 +200,6 @@ def emit_opnd_function(lines, i, opnd, args):
   return i
 
 with open("deps/dr/x86/instr_create.h") as lines_:
-  C('#include <math.h>')
   C('#include <limits.h>')
   C('#include <stdint.h>')
   C('#include "granary/dynamorio.h"')
