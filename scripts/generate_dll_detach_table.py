@@ -68,14 +68,13 @@ def O(*args):
 
 if "__main__" == __name__:
   with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
+    tokens = CTokenizer(lines_)
     parser = CParser()
-    parser.parse(tokens)
-
-    for var, ctype in parser.vars():
-      if isinstance(ctype.base_type(), CTypeFunction):
-        FUNCTION_NAMES.add(var)
+    units = parser.parse_units(tokens)
+    for unit_decls, unit_toks, is_typedef in units:
+      for ctype, var in unit_decls:
+        if isinstance(ctype.base_type(), CTypeFunction):
+          FUNCTION_NAMES.add(var)
 
   dlls = []
   for line in fileinput.input():

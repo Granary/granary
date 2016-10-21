@@ -98,13 +98,12 @@ if "__main__" == __name__:
   import sys
   code = open(sys.argv[2], "w")
   with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
+    tokens = CTokenizer(lines_)
     parser = CParser()
-    parser.parse(tokens)
-
-    for var, ctype in parser.vars():
-      visit_var_def(var, ctype)
+    units = parser.parse_units(tokens)
+    for unit_decls, unit_toks, is_typedef in units:
+      for ctype, var in unit_decls:
+        visit_var_def(var, ctype)
 
     for var, ctype in FUNCTIONS.items():
       visit_function(var, ctype)

@@ -48,10 +48,10 @@ GR_PGO_TARGET =
 
 # Compilation toolchain
 GR_CPP = cpp
-GR_CC = gcc-4.8
-GR_LD = gcc-4.8
+GR_CC = clang-3.8
+GR_LD = clang-3.8
 GR_LDD = ldd
-GR_CXX = g++-4.8
+GR_CXX = clang++-3.8
 GR_CXX_STD = -std=gnu++0x
 GR_PYTHON = python
 
@@ -88,7 +88,8 @@ GR_CC_FLAGS = -I$(SOURCE_DIR)/ $(GR_DEBUG_LEVEL)
 GR_CXX_FLAGS = -I$(SOURCE_DIR)/ $(GR_DEBUG_LEVEL) -fno-rtti
 GR_CXX_FLAGS += -fno-exceptions -Wall -Werror -Wextra -Wstrict-aliasing=2
 GR_CXX_FLAGS += -Wno-variadic-macros -Wno-long-long -Wno-unused-function
-GR_CXX_FLAGS += -Wno-format-security -Wshadow
+GR_CXX_FLAGS += -Wno-format-security -Wshadow -Wno-braced-scalar-init
+GR_CXX_FLAGS += -Wno-unused-variable
 
 GR_CC_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time -fomit-frame-pointer
 GR_CXX_FLAGS += -fdata-sections -ffunction-sections -funit-at-a-time -fomit-frame-pointer
@@ -120,7 +121,7 @@ GR_LIBCXX ?= 0
 
 
 # Are we making a DLL for later dynamic linking?
-GR_DLL ?= 0
+GR_DLL ?= 1
 GR_OUTPUT_PREFIX =
 GR_OUTPUT_SUFFIX = .out
 

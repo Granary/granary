@@ -207,14 +207,15 @@ if "__main__" == __name__:
   import sys
   
   with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
+    tokens = CTokenizer(lines_)
     parser = CParser()
-    parser.parse(tokens)
 
     OUT("/* Auto-generated scanning functions. */")
     OUT("#define S(...) __VA_ARGS__ ")
     OUT("")
 
-    for type, ctype in parser.vars():
-      	visit_type_def(type, ctype)
+
+    units = parser.parse_units(tokens)
+    for unit_decls, unit_toks, is_typedef in units:
+      for ctype, var in unit_decls:
+        visit_type_def(var, ctype)

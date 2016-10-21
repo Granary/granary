@@ -393,10 +393,11 @@ if "__main__" == __name__:
   import sys
   
   with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
+    tokens = CTokenizer(lines_)
     parser = CParser()
-    parser.parse(tokens)
+
+    parser.parse_units(tokens)
+
     va_list = None
     try:
       va_list = parser.get_type("va_list", CTypeDefinition)
