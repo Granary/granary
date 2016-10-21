@@ -42,6 +42,7 @@ scripts/static/*.S
 scripts/static/*.o
 granary/x86/asm_defines.asm
 bin/*
+kernel/*
 
 # Compiled Dynamic libraries
 *.so

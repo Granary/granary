@@ -181,10 +181,18 @@ Instrumenting user space programs
 
 ### Linux
 ```basemake
+make all KERNEL=0 GR_DLL=1
+LD_PRELOAD=./libgranary.so my_program
+```
+
+To use a client, for example the CFG client, do:
+```basemake
+make all KERNEL=0 GR_DLL=1 GR_CLIENT=cfg
 LD_PRELOAD=./libgranary.so my_program
 ```
 
 ### Mac OS X
 ```basemake
+make all KERNEL=0 GR_DLL=1
 DYLD_INSERT_LIBRARIES=./libgranary.dylib my_program
 ```

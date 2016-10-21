@@ -102,7 +102,7 @@ GR_EXTRA_LD_FLAGS += "-Wl,--defsym=strncpy=granary_strncpy"
 GR_EXTRA_LD_FLAGS += "-Wl,--gc-sections"
 
 # Options for generating type information.
-GR_TYPE_CC = $(GR_CC)
+GR_TYPE_CC = $(GR_CXX)
 GR_TYPE_CC_FLAGS =
 GR_INPUT_TYPES =
 GR_OUTPUT_TYPES =

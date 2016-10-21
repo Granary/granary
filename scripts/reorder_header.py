@@ -437,10 +437,16 @@ def process_units(units):
 
 if "__main__" == __name__:
   import sys
-  
+  macro_defs, source_lines = [], []
   with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
-    units = parser.parse_units(tokens)
-    process_redundant_decls(units)
-    process_units(units)
+    for line in lines_:
+      if line.startswith("#"):
+        macro_defs.append(line)
+      else:
+        source_lines.append(line)
+
+  tokens = CTokenizer(source_lines)
+  units = parser.parse_units(tokens)
+  process_redundant_decls(units)
+  O("".join(macro_defs))
+  process_units(units)

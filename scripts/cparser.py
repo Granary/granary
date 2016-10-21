@@ -34,6 +34,7 @@ Author:       Peter Goodman (peter.goodman@gmail.com)
 Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
+import re
 
 # Sets of all operators, grouped in terms of the length of the operators.
 OPERATORS = {
@@ -117,6 +118,7 @@ class CToken(object):
     "sizeof":         OPERATOR,
     "static":         SPECIFIER_STORAGE,
     "struct":         TYPE_SPECIFIER,
+    "class":          TYPE_SPECIFIER,
     "switch":         STATEMENT_BEGIN,
     "typedef":        SPECIFIER_STORAGE,
     "union":          TYPE_SPECIFIER,
@@ -127,6 +129,7 @@ class CToken(object):
     "_Bool":          TYPE_BUILT_IN,
     "_Complex":       TYPE_BUILT_IN,
     "_Imaginary":     TYPE_BUILT_IN,
+    "operator":       EXTENSION_NO_PARAM,
 
     "wchar_t":        TYPE_MAYBE_BUILT_IN,
     
@@ -184,6 +187,8 @@ class CToken(object):
     "__visibility__": EXTENSION,
     "__warn_unused_result__": EXTENSION_NO_PARAM,
     "__weak__":       EXTENSION_NO_PARAM,
+    
+    "throw":          EXTENSION,
 
     "typeof":         TYPEOF,
     "__typeof__":     TYPEOF,
@@ -226,12 +231,11 @@ class CCharacterReader(object):
   #
   # Args:
   #   buff_:          Indexible sequence of characters.
-  def __init__(self, buff_):
-    self.buff = buff_
+  def __init__(self, lines_):
+    self.buff = self._lines_to_buff(lines_)
     self.last_idx = -1
     self.line = 1
     self.col = 0
-    self.seen_carriage_return = False
 
   # Return the length of the internal character buffer.
   #
@@ -264,18 +268,11 @@ class CCharacterReader(object):
 
     if 0 < diff:
       self.last_idx = idx
-      seen_cr, self.seen_carriage_return = self.seen_carriage_return, False
-
       if "\t" == c:
         self.col += (diff - 1) + CCharacterReader.TAB_SIZE
-      elif "\r" == c:
+      elif "\n" == c:
         self.col = 1
         self.line += 1
-        self.seen_carriage_return = True
-      elif "\n" == c:
-        if not seen_cr:
-          self.col = 1
-          self.line += 1
       else:
         self.col += diff
 
@@ -300,12 +297,31 @@ class CCharacterReader(object):
   def next_checkpoint(self):
     return CCarat(self.line, self.col + 1)
 
+  MACRO_LINE = re.compile(r"^[\s]*#")
+  COMMENT = re.compile(r"//.*$")
+
+  # Converts a line iterator into a large string, where single-line comments
+  # (beginning with `//`) and macro lines (beginning with `#`) have been
+  # stripped.
+  #
+  # Returns:
+  #   A string.
+  def _lines_to_buff(self, lines):
+    buff = []
+    for line in lines:
+      if self.MACRO_LINE.match(line):
+        continue
+      line = line.rstrip(" \t\r\n")
+      line = self.COMMENT.sub("", line)
+      line = line.rstrip(" \t")
+      buff.append(line)
+    return "\n".join(buff)
 
 class CTokenizer(object):
   """Tokenizer for something like GNU C99."""
 
-  def __init__(self, buff_):
-    self.buff = CCharacterReader(buff_)
+  def __init__(self, lines_):
+    self.buff = CCharacterReader(lines_)
     self.len = len(self.buff)
     self.pos = 0
     self.future_tokens = []
@@ -640,7 +656,6 @@ class CType(object):
       ctype = ctype.used_type().unattributed_type().unaliased_type()
     return ctype
 
-
 class CTypeCompound(CType):
   """Base class for user-defined compound types."""
   pass
@@ -814,13 +829,12 @@ class CTypePointer(CType):
 
   __slots__ = ('ctype', 'is_const', 'is_restrict', 'is_volatile')
 
-  def __init__(self, ctype_, **kargs):
+  def __init__(self, ctype_, pointer_size):
     self.ctype = ctype_
     self.is_const = False
     self.is_restrict = False
     self.is_volatile = False
-    for k in kargs:
-      setattr(self, k, kargs[k])
+    self.size = pointer_size
 
   def __repr__(self):
     c = self.is_const     and "const "    or ""
@@ -951,6 +965,7 @@ class CTypeAttributed(CType):
 
   def __repr__(self):
     return "Attributed(%s, %s)" % (repr(self.attrs), repr(self.ctype))
+
 
 class CTypeExpression(CType):
   """Represents a type that is computed by some expression e.g.: typeof (...)."""
@@ -1142,6 +1157,7 @@ class CParser(object):
     "union":  CTypeUnion, 
     "enum":   CTypeEnum,
     "struct": CTypeStruct,
+    "class": CTypeStruct,
   }
 
   # Constructor for making/choosing a symbol table to use when parsing the body
@@ -1149,6 +1165,7 @@ class CParser(object):
   COMPOUND_TYPE_STAB = {
     "union":  lambda _, parent_stab: CSymbolTable(parent_stab),
     "struct": lambda _, parent_stab: CSymbolTable(parent_stab),
+    "class": lambda _, parent_stab: CSymbolTable(parent_stab),
 
     # enum gets and places its symbols in the enclosing scope. E.g. if we have
     # struct { enum { FOO } bar; };, then FOO is available in the scope in which
@@ -1173,11 +1190,6 @@ class CParser(object):
   T_D   = CTypeBuiltIn("double", True)
   T_DL  = CTypeBuiltIn("long double", True)
   T_WC  = CTypeBuiltIn("wchar_t")
-
-  T_CHR = CTypeAttributed(T_C, CTypeAttributes(is_const=True))
-  T_STR = CTypePointer(T_C, is_const=True)
-  T_INT = CTypeAttributed(T_LL, CTypeAttributes(is_const=True))
-  T_FLT = CTypeAttributed(T_D, CTypeAttributes(is_const=True))
 
   VA_LIST = CTypeBuiltIn("__builtin_va_list")
 
@@ -1261,7 +1273,8 @@ class CParser(object):
   }
 
   # Initialise the parser.
-  def __init__(self):
+  def __init__(self, pointer_size=64):
+    self.pointer_size = pointer_size
 
     # The global symbol table.
     self.stab = CSymbolTable()
@@ -1275,6 +1288,23 @@ class CParser(object):
     # just in case our use case involves interpreting C as if it were C++, where
     # this nesting is akin to namespacing.
     self.type_stack = []
+
+  # Parse a class.
+  #
+  # Args:
+  #   stab:           Symbol table in which to place new names.
+  #   ctype:          The type object representing the type that we are currently
+  #                   parsing.
+  #   outer_toks:     The token stream from which we will extract only those
+  #                   tokens (`toks`) belonging to this compound type definition.
+  #   j:              Our current cursor position in the `outer_toks` (the
+  #                   position of the opening '{')
+  #
+  # Returns:
+  #   The position in toks to continue parsing (immediately following the
+  #   closing } of the compound type definition).
+  def _parse_class_type(self, stab, class_ctype, outer_toks, j):
+    return self._get_up_to_balanced(outer_toks, [], j, "{")
 
   # Parse a union or struct.
   #
@@ -1398,6 +1428,7 @@ class CParser(object):
   # Specific parsing functions for each type of compound user-defined type.
   COMPOUND_TYPE_PARSER = {
     "struct": _parse_struct_union_type,
+    "class": _parse_class_type,
     "union": _parse_struct_union_type,
     "enum": _parse_enum_type,
   }
@@ -1814,10 +1845,23 @@ class CParser(object):
       # global variable that is assigned a default value.
       elif "=" == t.str:
         i, expr = self._parse_expression(stab, toks, i + 1, can_have_comma=True)
+
+      # C++ operator overload; skip over it.
+      elif "operator" == t.str:
+        while i < len(toks) and ";" != toks[i]:
+          i = i+1
+        return (i+1, None, None, None)
+
+      # Assume it's a function body. Return the index of the `}` to break out
+      # of the loop in getting a declaration.
+      elif "{" == t.str:
+        i = self._get_up_to_balanced(toks, [], i, "{") - 1
+        break
+
       else:
-        #print
-        #print repr(t.str), t.carat.line, t.carat.column, ctype
-        #print
+        print
+        print repr(t.str), t.carat.line, t.carat.column, ctype
+        print
         assert False
 
     if call_recursive:
@@ -1852,7 +1896,7 @@ class CParser(object):
           base = CTypeAttributed(base, name_attrs)
           has_attrs = False
           name_attrs = CTypeNameAttributes()
-        base = CTypePointer(base)
+        base = CTypePointer(base, self.pointer_size)
 
       # qualifiers: const, restrict, volatile
       elif hasattr(base, "is_" + t.str):
@@ -2111,21 +2155,6 @@ class CParser(object):
       i += 1
     return decls
 
-  # Parse a C file.
-  #
-  # Returns:
-  #   A list of C declarations (AST nodes).
-  def parse(self, toks):
-    toks = list(toks)
-    i = 0
-    all_decls = []
-    while i < len(toks):
-      carat = toks[i].carat
-      i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
-      decls = self._update_with_declarations(decls, is_typedef)
-      all_decls.extend(decls)
-    return all_decls
-
   # Parse a C file and return the groups of declarations/definitions
   # along with all tokens belonging to those groups. This makes it
   # easier to re-order the declarations / definitions within a C file
@@ -2141,11 +2170,32 @@ class CParser(object):
     toks = list(toks)
     groups = []
     i = 0
+    brace_count = 0
+    
     while i < len(toks):
-      prev_i = i
-      i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
-      decls = self._update_with_declarations(decls, is_typedef)
-      groups.append((decls, toks[prev_i:i], is_typedef))
+      # Something like `extern "C"`.
+      if i + 1 < len(toks) and \
+      "extern" == toks[i].str and \
+      CToken.LITERAL_STRING == toks[i+1].kind:
+        i += 2
+        continue
+
+      elif "{" == toks[i].str:
+        brace_count += 1
+        i += 1
+        continue
+      
+      elif "}" == toks[i].str:
+        assert 0 < brace_count
+        brace_count -= 1
+        i += 1
+        continue
+
+      else:
+        prev_i = i
+        i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
+        decls = self._update_with_declarations(decls, is_typedef)
+        groups.append((decls, toks[prev_i:i], is_typedef))
     return groups
 
   # Generate pairs of variables/functions and their types at the global 
@@ -2201,16 +2251,4 @@ def has_attribute(ctype, attr_name):
       ctype = ctype.unaliased_type()
   return False
 
-
-
-# for testing
-if "__main__" == __name__:
-  import sys
-  with open(sys.argv[1]) as lines_:
-    buff = "".join(lines_)
-    tokens = CTokenizer(buff)
-    parser = CParser()
-    parser.parse(tokens)
-    for var, ctype in parser.vars():
-      print var, ctype
 

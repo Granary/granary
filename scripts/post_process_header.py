@@ -5,7 +5,6 @@ Author:       Peter Goodman (peter.goodman@gmail.com)
 Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
 """
 
-import sys
 import re
 
 
@@ -21,26 +20,29 @@ NON_BRACES = re.compile(r"[^{}]")
 DOLLAR_IN_STRING = re.compile(r"\"([^\"]*)\$([^\"]*)\"")
 
 
-def get_lines():
+def get_lines(file_name):
   """Get the lines of a file as a list of strings such that no line has
   more than one brace, and that every line is C/C++ and not pre-processor
   line directives."""
+  macro_defs = []
   all_lines = []
 
   # remove empty lines and new lines
-  with open(sys.argv[1]) as lines:
+  with open(file_name) as lines:
     for line in lines:
       strip_line = line.strip(" \n\r\t")
       if not strip_line:
         continue
       
-      # get rid of pre-processor line numbers
-      if strip_line.startswith("#"):
-        continue
+      # Keep track of pre-processor defines.
+      if strip_line.startswith("#define"):
+        macro_defs.append(stip_line)
 
-      all_lines.append(strip_line)
+      # Ignore  pre-processor line numbers
+      elif not strip_line.startswith("#"):
+        all_lines.append(strip_line)
 
-  # inject new lines in a structured manner
+  # Inject new lines in a structured manner
   buff = "\n".join(all_lines)
   buff = buff.replace("\n", " ") # this is quite aggressive!
   buff = buff.replace("{", "{\n")
@@ -53,14 +55,14 @@ def get_lines():
   buff = buff.replace(",\n", ", ")
 
   buff = re.sub(r"([^a-zA-Z_0-9])extern", r"\1\nextern", buff, flags=re.MULTILINE)
-  buff = re.sub(r"([^a-zA-Z_0-9\*])namespace", r"\1\nnamespace", buff, flags=re.MULTILINE)
-  buff = re.sub(r"(^[a-zA-Z_0-9\*])template", r"\1\ntemplate", buff, flags=re.MULTILINE)
+  buff = re.sub(r"([^a-zA-Z_0-9\*])namespace([ \t\n])", r"\1\nnamespace\2", buff, flags=re.MULTILINE)
+  buff = re.sub(r"(^[a-zA-Z_0-9\*])template([ <])", r"\1\ntemplate\2", buff, flags=re.MULTILINE)
   buff = re.sub(r"static([\r\n \t]+)", "static ", buff, flags=re.MULTILINE)
 
   buff = buff.replace("typedef", "\ntypedef")
   
-  # now there is only one brace ({ or }) per line.
-  return buff.split("\n")
+  # Now there is only one brace ({ or }) per line.
+  return macro_defs, buff.split("\n")
 
 
 def match_next_brace_group(lines, i, internal_lines, include=False):
@@ -188,4 +190,9 @@ def process_lines(lines):
     O(strip_line)
 
 
-process_lines(get_lines())
+if "__main__" == __name__:
+  import sys
+  macro_defs, lines = get_lines(sys.argv[1])
+  for macro_def in macro_defs:
+    O(macro_def)
+  process_lines(lines)
