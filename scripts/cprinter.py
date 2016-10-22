@@ -109,3 +109,4 @@ def pretty_print_type(ctype, inner="", lang="C"):
     s = "%s %s" % (ctype.name, inner)
 
   return s.strip(" ")
+

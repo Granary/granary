@@ -228,8 +228,7 @@ def process_redundant_decls(units):
   units = list(units)
 
   enum_constants = set()
-  structs = set()
-  unions = set()
+  typedefs = set()
   compounds = {
     CTypeUnion: set(),
     CTypeStruct: set()
@@ -242,6 +241,7 @@ def process_redundant_decls(units):
 
   for unit_decls, unit_toks, is_typedef in units:
     for ctype, name in unit_decls:
+      ctype = ctype.unattributed_type()
       base_ctype = ctype.base_type()
       
       # look for duplicate definitions of enumerator constants
@@ -324,6 +324,11 @@ def process_redundant_decls(units):
           del unit_toks[:]
           continue
 
+      elif isinstance(ctype, CTypeDefinition):
+        if ctype.name in typedefs or ctype.name == "wchar_t":
+          del unit_toks[:]
+        else:
+          typedefs.add(ctype.name)
 
 # Remove __attribute__ ( ... ) forms from functions.
 #
@@ -426,8 +431,7 @@ def process_units(units):
   # output forward declarations for structs and unions
   global COMPOUNDS
   for ctype in COMPOUNDS:
-    if ctype.has_name and ctype.had_name:
-      O("%s;" % ctype.name)
+    O(ctype.name, ";")
 
   # output the tokens
   buff = " ".join(toks).split("\n")
@@ -448,5 +452,6 @@ if "__main__" == __name__:
   tokens = CTokenizer(source_lines)
   units = parser.parse_units(tokens)
   process_redundant_decls(units)
+  
   O("".join(macro_defs))
   process_units(units)

@@ -15,11 +15,6 @@ def O(*args):
   if "(^" not in line:
     print line
 
-
-NON_BRACES = re.compile(r"[^{}]")
-DOLLAR_IN_STRING = re.compile(r"\"([^\"]*)\$([^\"]*)\"")
-
-
 def get_lines(file_name):
   """Get the lines of a file as a list of strings such that no line has
   more than one brace, and that every line is C/C++ and not pre-processor
@@ -34,165 +29,32 @@ def get_lines(file_name):
       if not strip_line:
         continue
       
-      # Keep track of pre-processor defines.
-      if strip_line.startswith("#define"):
-        macro_defs.append(stip_line)
+      # Turn things like `#  define` into `#define`.
+      strip_line = strip_line.replace(r"#[ ]+", "#")
+      if strip_line.startswith("#"):
+        if strip_line.startswith("#define"):
+          macro_defs.append(strip_line)
+        continue
 
       # Ignore  pre-processor line numbers
-      elif not strip_line.startswith("#"):
+      if not strip_line.startswith("//"):
         all_lines.append(strip_line)
 
-  # Inject new lines in a structured manner
-  buff = "\n".join(all_lines)
-  buff = buff.replace("\n", " ") # this is quite aggressive!
-  buff = buff.replace("{", "{\n")
-  buff = buff.replace("}", "}\n")
-  buff = buff.replace(";", ";\n")
-  buff = buff.replace("}\n;", "\n};\n")
-  buff = buff.replace("(\n", "(")
-  buff = buff.replace("\n)", ")")
-  buff = buff.replace("\n{", "{")
-  buff = buff.replace(",\n", ", ")
+  # # Inject new lines in a structured manner
+  buff = " ".join(all_lines)
+  buff = buff.replace(r"[ ]+", " ")  # Multiple spaces
+  buff = buff.replace(" }", "\n}")
+  buff = buff.replace("} ", "}\n")
+  buff = buff.replace("{ ", "{\n")
+  buff = buff.replace("; ", ";\n")
+  buff = buff.replace("\t", " ")
 
-  buff = re.sub(r"([^a-zA-Z_0-9])extern", r"\1\nextern", buff, flags=re.MULTILINE)
-  buff = re.sub(r"([^a-zA-Z_0-9\*])namespace([ \t\n])", r"\1\nnamespace\2", buff, flags=re.MULTILINE)
-  buff = re.sub(r"(^[a-zA-Z_0-9\*])template([ <])", r"\1\ntemplate\2", buff, flags=re.MULTILINE)
-  buff = re.sub(r"static([\r\n \t]+)", "static ", buff, flags=re.MULTILINE)
-
-  buff = buff.replace("typedef", "\ntypedef")
-  
   # Now there is only one brace ({ or }) per line.
   return macro_defs, buff.split("\n")
-
-
-def match_next_brace_group(lines, i, internal_lines, include=False):
-  """Try to determine the line index (i) of the line that ends a brace
-  group. E.g. if a function is defined, """
-
-  # skip lines until we find out first brace
-  while i < len(lines):
-    if "{" in lines[i]:
-      break
-    i += 1
-
-  num = 0
-  done, seen_first_line = False, False
-  while i < len(lines):
-    only_braces = NON_BRACES.sub("", lines[i])
-    for b in only_braces:
-      if "{" == b:
-        num += 1
-      else:
-        num -= 1
-      if not num:
-        done = True
-        break
-    if done:
-      return i
-
-    if seen_first_line:
-      internal_lines.append(lines[i].strip(" \r\n\t"))
-    seen_first_line = True
-    
-    i += 1
-  
-  return len(lines)
-
-
-def process_lines(lines):
-  global DOLLAR_IN_STRING
-
-  i = -1
-  if not lines:
-    return
-
-  while True:
-    i += 1
-    if i >= len(lines):
-      return
-
-    line = lines[i]
-    strip_line = line.strip(" \n\r\t")
-    if not strip_line:
-      continue
-
-    if strip_line.startswith("using"):
-      continue
-
-    if strip_line.startswith("return"):
-      continue
-
-    if "$" in strip_line:
-      # make sure that the $ is not inside a string, e.g. __asm("$INODE...")
-      if not DOLLAR_IN_STRING.search(strip_line):
-        continue
-
-    #print strip_line
-
-    # strip out C++-isms.
-    if strip_line.startswith("namespace") \
-    or strip_line.startswith("template"):
-      ignore = []
-      i = match_next_brace_group(lines, i, ignore)
-      continue
-
-    # look for inline function definitions and turn them into declarations
-    if " inline " in strip_line \
-    or strip_line.startswith("inline ") \
-    or strip_line.endswith(" inline") \
-    or "__inline " in strip_line \
-    or "inline__ " in strip_line \
-    or "always_inline" in strip_line \
-    or ("static " in strip_line and "(" in strip_line): # uuugh
-
-      # static variable definition
-      if ";" == strip_line[-1] \
-      and "{" not in strip_line \
-      and "=" in strip_line:
-        continue
-
-      output_line = strip_line
-      def_lines = []
-      old_i = i
-      i = match_next_brace_group(lines, i, def_lines)
-      #print lines[old_i:i + 1]
-
-      if "{" in output_line:
-        output_line = output_line[:-1]
-      elif ";" != output_line[-1]:
-        j = 0
-        while j < len(def_lines): # "{" not in output_line and
-          if "{" in def_lines[j]:
-            output_line += "\n" + def_lines[j][:-1] # lines end with "{"
-            break
-          output_line += "\n" + def_lines[j]
-          j += 1
-
-      output_line += ";"
-
-      # don't output functions with internal linkage
-      #if "static" not in output_line:
-      #  O(output_line)
-      continue
-
-    # this could be an extern function, or a C++ extern "C" { ... }
-    if strip_line.startswith("extern"):
-      if '"C"' in strip_line:
-        code_lines = []
-        i = match_next_brace_group(lines, i, code_lines)
-        process_lines(code_lines)
-        continue
-
-    # special case for re-defining wchar_t
-    if "typedef" in strip_line and "wchar_t;" in strip_line:
-      continue
-
-    O(strip_line)
 
 
 if "__main__" == __name__:
   import sys
   macro_defs, lines = get_lines(sys.argv[1])
-  for macro_def in macro_defs:
-    O(macro_def)
-  process_lines(lines)
+  for line in lines:
+    O(line)

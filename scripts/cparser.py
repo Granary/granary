@@ -31,10 +31,11 @@ supposed other module) for perfectly matching object layouts with what the
 targeted compiler would generate.
 
 Author:       Peter Goodman (peter.goodman@gmail.com)
-Copyright:    Copyright 2012-2013 Peter Goodman, all rights reserved.
+Copyright:    Copyright 2012-2016 Peter Goodman, all rights reserved.
 """
 
 import re
+import sys
 
 # Sets of all operators, grouped in terms of the length of the operators.
 OPERATORS = {
@@ -118,7 +119,9 @@ class CToken(object):
     "sizeof":         OPERATOR,
     "static":         SPECIFIER_STORAGE,
     "struct":         TYPE_SPECIFIER,
+    "namespace":      TYPE_SPECIFIER,
     "class":          TYPE_SPECIFIER,
+    "template":       TYPE_SPECIFIER,
     "switch":         STATEMENT_BEGIN,
     "typedef":        SPECIFIER_STORAGE,
     "union":          TYPE_SPECIFIER,
@@ -131,7 +134,7 @@ class CToken(object):
     "_Imaginary":     TYPE_BUILT_IN,
     "operator":       EXTENSION_NO_PARAM,
 
-    "wchar_t":        TYPE_MAYBE_BUILT_IN,
+    # "wchar_t":        TYPE_MAYBE_BUILT_IN,
     
     # extensions    
     "asm":            EXTENSION,
@@ -316,7 +319,8 @@ class CCharacterReader(object):
       line = self.COMMENT.sub("", line)
       line = line.rstrip(" \t")
       buff.append(line)
-    return "\n".join(buff)
+    return " ".join(buff)
+
 
 class CTokenizer(object):
   """Tokenizer for something like GNU C99."""
@@ -803,15 +807,15 @@ class CTypeDefinition(CType):
     self.is_missing = is_missing
     self.is_printing = False
 
-    # update internal names of some compound types
-    base_ctype = ctype_.base_type()
-    if isinstance(base_ctype, CTypeStruct) \
-    or isinstance(base_ctype, CTypeUnion) \
-    or isinstance(base_ctype, CTypeEnum):
-      if not base_ctype.has_name:
-        base_ctype.name = name_
-        base_ctype.internal_name = name_
-        base_ctype.has_name = True
+    # # update internal names of some compound types
+    # base_ctype = ctype_.base_type()
+    # if isinstance(base_ctype, CTypeStruct) \
+    # or isinstance(base_ctype, CTypeUnion) \
+    # or isinstance(base_ctype, CTypeEnum):
+    #   if not base_ctype.has_name:
+    #     base_ctype.name = name_ + "_"
+    #     base_ctype.internal_name = base_ctype.name
+    #     base_ctype.has_name = True
 
   def __repr__(self):
     if self.is_printing:
@@ -1156,18 +1160,18 @@ class CParser(object):
 
   # Constructors for various different compound types.
   COMPOUND_TYPE = {
-    "union":  CTypeUnion, 
-    "enum":   CTypeEnum,
-    "struct": CTypeStruct,
-    "class":  CTypeStruct,
+    "union":    CTypeUnion, 
+    "enum":     CTypeEnum,
+    "struct":   CTypeStruct,
+    "class":    CTypeStruct,
   }
 
   # Constructor for making/choosing a symbol table to use when parsing the body
   # of a compound type.
   COMPOUND_TYPE_STAB = {
-    "union":  lambda _, parent_stab: CSymbolTable(parent_stab),
-    "struct": lambda _, parent_stab: CSymbolTable(parent_stab),
-    "class":  lambda _, parent_stab: CSymbolTable(parent_stab),
+    "union":      lambda _, parent_stab: CSymbolTable(parent_stab),
+    "struct":     lambda _, parent_stab: CSymbolTable(parent_stab),
+    "class":      lambda _, parent_stab: CSymbolTable(parent_stab),
 
     # enum gets and places its symbols in the enclosing scope. E.g. if we have
     # struct { enum { FOO } bar; };, then FOO is available in the scope in which
@@ -1191,7 +1195,7 @@ class CParser(object):
   T_F   = CTypeBuiltIn("float", True)
   T_D   = CTypeBuiltIn("double", True)
   T_DL  = CTypeBuiltIn("long double", True)
-  T_WC  = CTypeBuiltIn("wchar_t")
+  # T_WC  = CTypeBuiltIn("wchar_t")
 
   VA_LIST = CTypeBuiltIn("__builtin_va_list")
 
@@ -1249,7 +1253,7 @@ class CParser(object):
     ("double",):                      T_D,
     ("double", "long"):               T_DL,
 
-    ("wchar_t",):                     T_WC,
+    # ("wchar_t",):                     T_WC,
 
     ("_Complex", "float"):            T_FC,
     ("_Complex", "double"):           T_DC,
@@ -1306,6 +1310,10 @@ class CParser(object):
   #   The position in toks to continue parsing (immediately following the
   #   closing } of the compound type definition).
   def _parse_class_type(self, stab, class_ctype, outer_toks, j):
+    return self._get_up_to_balanced(outer_toks, [], j, "{")
+
+  # Parse a namespace. This will basically eliminate it.
+  def _parse_namespace(self, stab, class_ctype, outer_toks, j):
     return self._get_up_to_balanced(outer_toks, [], j, "{")
 
   # Parse a union or struct.
@@ -1429,10 +1437,12 @@ class CParser(object):
 
   # Specific parsing functions for each type of compound user-defined type.
   COMPOUND_TYPE_PARSER = {
-    "struct": _parse_struct_union_type,
-    "class": _parse_class_type,
-    "union": _parse_struct_union_type,
-    "enum": _parse_enum_type,
+    "struct":     _parse_struct_union_type,
+    "class":      _parse_class_type,
+    "template":   _parse_class_type,
+    "namespace":  _parse_namespace,
+    "union":      _parse_struct_union_type,
+    "enum":       _parse_enum_type,
   }
 
   # Parse a single declaration.
@@ -1749,12 +1759,12 @@ class CParser(object):
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
 
+    # if not ctype:
+    #   print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
+    #   print carat.line, carat.column
+
     if not attrs.has_default_attrs():
       ctype = CTypeAttributed(ctype, attrs)
-
-    if not ctype:
-      print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
-      print carat.line, carat.column
 
     assert ctype
     return i, ctype, defines_type
@@ -1863,8 +1873,8 @@ class CParser(object):
         break
 
       else:
-        i += 1
-        continue  # Skip over it.
+        # i += 1
+        # continue  # Skip over it.
         print
         print repr(t.str), t.carat.line, t.carat.column, ctype
         print
@@ -2193,16 +2203,32 @@ class CParser(object):
 
         extern_kind = toks[i+1].str.upper()
         if '"C++"' == extern_kind:
-          i = self._get_up_to_balanced(toks, [], i, "{")
+          if "{" == toks[i+2]:
+            i = self._get_up_to_balanced(toks, [], i, "{")
+          else:
+            i += 2
           continue
         elif '"C"' == extern_kind:
-          i += 2
+          if "{" == toks[i+2]:
+            intern_toks = []
+            i = self._get_up_to_balanced(toks, intern_toks, i, "{")
+            groups.extend(self.parse_units(intern_toks))
+          else:
+            i += 2
           continue
         else:
           assert False
 
       # Ignore C++ classes.
       elif "class" == toks[i].str:
+        i = self._get_up_to_balanced(toks, [], i, "{")
+
+      # Ignore C++ templates.
+      elif "template" == toks[i].str:
+        i = self._get_up_to_balanced(toks, [], i, "{")
+
+      # Ignore C++ namespaces.
+      elif "namespace" == toks[i].str:
         i = self._get_up_to_balanced(toks, [], i, "{")
 
       elif "{" == toks[i].str:
@@ -2213,7 +2239,7 @@ class CParser(object):
       elif "}" == toks[i].str:
         if not 0 < brace_count:
           t = toks[i]
-          print t.str, t.carat.line, t.carat.column
+          # print t.str, t.carat.line, t.carat.column
         assert 0 < brace_count
         brace_count -= 1
         i += 1
@@ -2228,6 +2254,7 @@ class CParser(object):
         i, decls, is_typedef = self._parse_declaration(self.stab, toks, i)
         decls = self._update_with_declarations(decls, is_typedef)
         groups.append((decls, toks[prev_i:i], is_typedef))
+
     return groups
 
   # Generate pairs of variables/functions and their types at the global 

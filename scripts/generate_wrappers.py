@@ -103,7 +103,7 @@ def scoped_name(ctype):
   return "::".join(reversed(parts))
 
 
-def wrap_struct(ctype):
+def wrap_struct(ctype, *args):
   will_pre = will_pre_wrap_fields(ctype)
   will_post = will_post_wrap_fields(ctype)
   if not will_pre and not will_post:
