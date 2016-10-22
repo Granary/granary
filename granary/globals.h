@@ -28,12 +28,12 @@
 
 
 #ifndef CONFIG_ENV_KERNEL
-#   define CONFIG_ENV_KERNEL 1
+#   define CONFIG_ENV_KERNEL 0
 #endif
 
 
 #ifndef GRANARY_USE_PIC
-#   define GRANARY_USE_PIC 0
+#   define GRANARY_USE_PIC 1
 #endif
 
 
@@ -46,7 +46,7 @@
 #if CONFIG_ENV_KERNEL
 #   define CONFIG_FEATURE_INSTRUMENT_HOST GRANARY_WHOLE_KERNEL
 #else
-#   define CONFIG_FEATURE_INSTRUMENT_HOST 0 // TODO: Perhaps default to 1.
+#   define CONFIG_FEATURE_INSTRUMENT_HOST 1 // TODO: Perhaps default to 1.
 #endif
 
 
@@ -121,7 +121,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 1
+#define CONFIG_DEBUG_TRACE_EXECUTION 0
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024

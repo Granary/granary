@@ -4,7 +4,7 @@ set print demangle on
 set print asm-demangle on
 set print object on
 set print static-members on
-set disassembly-flavor att
+set disassembly-flavor intel
 set language c++
 
 

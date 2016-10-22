@@ -226,8 +226,7 @@ class ControlFlowGraph(object):
 
       # Unexpected line.
       else:
-        print repr(line)
-        assert False
+        continue
 
     for line in pending_bb_lines:
       self._accept_bb(BasicBlock.parse(line))

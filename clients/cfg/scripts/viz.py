@@ -50,8 +50,11 @@ if __name__ == "__main__":
         last_bb = BasicBlock(line.strip(" \r\n\t"))
         BBS.append(last_bb)
       elif line.strip():
-        assert last_bb
-        last_bb.edge_strings.append(line.strip(" \r\n\t"))
+        if line.startswith("Jcc") or line.startswith("CALL") \
+        or line.startswith("JMP") or line.startswith("INTRA") \
+        or line.startswith("INTER"):
+          assert last_bb
+          last_bb.edge_strings.append(line.strip(" \r\n\t"))
 
   BBS.sort(key=lambda bb: bb.cache_start)
 
@@ -94,7 +97,7 @@ if __name__ == "__main__":
   HEIGHT_PX = max_height * num_slab_rows
 
   import Image, ImageDraw, ImageFont
-  font = ImageFont.load("/home/pag/Code/pilfonts/courB08.pil")
+  #font = ImageFont.load("/home/pag/Code/pilfonts/courB08.pil")
   img = Image.new('RGB', (WIDTH_PX, HEIGHT_PX), "black")
 
   allocators = set(bb.allocator for bb in BBS)
@@ -141,8 +144,7 @@ if __name__ == "__main__":
       some_allocator = slab[0].allocator
       draw.text(
         (start_x + MAX_SLAB_WIDTH_PX / 3, max_height * (1 + y_mult) - 20),
-        str(allocator_nums[some_allocator]),
-        font=font)
+        str(allocator_nums[some_allocator]))
 
 
 
