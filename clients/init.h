@@ -43,6 +43,10 @@
 #   define CLIENT_init
 #endif
 
+#ifdef CLIENT_TRACER
+#   define CLIENT_init
+#endif
+
 #ifdef CLIENT_init
 namespace client {
     void init(void) throw();

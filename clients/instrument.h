@@ -120,6 +120,9 @@
 #   include "clients/lifetime/instrument.h"
 #endif
 
+#ifdef CLIENT_TRACER
+#   include "clients/tracer/instrument.h"
+#endif
 
 /// Default to NULL policy if no policy was chosen.
 #ifndef GRANARY_INIT_POLICY

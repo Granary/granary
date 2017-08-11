@@ -268,6 +268,10 @@ ifeq ($(GR_CLIENT),cfg)
 	GR_OBJS += $(BIN_DIR)/clients/cfg/instrument.o
 	GR_OBJS += $(BIN_DIR)/clients/cfg/report.o
 endif
+ifeq ($(GR_CLIENT),tracer)
+	GR_CXX_FLAGS += -DCLIENT_TRACER
+	GR_OBJS += $(BIN_DIR)/clients/tracer/instrument.o
+endif
 
 GR_WP_INCLUDE_DEFAULT = 0
 
@@ -730,6 +734,7 @@ env:
 	@-mkdir $(BIN_DIR)/clients/track_entry_exit > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/cfg > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/lifetime > /dev/null 2>&1 ||:
+	@-mkdir $(BIN_DIR)/clients/tracer > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/clients > /dev/null 2>&1 ||:
 	@-mkdir $(BIN_DIR)/clients/watchpoints/user > /dev/null 2>&1 ||:

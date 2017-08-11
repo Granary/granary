@@ -51,14 +51,7 @@ namespace granary { namespace detail {
 
     enum {
         _1_MB = 1048576,
-
-#if CONFIG_ENABLE_TRACE_ALLOCATOR
-        CODE_CACHE_SIZE = 10 * _1_MB,
-#elif CONFIG_ENV_KERNEL
-        CODE_CACHE_SIZE = 5 * _1_MB,
-#else
-        CODE_CACHE_SIZE = 30 * _1_MB,
-#endif
+        CODE_CACHE_SIZE = 100 * _1_MB,
 
         // Maximum size of the part of the code cache containing basic blocks /
         // fragments.
@@ -209,7 +202,7 @@ GRANARY_DETACH_POINT_ERROR(granary::detail::global_free_executable)
 namespace granary { namespace detail {
 
     enum {
-        HEAP_SIZE = _1_MB * IF_USER_ELSE(100, 30),
+        HEAP_SIZE = _1_MB * 256,
         MIN_SCALE = 3,
         UNSIGNED_LONG_NUM_BITS = sizeof(uintptr_t) * 8,
         MIN_OBJECT_SIZE = (1 << MIN_SCALE),
