@@ -16,7 +16,7 @@ namespace test {
     /// A test of trace basic block splitting. Part of what we care about here
     /// is that the ordering of basic blocks in the code cache is reasonable
     /// (which requires manual inspection)
-    static void block_split_order(void) throw() {
+    static void block_split_order(void) {
         ASM(
             "mov $1, %rax;"
             "test %rax, %rax;" // make sure not zero

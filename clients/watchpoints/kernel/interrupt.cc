@@ -21,7 +21,7 @@ extern "C" {
 
 
 DONT_OPTIMISE
-void granary_break_on_gp_in_granary(granary::interrupt_stack_frame *isf) throw() {
+void granary_break_on_gp_in_granary(granary::interrupt_stack_frame *isf) {
     USED(isf);
 }
 
@@ -39,7 +39,7 @@ namespace client {
         thread_state_handle,
         interrupt_stack_frame &isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
         if(VECTOR_GENERAL_PROTECTION != vector || isf.error_code) {
             return INTERRUPT_DEFER;
         }

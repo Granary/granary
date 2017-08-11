@@ -23,10 +23,10 @@ namespace granary {
 
         ~atomic_spin_lock(void) = default;
 
-        atomic_spin_lock(const atomic_spin_lock &) throw() = delete;
-        atomic_spin_lock &operator=(const atomic_spin_lock &) throw() = delete;
+        atomic_spin_lock(const atomic_spin_lock &) = delete;
+        atomic_spin_lock &operator=(const atomic_spin_lock &) = delete;
 
-        atomic_spin_lock(void) throw()
+        atomic_spin_lock(void) 
             : is_locked(ATOMIC_VAR_INIT(false))
         { }
 
@@ -34,7 +34,7 @@ namespace granary {
         ///
         /// TODO: Probably want things so that the person acquiring a spin
         ///       lock needs to disable interrupts.
-        inline void acquire(void) throw() {
+        inline void acquire(void) {
             IF_KERNEL( eflags flags = granary_disable_interrupts(); )
 
             for(;;) {
@@ -55,7 +55,7 @@ namespace granary {
 
 
         /// Try to acquire the spin lock.
-        inline bool try_acquire(void) throw() {
+        inline bool try_acquire(void) {
             if(is_locked.load(std::memory_order_relaxed)) {
                 return false;
             }
@@ -68,7 +68,7 @@ namespace granary {
             return acquired;
         }
 
-        inline void release(void) throw() {
+        inline void release(void) {
             is_locked.store(false, std::memory_order_release);
         }
     };
@@ -95,26 +95,26 @@ namespace granary {
 
     public:
 
-        ~spin_lock(void) throw() {
+        ~spin_lock(void) {
             pthread_mutex_destroy(&mutex);
         }
 
-        spin_lock(const spin_lock &) throw() = delete;
-        spin_lock &operator=(const spin_lock &) throw() = delete;
+        spin_lock(const spin_lock &) = delete;
+        spin_lock &operator=(const spin_lock &) = delete;
 
-        spin_lock(void) throw() {
+        spin_lock(void) {
             pthread_mutex_init(&mutex, nullptr);
         }
 
-        inline void acquire(void) throw() {
+        inline void acquire(void) {
             pthread_mutex_lock(&mutex);
         }
 
-        inline bool try_acquire(void) throw() {
+        inline bool try_acquire(void) {
             return 0 == pthread_mutex_trylock(&mutex);
         }
 
-        inline void release(void) throw() {
+        inline void release(void) {
             pthread_mutex_unlock(&mutex);
         }
     };

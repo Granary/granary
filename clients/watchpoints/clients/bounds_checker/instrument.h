@@ -45,11 +45,11 @@ namespace client {
                 bound_descriptor *&,
                 uintptr_t &,
                 const uintptr_t
-            ) throw();
+            ) ;
 
 
             /// Free a watchpoint descriptor.
-            static void free(bound_descriptor *, uintptr_t) throw();
+            static void free(bound_descriptor *, uintptr_t) ;
 
 
             /// Initialise a watchpoint descriptor.
@@ -60,16 +60,16 @@ namespace client {
                 void *base_address,
                 size_t size,
                 void *return_address
-            ) throw();
+            ) ;
 
 
             /// Notify the bounds policy that the descriptor can be assigned to
             /// the index.
-            static void assign(bound_descriptor *, uintptr_t) throw() { }
+            static void assign(bound_descriptor *, uintptr_t) { }
 
 
             /// Get the assigned descriptor for a given index.
-            static bound_descriptor *access(uintptr_t index) throw();
+            static bound_descriptor *access(uintptr_t index) ;
 
         } __attribute__((packed));
 
@@ -97,7 +97,7 @@ namespace client {
             uintptr_t watched_addr,
             granary::app_pc *addr_in_bb,
             unsigned size
-        ) throw();
+        ) ;
 
 
     } /* namespace wp */

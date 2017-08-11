@@ -18,7 +18,7 @@ namespace granary {
         instruction_list &stub_ls,
         instruction cti,
         mangled_address target_address
-    ) throw();
+    ) ;
 
 }
 

@@ -25,7 +25,7 @@ namespace test {
         int (*func)(void);
     };
 
-    static bool indirect_call(thunk *thunk) throw() {
+    static bool indirect_call(thunk *thunk) {
         bool ret(thunk->func());
         ASM("");
         return ret;

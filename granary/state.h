@@ -37,7 +37,7 @@ namespace granary {
     /// some transiently allocated data, and resetting the current fragment
     /// (i.e. sequence of instructions in a basic block) allocator to the
     /// current CPU's private fragment allocator.
-    void enter(cpu_state_handle cpu) throw();
+    void enter(cpu_state_handle cpu) ;
 
 
     /// Represents one of Granary's private call stacks. In kernel space, each
@@ -295,8 +295,8 @@ namespace granary {
 
 
         /// Used by granary for early initialisation of the CPU state.
-        IF_KERNEL( static void init_early(void) throw(); )
-        IF_KERNEL( static void init_late(void) throw(); )
+        IF_KERNEL( static void init_early(void) ; )
+        IF_KERNEL( static void init_late(void) ; )
     };
 
 
@@ -321,7 +321,7 @@ namespace granary {
         /// size at least 1 byte, we use this to determine if there *really* is
         /// anything in the basic block state, or if it's just an empty struct,
         /// in which case its size is actually 0 bytes.
-        constexpr inline static unsigned size(void) throw() {
+        constexpr inline static unsigned size(void) {
             return (sizeof(detail::dummy_block_state) > sizeof(uint64_t))
                 ? sizeof(basic_block_state)
                 : 0U;

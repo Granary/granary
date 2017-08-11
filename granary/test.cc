@@ -53,7 +53,7 @@ namespace granary {
         cpu_state_handle,
         basic_block_state &,
         instruction_list &
-    ) throw() {
+    ) {
         return granary::policy_for<test_policy>();
     }
 
@@ -63,7 +63,7 @@ namespace granary {
         cpu_state_handle,
         basic_block_state &,
         instruction_list &
-    ) throw() {
+    ) {
         return granary::policy_for<test_policy>();
     }
 
@@ -78,7 +78,7 @@ namespace granary {
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 
@@ -90,14 +90,14 @@ namespace granary {
 
 
     /// Initialise the list of test functions to execute.
-    static_test_list::static_test_list(void) throw()
+    static_test_list::static_test_list(void) 
         : func(nullptr)
         , desc(nullptr)
         , next(nullptr)
     { }
 
 
-    void static_test_list::append(static_test_list &entry) throw() {
+    void static_test_list::append(static_test_list &entry) {
         entry.next = STATIC_TEST_LIST_HEAD.next;
         STATIC_TEST_LIST_HEAD.next = &entry;
     }
@@ -118,7 +118,7 @@ namespace granary {
     instrumentation_policy TEST_POLICY;
 
 
-    void run_tests(void) throw() {
+    void run_tests(void) {
 
         TEST_POLICY = granary::policy_for<granary::test_policy>();
         TEST_POLICY.force_attach(true);

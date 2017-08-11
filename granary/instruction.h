@@ -48,12 +48,12 @@ namespace granary {
         int scale;
         int disp;
 
-        operand_base_disp(void) throw();
+        operand_base_disp(void) ;
 
         /// Add the scale parameter to the LEA operand. Value values are 1, 2,
         /// 4, and 8.
         template <typename T>
-        operand_base_disp operator*(T scale_) const throw() {
+        operand_base_disp operator*(T scale_) const {
             static_assert(std::is_integral<T>::value,
                 "Scale must have an integral type.");
 
@@ -64,7 +64,7 @@ namespace granary {
 
         /// Add in the displacement to the LEA operand.
         template <typename T>
-        operand_base_disp operator+(T disp_) const throw() {
+        operand_base_disp operator+(T disp_) const {
             static_assert(std::is_integral<T>::value,
                 "Displacement must have an integral type.");
 
@@ -75,14 +75,14 @@ namespace granary {
 
         /// Add in the displacement to the LEA operand.
         template <typename T>
-        inline operand_base_disp operator-(T disp_) const throw() {
+        inline operand_base_disp operator-(T disp_) const {
             operand_base_disp ret(this->operator+(disp_));
             ret.disp = -ret.disp;
             return ret;
         }
 
         /// Implicit conversion from unpacked to packed LEA operand type.
-        inline operator typename dynamorio::opnd_t(void) const throw() {
+        inline operator typename dynamorio::opnd_t(void) const {
             return dynamorio::opnd_create_base_disp(
                 base, index, scale, disp, size);
         }
@@ -93,41 +93,41 @@ namespace granary {
     struct operand : public dynamorio::opnd_t {
     public:
 
-        inline operand(void) throw() {
+        inline operand(void) {
             memset(this, 0, sizeof *this);
         }
 
-        inline operand(const dynamorio::opnd_t &&that) throw() {
+        inline operand(const dynamorio::opnd_t &&that) {
             memcpy(this, &that, sizeof *this);
         }
 
-        inline operand(const dynamorio::opnd_t &that) throw() {
+        inline operand(const dynamorio::opnd_t &that) {
             memcpy(this, &that, sizeof *this);
         }
 
-        operand(typename dynamorio::reg_id_t reg_) throw();
+        operand(typename dynamorio::reg_id_t reg_) ;
 
-        inline operand &operator=(dynamorio::opnd_t that) throw() {
+        inline operand &operator=(dynamorio::opnd_t that) {
         	memcpy(this, &that, sizeof *this);
         	return *this;
         }
 
         /// De-referencing creates a new operand type
-        operand_base_disp operator*(void) const throw();
+        operand_base_disp operator*(void) const ;
 
         /// Accessing some byte offset from the operand (assuming it points to
         /// some memory)
-        operand_base_disp operator[](int num_bytes) const throw();
+        operand_base_disp operator[](int num_bytes) const ;
 
-        operand_base_disp operator+(operand index) const throw();
+        operand_base_disp operator+(operand index) const ;
 
-        operand_base_disp operator+(operand_base_disp lea) const throw();
+        operand_base_disp operator+(operand_base_disp lea) const ;
 
         /// Construct an LEA operand with an index and scale. This is to
         /// respect the order of operations. Note: valid values of scale are
         /// 1, 2, 4, and 8.
         template <typename I>
-        operand_base_disp operator*(I scale) const throw() {
+        operand_base_disp operator*(I scale) const {
             static_assert(std::is_integral<I>::value,
                 "Scale must have an integral type.");
 
@@ -141,7 +141,7 @@ namespace granary {
 
         /// Construct an LEA operand with a base and displacement.
         template <typename I>
-        operand_base_disp operator+(I disp) const throw() {
+        operand_base_disp operator+(I disp) const {
             static_assert(std::is_integral<I>::value,
                 "Displacement must have an integral type.");
 
@@ -153,15 +153,15 @@ namespace granary {
             return ret;
         }
 
-        inline operator uint64_t(void) const throw() {
+        inline operator uint64_t(void) const {
             return value.immed_int;
         }
 
-        inline operator app_pc(void) const throw() {
+        inline operator app_pc(void) const {
             return value.pc;
         }
 
-        inline operator typename dynamorio::reg_id_t(void) const throw() {
+        inline operator typename dynamorio::reg_id_t(void) const {
             return value.reg;
         }
     };
@@ -196,11 +196,11 @@ namespace granary {
             dynamorio::instr_t *instr_,
             dynamorio::opnd_t *op_,
             operand_kind kind_
-        ) throw();
+        ) ;
 
     public:
 
-        inline operand_ref(void) throw()
+        inline operand_ref(void) 
             : instr(nullptr)
             , op(nullptr)
             , op2(nullptr)
@@ -209,41 +209,41 @@ namespace granary {
 
         /// Const accesses of a field of the op are seen as rvalues and need
         /// not invalidate the bits of the instruction.
-        inline const operand *operator->(void) const throw() {
+        inline const operand *operator->(void) const {
             return op;
         }
 
-        inline operand operator*(void) const throw() {
+        inline operand operator*(void) const {
             return *op;
         }
 
         /// Assume that a non-const access of a field of the op will be used
         /// as an lvalue in an assignment; invalidate the raw bits.
-        operand *operator->(void) throw();
+        operand *operator->(void) ;
 
 
         /// Copy another reference.
-        operand_ref &operator=(const operand_ref &that) throw();
+        operand_ref &operator=(const operand_ref &that) ;
 
 
         /// Assign an operand to this operand ref; this will update the operand
         /// referenced by this ref in place, and will invalidate the raw bits
         /// of the instruction.
-        void replace_with(operand that) throw();
-        void replace_with(operand_base_disp that) throw();
+        void replace_with(operand that) ;
+        void replace_with(operand_base_disp that) ;
 
 
-        inline bool is_valid(void) const throw() {
+        inline bool is_valid(void) const {
             return nullptr != instr;
         }
 
         /// Augment this `operand_ref` to a `SOURCE_DEST_OPERAND` if possible
         /// by combining this operand with another.
-        void combine(const operand_ref &that) const throw();
+        void combine(const operand_ref &that) const ;
 
 
         /// Returns true iff two `operand_refs` can be combined.
-        bool can_combine(const operand_ref &that) const throw();
+        bool can_combine(const operand_ref &that) const ;
     };
 
 
@@ -295,13 +295,13 @@ namespace granary {
 
 
         /// Constructor
-        inline instruction(void) throw()
+        inline instruction(void) 
             : instr(nullptr)
         { }
 
 
         /// Construct an instruction by an instr_t pointer.
-        inline instruction(dynamorio::instr_t *instr_) throw()
+        inline instruction(dynamorio::instr_t *instr_) 
             : instr(instr_)
         { }
 
@@ -310,127 +310,127 @@ namespace granary {
         void replace_with(
             instruction,
             replace_constraint constraint=REPLACE_WITH_COMBINED_META_DATA
-        ) throw();
+        ) ;
 
 
         /// Return whether or not this instruction is valid.
-        inline bool is_valid(void) const throw() {
+        inline bool is_valid(void) const {
             return nullptr != instr;
         }
 
 
-        inline instruction prev(void) throw() {
+        inline instruction prev(void) {
             return instruction(instr->prev);
         }
 
 
-        inline instruction next(void) throw() {
+        inline instruction next(void) {
             return instruction(instr->next);
         }
 
-        instruction clone(void) throw();
+        instruction clone(void) ;
 
 
-        inline operator bool(void) const throw() {
+        inline operator bool(void) const {
             return nullptr != instr;
         }
 
-        inline bool operator!(void) const throw() {
+        inline bool operator!(void) const {
             return nullptr == instr;
         }
 
 
-        inline bool operator==(const instruction &that) const throw() {
+        inline bool operator==(const instruction &that) const {
             return instr == that.instr;
         }
 
 
-        inline bool operator!=(const instruction &that) const throw() {
+        inline bool operator!=(const instruction &that) const {
             return instr != that.instr;
         }
 
 
         /// Return the code cache policy to be used for the target of this CTI.
-        inline instrumentation_policy policy(void) const throw() {
+        inline instrumentation_policy policy(void) const {
             return instrumentation_policy::decode(instr->granary_policy);
         }
 
 
         /// Set the code cache policy to be used for the target of this CTI.
-        inline void set_policy(instrumentation_policy policy_) throw() {
+        inline void set_policy(instrumentation_policy policy_) {
             instr->granary_policy = policy_.encode();
         }
 
 
         /// Return the opcode of the instruction.
-        inline unsigned op_code(void) const throw() {
+        inline unsigned op_code(void) const {
             return instr->opcode;
         }
 
 
         /// Return the number of source operands in this instruction.
-        inline unsigned num_sources(void) const throw() {
+        inline unsigned num_sources(void) const {
             return instr->num_srcs;
         }
 
 
         /// Return the number of destination operands in this instruction.
-        inline unsigned num_destinations(void) const throw() {
+        inline unsigned num_destinations(void) const {
             return instr->num_dsts;
         }
 
 
         /// Return true iff this instruction is a control-transfer
         /// instruction.
-        inline bool is_cti(void) throw() {
+        inline bool is_cti(void) {
             return dynamorio::instr_is_cti(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
-        inline bool is_call(void) throw() {
+        inline bool is_call(void) {
         	return dynamorio::instr_is_call(instr);
         }
 
 
         /// Return true iff this instruction is a RET instruction.
-        inline bool is_return(void) throw() {
+        inline bool is_return(void) {
             return dynamorio::instr_is_return(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
-        inline bool is_jump(void) throw() {
+        inline bool is_jump(void) {
             return dynamorio::instr_is_jmp(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
-        inline bool is_unconditional_cti(void) throw() {
+        inline bool is_unconditional_cti(void) {
             return is_cti() && !dynamorio::instr_is_cbr(instr);
         }
 
 
         /// Return true iff this instruction is a CALL instruction.
-		inline bool is_direct_call(void) throw() {
+		inline bool is_direct_call(void) {
 			return dynamorio::instr_is_call_direct(instr);
 		}
 
 
 		/// Return true iff this instruction is a CALL instruction.
-		inline bool is_indirect_call(void) throw() {
+		inline bool is_indirect_call(void) {
 			return dynamorio::instr_is_call_indirect(instr);
 		}
 
 
 		/// Return true iff this instruction is atomic.
-		inline bool is_atomic(void) throw() {
+		inline bool is_atomic(void) {
 		    return instr->prefixes & PREFIX_LOCK;
 		}
 
 
         /// Invalidate the raw bits of this instruction.
-        inline void invalidate_raw_bits(void) throw() {
+        inline void invalidate_raw_bits(void) {
             dynamorio::instr_set_raw_bits_valid(instr, false);
             instr->flags &= ~dynamorio::INSTR_RAW_BITS_ALLOCATED;
             instr->flags &= ~dynamorio::INSTR_RAW_BITS_VALID;
@@ -440,20 +440,20 @@ namespace granary {
 
 		/// If this instruction is a CTI, then return the operand
 		/// representing the destination of the CTI.
-		inline operand cti_target(void) throw() {
+		inline operand cti_target(void) {
 		    return dynamorio::instr_get_target(instr);
 		}
 
 
 		/// If this instruction is a CTI, then set the target of the instruction.
-        inline void set_cti_target(operand target) throw() {
+        inline void set_cti_target(operand target) {
             invalidate_raw_bits();
             return dynamorio::instr_set_target(instr, target);
         }
 
 
         /// Copy the operands of another instruction.
-        inline void copy_raw_operands(instruction in) throw() {
+        inline void copy_raw_operands(instruction in) {
             instr->num_dsts = in.instr->num_dsts;
             instr->num_srcs = in.instr->num_srcs;
             instr->u.o.src0 = in.instr->u.o.src0;
@@ -464,13 +464,13 @@ namespace granary {
 
         /// Return the original code program counter from the instruction (if
         /// it exists).
-        inline app_pc pc(void) const throw() {
+        inline app_pc pc(void) const {
             return instr->translation;
         }
 
 
         /// Returns the raw bytes or the PC for the instruction.
-        inline app_pc pc_or_raw_bytes(void) const throw() {
+        inline app_pc pc_or_raw_bytes(void) const {
             if(instr->translation) {
                 return instr->translation;
             }
@@ -479,88 +479,88 @@ namespace granary {
 
 
         /// Set the program counter of the instruction.
-        inline void set_pc(app_pc pc_) throw() {
+        inline void set_pc(app_pc pc_) {
             invalidate_raw_bits();
             instr->translation = pc_;
         }
 
 
         /// Remove a specific granary flag.
-        inline void remove_flag(instruction_flag flag) throw() {
+        inline void remove_flag(instruction_flag flag) {
             instr->granary_flags &= ~flag;
         }
 
         /// Remove a specific granary flag.
-        inline void add_flag(instruction_flag flag) throw() {
+        inline void add_flag(instruction_flag flag) {
             instr->granary_flags |= flag;
         }
 
         /// Returns true iff this instruction has a specific flag.
-        inline bool has_flag(instruction_flag flag) const throw() {
+        inline bool has_flag(instruction_flag flag) const {
             return 0 != (flag & instr->granary_flags);
         }
 
 
 #if CONFIG_ENV_KERNEL
         /// Return true iff this instruction begins a delay region.
-        inline bool begins_delay_region(void) const throw() {
+        inline bool begins_delay_region(void) const {
             return has_flag(DELAY_BEGIN);
         }
 
 
         /// Set this instruction to begin a delay region.
-        inline void begin_delay_region(void) throw() {
+        inline void begin_delay_region(void) {
             add_flag(DELAY_BEGIN);
         }
 
 
         /// Return true iff this instruction ends a delay region.
-        inline bool ends_delay_region(void) const throw() {
+        inline bool ends_delay_region(void) const {
             return has_flag(DELAY_END);
         }
 
 
         /// Set this instruction to end a delay region.
-        inline void end_delay_region(void) throw() {
+        inline void end_delay_region(void) {
             add_flag(DELAY_END);
         }
 #endif
 
         /// Return true iff this instruction is mangled.
-        inline bool is_mangled(void) const throw() {
+        inline bool is_mangled(void) const {
             return has_flag(DONT_MANGLE);
         }
 
 
         /// Set the state of the instruction to be mangled.
-        inline void set_mangled(void) throw() {
+        inline void set_mangled(void) {
             add_flag(DONT_MANGLE);
         }
 
 
         /// Check to see if this instruction can be patched at runtime. If so,
         /// then this instruction needs to be aligned nicely.
-        inline bool is_patchable(void) const throw() {
+        inline bool is_patchable(void) const {
             return has_flag(HOT_PATCHABLE);
         }
 
 
         /// Set the state of the instruction to be mangled.
-        inline void set_patchable(void) throw() {
+        inline void set_patchable(void) {
             add_flag(HOT_PATCHABLE);
         }
 
 
         /// Returns the number of bytes needed to represent this instruction when
         /// it is encoded.
-        inline unsigned encoded_size(void) throw() {
+        inline unsigned encoded_size(void) {
             return static_cast<unsigned>(
                 dynamorio::instr_length(DCONTEXT, instr));
         }
 
 
         /// Widen this instruction if its a CTI.
-        void widen_if_cti(void) throw();
+        void widen_if_cti(void) ;
 
 
         /// Decodes a raw byte, pointed to by *pc, and updated *pc to be the
@@ -569,25 +569,25 @@ namespace granary {
         void decode_update(
             app_pc *pc,
             instruction_decode_constraint=DECODE_WIDEN_CTI
-        ) throw();
+        ) ;
         static instruction decode(
             app_pc *pc,
             instruction_decode_constraint=DECODE_WIDEN_CTI
-        ) throw();
+        ) ;
 
 
         /// Encodes an instruction into a sequence of bytes.
-        app_pc encode(app_pc pc) throw();
+        app_pc encode(app_pc pc) ;
 
 
         /// Encodes an instruction into a sequence of bytes, but where the staging
         /// ground is not necessarily the instruction's final location.
-        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) ;
 
 
         /// Slightly evil convenience method for implicitly converting instructions
         /// to pointers to their underlying DR type.
-        inline operator typename dynamorio::instr_t *(void) throw() {
+        inline operator typename dynamorio::instr_t *(void) {
         	return instr;
         }
 
@@ -598,7 +598,7 @@ namespace granary {
         void for_each_operand(
             void (*func)(OpRef, Args&...),
             Args&... args
-        ) throw() {
+        ) {
 
             // make sure that OpRef is one of:
             //  `operand_ref`           `operand_ref &`
@@ -638,21 +638,21 @@ namespace granary {
 
     /// Mark this instruction as already mangled so that it is not mangled
     /// again.
-    inline instruction mangled(instruction in) throw() {
+    inline instruction mangled(instruction in) {
         in.set_mangled();
         return in;
     }
 
 
     /// Mark this instruction as atomic.
-    inline instruction atomic(instruction in) throw() {
+    inline instruction atomic(instruction in) {
         in.instr->prefixes |= PREFIX_LOCK;
         return in;
     }
 
 
     /// Mark this instruction as hot patchable.
-    inline instruction patchable(instruction in) throw() {
+    inline instruction patchable(instruction in) {
         in.set_patchable();
         return in;
     }
@@ -709,7 +709,7 @@ namespace granary {
         /// Initialise an empty list.
         inline instruction_list(
             instruction_list_kind kind=INSTRUCTION_LIST_TRANSLATED
-        ) throw()
+        ) 
             : first_(nullptr)
             , last_(nullptr)
             , length_(0U)
@@ -718,12 +718,12 @@ namespace granary {
 
 
         /// Disallow copying in order to maintain consistency.
-        instruction_list(self_type &) throw() = delete;
+        instruction_list(self_type &) = delete;
         self_type &operator=(const self_type &) = delete;
 
 
         /// Returns the number of elements in the list.
-        inline unsigned length(void) const throw() {
+        inline unsigned length(void) const {
             return length_;
         }
 
@@ -731,18 +731,18 @@ namespace granary {
         /// Returns true if this instruction list is actually part of a stub
         /// (e.g. for recursively instrumenting memory operations in indirect
         /// CTIs at mangle time).
-        inline bool is_stub(void) const throw() {
+        inline bool is_stub(void) const {
             return INSTRUCTION_LIST_STUB == kind_;
         }
 
 
         /// Clear the elements of the list, and release any memory associated
         /// with the elements of the list
-        void clear(void) throw();
+        void clear(void) ;
 
 
         /// Return the first element in the list.
-        inline instruction first(void) const throw() {
+        inline instruction first(void) const {
             if(!first_) {
                 return instruction(nullptr);
             }
@@ -751,7 +751,7 @@ namespace granary {
         }
 
         /// Return the last element in the list.
-        inline instruction last(void) const throw() {
+        inline instruction last(void) const {
             if(!last_) {
                 return instruction(nullptr);
             }
@@ -762,39 +762,39 @@ namespace granary {
         /// Adds another instruction list to the end of the current one.
         ///
         /// Note: This removed all elements from the argument list.
-        void extend(instruction_list &that) throw();
+        void extend(instruction_list &that) ;
 
         /// Adds an element on to the end of the list.
-        instruction append(instruction item_) throw();
+        instruction append(instruction item_) ;
 
         /// Adds an element on to the beginning of the list.
-        instruction prepend(instruction item_) throw();
+        instruction prepend(instruction item_) ;
 
         /// Insert an element before another object in the list.
-        instruction insert_before(instruction after_item_, instruction item_) throw();
+        instruction insert_before(instruction after_item_, instruction item_) ;
 
         /// Remove an element from an instruction list.
-        void remove(instruction to_remove) throw();
+        void remove(instruction to_remove) ;
 
         /// Remove a tail of the list, starting at an instruction.
-        void remove_tail_at(instruction at_item_) throw();
+        void remove_tail_at(instruction at_item_) ;
 
         /// Insert an element after another object in the list
-        instruction insert_after(instruction before_item_, instruction item_) throw();
+        instruction insert_after(instruction before_item_, instruction item_) ;
 
         /// The encoded size of the instruction list.
-        unsigned encoded_size(void) throw();
+        unsigned encoded_size(void) ;
 
         /// Encodes an instruction list into a sequence of bytes. The user of
         /// this API is required to know in advance the exact size of the
         /// instruction list, so that a good allocation discipline is followed.
-        app_pc encode(app_pc pc, unsigned exact_size) throw();
+        app_pc encode(app_pc pc, unsigned exact_size) ;
 
         /// Performs a staged encoding of an instruction list into a sequence
         /// of bytes.
         ///
         /// Note: This will not do any fancy jump resolution, alignment, etc.
-        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) throw();
+        app_pc stage_encode(app_pc staged_pc, app_pc final_pc) ;
 
     protected:
 
@@ -803,7 +803,7 @@ namespace granary {
             dynamorio::instr_t *before_item,
             dynamorio::instr_t *item,
             dynamorio::instr_t *after_item
-        ) throw();
+        ) ;
 
     } __attribute__((packed));
 
@@ -822,16 +822,16 @@ namespace granary {
 #define MAKE_REG(name, upper_name)
 #define MAKE_SEG(name, upper_name) \
     struct CAT(segment_, name) { \
-        inline operand operator()(operand op) throw() { \
+        inline operand operator()(operand op) { \
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             return op;\
         } \
-        inline operand operator()(operand_base_disp op_) throw() { \
+        inline operand operator()(operand_base_disp op_) { \
             operand op(op_); \
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             return op; \
         } \
-        inline operand operator[](int offset) throw() { \
+        inline operand operator[](int offset) { \
             operand op; \
             op.seg.segment = dynamorio::DR_ ## upper_name ; \
             op.seg.disp = dynamorio::DR_ ## upper_name ; \
@@ -864,7 +864,7 @@ namespace granary {
     /// Create an instruction label to some (almost) arbitrary data. The label
     /// can be used to get the address of the data using LEA.
     template <typename T>
-    operand data_label_(T *data) throw() {
+    operand data_label_(T *data) {
         instruction label = label_();
         label.instr->note = unsafe_cast<void *>(data);
         label.instr->translation = unsafe_cast<app_pc>(data);

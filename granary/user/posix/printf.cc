@@ -22,7 +22,7 @@ namespace {
 static int granary_out(-1); // STDERR
 static bool opened_granary_out(false);
 
-static unsigned cstr_length(const char *ch) throw() {
+static unsigned cstr_length(const char *ch) {
   unsigned len(0);
   for(; *ch; ++ch) {
     ++len;
@@ -39,7 +39,7 @@ static char *WriteGenericInt(
   bool is_64_bit,
   bool is_signed,
   unsigned base
-) throw() {
+) {
   if (!data) {
     *buff++ = '0';
     return buff;
@@ -78,7 +78,7 @@ static char *WriteGenericInt(
 }  // namespace
 
 // Log something.
-int printf(const char *format, ...) throw() {
+int printf(const char *format, ...) {
   enum {
     WRITE_BUFF_SIZE = 255
   };

@@ -104,7 +104,7 @@ namespace granary { namespace detail {
     }
 
 
-    void init_code_cache(void) throw() {
+    void init_code_cache(void) {
 #if CONFIG_ENV_KERNEL
         kernel_make_pages_executable(
             &(EXECUTABLE_AREA[0]),
@@ -126,7 +126,7 @@ namespace granary { namespace detail {
     }
 
 
-    void *global_allocate_executable(uintptr_t size, int where) throw() {
+    void *global_allocate_executable(uintptr_t size, int where) {
 
         uintptr_t mem = 0;
         switch(where) {
@@ -166,25 +166,25 @@ namespace granary { namespace detail {
     }
 
 
-    void global_free_executable(void *, uintptr_t) throw() {
+    void global_free_executable(void *, uintptr_t) {
         // NO-OP.
     }
 }}
 
 namespace granary {
-    bool is_code_cache_address(const const_app_pc addr_) throw() {
+    bool is_code_cache_address(const const_app_pc addr_) {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return GRANARY_EXEC_START <= addr && addr < detail::CODE_CACHE_END;
     }
 
 
-    bool is_wrapper_address(const const_app_pc addr_) throw() {
+    bool is_wrapper_address(const const_app_pc addr_) {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return detail::WRAPPER_START <= addr && addr < detail::WRAPPER_END;
     }
 
 
-    bool is_gencode_address(const const_app_pc addr_) throw() {
+    bool is_gencode_address(const const_app_pc addr_) {
         const uintptr_t addr(reinterpret_cast<uintptr_t>(addr_));
         return detail::GEN_CODE_START <= addr && addr < detail::WRAPPER_START;
     }
@@ -237,20 +237,20 @@ namespace granary { namespace detail {
 
 
     /// Returns the log base 2 of a number.
-    static inline uint32_t log_base_2(uintptr_t x) throw() {
+    static inline uint32_t log_base_2(uintptr_t x) {
         return ((UNSIGNED_LONG_NUM_BITS - 1) - __builtin_clzl(x));
     }
 
 
     /// Return the smallest power of two value greater than x.
-    static inline uintptr_t next_power_of_2(uintptr_t x) throw() {
+    static inline uintptr_t next_power_of_2(uintptr_t x) {
         return 1UL << (UNSIGNED_LONG_NUM_BITS - __builtin_clzl(x - 1));
     }
 
 
     /// Round the size of some data.
     __attribute__((hot))
-    static uintptr_t allocation_size(uintptr_t size) throw() {
+    static uintptr_t allocation_size(uintptr_t size) {
         if(MIN_OBJECT_SIZE > size) {
             return MIN_OBJECT_SIZE;
         }
@@ -264,7 +264,7 @@ namespace granary { namespace detail {
 
     /// Returns true of an address is a head address.
     __attribute__((hot))
-    inline static bool is_heap_address(void *ptr_) throw() {
+    inline static bool is_heap_address(void *ptr_) {
         const uint8_t *ptr(reinterpret_cast<uint8_t *>(ptr_));
         return ptr >= &(HEAP[0]) && ptr < &(HEAP[HEAP_SIZE]);
     }
@@ -273,7 +273,7 @@ namespace granary { namespace detail {
 #if ENABLE_SPLITTING
     /// Try to split a large heap object into a smaller heap object.
     __attribute__((hot))
-    static free_object *split_large_object(unsigned scale) throw() {
+    static free_object *split_large_object(unsigned scale) {
         const unsigned next_scale(scale + 1);
 
         if(next_scale >= MAX_ADJUSTED_SCALE) {
@@ -317,7 +317,7 @@ namespace granary { namespace detail {
 
     /// Allocate some data from the heap.
     __attribute__((hot))
-    void *global_allocate(uintptr_t size_) throw() {
+    void *global_allocate(uintptr_t size_) {
 
         ASSERT(0 < size_);
 
@@ -372,7 +372,7 @@ namespace granary { namespace detail {
 
     /// Free some memory back to the heap.
     __attribute__((hot))
-    void global_free(void *addr, uintptr_t size_) throw() {
+    void global_free(void *addr, uintptr_t size_) {
 
         if(!is_heap_address(addr)) {
             return;

@@ -55,7 +55,7 @@
 #   define INITIALISE_GLOBAL_VARIABLE(var) \
     extern "C" { \
         __attribute__((noinline)) \
-        void CAT(CAT(KERNEL_INIT_VAR_, __COUNTER__), CAT(_, var)) (void) throw() { \
+        void CAT(CAT(KERNEL_INIT_VAR_, __COUNTER__), CAT(_, var)) (void) { \
             granary::construct_object(var); \
         } \
     } \
@@ -115,10 +115,10 @@
 
 /// Use to statically initialise some code.
 #define STATIC_INITIALISE___(id, ...) \
-    static void CAT(init_func_, id)(void) throw(); \
+    static void CAT(init_func_, id)(void) ; \
     struct CAT(init_class_, id) : public granary::static_init_list { \
     public: \
-        CAT(init_class_, id)(void) throw() { \
+        CAT(init_class_, id)(void) { \
             IF_USER( granary::detach(); ) \
             this->exec = CAT(init_func_, id); \
             granary::static_init_list::append(*this); \
@@ -148,10 +148,10 @@
 /// Defines a static initialiser that is run when the entire machine is
 /// synchronised (e.g. after/within a Linux kernel `stop_machine`.).
 #   define STATIC_INITIALISE_SYNC(id, ...) \
-        static void CAT(init_func_sync_, id)(void) throw(); \
+        static void CAT(init_func_sync_, id)(void) ; \
         struct CAT(init_class_sync_, id) : public granary::static_init_list { \
         public: \
-            CAT(init_class_sync_, id)(void) throw() { \
+            CAT(init_class_sync_, id)(void) { \
                 IF_USER( granary::detach(); ) \
                 this->exec = CAT(init_func_sync_, id); \
                 granary::static_init_list::append_sync(*this); \
@@ -337,7 +337,7 @@
 
 #ifndef GRANARY_IN_ASSEMBLY
 namespace granary {
-    extern int IF_USER_ELSE(printf, (*printf))(const char *, ...) throw();
+    extern int IF_USER_ELSE(printf, (*printf))(const char *, ...) ;
 }
 #endif /* GRANARY_IN_ASSEMBLY */
 

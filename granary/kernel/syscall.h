@@ -13,7 +13,7 @@
 
 namespace granary {
 
-    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) throw();
+    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) ;
 }
 
 #endif /* GRANARY_SYSCALL_H_ */

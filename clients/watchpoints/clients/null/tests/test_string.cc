@@ -29,7 +29,7 @@ namespace test {
     }
 
 
-    static void unwatched_stos(void) throw() {
+    static void unwatched_stos(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;"
             "movq $1, %rax;"
@@ -52,7 +52,7 @@ namespace test {
     }
 
 
-    static void watched_stos(void) throw() {
+    static void watched_stos(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;" // mask the address of FOO
@@ -77,7 +77,7 @@ namespace test {
     }
 
 
-    static void unwatched_stos_dep(void) throw() {
+    static void unwatched_stos_dep(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;"
             "movq $1, %rax;"
@@ -89,7 +89,7 @@ namespace test {
     }
 
 
-    static void watched_stos_dep(void) throw() {
+    static void watched_stos_dep(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO)) ", %rdi;" // mask the address of FOO
@@ -106,7 +106,7 @@ namespace test {
     /* REP STOS m64         Fill RCX quadwords at [RDI] with RAX. */
 
 
-    static void unwatched_rep_stos(void) throw() {
+    static void unwatched_rep_stos(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;"
             "movq $2, %rcx;"
@@ -117,7 +117,7 @@ namespace test {
     }
 
 
-    static void watched_rep_stos(void) throw() {
+    static void watched_rep_stos(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;" // mask the address of FOO
@@ -130,7 +130,7 @@ namespace test {
     }
 
 
-    static void unwatched_rep_stos_dep(void) throw() {
+    static void unwatched_rep_stos_dep(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;"
             "movq $2, %rcx;"
@@ -143,7 +143,7 @@ namespace test {
     }
 
 
-    static void watched_rep_stos_dep(void) throw() {
+    static void watched_rep_stos_dep(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_STRING_MASK)) ", %rdi;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rdi;" // mask the address of FOO
@@ -160,7 +160,7 @@ namespace test {
 
     /* REP MOVS m64, m64   Move RCX quadwords from [RSI] to [RDI].*/
 
-    static void unwatched_rep_movs(void) throw() {
+    static void unwatched_rep_movs(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rsi;"
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY_DEST)) ", %rdi;"
@@ -174,7 +174,7 @@ namespace test {
 
     // modification of code from memmove$VARIANT$sse3x so as to maintain
     // the same dependencies, but not have any meaningful side-effects.
-    static void unwatched_rep_movs_memmove(void) throw() {
+    static void unwatched_rep_movs_memmove(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY)) ", %rsi;"
             "movq $" TO_STRING(SYMBOL(WP_STRING_FOO_ARRAY_DEST)) ", %rdi;"

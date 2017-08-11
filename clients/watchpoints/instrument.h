@@ -211,17 +211,17 @@ namespace client {
             /// update the `sources` and `dests` field appropriately so that the
             /// `Watcher`s read/write visitors can access operands containing the
             /// watched addresses.
-            void visit_operands(granary::instruction_list &) throw();
+            void visit_operands(granary::instruction_list &) ;
 
 
             /// Perform watchpoint-specific mangling of an instruction.
-            bool mangle(granary::instruction_list &) throw();
+            bool mangle(granary::instruction_list &) ;
 
 
             /// Small state machine to track whether or not we can clobber the carry
             /// flag. The carry flag is relevant because we use the BT instruction to
             /// determine if the address is a watched address.
-            void track_carry_flag(bool &) throw();
+            void track_carry_flag(bool &) ;
 
 
             /// Save the carry flag, if needed. We use the carry flag extensively. For
@@ -232,7 +232,7 @@ namespace client {
                 granary::instruction_list &ls,
                 granary::instruction before,
                 bool &spilled_carry_flag
-            ) throw();
+            ) ;
 
 
             /// Post-process that instrumented instructions. This looks for
@@ -247,7 +247,7 @@ namespace client {
         void find_memory_operand(
             const granary::operand_ref &,
             watchpoint_tracker &
-        ) throw();
+        ) ;
 
 
         /// Do register stealing coalescing by recognising sequences of instructions
@@ -256,7 +256,7 @@ namespace client {
         void region_register_spiller(
             watchpoint_tracker &tracker,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
 
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */
@@ -269,7 +269,7 @@ namespace client {
 
 
         /// Returns true iff an address is watched.
-        inline bool is_watched_address(uintptr_t ptr) throw() {
+        inline bool is_watched_address(uintptr_t ptr) {
 #if CONFIG_ENV_KERNEL
             enum {
                 MASK_47_48 = (USER_OR_MASK >> 1) | USER_OR_MASK
@@ -281,14 +281,14 @@ namespace client {
 #endif
         }
         template <typename T>
-        inline bool is_watched_address(T *ptr_) throw() {
+        inline bool is_watched_address(T *ptr_) {
             return is_watched_address(reinterpret_cast<uintptr_t>(ptr_));
         }
 
 
         /// Returns the unwatched version of an address, regardless of if it's
         /// watched.
-        inline uintptr_t unwatched_address(uintptr_t ptr) throw() {
+        inline uintptr_t unwatched_address(uintptr_t ptr) {
 #if CONFIG_ENV_KERNEL
             return ptr | (~CLEAR_INDEX_MASK);
 #else
@@ -296,7 +296,7 @@ namespace client {
 #endif
         }
         template <typename T>
-        inline T *unwatched_address(T *ptr_) throw() {
+        inline T *unwatched_address(T *ptr_) {
             return reinterpret_cast<T *>(
                 unwatched_address(
                     reinterpret_cast<uintptr_t>(ptr_)));
@@ -304,14 +304,14 @@ namespace client {
 
 
         /// Returns the unwatched version of an address.
-        inline uintptr_t unwatched_address_check(uintptr_t ptr) throw() {
+        inline uintptr_t unwatched_address_check(uintptr_t ptr) {
             if(is_watched_address(ptr)) {
                 return unwatched_address(ptr);
             }
             return ptr;
         }
         template <typename T>
-        inline T *unwatched_address_check(T *ptr_) throw() {
+        inline T *unwatched_address_check(T *ptr_) {
             return reinterpret_cast<T *>(
                 unwatched_address_check(
                     reinterpret_cast<uintptr_t>(ptr_)));
@@ -320,7 +320,7 @@ namespace client {
 
 #if WP_USE_INHERITED_INDEX
         /// Return the inherited index of an address.
-        inline uintptr_t inherited_index_of(uintptr_t ptr) throw() {
+        inline uintptr_t inherited_index_of(uintptr_t ptr) {
             return (ptr & INHERITED_INDEX_MASK) >> INHERITED_INDEX_OFFSET;
         }
 
@@ -329,12 +329,12 @@ namespace client {
         inline uintptr_t combined_index(
             uintptr_t counter_index,
             uintptr_t inherited_index
-        ) throw() {
+        ) {
             return (counter_index << NUM_INHERITED_INDEX_BITS) | inherited_index;
         }
 #else
         /// Return the inherited index of an address.
-        inline uintptr_t inherited_index_of(uintptr_t) throw() {
+        inline uintptr_t inherited_index_of(uintptr_t) {
             return 0;
         }
 
@@ -343,28 +343,28 @@ namespace client {
         inline uintptr_t combined_index(
             uintptr_t counter_index,
             uintptr_t
-        ) throw() {
+        ) {
             return counter_index;
         }
 
 #endif /* WP_USE_INHERITED_INDEX */
 
         /// Return the counter index component of a combined index.
-        inline uintptr_t counter_index_of(uintptr_t ptr) throw() {
+        inline uintptr_t counter_index_of(uintptr_t ptr) {
             return ptr >> (DISTINGUISHING_BIT_OFFSET + 1);
         }
 
 
         /// Return the inherited index of an address.
         template <typename T>
-        inline uintptr_t inherited_index_of(T *addr) throw() {
+        inline uintptr_t inherited_index_of(T *addr) {
             return inherited_index_of(reinterpret_cast<uintptr_t>(addr));
         }
 
 
         /// Return the inherited index of an address.
         template <typename T>
-        inline uintptr_t counter_index_of(T *addr) throw() {
+        inline uintptr_t counter_index_of(T *addr) {
             return counter_index_of(reinterpret_cast<uintptr_t>(addr));
         }
 
@@ -372,7 +372,7 @@ namespace client {
         /// Return the index into the descriptor table for this watched address.
         ///
         /// Note: This assumes that the address is watched.
-        inline uintptr_t combined_index_of(uintptr_t ptr) throw() {
+        inline uintptr_t combined_index_of(uintptr_t ptr) {
             return combined_index(
                 counter_index_of(ptr),
                 inherited_index_of(ptr)
@@ -384,13 +384,13 @@ namespace client {
         ///
         /// Note: This assumes that the address is watched.
         template <typename T>
-        inline uintptr_t combined_index_of(T *ptr_) throw() {
+        inline uintptr_t combined_index_of(T *ptr_) {
             return combined_index_of(granary::unsafe_cast<uintptr_t>(ptr_));
         }
 
 
         /// Return the next counter index.
-        uintptr_t next_counter_index(uintptr_t inherited_index=0) throw();
+        uintptr_t next_counter_index(uintptr_t inherited_index=0) ;
 
 
         /// Destructure a combined index into its counter and inherited indexes.
@@ -398,7 +398,7 @@ namespace client {
             const uintptr_t index,
             uintptr_t &counter_index,
             uintptr_t &inherited_index
-        ) throw() {
+        ) {
 #if WP_USE_INHERITED_INDEX
             counter_index = index >> NUM_INHERITED_INDEX_BITS;
             inherited_index = index & INHERITED_INDEX_MASK;
@@ -414,7 +414,7 @@ namespace client {
         /// Note: This assumes that the address is watched.
         template <typename T>
         inline typename descriptor_type<T>::type *
-        descriptor_of(T ptr_) throw() {
+        descriptor_of(T ptr_) {
             typedef typename descriptor_type<T>::type desc_type;
             return desc_type::access(combined_index_of(ptr_));
         }
@@ -426,7 +426,7 @@ namespace client {
         ///
         /// Note: This does not remove the association in the descriptor table.
         template <typename T>
-        void free_descriptor_of(T ptr_) throw() {
+        void free_descriptor_of(T ptr_) {
             typedef typename descriptor_type<T>::type desc_type;
             const uintptr_t index(combined_index_of(ptr_));
             desc_type::free(desc_type::access(index), index);
@@ -447,7 +447,7 @@ namespace client {
         ///
         /// This taints the address, but does nothing else.
         template <typename T>
-        add_watchpoint_status add_watchpoint(T &ptr_) throw() {
+        add_watchpoint_status add_watchpoint(T &ptr_) {
             static_assert(
                 std::is_pointer<T>::value || std::is_integral<T>::value,
                 "`add_watchpoint` expects an integral/pointer operand.");
@@ -473,7 +473,7 @@ namespace client {
                 uintptr_t &counter_index,
                 uintptr_t inherited_index,
                 InitArgs... init_args
-            ) throw() {
+            ) {
                 // Allocate descriptor.
                 if(!desc_type::allocate_and_init(desc,
                                                  counter_index,
@@ -504,7 +504,7 @@ namespace client {
                 uintptr_t &counter_index,
                 uintptr_t inherited_index,
                 InitArgs... init_args
-            ) throw() {
+            ) {
 
                 // Allocate descriptor.
                 if(!DescType::allocate(desc, counter_index, inherited_index)) {
@@ -534,7 +534,7 @@ namespace client {
         /// into the descriptor table is automatically handled by this function.
         template <typename T, typename... ConstructorArgs>
         add_watchpoint_status
-        add_watchpoint(T &ptr_, ConstructorArgs... init_args) throw() {
+        add_watchpoint(T &ptr_, ConstructorArgs... init_args) {
             static_assert(
                 std::is_pointer<T>::value || std::is_integral<T>::value,
                 "`add_watchpoint` expects an integral/pointer operand.");
@@ -589,7 +589,7 @@ namespace client {
 
         /// Taint an address.
         template <typename T>
-        void taint(T &ptr_, uintptr_t counter_index) throw() {
+        void taint(T &ptr_, uintptr_t counter_index) {
 
             if(!granary::is_valid_address(ptr_)) {
                 return;
@@ -632,7 +632,7 @@ namespace client {
         granary::instrumentation_policy visit_instructions(
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
 
             using namespace granary;
 
@@ -752,7 +752,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
             return visit_instructions<AppWatcher>(bb, ls);
         }
 
@@ -762,7 +762,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
 #if !WP_TRANSITIVE_INSTRUMENT_HOST && !CONFIG_FEATURE_INSTRUMENT_HOST
             using namespace granary;
 
@@ -805,7 +805,7 @@ namespace client {
             granary::basic_block_state &bb,
             granary::interrupt_stack_frame &isf,
             granary::interrupt_vector vector
-        ) throw() {
+        ) {
             return AppWatcher::handle_interrupt(cpu, thread, bb, isf, vector);
         }
 #endif
@@ -830,14 +830,14 @@ namespace client {
                 granary::instruction_list &ls, \
                 watchpoint_tracker &tracker, \
                 unsigned i \
-            ) throw(); \
+            ) ; \
             \
             static void visit_write( \
                 granary::basic_block_state &bb, \
                 granary::instruction_list &ls, \
                 watchpoint_tracker &tracker, \
                 unsigned i \
-            ) throw(); \
+            ) ; \
             \
             IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT( \
             static granary::interrupt_handled_state handle_interrupt( \
@@ -846,7 +846,7 @@ namespace client {
                 granary::basic_block_state &bb, \
                 granary::interrupt_stack_frame &isf, \
                 granary::interrupt_vector vector \
-            ) throw(); ) \
+            ) ; ) \
         }; \
     }
 
@@ -858,7 +858,7 @@ namespace client {
             instruction_list &ls, \
             watchpoint_tracker &tracker, \
             unsigned i \
-        ) throw() { \
+        ) { \
             const operand &op(tracker.regs[i]); \
             const instruction &label(tracker.labels[i]); \
             const instruction &pre_label(tracker.pre_labels[i]); \
@@ -877,7 +877,7 @@ namespace client {
             instruction_list &ls, \
             watchpoint_tracker &tracker, \
             unsigned i \
-        ) throw() { \
+        ) { \
             const operand &op(tracker.regs[i]); \
             const instruction &label(tracker.labels[i]); \
             const instruction &pre_label(tracker.pre_labels[i]); \
@@ -898,7 +898,7 @@ namespace client {
                 granary::basic_block_state &bb, \
                 interrupt_stack_frame &isf, \
                 interrupt_vector vector \
-            ) throw() { \
+            ) { \
                 (void) cpu; (void) thread; (void) bb; (void) isf; (void) vector; \
                 { __VA_ARGS__ } \
                 return INTERRUPT_DEFER; \

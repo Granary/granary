@@ -30,7 +30,7 @@ namespace client {
     /// is dereferenced.
     ///
     /// Note: we can freely clobber the CF.
-    static app_pc instrumented_access(operand reg, bool is_read) throw() {
+    static app_pc instrumented_access(operand reg, bool is_read) {
         static app_pc WATCHED_VISITORS[16][2] = {nullptr};
         const unsigned reg_id(wp::register_to_index(reg.value.reg));
 
@@ -99,7 +99,7 @@ namespace client {
     /// depth.
     instrumentation_policy policy_for_depth(
         const unsigned depth
-    ) throw() {
+    ) {
         switch(depth) {
         case 0: return policy_for<rcu_null>();
         case 1: return policy_for<read_critical_section<1>>();
@@ -121,7 +121,7 @@ namespace client {
         unsigned &curr_depth,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
 
         // Here we have a read-critical section started in one function and
         // expanding out into another function through a function return. This
@@ -209,7 +209,7 @@ namespace client {
 
     /// Return the next valid PC in the instruction list, starting at
     /// instruction `in`.
-    static app_pc next_pc(instruction in) throw() {
+    static app_pc next_pc(instruction in) {
         for(; in.is_valid(); in = in.next()) {
             if(in.pc()) {
                 return in.pc();
@@ -226,7 +226,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         instruction_list &ls
-    ) throw() {
+    ) {
 
         static_assert(16 <= detail::fragment_allocator_config::MIN_ALIGN,
             "Basic block alignment must be at least 16 bytes to enable "
@@ -291,7 +291,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         instruction_list &ls
-    ) throw() {
+    ) {
         return visit_app_instructions(cpu, bb, ls);
     }
 
@@ -310,7 +310,7 @@ namespace client {
         granary::basic_block_state &bb,
         app_pc cache_pc,
         instrumentation_policy policy
-    ) throw() {
+    ) {
         instruction_list ls;
         for(;;) {
             const app_pc in_pc(cache_pc);
@@ -347,7 +347,7 @@ namespace client {
         granary::basic_block_state &bb,
         interrupt_stack_frame &isf,
         interrupt_vector vec
-    ) throw() {
+    ) {
         if(VECTOR_GENERAL_PROTECTION != vec) {
             return INTERRUPT_DEFER;
         }
@@ -418,7 +418,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         instruction_list &ls
-    ) throw() {
+    ) {
 
         // Only apply the watchpoints instrumentation up until the first CTI.
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
@@ -475,7 +475,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         instruction_list &ls
-    ) throw() {
+    ) {
         return visit_app_instructions(cpu, bb, ls);
     }
 
@@ -486,7 +486,7 @@ namespace client {
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector
-    ) throw() {
+    ) {
         return INTERRUPT_DEFER;
     }
 
@@ -497,7 +497,7 @@ namespace client {
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
-        ) throw() {
+        ) {
             if(DEST_OPERAND & tracker.ops[i].kind) {
                 return; // Don't double-instrument a read&write access.
             }
@@ -514,7 +514,7 @@ namespace client {
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
-        ) throw() {
+        ) {
             insert_cti_after(
                 ls, tracker.labels[i],
                 instrumented_access(tracker.regs[i], false),
@@ -529,7 +529,7 @@ namespace client {
             granary::basic_block_state &,
             interrupt_stack_frame &,
             interrupt_vector
-        ) throw() {
+        ) {
             return INTERRUPT_DEFER;
         }
     }

@@ -45,7 +45,7 @@ namespace granary {
 #if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
     /// Get the state of a byte in the basic block.
     inline static code_cache_byte_state
-    get_state(const uint8_t *states, unsigned i) throw() {
+    get_state(const uint8_t *states, unsigned i) {
         enum {
             MASK = (BB_BYTE_STATES_PER_BYTE - 1)
         };
@@ -61,7 +61,7 @@ namespace granary {
         uint8_t *pc_byte_states,
         unsigned i,
         code_cache_byte_state state
-    ) throw() {
+    ) {
 
         enum {
             MASK = (BB_BYTE_STATES_PER_BYTE - 1)
@@ -96,7 +96,7 @@ namespace granary {
     get_instruction_state(
         const instruction in,
         code_cache_byte_state prev_state
-    ) throw() {
+    ) {
 
         uint8_t flags(in.instr->granary_flags);;
 
@@ -129,7 +129,7 @@ namespace granary {
 
 
     /// Scan the instructions to see if the interrupt delay feature is being used.
-    static bool requires_state_bytes(instruction in, instruction last) throw() {
+    static bool requires_state_bytes(instruction in, instruction last) {
         for(; in.is_valid() && in != last; in = in.next()) {
             if(DELAY_INSTRUCTION & in.instr->granary_flags) {
                 return true;
@@ -145,7 +145,7 @@ namespace granary {
         instruction last,
         uint8_t *bytes,
         unsigned num_bytes
-    ) throw() {
+    ) {
 
         unsigned num_instruction_bits(num_bytes * BITS_PER_STATE);
         num_instruction_bits += ALIGN_TO(num_instruction_bits, BITS_PER_QWORD);
@@ -220,7 +220,7 @@ namespace granary {
     bool basic_block::get_interrupt_delay_range(
         app_pc &begin,
         app_pc &end
-    ) const throw() {
+    ) const {
         const uint8_t *delay_states(info->delay_states);
 
         // Quick check: if we don't have any delay ranges then we never
@@ -267,14 +267,14 @@ namespace granary {
 #endif
 #if CONFIG_PRE_MANGLE_REP_INSTRUCTIONS
     /// Get the counter operand for a REP instruction.
-    operand rep_counter(instruction in) throw() {
+    operand rep_counter(instruction in) {
         return in.instr->u.o.dsts[in.instr->num_dsts - 1];
     }
 
 
     /// Create a jrcxz/jecxz/jcxz instruction for operating on a REP-prefixed
     /// instruction.
-    instruction rep_jrcxz_(instruction label, const operand &counter) throw() {
+    instruction rep_jrcxz_(instruction label, const operand &counter) {
         switch(dynamorio::opnd_get_size(counter)) {
         case dynamorio::OPSZ_8:
             return mangled(jrcxz_(instr_(label)));
@@ -288,7 +288,7 @@ namespace granary {
 
 
     /// Translate any loop instructions into a 3- or 4-instruction form.
-    static void translate_loops(instruction_list &ls) throw() {
+    static void translate_loops(instruction_list &ls) {
 
         instruction in(ls.first());
         instruction next_in;
@@ -419,7 +419,7 @@ namespace granary {
 
     /// Estimate the maximum size of a basic block by being pessimistic about
     /// alignment constraints for hot-patchable instructions.
-    static unsigned estimate_max_size(instruction_list &ls) throw() {
+    static unsigned estimate_max_size(instruction_list &ls) {
         unsigned size(0);
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             size += in.encoded_size();
@@ -433,7 +433,7 @@ namespace granary {
 
     /// Return the meta information for the current basic block, given some
     /// pointer into the instructions of the basic block.
-    basic_block::basic_block(app_pc current_pc_) throw()
+    basic_block::basic_block(app_pc current_pc_) 
         : info(find_basic_block_info(current_pc_))
         , policy(instrumentation_policy(info->generating_pc))
         , cache_pc_start(info->start_pc)
@@ -449,7 +449,7 @@ namespace granary {
         const app_pc start_pc,
         app_pc &end_pc
         _IF_KERNEL( void *&user_exception_metadata )
-    ) throw() {
+    ) {
         app_pc local_pc(start_pc);
         app_pc *pc(&local_pc);
         const app_pc desired_end_pc(end_pc);
@@ -696,29 +696,29 @@ namespace granary {
         unsigned num_decoded_instructions;
         unsigned num_encoded_instructions;
 
-        block_translator(void) throw();
+        block_translator(void) ;
 
-        void reinitialise_for_split(void) throw();
+        void reinitialise_for_split(void) ;
 
-        void run(cpu_state_handle cpu) throw();
+        void run(cpu_state_handle cpu) ;
 
         bool visit_branches(
             cpu_state_handle cpu,
             block_translator *head,
             unsigned &num_fall_throughs
-        ) throw();
+        ) ;
 
         bool fixup_branches(
             block_translator *trace,
             app_pc trace_start_pc,
             app_pc trace_end_pc
-        ) throw();
+        ) ;
 
-        void optimise(void) throw();
+        void optimise(void) ;
     };
 
 
-    block_translator::block_translator(void) throw()
+    block_translator::block_translator(void) 
         : translated(false)
         , can_split(true)
         , next(nullptr)
@@ -740,7 +740,7 @@ namespace granary {
     }
 
 
-    void block_translator::reinitialise_for_split(void) throw() {
+    void block_translator::reinitialise_for_split(void) {
         translated = false;
 
         IF_KERNEL( user_exception_metadata = nullptr; )
@@ -762,7 +762,7 @@ namespace granary {
 
 
     /// Translate an individual basic block.
-    void block_translator::run(cpu_state_handle cpu) throw() {
+    void block_translator::run(cpu_state_handle cpu) {
 
         num_decoded_instructions = basic_block::decode(
             ls, incoming_policy,
@@ -788,7 +788,7 @@ namespace granary {
         block_translator *curr,
         app_pc start_pc,
         instrumentation_policy policy
-    ) throw() {
+    ) {
         block_translator *first(nullptr);
         for(; nullptr != curr; curr = curr->next) {
             if(policy.base_policy() == curr->incoming_policy.base_policy()
@@ -810,7 +810,7 @@ namespace granary {
         cpu_state_handle cpu,
         block_translator *head,
         unsigned &num_fall_throughs
-    ) throw() {
+    ) {
         bool found_successor(false);
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
 
@@ -948,7 +948,7 @@ namespace granary {
         block_translator *trace,
         app_pc trace_start_pc,
         app_pc trace_end_pc
-    ) throw() {
+    ) {
         for(instruction in(ls.first()), next_in; in.is_valid(); in = next_in) {
             next_in = in.next();
 
@@ -1041,7 +1041,7 @@ namespace granary {
     }
 
 
-    void block_translator::optimise(void) throw() {
+    void block_translator::optimise(void) {
         for(instruction in(ls.first()), next_in; in.is_valid(); in = next_in) {
             next_in = in.next();
 
@@ -1070,7 +1070,7 @@ namespace granary {
 
     /// Returns either an accurate (excluding labels) or an inaccurate
     /// (including labels) length for an instruction list.
-    static unsigned debug_instruction_list_length(instruction_list &ls) throw() {
+    static unsigned debug_instruction_list_length(instruction_list &ls) {
 #if CONFIG_DEBUG_TRACE_EXECUTION
         unsigned num(0);
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
@@ -1091,7 +1091,7 @@ namespace granary {
         cpu_state_handle cpu,
         const app_pc start_pc,
         unsigned &num_translated_bbs
-    ) throw() {
+    ) {
 
         // Make sure we do a fake allocation so that next time a basic
         // block is killed on this CPU, we don't accidentally kill anything from

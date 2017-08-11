@@ -51,7 +51,7 @@ namespace client { namespace wp {
 
 #if 0
     template <typename T>
-    void add_to_scanlist(T ptr_) throw() {
+    void add_to_scanlist(T ptr_) {
         scan_object_hash->store(
             reinterpret_cast<uintptr_t>(ptr_),
             unsafe_cast<app_pc>(&scan_function<T>::scan_impl::scan_head));
@@ -104,7 +104,7 @@ namespace client { namespace wp {
 
     /// Notify the leak detector that this thread's execution has entered the
     /// code cache.
-    void leak_notify_thread_enter_module(void) throw() {
+    void leak_notify_thread_enter_module(void) {
         thread_state_handle thread = safe_cpu_access_zone();
         leak_detector_thread_state *thread_state(thread->state);
 
@@ -124,7 +124,7 @@ namespace client { namespace wp {
     ///
     /// Note: Entry/exits can be nested in the case of the kernel calling the
     ///       module calling the kernel calling the module.
-    void leak_notify_thread_exit_module(void) throw() {
+    void leak_notify_thread_exit_module(void) {
         thread_state_handle thread = safe_cpu_access_zone();
 
         leak_detector_thread_state *thread_state(thread->state);
@@ -141,7 +141,7 @@ namespace client { namespace wp {
         granary::app_pc key,
         granary::app_pc value,
         hash_set<granary::app_pc>&
-    ) throw() {
+    ) {
         typedef void (*scanner)(void *addr);
         if(is_active_watchpoint(value)){
             handle_watched_address(unsafe_cast<uintptr_t>(value));
@@ -156,7 +156,7 @@ namespace client { namespace wp {
         uintptr_t key,
         bool value,
         hash_set<granary::app_pc>&
-    ) throw() {
+    ) {
         granary::printf("key(%llx)\t", key);
         UNUSED(value);
     }
@@ -165,7 +165,7 @@ namespace client { namespace wp {
         struct thread_info*,
         struct leak_detector_thread_info *my_thread_info,
         hash_set<granary::app_pc>&
-    ) throw() {
+    ) {
         bool ret;
 #if 0
         uint64_t start = (my_thread_info->stack_current_ptr);
@@ -226,7 +226,7 @@ namespace client { namespace wp {
         }
     }
 
-    void leak_policy_scan_callback(void) throw(){
+    void leak_policy_scan_callback(void) {
         uintptr_t index = 0;
         leak_object_state state;
 
@@ -350,7 +350,7 @@ namespace client { namespace wp {
         struct thread_info *info,
         struct leak_detector_thread_info *my_thread_info,
         hash_set<granary::app_pc>&
-    ) throw() {
+    ) {
 #if 0
         my_thread_info->stack_current_ptr = info->task->thread.sp;
         my_thread_info->stack_start = (unsafe_cast<uint64_t>)(info->task->stack);
@@ -361,7 +361,7 @@ namespace client { namespace wp {
         UNUSED(my_thread_info);
     }
 
-    void leak_policy_update_rootset(void) throw(){
+    void leak_policy_update_rootset(void) {
         granary::printf("%s\n", __FUNCTION__);
         //hash_set<granary::app_pc> collect_list;
         //thread_scan_list->for_each_entry(htable_copy_task, collect_list);

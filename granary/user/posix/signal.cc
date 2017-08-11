@@ -21,7 +21,7 @@ namespace granary {
 
 
     /// Handle a segfault by trying to attach instrumentation to native code.
-    static void handle_fault(int sig, siginfo_t *info, void *context_) throw() {
+    static void handle_fault(int sig, siginfo_t *info, void *context_) {
         detach();
 
         ucontext *context = unsafe_cast<ucontext *>(context_);

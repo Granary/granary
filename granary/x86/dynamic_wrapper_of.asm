@@ -8,7 +8,7 @@ START_FILE
 .extern SYMBOL(granary_dynamic_wrapper_of_impl)
 
 // Original function prototype:
-//      app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+//      app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) ;
 //
 DECLARE_FUNC(_ZN7granary18dynamic_wrapper_ofEPhS0_)
 GLOBAL_LABEL(_ZN7granary18dynamic_wrapper_ofEPhS0_:)

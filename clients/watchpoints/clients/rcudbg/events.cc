@@ -128,7 +128,7 @@ namespace client {
 
     /// Log a warning that a read-side critical section extends through a
     /// function return.
-    static void event_read_through_ret(void) throw() {
+    static void event_read_through_ret(void) {
 
         // Get the read-side critical section ID for this thread, as well as an
         // identifying pointer for this thread.
@@ -147,7 +147,7 @@ namespace client {
         void **derefed_ptr_,
         void *ptr_,
         const char *dereference_carat
-    ) throw() {
+    ) {
 
         // The pointer value resulting from the `rcu_dereference`.
         rcudbg_watched_address deref_address;
@@ -291,7 +291,7 @@ namespace client {
     /// Happens when `rcu_assign_pointer` is invoked.
     void event_rcu_assign_pointer(
         void **p, void *v, const char *assign_carat
-    ) throw() {
+    ) {
         rcudbg_watched_address assign_pointer;
         assign_pointer.as_pointer = reinterpret_cast<void *>(p);
 
@@ -380,7 +380,7 @@ namespace client {
 
 
     /// Invoked when `rcu_read_lock` is invoked.
-    void event_rcu_read_lock(const char *carat) throw() {
+    void event_rcu_read_lock(const char *carat) {
         IF_KERNEL( eflags flags = granary_disable_interrupts(); )
         thread_state_handle thread = safe_cpu_access_zone();
         thread->section_carat_backtrace[thread->section_depth] = carat;
@@ -399,7 +399,7 @@ namespace client {
 
 
     /// Invoked when `rcu_read_unlock` is invoked.
-    void event_rcu_read_unlock(const char *carat) throw() {
+    void event_rcu_read_unlock(const char *carat) {
         IF_KERNEL( eflags flags = granary_disable_interrupts(); )
         thread_state_handle thread = safe_cpu_access_zone();
         const void *thread_id(nullptr);
@@ -492,7 +492,7 @@ namespace client {
 
 
     /// Initialise the clean-callable target for the events.
-    void init(void) throw() {
+    void init(void) {
         cpu_state_handle cpu;
 
         IF_TEST( cpu->in_granary = false; )

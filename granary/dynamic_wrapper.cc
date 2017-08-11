@@ -33,7 +33,7 @@ namespace granary {
     extern "C" app_pc granary_dynamic_wrapper_of_impl(
         app_pc wrapper,
         app_pc wrappee
-    ) throw() {
+    ) {
 
         // Enter Granary.
         cpu_state_handle cpu;

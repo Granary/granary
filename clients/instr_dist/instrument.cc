@@ -22,7 +22,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             instruction_log &log(INSTRUCTION_DIST[in.op_code()]);
 
@@ -44,7 +44,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         return visit_app_instructions(cpu, bb, ls);
     }
 
@@ -59,7 +59,7 @@ namespace client {
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 
@@ -71,7 +71,7 @@ namespace client {
         granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 

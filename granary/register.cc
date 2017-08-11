@@ -336,7 +336,7 @@ namespace granary {
 
 
     /// Initialise the register manager so that every register is live.
-    register_manager::register_manager(void) throw()
+    register_manager::register_manager(void) 
         : live(~0)
         , undead(0)
         , live_xmm(~0)
@@ -348,7 +348,7 @@ namespace granary {
     dynamorio::reg_id_t register_manager::scale(
         dynamorio::reg_id_t reg,
         register_scale scale
-    ) throw() {
+    ) {
         if(dynamorio::DR_REG_MM0 <= reg) {
             return dynamorio::DR_REG_NULL;
         }
@@ -364,7 +364,7 @@ namespace granary {
 
 
     /// Kill all registers.
-    void register_manager::kill_all(void) throw() {
+    void register_manager::kill_all(void) {
         live = FORCE_LIVE;
         undead = 0;
 
@@ -374,14 +374,14 @@ namespace granary {
 
 
     /// Kill all live registers.
-    void register_manager::kill_all_live(void) throw() {
+    void register_manager::kill_all_live(void) {
         live = FORCE_LIVE;
         live_xmm = 0;
     }
 
 
     /// Revive all registers.
-    void register_manager::revive_all(void) throw() {
+    void register_manager::revive_all(void) {
         live = ~0;
         undead = 0;
 
@@ -391,14 +391,14 @@ namespace granary {
 
 
     /// Revive all xmm registers.
-    void register_manager::revive_all_xmm(void) throw() {
+    void register_manager::revive_all_xmm(void) {
         live_xmm = ~0;
         undead_xmm = 0;
     }
 
 
     /// Revive all registers used in another register manager.
-    void register_manager::revive_all(register_manager that) throw() {
+    void register_manager::revive_all(register_manager that) {
         live |= that.live;
         undead |= that.undead;
 
@@ -412,7 +412,7 @@ namespace granary {
         dynamorio::instr_t *in,
         opnd_counter *num_ops,
         opnd_getter *which_op
-    ) throw() {
+    ) {
         for(int i(0); i < num_ops(in); i++) {
             kill(which_op(in, i));
         }
@@ -424,7 +424,7 @@ namespace granary {
         dynamorio::instr_t *in,
         opnd_counter *num_ops,
         opnd_getter *which_op
-    ) throw() {
+    ) {
         for(int i(0); i < num_ops(in); i++) {
             revive(which_op(in, i));
         }
@@ -439,7 +439,7 @@ namespace granary {
     ///       appears twice within the destinations (as in MOVS), in that
     ///       it ensures that the register remains live, regardless of the
     ///       ordering of the destination operands.
-    void register_manager::visit_dests(dynamorio::instr_t *in) throw() {
+    void register_manager::visit_dests(dynamorio::instr_t *in) {
         if(dynamorio::instr_is_nop(in)) {
             return;
         }
@@ -513,7 +513,7 @@ namespace granary {
 #if CONFIG_DEBUG_ASSERTIONS
     /// This will visit destination operands and attempt to "find" potentially
     /// complicated instructions to deal with.
-    void register_manager::visit_dests_simple_forward(dynamorio::instr_t *in) throw() {
+    void register_manager::visit_dests_simple_forward(dynamorio::instr_t *in) {
         unsigned num_dests(dynamorio::instr_num_dsts(in));
         for(unsigned i(0); i < num_dests; i++) {
             const dynamorio::opnd_t op(dynamorio::instr_get_dst(in, i));
@@ -525,7 +525,7 @@ namespace granary {
             }
         }
     }
-    void register_manager::visit_dests_simple_backward(dynamorio::instr_t *in) throw() {
+    void register_manager::visit_dests_simple_backward(dynamorio::instr_t *in) {
         unsigned num_dests(dynamorio::instr_num_dsts(in));
         for(int i(num_dests); i-- > 0; ) {
             const dynamorio::opnd_t op(dynamorio::instr_get_dst(in, i));
@@ -537,7 +537,7 @@ namespace granary {
             }
         }
     }
-    void register_manager::visit_dests_check(dynamorio::instr_t *in) throw() {
+    void register_manager::visit_dests_check(dynamorio::instr_t *in) {
         if(dynamorio::instr_is_nop(in)) {
             return;
         }
@@ -562,7 +562,7 @@ namespace granary {
     /// Visit the source operands of an instruction. This will revive
     /// register sources and revive registers that are used in base/
     /// disp operands.
-    void register_manager::visit_sources(dynamorio::instr_t *in) throw() {
+    void register_manager::visit_sources(dynamorio::instr_t *in) {
         if(!dynamorio::instr_is_nop(in)) {
             revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
         }
@@ -571,7 +571,7 @@ namespace granary {
 
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
-    void register_manager::visit(dynamorio::instr_t *in) throw() {
+    void register_manager::visit(dynamorio::instr_t *in) {
 
         if(dynamorio::instr_is_nop(in)) {
             return;
@@ -590,7 +590,7 @@ namespace granary {
 
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
-    void register_manager::kill(dynamorio::instr_t *in) throw() {
+    void register_manager::kill(dynamorio::instr_t *in) {
         if(!dynamorio::instr_is_nop(in)) {
             kill(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
             kill(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
@@ -600,7 +600,7 @@ namespace granary {
 
     /// Visit the registers in the instruction; kill the destination
     /// registers and revive the source registers.
-    void register_manager::revive(dynamorio::instr_t *in) throw() {
+    void register_manager::revive(dynamorio::instr_t *in) {
         if(!dynamorio::instr_is_nop(in)) {
             revive(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
             revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
@@ -609,7 +609,7 @@ namespace granary {
 
 
     /// Forcibly kill all registers used in a particular operand.
-    void register_manager::kill(dynamorio::opnd_t op) throw() {
+    void register_manager::kill(dynamorio::opnd_t op) {
         if(dynamorio::BASE_DISP_kind == op.kind) {
             kill_64(op.value.base_disp.base_reg);
             kill_64(op.value.base_disp.index_reg);
@@ -620,7 +620,7 @@ namespace granary {
 
 
     /// Forcibly revive all registers used in a particular operand.
-    void register_manager::revive(dynamorio::opnd_t op) throw() {
+    void register_manager::revive(dynamorio::opnd_t op) {
         if(dynamorio::BASE_DISP_kind == op.kind) {
             revive_64(op.value.base_disp.base_reg);
             revive_64(op.value.base_disp.index_reg);
@@ -632,7 +632,7 @@ namespace granary {
 
     /// Convert a (possibly) xmm register to be in the range [1, 16], where 0
     /// is the null register.
-    static uint8_t reg_to_xmm(dynamorio::reg_id_t reg) throw() {
+    static uint8_t reg_to_xmm(dynamorio::reg_id_t reg) {
         if(dynamorio::DR_REG_XMM0 <= reg && reg <= dynamorio::DR_REG_XMM15) {
             return reg - dynamorio::DR_REG_XMM0 + 1;
         }
@@ -641,7 +641,7 @@ namespace granary {
 
 
     /// Forcible kill a particular register.
-    void register_manager::kill(dynamorio::reg_id_t reg) throw() {
+    void register_manager::kill(dynamorio::reg_id_t reg) {
         if(dynamorio::DR_REG_MM0 <= reg) {
             kill_xmm(reg);
         } else {
@@ -651,7 +651,7 @@ namespace granary {
 
 
     /// Forcible revive a particular register.
-    void register_manager::revive(dynamorio::reg_id_t reg) throw() {
+    void register_manager::revive(dynamorio::reg_id_t reg) {
         if(dynamorio::DR_REG_MM0 <= reg) {
             revive_xmm(reg);
         } else {
@@ -661,7 +661,7 @@ namespace granary {
 
 
     /// Forcible kill a particular xmm register.
-    void register_manager::kill_xmm(dynamorio::reg_id_t reg) throw() {
+    void register_manager::kill_xmm(dynamorio::reg_id_t reg) {
         const uint8_t reg_xmm(reg_to_xmm(reg));
         if(reg_xmm) {
             const uint16_t mask(1U << (reg_xmm - 1));
@@ -672,7 +672,7 @@ namespace granary {
 
 
     /// Forcible revive a particular xmm register.
-    void register_manager::revive_xmm(dynamorio::reg_id_t reg) throw() {
+    void register_manager::revive_xmm(dynamorio::reg_id_t reg) {
         const uint8_t reg_xmm(reg_to_xmm(reg));
         if(reg_xmm) {
             const uint16_t mask(1U << (reg_xmm - 1));
@@ -688,7 +688,7 @@ namespace granary {
     /// something like `MOV AL, CL`, while looking like it kills `RCX`, is only
     /// killing the low 8 bytes of `RCX`, and the other bytes might still be
     /// live.
-    void register_manager::kill_64(dynamorio::reg_id_t reg) throw() {
+    void register_manager::kill_64(dynamorio::reg_id_t reg) {
         const uint8_t reg64(REG_TO_REG64[reg]);
         if(reg64 && (reg64 == reg || REG_TO_REG32[reg] == reg)) {
             const uint16_t mask(1U << (reg64 - 1));
@@ -700,7 +700,7 @@ namespace granary {
 
 
     /// Forcibly revive a particular 64-bit register.
-    void register_manager::revive_64(dynamorio::reg_id_t reg) throw() {
+    void register_manager::revive_64(dynamorio::reg_id_t reg) {
         const uint8_t reg64(REG_TO_REG64[reg]);
         if(reg64) {
             const uint16_t mask(1U << (reg64 - 1));
@@ -712,7 +712,7 @@ namespace granary {
 
     /// Returns the next 64-bit "free" dead register. Note: < reg15 instead of
     /// <= reg15 because reg_null=0 and it is not represented in the bitset.
-    dynamorio::reg_id_t register_manager::get_zombie(void) throw() {
+    dynamorio::reg_id_t register_manager::get_zombie(void) {
         const uint64_t zombies(live | undead);
         for(unsigned pos(0); pos < dynamorio::DR_REG_R15; ++pos) {
             const uint16_t mask(1U << pos);
@@ -726,7 +726,7 @@ namespace granary {
 
 
     /// Returns the next xmm "free" dead register.
-    dynamorio::reg_id_t register_manager::get_xmm_zombie(void) throw() {
+    dynamorio::reg_id_t register_manager::get_xmm_zombie(void) {
         const uint64_t zombies(live_xmm | undead_xmm);
         for(unsigned pos(0); pos < 16; ++pos) {
             const uint16_t mask(1U << pos);
@@ -741,7 +741,7 @@ namespace granary {
 
 
     /// Returns true iff a particular register is alive.
-    bool register_manager::is_live(dynamorio::reg_id_t reg_) const throw() {
+    bool register_manager::is_live(dynamorio::reg_id_t reg_) const {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {
@@ -768,7 +768,7 @@ namespace granary {
 
 
     /// Returns true iff a particular register is dead.
-    bool register_manager::is_dead(dynamorio::reg_id_t reg_) const throw() {
+    bool register_manager::is_dead(dynamorio::reg_id_t reg_) const {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {
@@ -796,7 +796,7 @@ namespace granary {
 
     /// Returns true iff a particular register is a walker, i.e.
     /// living or a zombie!
-    bool register_manager::is_undead(dynamorio::reg_id_t reg_) const throw() {
+    bool register_manager::is_undead(dynamorio::reg_id_t reg_) const {
         uint8_t reg;
         if(dynamorio::DR_REG_XMM0 <= reg_
         && reg_ <= dynamorio::DR_REG_XMM15) {
@@ -825,7 +825,7 @@ namespace granary {
     /// Store a value into the machine state given a specific register.
     general_purpose_register &simple_machine_state::operator[](
         dynamorio::reg_id_t reg
-    ) throw() {
+    ) {
         reg = register_manager::scale(reg, REG_64);
         ASSERT(dynamorio::DR_REG_NULL != reg);
         ASSERT(dynamorio::DR_REG_RSP != reg)
@@ -844,7 +844,7 @@ namespace granary {
     /// Note: This function is meant to be "ignored" due to weak linking if an
     ///       auto-generated version exists.
     /*register_manager WEAK_SYMBOL
-    get_live_registers(const app_pc) throw() {
+    get_live_registers(const app_pc) {
         return register_manager();
     }*/
 }

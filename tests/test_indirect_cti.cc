@@ -20,7 +20,7 @@ namespace test {
     static int (*false_func)(void) = granary_test_return_false;
 
 
-    static bool indirect_call(void) throw() {
+    static bool indirect_call(void) {
         if(true_func() && false_func()) {
             return false;
         }

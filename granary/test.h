@@ -39,7 +39,7 @@ namespace granary {
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
-        ) throw();
+        ) ;
 
 
         /// Instruction a basic block.
@@ -47,7 +47,7 @@ namespace granary {
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
-        ) throw();
+        ) ;
 
 
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
@@ -59,7 +59,7 @@ namespace granary {
             granary::basic_block_state &bb,
             granary::interrupt_stack_frame &isf,
             granary::interrupt_vector vector
-        ) throw();
+        ) ;
 #endif
 
     };
@@ -70,12 +70,12 @@ namespace granary {
         const char *desc;
         static_test_list *next;
 
-        static_test_list(void) throw();
+        static_test_list(void) ;
 
-        static void append(static_test_list &) throw();
+        static void append(static_test_list &) ;
     };
 
-    void run_tests(void) throw();
+    void run_tests(void) ;
 
 }
 

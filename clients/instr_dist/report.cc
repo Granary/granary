@@ -33,7 +33,7 @@ namespace client {
 
 
    /// Report on watchpoints statistics.
-   void report(void) throw() {
+   void report(void) {
        int n(0);
 
        for(unsigned i(0); i < dynamorio::OP_AFTER_LAST; ++i) {

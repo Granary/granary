@@ -22,7 +22,7 @@ namespace client {
 
 
     /// Report on watchpoints statistics.
-    void report(void) throw() {
+    void report(void) {
 
         uint64_t num_bbs(0);
         uint64_t num_bbs_with_watched_ops(0);

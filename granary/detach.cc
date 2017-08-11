@@ -53,7 +53,7 @@ namespace granary {
         app_pc detach_addr,
         app_pc redirect_addr,
         runtime_context context
-    ) throw() {
+    ) {
         DETACH_HASH_TABLE[context]->store(detach_addr, redirect_addr);
     }
 
@@ -69,7 +69,7 @@ namespace granary {
     app_pc find_detach_target(
         app_pc detach_addr,
         runtime_context context
-    ) throw() {
+    ) {
 
 #if CONFIG_ENV_KERNEL
 #   if !CONFIG_FEATURE_INSTRUMENT_HOST
@@ -94,7 +94,7 @@ namespace granary {
 
 
     /// Detach Granary.
-    void detach(void) throw() {
+    void detach(void) {
         ASM("");
     }
 

@@ -383,7 +383,7 @@ namespace granary {
         } __attribute__((packed));
         uint64_t value;
 
-        inline void clear_arithmetic_flags(void) throw() {
+        inline void clear_arithmetic_flags(void) {
             carry = false;
             parity = false;
             aux_carry = false;
@@ -399,7 +399,7 @@ namespace granary {
 
 
     /// Detach from Granary.
-    extern void detach(void) throw();
+    extern void detach(void) ;
 
 
     /// Detach context.
@@ -411,49 +411,49 @@ namespace granary {
 
     /// Forward declarations.
     struct basic_block;
-    extern void run_tests(void) throw();
+    extern void run_tests(void) ;
 
 #if CONFIG_ENV_KERNEL
     template <typename T>
     FORCE_INLINE
-    void construct_object(T &obj) throw() {
+    void construct_object(T &obj) {
         new (&obj) T;
     }
 #endif /* CONFIG_ENV_KERNEL */
 
 
-    extern bool is_code_cache_address(const const_app_pc) throw();
-    extern bool is_wrapper_address(const const_app_pc) throw();
-    extern bool is_gencode_address(const const_app_pc) throw();
+    extern bool is_code_cache_address(const const_app_pc) ;
+    extern bool is_wrapper_address(const const_app_pc) ;
+    extern bool is_gencode_address(const const_app_pc) ;
 
 
 #if CONFIG_ENV_KERNEL
 
-    extern "C" bool is_host_address(uintptr_t addr) throw();
-    extern "C" bool is_app_address(uintptr_t addr) throw();
+    extern "C" bool is_host_address(uintptr_t addr) ;
+    extern "C" bool is_app_address(uintptr_t addr) ;
 
     template <typename T>
-    inline bool is_host_address(T *addr_) throw() {
+    inline bool is_host_address(T *addr_) {
         return is_host_address(reinterpret_cast<uintptr_t>(addr_));
     }
 
     template <typename T>
-    inline bool is_app_address(T *addr_) throw() {
+    inline bool is_app_address(T *addr_) {
         return is_app_address(reinterpret_cast<uintptr_t>(addr_));
     }
 
 #else
-    extern app_pc find_detach_target(app_pc pc, runtime_context) throw();
+    extern app_pc find_detach_target(app_pc pc, runtime_context) ;
 
     template <typename T>
-    inline bool is_host_address(T *addr_) throw() {
+    inline bool is_host_address(T *addr_) {
         const uint64_t addr(reinterpret_cast<uint64_t>(addr_));
         return nullptr != find_detach_target(
             reinterpret_cast<app_pc>(addr), RUNNING_AS_APP);
     }
 
     template <typename T>
-    inline bool is_app_address(T *) throw() {
+    inline bool is_app_address(T *) {
         return true; // TODO
     }
 
@@ -530,7 +530,7 @@ extern "C" {
 
 namespace granary {
     /// Log some data from Granary to the external world.
-    inline void log(const char *data, size_t IF_KERNEL( size ) ) throw() {
+    inline void log(const char *data, size_t IF_KERNEL( size ) ) {
         IF_KERNEL(kernel_log(data, size);)
         IF_USER(granary::printf("%s", data);)
     }

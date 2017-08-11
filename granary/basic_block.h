@@ -108,7 +108,7 @@ namespace granary {
         basic_block_info *info;
 
         /// Zero-initialize the trace data structure.
-        inline trace_info(void) throw()
+        inline trace_info(void) 
             : start_pc(nullptr)
             , num_blocks(0)
             , num_bytes(0)
@@ -152,7 +152,7 @@ namespace granary {
 
 
         /// construct a basic block from a pc that points into the code cache.
-        basic_block(app_pc current_pc_) throw();
+        basic_block(app_pc current_pc_) ;
 
 
 #if CONFIG_ENV_KERNEL && CONFIG_FEATURE_INTERRUPT_DELAY
@@ -162,13 +162,13 @@ namespace granary {
         /// safely execute the interruptible code. The range of addresses is
         /// [begin, end), where the `end` address is the next code cache address
         /// to execute after the interrupt has been handled.
-        bool get_interrupt_delay_range(app_pc &, app_pc &) const throw();
+        bool get_interrupt_delay_range(app_pc &, app_pc &) const ;
 #endif
 
 
         /// Call the code within the basic block as if is a function.
         template <typename R, typename... Args>
-        R call(Args... args) throw() {
+        R call(Args... args) {
             typedef R (func_type)(Args...);
             function_call<R, Args...> func(
                 unsafe_cast<func_type *>(cache_pc_start));
@@ -189,7 +189,7 @@ namespace granary {
             const app_pc start_pc,
             app_pc &end_pc
             _IF_KERNEL( void *&user_exception_metadata )
-        ) throw();
+        ) ;
 
 
         /// Decode and translate a single basic block of application/module code.
@@ -198,14 +198,14 @@ namespace granary {
             cpu_state_handle cpu,
             const app_pc start_pc_,
             unsigned &num_translated_bbs
-        ) throw();
+        ) ;
 
 
     public:
 
         /// Return a pointer to the basic block state structure of this basic
         /// block.
-        inline const basic_block_state *state(void) const throw() {
+        inline const basic_block_state *state(void) const {
             return info->state;
         }
     };

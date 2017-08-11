@@ -24,7 +24,7 @@ namespace client {
 
 
     // Report on watchpoints statistics.
-    void report(void) throw() {
+    void report(void) {
         printf("Number of faults for augmenting: %u\n",
             NUM_AUGMENT_FAULTS.load());
         printf("Number of faults occurring within a basic block that has already faulted: %u\n",

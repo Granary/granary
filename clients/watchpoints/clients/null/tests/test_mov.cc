@@ -28,7 +28,7 @@ namespace test {
 
     /// Simple un/watched, no flags dependencies, no register dependencies.
 
-    static void unwatched_mov_to_mem(void) throw() {
+    static void unwatched_mov_to_mem(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
@@ -36,7 +36,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem(void) throw() {
+    static void watched_mov_to_mem(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
@@ -47,7 +47,7 @@ namespace test {
 
     /// Simple un/watched, no flags dependencies, with register dependencies.
 
-    static void unwatched_mov_to_mem_dep(void) throw() {
+    static void unwatched_mov_to_mem_dep(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
@@ -57,7 +57,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem_dep(void) throw() {
+    static void watched_mov_to_mem_dep(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
@@ -70,7 +70,7 @@ namespace test {
 
     /// Simple un/watched, with flags dependencies, no register dependencies.
 
-    static void unwatched_mov_to_mem_cf(void) throw() {
+    static void unwatched_mov_to_mem_cf(void) {
         ASM(
             "clc;" // set CF=0
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
@@ -81,7 +81,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem_cf(void) throw() {
+    static void watched_mov_to_mem_cf(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
@@ -95,7 +95,7 @@ namespace test {
 
     /// Simple un/watched, with flags dependencies, with register dependencies.
 
-    static void unwatched_mov_to_mem_cf_dep(void) throw() {
+    static void unwatched_mov_to_mem_cf_dep(void) {
         ASM(
             "clc;" // set CF=0
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
@@ -107,7 +107,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem_cf_dep(void) throw() {
+    static void watched_mov_to_mem_cf_dep(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
@@ -122,7 +122,7 @@ namespace test {
 
 
     /// Test that a dead register is not restored at a bad time.
-    static uint64_t unwatched_mov_from_mem_dead(void) throw() {
+    static uint64_t unwatched_mov_from_mem_dead(void) {
         register uint64_t ret asm("rax");
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;"
@@ -133,7 +133,7 @@ namespace test {
         return ret;
     }
 
-    static uint64_t watched_mov_from_mem_dead(void) throw() {
+    static uint64_t watched_mov_from_mem_dead(void) {
         register uint64_t ret asm("rax");
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %%rax;"
@@ -150,7 +150,7 @@ namespace test {
     /// Test that a dead register that can't scale to 8 bits is not restored at
     /// a bad time. This is only relevant for watchpoints that use 8 bits of
     /// taints.
-    static uint64_t unwatched_mov_from_mem_dead_8(void) throw() {
+    static uint64_t unwatched_mov_from_mem_dead_8(void) {
         register uint64_t ret asm("rax");
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rsi;"
@@ -165,7 +165,7 @@ namespace test {
     /// Test MOV instructions that use the index register instead of the base
     /// register.
 
-    static void unwatched_mov_to_mem_index(void) throw() {
+    static void unwatched_mov_to_mem_index(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0xDEADBEEF, %rbx;"
@@ -173,7 +173,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem_index(void) throw() {
+    static void watched_mov_to_mem_index(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;" // mask the address of FOO
@@ -182,7 +182,7 @@ namespace test {
         );
     }
 
-    static uint64_t unwatched_mov_from_mem_dead_index(void) throw() {
+    static uint64_t unwatched_mov_from_mem_dead_index(void) {
         register uint64_t ret asm("rax");
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %%rax;"
@@ -193,7 +193,7 @@ namespace test {
         return ret;
     }
 
-    static uint64_t watched_mov_from_mem_dead_index(void) throw() {
+    static uint64_t watched_mov_from_mem_dead_index(void) {
         register uint64_t ret asm("rax");
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %%rax;"
@@ -207,7 +207,7 @@ namespace test {
     }
 
     /// Test MOV instructions that use both the base and index registers.
-    static void unwatched_mov_to_mem_base_index(void) throw() {
+    static void unwatched_mov_to_mem_base_index(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_MOV_FOO)) ", %rax;"
             "movq $0, %rsi;"
@@ -216,7 +216,7 @@ namespace test {
         );
     }
 
-    static void watched_mov_to_mem_base_index(void) throw() {
+    static void watched_mov_to_mem_base_index(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_MOV_MASK)) ", %rax;"
             "movq $0, %rsi;"

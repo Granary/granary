@@ -13,7 +13,7 @@
 namespace test {
 
 
-    static int test_fibonacci(int i) throw() {
+    static int test_fibonacci(int i) {
         if(0 == i) {
             return 1;
         } else if(1 == i) {

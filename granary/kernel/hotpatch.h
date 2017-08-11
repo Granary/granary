@@ -16,15 +16,15 @@ namespace granary {
     /// contiguous bytes, copy the instructions directly from `addr` into a
     /// new buffer of the same size, re-relativize those instructions, and
     /// return a pointer to the new instructions.
-    app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw();
+    app_pc copy_and_rerelativize_function(const app_pc addr, int len) ;
 
 
     /// Prepare to redirect a function.
-    void prepare_redirect_function(app_pc old_address) throw();
+    void prepare_redirect_function(app_pc old_address) ;
 
 
     /// Hot-patch a function at address `old_address` to JMP to `new_address`.
-    void redirect_function(app_pc old_address, app_pc new_address) throw();
+    void redirect_function(app_pc old_address, app_pc new_address) ;
 
 }
 

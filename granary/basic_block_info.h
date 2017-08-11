@@ -19,12 +19,12 @@ namespace granary {
 
 
     /// Commit to storing information about a trace.
-    void store_trace_meta_info(const trace_info &trace) throw();
+    void store_trace_meta_info(const trace_info &trace) ;
 
 
     /// Find the basic block info given an address into our code cache of
     /// basic blocks.
-    const basic_block_info *find_basic_block_info(app_pc cache_pc) throw();
+    const basic_block_info *find_basic_block_info(app_pc cache_pc) ;
 
 
     /// Remove the basic block info for some `cache_pc`. This is only valid
@@ -33,7 +33,7 @@ namespace granary {
     ///
     /// Note: We assume that there is a coarse grained lock that is guarding
     ///       these operations!
-    void remove_basic_block_info(app_pc cache_pc) throw();
+    void remove_basic_block_info(app_pc cache_pc) ;
 
 }
 

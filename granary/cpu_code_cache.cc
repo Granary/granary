@@ -27,7 +27,7 @@ namespace granary {
     }
 
     /// Find an entry in the CPU-private code cache.
-    app_pc cpu_private_code_cache::find(app_pc key) const throw() {
+    app_pc cpu_private_code_cache::find(app_pc key) const {
         if(!entries) {
             return nullptr;
         }
@@ -55,7 +55,7 @@ namespace granary {
         app_pc key,
         app_pc value,
         bool update
-    ) throw() {
+    ) {
         uint64_t index(fmix(reinterpret_cast<uint64_t>(key)));
         unsigned scan(0);
         hash_store_state state(HASH_ENTRY_SKIPPED);
@@ -94,7 +94,7 @@ namespace granary {
     }
 
     /// Grow the hash table. This increases the hash table's size by two.
-    void cpu_private_code_cache::grow(void) throw() {
+    void cpu_private_code_cache::grow(void) {
         cpu_private_code_cache_entry *old_entries(entries);
         const uint64_t old_num_entries(bit_mask + 1);
         const uint64_t new_num_entries(old_num_entries << 1);
@@ -117,7 +117,7 @@ namespace granary {
         app_pc key,
         app_pc value,
         hash_store_policy update
-    ) throw() {
+    ) {
         if(!entries) {
             entries = allocate_memory<cpu_private_code_cache_entry>(
                 MIN_DEFAULT_ENTRIES);

@@ -30,7 +30,7 @@ namespace client {
                 granary::instruction_list &ls,
                 watchpoint_tracker &tracker,
                 unsigned i
-            ) throw();
+            ) ;
 
 
             static void visit_write(
@@ -38,7 +38,7 @@ namespace client {
                 granary::instruction_list &ls,
                 watchpoint_tracker &tracker,
                 unsigned i
-            ) throw();
+            ) ;
 
 
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
@@ -48,7 +48,7 @@ namespace client {
                 granary::basic_block_state &bb,
                 granary::interrupt_stack_frame &isf,
                 granary::interrupt_vector vector
-            ) throw();
+            ) ;
 #endif
         };
     }
@@ -72,7 +72,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
 
         /// Instrument a basic block.
@@ -80,7 +80,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
-        ) throw();
+        ) ;
 
 
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
@@ -92,7 +92,7 @@ namespace client {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw();
+        ) ;
 #endif
 
     };
@@ -106,7 +106,7 @@ namespace client {
         granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw();
+    ) ;
 #endif
 }
 #endif /* GRANARY_DONT_INCLUDE_CSTDLIB */

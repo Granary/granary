@@ -15,7 +15,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
-    ) throw() {
+    ) {
         return granary::policy_for<null_policy>();
     }
 
@@ -25,7 +25,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         granary::instruction_list &
-    ) throw() {
+    ) {
         return granary::policy_for<null_policy>();
     }
 
@@ -39,7 +39,7 @@ namespace client {
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 
@@ -50,7 +50,7 @@ namespace client {
         granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 

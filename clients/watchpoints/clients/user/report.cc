@@ -33,7 +33,7 @@ namespace client {
 
 
     /// Report on watchpoints statistics.
-    void report(void) throw() {
+    void report(void) {
         basic_block_state *bb(BASIC_BLOCKS.load());
 
         int n(0);

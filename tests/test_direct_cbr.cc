@@ -39,7 +39,7 @@
 /// block, which will stop at ret (otherwise it would be optimized into
 /// and in-block jump).
 #define MAKE_CBR_TEST_FUNC(opcode, or_flag, and_flag) \
-    static int direct_cti_ ## opcode ## _short_true(void) throw() { \
+    static int direct_cti_ ## opcode ## _short_true(void) { \
         register int64_t ret asm("rcx") = 0; \
         ASM( \
             "pushf;" \
@@ -60,7 +60,7 @@
         return ret; \
     } \
     \
-    static int direct_cti_ ## opcode ## _short_false(void) throw() { \
+    static int direct_cti_ ## opcode ## _short_false(void) { \
         register int64_t ret asm("rcx") = 0; \
         ASM( \
             "pushf;" \
@@ -81,7 +81,7 @@
         return ret; \
     } \
     \
-    static int direct_cti_ ## opcode ## _long_true(void) throw() { \
+    static int direct_cti_ ## opcode ## _long_true(void) { \
         register int64_t ret asm("rcx") = 0; \
         ASM( \
             "call 1f;" \
@@ -105,7 +105,7 @@
         return ret; \
     } \
     \
-    static int direct_cti_ ## opcode ## _long_false(void) throw() { \
+    static int direct_cti_ ## opcode ## _long_false(void) { \
         register int64_t ret asm("rcx") = 0; \
         ASM( \
             "call 1f;" \

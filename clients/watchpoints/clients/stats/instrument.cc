@@ -19,7 +19,7 @@ namespace client {
 
 
     /// Chain the basic block into the list of basic blocks.
-    void commit_to_basic_block(basic_block_state &bb) throw() {
+    void commit_to_basic_block(basic_block_state &bb) {
         basic_block_state *prev(nullptr);
         basic_block_state *curr(&bb);
         do {
@@ -30,7 +30,7 @@ namespace client {
 
 
     /// Get rid of a basic block.
-    void discard_basic_block(basic_block_state &) throw() { }
+    void discard_basic_block(basic_block_state &) { }
 }
 
 namespace client { namespace wp {
@@ -42,7 +42,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         watchpoint_tracker &s,
         unsigned i
-    ) throw() {
+    ) {
         bb.num_memory_ops += 1;
 
         instruction in(s.labels[i]);
@@ -60,7 +60,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         watchpoint_tracker &s,
         unsigned i
-    ) throw() {
+    ) {
         if(DEST_OPERAND == s.ops[i].kind) {
             visit_read(bb, ls, s, i);
         }
@@ -75,7 +75,7 @@ namespace client {
         cpu_state_handle cpu,
         granary::basic_block_state &bb,
         instruction_list &ls
-    ) throw() {
+    ) {
         client::watchpoints<
             wp::stats_policy, wp::stats_policy
         >::visit_host_instructions(cpu, bb, ls);
@@ -95,7 +95,7 @@ namespace client {
         cpu_state_handle cpu,
         granary::basic_block_state &bb,
         instruction_list &ls
-    ) throw() {
+    ) {
         client::watchpoints<
             wp::stats_policy, wp::stats_policy
         >::visit_host_instructions(cpu, bb, ls);
@@ -120,7 +120,7 @@ namespace client { namespace wp {
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector
-    ) throw() {
+    ) {
         return INTERRUPT_DEFER;
     }
 }} /* wp namespace */

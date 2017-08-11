@@ -42,13 +42,13 @@
                 granary::cpu_state_handle, \
                 granary::basic_block_state &, \
                 granary::instruction_list &ls \
-            ) throw(); \
+            ) ; \
             \
             granary::instrumentation_policy visit_host_instructions( \
                 granary::cpu_state_handle, \
                 granary::basic_block_state &, \
                 granary::instruction_list & \
-            ) throw(); \
+            ) ; \
             \
             IF_CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT( \
             granary::interrupt_handled_state handle_interrupt( \
@@ -57,7 +57,7 @@
                 granary::basic_block_state &, \
                 granary::interrupt_stack_frame &, \
                 granary::interrupt_vector \
-            ) throw(); ) \
+            ) ; ) \
         }
 
     namespace client {
@@ -68,7 +68,7 @@
             granary::thread_state_handle thread,
             granary::interrupt_stack_frame &isf,
             granary::interrupt_vector vector
-        ) throw();
+        ) ;
 #   endif
     }
 #else

@@ -27,7 +27,7 @@ namespace granary {
 
 
     /// Initialise the thread state.
-    void thread_state_handle::init(void) throw() {
+    void thread_state_handle::init(void) {
 #if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE
         check_cpu_access_safety();
 #endif
@@ -42,7 +42,7 @@ namespace granary {
     /// Used to access thread-local data. The dependency on a valid CPU state
     /// handle implies that thread state should only be accessed when interrupts
     /// are disabled (where it's safe to access CPU-private data).
-    thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw() {
+    thread_state_handle::thread_state_handle(safe_cpu_access_zone) {
 #if CONFIG_DEBUG_CHECK_CPU_ACCESS_SAFE
         check_cpu_access_safety();
 #endif

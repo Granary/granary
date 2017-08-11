@@ -46,34 +46,34 @@ namespace granary {
         // to use relative addressing.
         const const_app_pc estimator_pc;
 
-        void mangle_cti(instruction in) throw();
+        void mangle_cti(instruction in) ;
 
         void mangle_direct_cti(
             instruction in,
             operand target,
             instrumentation_policy target_policy
-        ) throw();
+        ) ;
 
         void mangle_indirect_cti(
             instruction in,
             instrumentation_policy target_policy
-        ) throw();
+        ) ;
 
-        void mangle_bit_scan(instruction in) throw();
+        void mangle_bit_scan(instruction in) ;
 
         static void propagate_delay_region(
             instruction in,
             instruction first,
             instruction last
-        ) throw();
+        ) ;
 
     private:
 
 
-        void mangle_lea(instruction in) throw();
+        void mangle_lea(instruction in) ;
 
 
-        void mangle_far_memory_refs(instruction in) throw();
+        void mangle_far_memory_refs(instruction in) ;
 
 
         void mangle_far_memory_push(
@@ -82,7 +82,7 @@ namespace granary {
             dynamorio::reg_id_t dead_reg_id,
             dynamorio::reg_id_t spill_reg_id,
             uint64_t addr
-        ) throw();
+        ) ;
 
 
         void mangle_far_memory_pop(
@@ -91,7 +91,7 @@ namespace granary {
             dynamorio::reg_id_t dead_reg_id,
             dynamorio::reg_id_t spill_reg_id,
             uint64_t addr
-        ) throw();
+        ) ;
 
 
         /// Make an IBL stub. This is used by indirect jmps, calls, and returns.
@@ -101,7 +101,7 @@ namespace granary {
             instruction cti,
             instrumentation_policy target_policy,
             ibl_entry_kind ibl_kind
-        ) throw();
+        ) ;
 
 
     public:
@@ -114,16 +114,16 @@ namespace granary {
             instruction_list &stub_ls_,
             instrumentation_policy policy_,
             const_app_pc
-        ) throw();
+        ) ;
 
 
-        void mangle(void) throw();
+        void mangle(void) ;
 
 
         /// Aligns hot-patchable instructions in the basic block, given the
         /// current cache-line alignment of the basic block, and returns the
         /// basic block's size.
-        static unsigned align(instruction_list &ls, unsigned align) throw();
+        static unsigned align(instruction_list &ls, unsigned align) ;
     };
 }
 

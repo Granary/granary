@@ -13,11 +13,11 @@ namespace client {
 
     /// Returns a unique ID for a string carat location. This unique ID will fit
     /// into 14 bits, and so it's suitable for use in watched addresses.
-    unsigned get_location_id(const char *assign_carat_) throw();
+    unsigned get_location_id(const char *assign_carat_) ;
 
 
     /// Gets a location carat given a location id.
-    const char *get_location_carat(unsigned location_id) throw();
+    const char *get_location_carat(unsigned location_id) ;
 
 
     /// Gets a section ID for a given carat and thread.
@@ -25,7 +25,7 @@ namespace client {
         const char *carat,
         const void *thread,
         const unsigned conflict_id
-    ) throw();
+    ) ;
 
     enum section_carat_kind {
         SECTION_LOCK_CARAT,
@@ -37,7 +37,7 @@ namespace client {
     const char *get_section_carat(
         unsigned section_id,
         section_carat_kind kind
-    ) throw();
+    ) ;
 
 
     /// Gets the last carat assigned to a particular section id. This won't
@@ -47,7 +47,7 @@ namespace client {
         unsigned section_id,
         section_carat_kind kind,
         const char *carat
-    ) throw();
+    ) ;
 }
 
 

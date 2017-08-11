@@ -27,7 +27,7 @@ namespace test {
         uint64_t WP_CMP_MASK = client::wp::DISTINGUISHING_BIT_MASK;
     }
 
-    static int watched_cmp_through_self(void) throw() {
+    static int watched_cmp_through_self(void) {
         int64_t ret = 0;
         ASM(
             "call 1f;"

@@ -12,7 +12,7 @@
 
 /// How to use an init function:
 ///     1)  Define the `CLIENT_init` macro in here on a per-client basis.
-///     2)  Define the `void init(void) throw()` function within the `client`
+///     2)  Define the `void init(void) ` function within the `client`
 ///         namespace within your client code.
 
 /// When to use an init function:
@@ -49,7 +49,7 @@
 
 #ifdef CLIENT_init
 namespace client {
-    void init(void) throw();
+    void init(void) ;
 }
 #endif
 

@@ -77,7 +77,7 @@ namespace client {
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
-        ) throw() {
+        ) {
 #if 1
             using namespace granary;
             const unsigned reg_index(REG_TO_INDEX[tracker.regs[i].value.reg]);
@@ -102,7 +102,7 @@ namespace client {
             granary::instruction_list &ls,
             watchpoint_tracker &tracker,
             unsigned i
-        ) throw() {
+        ) {
             visit_read(bb, ls, tracker, i);
         }
 
@@ -113,15 +113,15 @@ namespace client {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw() {
+        ) {
             return granary::INTERRUPT_DEFER;
         }
 #endif /* CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT */
 
-        extern void leak_notify_thread_enter_module(void) throw();
-        extern void leak_notify_thread_exit_module(void) throw();
-        extern void leak_policy_scan_callback(void) throw();
-        extern void leak_policy_update_rootset(void) throw();
+        extern void leak_notify_thread_enter_module(void) ;
+        extern void leak_notify_thread_exit_module(void) ;
+        extern void leak_policy_scan_callback(void) ;
+        extern void leak_policy_update_rootset(void) ;
     }
 
 
@@ -140,7 +140,7 @@ namespace client {
 
 
     /// Initialise the leak detector client.
-    void init(void) throw() {
+    void init(void) {
         using namespace granary;
 
         entry_func_addr = unsafe_cast<app_pc>(
@@ -164,7 +164,7 @@ namespace client {
     /// Instrument the first entrypoint into instrumented code.
     static void instrument_entry_to_code_cache(
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         using namespace granary;
 
         instruction in(ls.first());
@@ -183,7 +183,7 @@ namespace client {
     static void instrument_exit_code_cache(
         granary::instruction_list &ls,
         granary::instruction in
-    ) throw() {
+    ) {
         using namespace granary;
         in = ls.insert_before(in, label_());
         in = save_and_restore_registers(exit_func_regs, ls, in);
@@ -201,7 +201,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         using namespace granary;
 		visit_app_instructions(cpu, bb, ls);
         instrument_entry_to_code_cache(ls);
@@ -214,7 +214,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         using namespace granary;
 
         instruction in(ls.first());
@@ -236,7 +236,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         visit_app_instructions(cpu, bb, ls);
         return granary::policy_for<leak_policy_continue>();
     }

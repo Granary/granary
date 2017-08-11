@@ -58,7 +58,7 @@ namespace granary {
         instruction_list &ibl,
         instruction in,
         instrumentation_policy policy
-    ) throw() {
+    ) {
 
         // On the stack:
         //      indirect_target_addr    (saved: arg1, mangled target address)
@@ -105,12 +105,12 @@ namespace granary {
     }
 
 
-    void ibl_lock(void) throw() {
+    void ibl_lock(void) {
         IBL_JUMP_TABLE_LOCK.acquire();
     }
 
 
-    void ibl_unlock(void) throw() {
+    void ibl_unlock(void) {
         IBL_JUMP_TABLE_LOCK.release();
     }
 
@@ -120,7 +120,7 @@ namespace granary {
     app_pc ibl_exit_routine(
         app_pc mangled_target_pc,
         app_pc instrumented_target_pc
-    ) throw() {
+    ) {
 
         instruction_list ibl;
         instruction ibl_hit_from_code_cache_find(label_());
@@ -194,7 +194,7 @@ namespace granary {
     /// for looking to see if an address (stored in reg::arg1) is located
     /// in the CPU-private code cache or in the global code cache. If the
     /// address is in the CPU-private code cache.
-    static app_pc global_code_cache_lookup_routine(void) throw() {
+    static app_pc global_code_cache_lookup_routine(void) {
 
         instruction_list ibl;
 

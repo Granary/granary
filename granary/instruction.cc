@@ -53,7 +53,7 @@ namespace granary {
     }
 
 
-    static dynamorio::instr_t *make_instr(void) throw() {
+    static dynamorio::instr_t *make_instr(void) {
         auto instr = (dynamorio::instr_t *) granary_heap_alloc(
             nullptr, sizeof (dynamorio::instr_t));
         dynamorio::instr_set_x86_mode(instr, false);
@@ -66,7 +66,7 @@ namespace granary {
     void instruction::replace_with(
         instruction that,
         replace_constraint constraint
-    ) throw() {
+    ) {
 
         ASSERT(is_valid_address(instr));
         ASSERT(is_valid_address(that.instr));
@@ -129,7 +129,7 @@ namespace granary {
 
 
     /// Encodes an instruction into a sequence of bytes.
-    app_pc instruction::encode(app_pc pc_) throw() {
+    app_pc instruction::encode(app_pc pc_) {
 
         ASSERT(instr);
         ASSERT(pc_);
@@ -205,7 +205,7 @@ namespace granary {
 
 
     /// Creates a copy / clone of an existing instructions.
-    instruction instruction::clone(void) throw() {
+    instruction instruction::clone(void) {
         ASSERT(nullptr != instr);
         instruction ret;
         ret.instr = dynamorio::instr_clone(DCONTEXT, instr);
@@ -221,7 +221,7 @@ namespace granary {
 
     /// Encodes an instruction into a sequence of bytes, but where the staging
     /// ground is not necessarily the instruction's final location.
-    app_pc instruction::stage_encode(app_pc staged_pc, app_pc final_pc) throw() {
+    app_pc instruction::stage_encode(app_pc staged_pc, app_pc final_pc) {
 
         // address calculation for relative jumps uses the note
         // field; second-pass encoding for hot patchable instructions
@@ -234,12 +234,12 @@ namespace granary {
 
 
     /// Implicit constructor for registers.
-    operand::operand(typename dynamorio::reg_id_t reg_) throw() {
+    operand::operand(typename dynamorio::reg_id_t reg_) {
         *this = dynamorio::opnd_create_reg(reg_);
     }
 
     /// De-reference an address stored in a register
-    operand_base_disp operand::operator*(void) const throw() {
+    operand_base_disp operand::operator*(void) const {
         operand_base_disp op;
         op.base = value.reg;
         op.size = size;
@@ -249,7 +249,7 @@ namespace granary {
 
     /// Accessing some byte offset from the operand (assuming it points to
     /// some memory).
-    operand_base_disp operand::operator[](int num_bytes) const throw() {
+    operand_base_disp operand::operator[](int num_bytes) const {
         operand_base_disp op;
         op.base = value.reg;
         op.disp = num_bytes;
@@ -258,7 +258,7 @@ namespace granary {
     }
 
 
-    operand_base_disp::operand_base_disp(void) throw()
+    operand_base_disp::operand_base_disp(void) 
         : base(dynamorio::DR_REG_NULL)
         , index(dynamorio::DR_REG_NULL)
         , size(dynamorio::OPSZ_lea)
@@ -268,7 +268,7 @@ namespace granary {
 
 
     /// Add an index into an lea operand
-    operand_base_disp operand::operator+(operand index) const throw() {
+    operand_base_disp operand::operator+(operand index) const {
         operand_base_disp ret;
         ret.base = value.reg;
         ret.index = index.value.reg;
@@ -279,7 +279,7 @@ namespace granary {
 
 
     /// Add in the base register to this LEA operand.
-    operand_base_disp operand::operator+(operand_base_disp lea) const throw() {
+    operand_base_disp operand::operator+(operand_base_disp lea) const {
         lea.base = value.reg;
         return lea;
     }
@@ -290,7 +290,7 @@ namespace granary {
         dynamorio::instr_t *instr_,
         dynamorio::opnd_t *op_,
         operand_kind kind_
-    ) throw()
+    ) 
         : instr(instr_)
         , op(unsafe_cast<operand *>(op_))
         , op2(nullptr)
@@ -300,7 +300,7 @@ namespace granary {
 
     /// Assume that a non-const access of a field of the op will be used
     /// as an lvalue in an assignment; invalidate the raw bits.
-    operand *operand_ref::operator->(void) throw() {
+    operand *operand_ref::operator->(void) {
         ASSERT(!op2);
         instruction(instr).invalidate_raw_bits();
         return op;
@@ -308,7 +308,7 @@ namespace granary {
 
 
     /// Copy another reference.
-    operand_ref &operand_ref::operator=(const operand_ref &that) throw() {
+    operand_ref &operand_ref::operator=(const operand_ref &that) {
         instr = that.instr;
         op = that.op;
         op2 = that.op2;
@@ -320,7 +320,7 @@ namespace granary {
     /// Assign an operand to this operand ref; this will update the operand
     /// referenced by this ref in place, and will invalidate the raw bits
     /// of the instruction.
-    void operand_ref::replace_with(operand that) throw() {
+    void operand_ref::replace_with(operand that) {
         *op = that;
         if(op2) {
             *op2 = that;
@@ -328,7 +328,7 @@ namespace granary {
         instruction(instr).invalidate_raw_bits();
     }
 
-    void operand_ref::replace_with(operand_base_disp that) throw() {
+    void operand_ref::replace_with(operand_base_disp that) {
         *op = operand(that);
         if(op2) {
             *op2 = *op;
@@ -339,7 +339,7 @@ namespace granary {
 
     /// Augment this `operand_ref` to a `SOURCE_DEST_OPERAND` if possible
     /// by combining this operand with another.
-    void operand_ref::combine(const operand_ref &that) const throw() {
+    void operand_ref::combine(const operand_ref &that) const {
         ASSERT(can_combine(that));
         kind = SOURCE_DEST_OPERAND;
         op2 = that.op;
@@ -347,7 +347,7 @@ namespace granary {
 
 
     /// Returns true iff two `operand_refs` can be combined.
-    bool operand_ref::can_combine(const operand_ref &that) const throw() {
+    bool operand_ref::can_combine(const operand_ref &that) const {
         return instr == that.instr
             && op != that.op
             && op2 == that.op2
@@ -363,7 +363,7 @@ namespace granary {
 
     /// Clear the elements of the list, and release any memory associated
     /// with the elements of the list
-    void instruction_list::clear(void) throw() {
+    void instruction_list::clear(void) {
         if(!first_) {
             return;
         }
@@ -379,7 +379,7 @@ namespace granary {
         dynamorio::instr_t *first,
         dynamorio::instr_t *last,
         unsigned length
-    ) throw() {
+    ) {
         if(length > 0) {
             ASSERT(is_valid_address(first));
             ASSERT(is_valid_address(last));
@@ -396,7 +396,7 @@ namespace granary {
     /// Adds another instruction list to the end of the current one.
     ///
     /// Note: This removed all elements from the argument list.
-    void instruction_list::extend(instruction_list &that) throw() {
+    void instruction_list::extend(instruction_list &that) {
 
         if(!that.length_) {
             return;
@@ -420,7 +420,7 @@ namespace granary {
 
 
     /// Adds an element on to the end of the list.
-    instruction instruction_list::append(instruction item_) throw() {
+    instruction instruction_list::append(instruction item_) {
 
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *before_item(last_);
@@ -449,7 +449,7 @@ namespace granary {
     }
 
     /// Adds an element on to the beginning of the list.
-    instruction instruction_list::prepend(instruction item_) throw() {
+    instruction instruction_list::prepend(instruction item_) {
         dynamorio::instr_t *item(item_.instr);
         dynamorio::instr_t *after_item(first_);
 
@@ -481,7 +481,7 @@ namespace granary {
     instruction instruction_list::insert_before(
         instruction after_item_,
         instruction item_
-    ) throw() {
+    ) {
 
         if(1 >= length_ || !after_item_) {
             return prepend(item_);
@@ -511,7 +511,7 @@ namespace granary {
     instruction instruction_list::insert_after(
         instruction before_item_,
         instruction item_
-    ) throw() {
+    ) {
 
         if(1 >= length_ || !before_item_) {
             return append(item_);
@@ -538,7 +538,7 @@ namespace granary {
 
 
     /// Remove an element from an instruction list.
-    void instruction_list::remove(instruction to_remove) throw() {
+    void instruction_list::remove(instruction to_remove) {
         dynamorio::instr_t *instr(to_remove.instr);
         if(!instr) {
             return;
@@ -577,7 +577,7 @@ namespace granary {
 
 
     /// Remove a tail of the list, starting at an instruction.
-    void instruction_list::remove_tail_at(instruction item) throw() {
+    void instruction_list::remove_tail_at(instruction item) {
         instruction next;
         for(; item.is_valid(); item = next) {
             next = item.next();
@@ -591,7 +591,7 @@ namespace granary {
         dynamorio::instr_t *before_item,
         dynamorio::instr_t *item,
         dynamorio::instr_t *after_item
-    ) throw() {
+    ) {
         ++length_;
 
         item->prev = before_item;
@@ -610,7 +610,7 @@ namespace granary {
     app_pc instruction_list::encode(
         app_pc start_pc,
         unsigned max_size
-    ) throw() {
+    ) {
         if(!length()) {
             return start_pc;
         }
@@ -677,7 +677,7 @@ namespace granary {
     app_pc instruction_list::stage_encode(
         app_pc staged_pc,
         app_pc final_pc
-    ) throw() {
+    ) {
         if(!length()) {
             return staged_pc;
         }
@@ -693,7 +693,7 @@ namespace granary {
 
 
     /// Widen this instruction if its a CTI.
-    void instruction::widen_if_cti(void) throw() {
+    void instruction::widen_if_cti(void) {
 
         // hack for getting dynamorio to maintain proper rip-relative
         // associations in the encoding process.
@@ -723,7 +723,7 @@ namespace granary {
     void instruction::decode_update(
         app_pc *pc_,
         instruction_decode_constraint constraint
-    ) throw() {
+    ) {
         instr = make_instr();
 
         uint8_t *byte_pc(*pc_);
@@ -751,7 +751,7 @@ namespace granary {
     instruction instruction::decode(
         app_pc *pc,
         instruction_decode_constraint constraint
-    ) throw() {
+    ) {
         instruction self(nullptr);
         self.decode_update(pc, constraint);
         return self;
@@ -759,7 +759,7 @@ namespace granary {
 
 
     /// The encoded size of the instruction list.
-    unsigned instruction_list::encoded_size(void) throw() {
+    unsigned instruction_list::encoded_size(void) {
         auto in = first();
         unsigned size(0U);
         for(; in.is_valid(); in = in.next()) {

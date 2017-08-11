@@ -31,7 +31,7 @@ namespace granary {
             MAX_SCAN_SCALE_FACTOR = 16U
         };
 
-        inline static uint32_t hash(const K &key) throw() {
+        inline static uint32_t hash(const K &key) {
             enum {
                 HASH_SEED = 0xDEADBEEFU,
             };
@@ -154,7 +154,7 @@ namespace granary {
             K key,
             V value,
             bool update
-        ) throw() {
+        ) {
             entry_type *slots(&(table_.entry_slots->entries[0]));
             const uint32_t mask(table_.entry_slots->mask);
             uint32_t entry_base(meta_type::hash(key));
@@ -195,7 +195,7 @@ namespace granary {
         }
 
         /// Grow the hash table. This increases the hash table's size by two.
-        void grow(void) throw() {
+        void grow(void) {
             slots_type *old_slots(table_.entry_slots);
             const uint32_t num_old_slots(old_slots->mask + 1U);
             const uint32_t num_new_slots(num_old_slots * 2);
@@ -225,7 +225,7 @@ namespace granary {
     public:
 
         /// Constructor, default-initialise the slots.
-        hash_table(void) throw()
+        hash_table(void) 
             : growing_(false)
         {
             // size of the default hash table
@@ -248,7 +248,7 @@ namespace granary {
 
 
         /// Destructor, free the slots.
-        ~hash_table(void) throw() {
+        ~hash_table(void) {
             if(table_.entry_slots) {
                 slots_type *old_slots(table_.entry_slots);
                 const uint32_t num_slots(old_slots->mask + 1U);
@@ -259,7 +259,7 @@ namespace granary {
         }
 
         /// Find the value associated with a key in the hash table.
-        V find(const K key) const throw() {
+        V find(const K key) const {
             const slots_type * const slots(table_.entry_slots);
             const uint32_t mask(slots->mask);
             const entry_type * const entries(&(slots->entries[0]));
@@ -283,7 +283,7 @@ namespace granary {
         }
 
         /// Search for an entry in the hash table.
-        inline bool load(const K key, V &value) const throw() {
+        inline bool load(const K key, V &value) const {
             value = find(key);
             return (V() != value);
         }
@@ -294,7 +294,7 @@ namespace granary {
             K key,
             V value,
             hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
-        ) throw() {
+        ) {
             const uint32_t max_num_entries(
                 HASH_TABLE_MAX_SIZES[table_.scaling_factor]);
 
@@ -320,7 +320,7 @@ namespace granary {
         inline void for_each_entry(
             void (*callback)(K, V, Args&...),
             Args&... args
-        ) throw() {
+        ) {
             slots_type *slots(table_.entry_slots);
             const uint32_t num_slots(slots->mask + 1U);
 
@@ -347,15 +347,15 @@ namespace granary {
 
     public:
 
-        void add(K key) throw() {
+        void add(K key) {
             table.store(key, true);
         }
 
-        void remove(K key) throw() {
+        void remove(K key) {
             table.store(key, false);
         }
 
-        bool contains(K key) throw() {
+        bool contains(K key) {
             return table.find(key);
         }
 
@@ -363,7 +363,7 @@ namespace granary {
         inline void for_each_entry(
             void (*callback)(K, bool, Args&...),
             Args&... args
-        ) throw() {
+        ) {
             table.for_each_entry(callback, args...);
         }
 
@@ -385,7 +385,7 @@ namespace granary {
     public:
 
         /// Load a value from the hash table.
-        inline bool load(const K key, V &val) const throw() {
+        inline bool load(const K key, V &val) const {
             lock.acquire();
             bool ret(table.load(key, val));
             lock.release();
@@ -398,7 +398,7 @@ namespace granary {
             K key,
             V value,
             hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
-        ) throw() {
+        ) {
             lock.acquire();
             bool ret(table.store(key, value, update));
             lock.release();
@@ -407,7 +407,7 @@ namespace granary {
 
         inline bool find(
             K key
-        ) throw() {
+        ) {
             lock.acquire();
             bool flag(table.find(key));
             lock.release();
@@ -418,7 +418,7 @@ namespace granary {
         inline void for_each_entry(
             void (*callback)(K, V, Args&...),
             Args&... args
-        ) throw() {
+        ) {
             lock.acquire();
             table.for_each_entry(callback, args...);
             lock.release();

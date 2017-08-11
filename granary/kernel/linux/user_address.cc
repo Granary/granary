@@ -73,7 +73,7 @@ namespace granary {
     bool kernel_code_accesses_user_data(
         instruction_list &ls,
         const app_pc start_pc
-    ) throw() {
+    ) {
 
         // Go through the array of exceptions.
         for(unsigned i(0); USER_ACCESS_CODE[i][0]; ++i) {
@@ -141,7 +141,7 @@ namespace granary {
     /// an instruction list.
     ///
     /// Note: This is very Linux-specific!!
-    void *kernel_find_exception_metadata(instruction_list &ls) throw() {
+    void *kernel_find_exception_metadata(instruction_list &ls) {
 
         for(instruction in(ls.first()); in.is_valid(); in = in.next()) {
             app_pc pc(in.pc_or_raw_bytes());

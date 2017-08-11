@@ -57,7 +57,7 @@ namespace granary {
     /// Get the policy for a policy-extended mangled address.
     instrumentation_policy::instrumentation_policy(
         const mangled_address &addr
-    ) throw()
+    ) 
         : as_raw_bits(addr.as_policy_address.policy_bits)
     { }
 
@@ -66,14 +66,14 @@ namespace granary {
     mangled_address::mangled_address(
         app_pc addr_,
         const instrumentation_policy policy_
-    ) throw() {
+    ) {
         as_address = addr_;
         as_policy_address.policy_bits = policy_.as_raw_bits;
     }
 
 
     /// Extract the original, unmangled address from a mangled address.
-    app_pc mangled_address::unmangled_address(void) const throw() {
+    app_pc mangled_address::unmangled_address(void) const {
         mangled_address unmangled_addr;
         unmangled_addr.as_uint = as_uint;
         unmangled_addr.as_policy_address.policy_bits = IF_USER_ELSE(0, 0xFFFF);
@@ -96,7 +96,7 @@ namespace granary {
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
-        ) throw() {
+        ) {
             return granary::policy_for<missing_policy_policy>();
         }
 
@@ -106,7 +106,7 @@ namespace granary {
             cpu_state_handle,
             basic_block_state &,
             instruction_list &
-        ) throw() {
+        ) {
             return granary::policy_for<missing_policy_policy>();
         }
 
@@ -119,7 +119,7 @@ namespace granary {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw() {
+        ) {
             return INTERRUPT_DEFER;
         }
 #endif

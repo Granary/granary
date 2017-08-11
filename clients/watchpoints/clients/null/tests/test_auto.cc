@@ -55,7 +55,7 @@ namespace test {
     static void visit_operand(
         const granary::operand_ref &ref,
         test_config &state
-    ) throw() {
+    ) {
         using namespace granary;
 
         if(dynamorio::BASE_DISP_kind != ref->kind) {
@@ -104,7 +104,7 @@ namespace test {
     /// Generate the code to run a test case instruction.
     static void generate_code(
         test_config &config
-    ) throw() {
+    ) {
         using namespace granary;
 
         static basic_block_state fake_bb_state;
@@ -256,7 +256,7 @@ namespace test {
         test_config &input_config,
         test_config &desired_output,
         test_config &actual_output
-    ) throw() {
+    ) {
         using namespace granary;
 
         register_manager dead_regs(input_config.dead_regs);
@@ -407,7 +407,7 @@ namespace test {
     static void test_instruction(
         granary::instruction in,
         granary::app_pc exec_code
-    ) throw() {
+    ) {
         using namespace granary;
 
         test_config input_config;

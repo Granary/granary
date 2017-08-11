@@ -53,7 +53,7 @@ namespace granary {
 
 
     GRANARY_ENTRYPOINT
-    static void takeover_syscall(unsigned entry) throw() {
+    static void takeover_syscall(unsigned entry) {
 
         cpu_state_handle cpu;
         enter(cpu);

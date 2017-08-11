@@ -44,7 +44,7 @@ namespace granary {
     struct ibl_profiled_stub {
         app_pc source;
         app_pc dest;
-        bool operator==(const ibl_profiled_stub that) const throw() {
+        bool operator==(const ibl_profiled_stub that) const {
             return source == that.source && dest == that.dest;
         }
     };
@@ -64,7 +64,7 @@ namespace granary {
 
     /// Find fast. This looks in the cpu-private cache first, and failing
     /// that, defaults to the global code cache.
-    app_pc code_cache::find_on_cpu(mangled_address addr) throw() {
+    app_pc code_cache::find_on_cpu(mangled_address addr) {
         cpu_state_handle cpu;
         app_pc ret(cpu->code_cache.find(addr.as_address));
         IF_PERF( perf::visit_address_lookup_cpu(nullptr != ret); )
@@ -75,13 +75,13 @@ namespace granary {
     /// Add a custom mapping to the code cache.
     ///
     /// Note: If in the kernel, must be called with interrupts disabled!
-    void code_cache::add(app_pc source, app_pc dest) throw() {
+    void code_cache::add(app_pc source, app_pc dest) {
         CODE_CACHE->store(source, dest);
     }
 
 
     /// Look-up an entry in the code cache. This will not do translation.
-    app_pc code_cache::lookup(app_pc addr) throw() {
+    app_pc code_cache::lookup(app_pc addr) {
         app_pc target_addr(nullptr);
         if(CODE_CACHE->load(addr, target_addr)) {
             IF_PERF( perf::visit_address_lookup_hit(); )
@@ -96,7 +96,7 @@ namespace granary {
         cpu_state_handle cpu,
         const mangled_address addr,
         app_pc indirect_cache_source_addr
-    ) throw() {
+    ) {
         IF_TEST( cpu->last_find_address = addr.unmangled_address(); )
         IF_PERF( perf::visit_address_lookup(); )
 

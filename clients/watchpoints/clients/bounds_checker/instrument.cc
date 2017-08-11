@@ -79,7 +79,7 @@ namespace client { namespace wp {
     bound_descriptor DESCRIPTORS[MAX_NUM_WATCHPOINTS];
 
 
-    inline static uintptr_t index_of(const bound_descriptor *desc) throw() {
+    inline static uintptr_t index_of(const bound_descriptor *desc) {
         return desc - &(DESCRIPTORS[0]);
     }
 
@@ -90,7 +90,7 @@ namespace client { namespace wp {
         bound_descriptor *&desc,
         uintptr_t &counter_index,
         const uintptr_t inherited_index
-    ) throw() {
+    ) {
         counter_index = 0;
         desc = nullptr;
 
@@ -138,7 +138,7 @@ namespace client { namespace wp {
         void *base_address,
         size_t size,
         void *ret_address
-    ) throw() {
+    ) {
 
         if(!size) {
             return false;
@@ -166,7 +166,7 @@ namespace client { namespace wp {
     /// Get the descriptor of a watchpoint based on its index.
     bound_descriptor *bound_descriptor::access(
         uintptr_t index
-    ) throw() {
+    ) {
         ASSERT(index < MAX_NUM_WATCHPOINTS);
         return &(DESCRIPTORS[index]);
     }
@@ -176,7 +176,7 @@ namespace client { namespace wp {
     void bound_descriptor::free(
         bound_descriptor *desc,
         uintptr_t IF_TEST( index )
-    ) throw() {
+    ) {
 
         ASSERT(is_valid_address(desc));
         ASSERT(index == index_of(desc));
@@ -195,7 +195,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         watchpoint_tracker &tracker,
         unsigned i
-    ) throw() {
+    ) {
         const unsigned reg_index = register_to_index(tracker.regs[i].value.reg);
         const unsigned size_index = operand_size_order(tracker.sizes[i]);
 
@@ -215,7 +215,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         watchpoint_tracker &tracker,
         unsigned i
-    ) throw() {
+    ) {
         if(!(SOURCE_OPERAND & tracker.ops[i].kind)) {
             visit_read(bb, ls, tracker, i);
         }
@@ -226,7 +226,7 @@ namespace client { namespace wp {
         uintptr_t watched_addr,
         unsigned size,
         app_pc *return_address_in_bb
-    ) throw() {
+    ) {
 
         const bound_descriptor *descriptor(descriptor_of(watched_addr));
         const uintptr_t unwatched_addr(unwatched_address(watched_addr));
@@ -261,7 +261,7 @@ namespace client { namespace wp {
         granary::basic_block_state &,
         interrupt_stack_frame &,
         interrupt_vector
-    ) throw() {
+    ) {
         return INTERRUPT_DEFER;
     }
 } /* wp namespace */

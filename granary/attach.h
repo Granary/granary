@@ -12,7 +12,7 @@
 
 namespace granary {
 
-    extern void attach(instrumentation_policy) throw();
+    extern void attach(instrumentation_policy) ;
 
 }
 

@@ -28,7 +28,7 @@ namespace test {
             granary::thread_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
             using namespace granary;
 
             instruction in(ls.prepend(label_()));
@@ -76,7 +76,7 @@ namespace test {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw() {
+        ) {
             interrupted = true;
             return granary::INTERRUPT_DEFER;
         }
@@ -86,7 +86,7 @@ namespace test {
     /// Tight loop; instrumentation will add enough things in here that we
     /// hope that an interrupt will occur in at least one of the basic block's
     /// delay regions.
-    static void tight_loop(void) throw() {
+    static void tight_loop(void) {
         while(!interrupted) {
             ASM("nop;");
         }
@@ -95,7 +95,7 @@ namespace test {
 
     /// Test that the number of delayed interrupts eventually changes when
     /// executing a tight loop.
-    static void test_delay_interrupt(void) throw() {
+    static void test_delay_interrupt(void) {
         const unsigned long ndi(granary::perf::num_delayed_interrupts());
 
         granary::app_pc func((granary::app_pc) tight_loop);

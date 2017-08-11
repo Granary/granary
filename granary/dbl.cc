@@ -61,7 +61,7 @@ namespace granary {
 
     /// Patch a direct control-flow instruction.
     GRANARY_ENTRYPOINT
-    static void patch_instruction(app_pc *ret_address_addr) throw() {
+    static void patch_instruction(app_pc *ret_address_addr) {
 
         // Notify Granary that we're entering!
         cpu_state_handle cpu;
@@ -250,7 +250,7 @@ namespace granary {
         instruction_list &stub_ls,
         instruction cti,
         mangled_address target_address
-    ) throw() {
+    ) {
         IF_PERF( perf::visit_dbl_stub(); )
 
         // TODO: If the basic block is not committed then this is a memory leak.

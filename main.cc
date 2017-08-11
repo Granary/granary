@@ -11,7 +11,7 @@
 #include "granary/globals.h"
 #include "granary/test.h"
 
-int main(void) throw() {
+int main(void) {
     using namespace granary;
 
     init();

@@ -31,7 +31,7 @@ namespace granary {
         /// that, defaults to the global code cache.
         GRANARY_ENTRYPOINT
         __attribute__((hot, optimize("Os")))
-        static app_pc find_on_cpu(mangled_address addr) throw();
+        static app_pc find_on_cpu(mangled_address addr) ;
 
 
         /// Perform both lookup and insertion (basic block translation) into
@@ -41,7 +41,7 @@ namespace granary {
         inline static app_pc find(
             mangled_address target_addr,
             app_pc indirect_cache_source_addr=nullptr
-        ) throw() {
+        ) {
             IF_KERNEL( eflags flags(granary_disable_interrupts()); )
             cpu_state_handle cpu;
             enter(cpu);
@@ -58,7 +58,7 @@ namespace granary {
         inline static app_pc find(
             app_pc addr,
             instrumentation_policy policy
-        ) throw() {
+        ) {
             IF_KERNEL( eflags flags(granary_disable_interrupts()); )
 
             cpu_state_handle cpu;
@@ -78,7 +78,7 @@ namespace granary {
             cpu_state_handle cpu,
             const mangled_address addr,
             app_pc indirect_cache_source_addr=nullptr
-        ) throw();
+        ) ;
 
 
         /// Look-up an entry in the code cache. This will not do translation.
@@ -89,11 +89,11 @@ namespace granary {
         /// Note: This is a sister function of `code_cache::add`, where together
         ///       one can directly add and find entries in the global code
         ///       cache.
-        static app_pc lookup(app_pc) throw();
+        static app_pc lookup(app_pc) ;
 
 
         /// Force add an entry into the code cache.
-        static void add(app_pc, app_pc) throw();
+        static void add(app_pc, app_pc) ;
     };
 
 }

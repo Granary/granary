@@ -40,7 +40,7 @@ namespace granary {
         instruction cti,
         instrumentation_policy target_policy,
         ibl_entry_kind ibl_kind
-    ) throw() {
+    ) {
 
         operand target;
         if(IBL_ENTRY_RETURN != ibl_kind) {
@@ -191,7 +191,7 @@ namespace granary {
         instruction in,
         operand target,
         instrumentation_policy target_policy
-    ) throw() {
+    ) {
 
         app_pc target_pc(target.value.pc);
         app_pc detach_target_pc(nullptr);
@@ -303,7 +303,7 @@ namespace granary {
     void instruction_list_mangler::mangle_indirect_cti(
         instruction in,
         instrumentation_policy target_policy
-    ) throw() {
+    ) {
 
         if(in.is_return()) {
             IF_PERF( perf::visit_mangle_return(); )
@@ -351,7 +351,7 @@ namespace granary {
     /// indirect CTIs.
     void instruction_list_mangler::mangle_cti(
         instruction in
-    ) throw() {
+    ) {
 
         instrumentation_policy target_policy(in.policy());
         if(!target_policy) {
@@ -448,7 +448,7 @@ namespace granary {
 
     void instruction_list_mangler::mangle_lea(
         instruction in
-    ) throw() {
+    ) {
         if(dynamorio::REL_ADDR_kind != in.instr->u.o.src0.kind) {
             return;
         }
@@ -471,7 +471,7 @@ namespace granary {
         instruction IF_KERNEL(in),
         instruction IF_KERNEL(first),
         instruction IF_KERNEL(last)
-    ) throw() {
+    ) {
 #if CONFIG_ENV_KERNEL
         if(in.begins_delay_region() && first.is_valid()) {
             in.remove_flag(instruction::DELAY_BEGIN);
@@ -493,7 +493,7 @@ namespace granary {
         const const_app_pc &estimator_pc,
         operand &far_op,
         bool &has_far_op
-    ) throw() {
+    ) {
         if(has_far_op || dynamorio::REL_ADDR_kind != op->kind) {
             return;
         }
@@ -510,7 +510,7 @@ namespace granary {
 
 
     /// Update a far operand in place.
-    static void update_far_operand(operand_ref op, operand &new_op) throw() {
+    static void update_far_operand(operand_ref op, operand &new_op) {
         if(dynamorio::REL_ADDR_kind != op->kind
         && dynamorio::PC_kind != op->kind) {
             return;
@@ -529,7 +529,7 @@ namespace granary {
         dynamorio::reg_id_t dead_reg_id,
         dynamorio::reg_id_t spill_reg_id,
         uint64_t addr
-    ) throw() {
+    ) {
         instruction first_in;
         instruction last_in;
 
@@ -564,7 +564,7 @@ namespace granary {
         dynamorio::reg_id_t dead_reg_id,
         dynamorio::reg_id_t spill_reg_id,
         uint64_t addr
-    ) throw() {
+    ) {
         instruction first_in;
         instruction last_in;
 
@@ -611,7 +611,7 @@ namespace granary {
     /// type operand (of the same size).
     void instruction_list_mangler::mangle_far_memory_refs(
         instruction in
-    ) throw() {
+    ) {
         IF_TEST( const bool was_atomic(in.is_atomic()); )
 
         bool has_far_op(false);
@@ -708,7 +708,7 @@ namespace granary {
     /// behaviour of the instruction (in input zero) seemed to have interacted
     /// with the watchpoints instrumentation. The kernel appears to expect the
     /// value to be -1 when the input is 0, so we emulate that.
-    void instruction_list_mangler::mangle_bit_scan(instruction in) throw() {
+    void instruction_list_mangler::mangle_bit_scan(instruction in) {
         const operand op(in.instr->u.o.src0);
         const operand dest_op(in.instr->u.o.dsts[0]);
         operand undefined_value;
@@ -742,7 +742,7 @@ namespace granary {
 
     /// Convert non-instrumented instructions that change control-flow into
     /// mangled instructions.
-    void instruction_list_mangler::mangle(void) throw() {
+    void instruction_list_mangler::mangle(void) {
 
         instruction in(ls.first());
         instruction next_in;
@@ -784,7 +784,7 @@ namespace granary {
     unsigned instruction_list_mangler::align(
         instruction_list &ls,
         unsigned curr_align
-    ) throw() {
+    ) {
         enum {
             JCC_OPCODE_SIZE = 2,
             CALL_JMP_OPCODE_SIZE = 1,
@@ -886,7 +886,7 @@ namespace granary {
         instruction_list &stub_ls_,
         instrumentation_policy policy_,
         const_app_pc estimator_pc_
-    ) throw()
+    ) 
         : cpu(cpu_)
         , bb(bb_)
         , policy(policy_)

@@ -51,7 +51,7 @@ extern "C" {
     /// Make a special init function that sets certain page permissions before
     /// executing the module's init function.
     GRANARY_ENTRYPOINT
-    void granary_replace_init_func(kernel_module *module) throw() {
+    void granary_replace_init_func(kernel_module *module) {
 
         using namespace granary;
 

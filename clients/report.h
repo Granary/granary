@@ -11,7 +11,7 @@
 
 /// How to use an init function:
 ///     1)  Define the `CLIENT_report` macro in here on a per-client basis.
-///     2)  Define the `void report(void) throw()` function within the `client`
+///     2)  Define the `void report(void) ` function within the `client`
 ///         namespace within your client code.
 
 #if defined(CLIENT_CFG) \
@@ -27,7 +27,7 @@
 
 #ifdef CLIENT_report
 namespace client {
-    void report(void) throw();
+    void report(void) ;
 }
 #endif
 

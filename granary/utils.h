@@ -36,7 +36,7 @@ namespace granary {
             int
         >::type = 0
     >
-    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+    FORCE_INLINE ToT unsafe_cast(FromT v) {
         static_assert(sizeof(FromT) == sizeof(ToT),
             "Dangerous unsafe cast between two types of different sizes.");
 
@@ -57,7 +57,7 @@ namespace granary {
             int
         >::type = 0
     >
-    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+    FORCE_INLINE ToT unsafe_cast(FromT v) {
         return static_cast<ToT>(reinterpret_cast<uintptr_t>(v));
     }
 
@@ -72,7 +72,7 @@ namespace granary {
             int
         >::type = 0
     >
-    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+    FORCE_INLINE ToT unsafe_cast(FromT v) {
         return reinterpret_cast<ToT>(reinterpret_cast<uintptr_t>(v));
     }
 
@@ -88,7 +88,7 @@ namespace granary {
         int
         >::type = 0
     >
-    FORCE_INLINE ToT unsafe_cast(FromT v) throw() {
+    FORCE_INLINE ToT unsafe_cast(FromT v) {
         return unsafe_cast<ToT>(reinterpret_cast<uintptr_t>(v));
     }
 
@@ -111,23 +111,23 @@ namespace granary {
     /// Returns true if the 47th bit is 1. This is also a good distinguisher
     /// between user and kernel addresses, and user space addresses will appear
     /// invalid.
-    FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
+    FORCE_INLINE static bool is_valid_address(uintptr_t addr) {
         return 1U & (addr >> 47U);
     }
 
 
     template <typename T>
-    FORCE_INLINE static bool is_valid_address(T *addr) throw() {
+    FORCE_INLINE static bool is_valid_address(T *addr) {
         return is_valid_address(reinterpret_cast<uintptr_t>(addr));
     }
 #else
-    FORCE_INLINE static bool is_valid_address(uintptr_t addr) throw() {
+    FORCE_INLINE static bool is_valid_address(uintptr_t addr) {
         return 4095UL < addr;
     }
 
 
     template <typename T>
-    FORCE_INLINE static bool is_valid_address(T *addr) throw() {
+    FORCE_INLINE static bool is_valid_address(T *addr) {
         return is_valid_address(reinterpret_cast<uintptr_t>(addr));
     }
 #endif /* CONFIG_ENV_KERNEL */
@@ -166,11 +166,11 @@ namespace granary {
         T *self;
 
         template <typename... Args>
-        void construct(Args... args) throw() {
+        void construct(Args... args) {
             self = new (&(memory[0])) T(args...);
         }
 
-        inline T *operator->(void) throw() {
+        inline T *operator->(void) {
             return self;
         }
     };
@@ -182,11 +182,11 @@ namespace granary {
         alignas(T) unsigned char memory[sizeof(T)];
 
         template <typename... Args>
-        void construct(Args... args) throw() {
+        void construct(Args... args) {
             new (&(memory[0])) T(args...);
         }
 
-        inline T *operator->(void) throw() {
+        inline T *operator->(void) {
             return unsafe_cast<T *>(&(memory[0]));
         }
     };
@@ -203,13 +203,13 @@ namespace granary {
         KV missing_value;
 
     public:
-        atomic_id_set(KV default_value_, KV missing_value_) throw()
+        atomic_id_set(KV default_value_, KV missing_value_) 
             : default_value(default_value_)
             , missing_value(missing_value_)
         { }
 
         /// Add an entry to the set, and return its ID.
-        unsigned add(KV value) throw() {
+        unsigned add(KV value) {
 
             const uintptr_t value_bits(
                 granary::unsafe_cast<uintptr_t>(value));
@@ -259,7 +259,7 @@ namespace granary {
         }
 
         /// Get an element from the set given its ID.
-        KV get(unsigned id) throw() {
+        KV get(unsigned id) {
             KV val(set[id % max_items].load());
             if(missing_value == val) {
                 return default_value;
@@ -268,7 +268,7 @@ namespace granary {
         }
 
         /// Remove the element in the set with ID `id`.
-        void remove(unsigned id) throw() {
+        void remove(unsigned id) {
             set[id % max_items].store(missing_value);
         }
     };
@@ -290,7 +290,7 @@ namespace granary {
 
         elem_type elems[NUM_ELEMS];
 
-        void set(unsigned offset, bool value) throw() {
+        void set(unsigned offset, bool value) {
             const elem_type one(1);
             const elem_type mask(one << (offset % MIN_NUM_BITS));
             if(value) {
@@ -300,7 +300,7 @@ namespace granary {
             }
         }
 
-        bool get(unsigned offset) const throw() {
+        bool get(unsigned offset) const {
             const elem_type one(1);
             const elem_type mask(one << (offset % MIN_NUM_BITS));
             return 0 != (mask & elems[offset / MIN_NUM_BITS]);
@@ -311,7 +311,7 @@ namespace granary {
 
 #ifndef GRANARY_DONT_INCLUDE_CSTDLIB
     template <typename T, typename V>
-    size_t sizeof_trailing_vla(unsigned array_size) throw() {
+    size_t sizeof_trailing_vla(unsigned array_size) {
         return sizeof(T) + (array_size - 1) * sizeof(V);
     }
 
@@ -322,7 +322,7 @@ namespace granary {
     /// that type `T` ends with an array of length 1 of element
     /// of type `V`.
     template <typename T, typename V>
-    T *new_trailing_vla(unsigned array_size) throw() {
+    T *new_trailing_vla(unsigned array_size) {
         const size_t needed_space(sizeof_trailing_vla<T, V>(array_size));
         char *internal(reinterpret_cast<char *>(
             detail::global_allocate(needed_space)));
@@ -347,7 +347,7 @@ namespace granary {
 
     /// Frees a trailing VLA.
     template <typename T, typename V>
-    void free_trailing_vla(T *vla, unsigned array_size) throw() {
+    void free_trailing_vla(T *vla, unsigned array_size) {
         detail::global_free(vla, sizeof_trailing_vla<T, V>(array_size));
     }
 #endif
@@ -357,7 +357,7 @@ namespace granary {
         template<typename T>
         class type_id_impl {
         public:
-            static unsigned get(void) throw() {
+            static unsigned get(void) {
                 static unsigned id_(0);
                 return id_++;
             }
@@ -369,7 +369,7 @@ namespace granary {
     template <typename T, typename Category=void>
     class type_id {
     public:
-        static unsigned get(void) throw() {
+        static unsigned get(void) {
             static type_id id_(type_id_impl<Category>::get());
             return id_;
         }
@@ -387,15 +387,15 @@ namespace granary {
 
     public:
 
-        inline function_call(R (*func_)(Args...)) throw()
+        inline function_call(R (*func_)(Args...)) 
             : func(func_)
         { }
 
-        inline void operator()(Args... args) throw() {
+        inline void operator()(Args... args) {
             ret_value = func(args...);
         }
 
-        inline R yield(void) throw() {
+        inline R yield(void) {
             return ret_value;
         }
     };
@@ -409,15 +409,15 @@ namespace granary {
 
     public:
 
-        inline function_call(void (*func_)(Args...)) throw()
+        inline function_call(void (*func_)(Args...)) 
             : func(func_)
         { }
 
-        inline void operator()(Args... args) throw() {
+        inline void operator()(Args... args) {
             func(args...);
         }
 
-        inline void yield(void) throw() {
+        inline void yield(void) {
             return;
         }
     };
@@ -432,7 +432,7 @@ namespace granary {
     struct apply_to_values<Operator, T0, Types...> {
     public:
         FORCE_INLINE
-        static void apply(T0 &value, Types&... values) throw() {
+        static void apply(T0 &value, Types&... values) {
             Operator::template apply<T0>(value);
             apply_to_values<Operator, Types...>::apply(values...);
         }
@@ -442,7 +442,7 @@ namespace granary {
     struct apply_to_values<Operator, T0> {
     public:
         FORCE_INLINE
-        static void apply(T0 &value) throw() {
+        static void apply(T0 &value) {
             Operator::template apply<T0>(value);
         }
     };
@@ -452,7 +452,7 @@ namespace granary {
     struct apply_to_values<Operator> {
     public:
         FORCE_INLINE
-        static void apply(void) throw() { }
+        static void apply(void) { }
     };
 }
 

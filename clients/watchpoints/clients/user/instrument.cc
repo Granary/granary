@@ -54,7 +54,7 @@ namespace client {
 
     /// Commit to instrumenting this basic block. Chain the basic block into
     /// the list of basic blocks.
-    void commit_to_basic_block(basic_block_state &bb) throw() {
+    void commit_to_basic_block(basic_block_state &bb) {
         basic_block_state *prev(nullptr);
         basic_block_state *curr(&bb);
         do {
@@ -66,7 +66,7 @@ namespace client {
 
     /// Invoked if/when Granary discards a basic block (e.g. due to a race
     /// condition when two cores compete to translate the same basic block).
-    void discard_basic_block(basic_block_state &) throw() { }
+    void discard_basic_block(basic_block_state &) { }
 
 } /* client namespace */
 

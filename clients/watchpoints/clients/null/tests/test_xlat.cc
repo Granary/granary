@@ -27,7 +27,7 @@ namespace test {
         uint64_t WP_XLAT_MASK = client::wp::DISTINGUISHING_BIT_MASK;
     }
 
-    static uint64_t unwatched_xlat(register uint64_t val) throw() {
+    static uint64_t unwatched_xlat(register uint64_t val) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
@@ -40,7 +40,7 @@ namespace test {
         return val;
     }
 
-    static uint64_t watched_xlat(register uint64_t val) throw() {
+    static uint64_t watched_xlat(register uint64_t val) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_XLAT_MASK)) ", %%rbx;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
@@ -54,7 +54,7 @@ namespace test {
         return val;
     }
 
-    static uint64_t unwatched_xlat_rbx_live(register uint64_t val) throw() {
+    static uint64_t unwatched_xlat_rbx_live(register uint64_t val) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"
             "movq %1, %%rax;"
@@ -79,7 +79,7 @@ namespace test {
         return val;
     }
 
-    static uint64_t watched_xlat_rbx_live(register uint64_t val) throw() {
+    static uint64_t watched_xlat_rbx_live(register uint64_t val) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_XLAT_MASK)) ", %%rbx;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_XLAT_TABLE)) ", %%rbx;"

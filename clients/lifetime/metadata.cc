@@ -45,7 +45,7 @@ STATIC_INITIALISE_ID(lifetime_client, {
 })
 
 // Return the index of some object_metadata in the DESCRIPTORS array.
-inline static uintptr_t index_of(const object_metadata *desc) throw() {
+inline static uintptr_t index_of(const object_metadata *desc) {
   return desc - &(DESCRIPTORS[0]);
 }
 
@@ -110,7 +110,7 @@ static data_structure_metadata *create_data_structure_meta(
 
 // Return some newly allocated object_metadata for an object.
 static object_metadata *allocate(void *addr, size_t size,
-                                 void *allocator_addr) throw() {
+                                 void *allocator_addr) {
   uintptr_t index = wp::next_counter_index(0);
   if(index < wp::MAX_NUM_WATCHPOINTS) {
 
@@ -147,7 +147,7 @@ static object_metadata *allocate(void *addr, size_t size,
 bool object_metadata::allocate_and_init(
     object_metadata *&desc, uintptr_t &index, uintptr_t,
                                  void *addr_, size_t size_,
-                                 void *allocator_addr_) throw() {
+                                 void *allocator_addr_) {
   if (try_allocate.load(std::memory_order_acquire) &&
       (desc = allocate(addr_, size_, allocator_addr_))) {
 
@@ -164,12 +164,12 @@ bool object_metadata::allocate_and_init(
 }
 
 // Free the descriptor.
-void object_metadata::free(object_metadata *, uintptr_t) throw() {
+void object_metadata::free(object_metadata *, uintptr_t) {
   // TODO(akshay): Implement me in the future.
 }
 
 // Get the descriptor of a watchpoint based on its index.
-object_metadata *object_metadata::access(uintptr_t index) throw() {
+object_metadata *object_metadata::access(uintptr_t index) {
   return &(DESCRIPTORS[index]);
 }
 

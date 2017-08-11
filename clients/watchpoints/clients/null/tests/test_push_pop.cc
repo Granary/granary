@@ -26,7 +26,7 @@ namespace test {
         uint64_t WP_PP_MASK = client::wp::DISTINGUISHING_BIT_MASK;
     }
 
-    static uint64_t unwatched_push(void) throw() {
+    static uint64_t unwatched_push(void) {
         register uint64_t ret(0);
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;"
@@ -40,7 +40,7 @@ namespace test {
         return ret;
     }
 
-    static uint64_t watched_push(void) throw() {
+    static uint64_t watched_push(void) {
         register uint64_t ret(0);
         ASM(
             "movq " TO_STRING(SYMBOL(WP_PP_MASK)) ", %%rax;"
@@ -56,7 +56,7 @@ namespace test {
     }
 
 
-    static void unwatched_pop(void) throw() {
+    static void unwatched_pop(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;"
             "movq $0xDEADBEEF, %%rbx;"
@@ -69,7 +69,7 @@ namespace test {
     }
 
 
-    static void watched_pop(void) throw() {
+    static void watched_pop(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_PP_MASK)) ", %%rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_PP_FOO)) ", %%rax;" // mask the address of FOO

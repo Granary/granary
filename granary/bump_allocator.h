@@ -29,7 +29,7 @@ namespace granary {
 
         /// Return a pointer to a next pointer that we can use to connect
         /// two slab lists together.
-        bump_pointer_slab **connect(void) throw() {
+        bump_pointer_slab **connect(void) {
             bump_pointer_slab *curr(this);
             for(; curr->next; curr = curr->next) {
                 // La la la...
@@ -124,7 +124,7 @@ namespace granary {
 
 
         /// Acquire a lock on the allocator.
-        inline void acquire(void) throw() {
+        inline void acquire(void) {
             if(IS_SHARED) {
                 lock.acquire();
             }
@@ -132,7 +132,7 @@ namespace granary {
 
 
         /// Release the lock on the allocator.
-        inline void release(void) throw() {
+        inline void release(void) {
             if(IS_SHARED) {
                 lock.release();
             }
@@ -144,7 +144,7 @@ namespace granary {
             bump_pointer_slab **unlink_ptr,
             bump_pointer_slab *found,
             unsigned size
-        ) throw() {
+        ) {
 
             bump_pointer_slab **bigger_unlink_ptr(nullptr);
             bump_pointer_slab *bigger_found(nullptr);
@@ -180,7 +180,7 @@ namespace granary {
 
         /// Allocate a new slab, either by finding it in a free list, or by
         /// manually allocating it.
-        bump_pointer_slab *allocate_slab(unsigned size) throw() {
+        bump_pointer_slab *allocate_slab(unsigned size) {
             bump_pointer_slab *found(nullptr);
 
             // Try to find one in the free list.
@@ -226,7 +226,7 @@ namespace granary {
         uint8_t *allocate_bare(
             const unsigned align,
             const unsigned size
-        ) throw() {
+        ) {
 
             last_allocation_size = 0;
             last_allocation = nullptr;
@@ -309,7 +309,7 @@ namespace granary {
 
 
         /// Free a list of bump_pointer_slabs.
-        static void free_slab_list(bump_pointer_slab *list) throw() {
+        static void free_slab_list(bump_pointer_slab *list) {
             for(bump_pointer_slab *next(nullptr); list; list = next) {
                 next = list->next;
                 if(list->memory) {
@@ -328,7 +328,7 @@ namespace granary {
 
     public:
 
-        bump_pointer_allocator(void) throw()
+        bump_pointer_allocator(void) 
             : curr(nullptr)
             , first(nullptr)
             , free(nullptr)
@@ -340,7 +340,7 @@ namespace granary {
             _IF_TEST( curr_owner_cpu_id(-1) )
         { }
 
-        ~bump_pointer_allocator(void) throw() {
+        ~bump_pointer_allocator(void) {
             free_slab_list(free);
             free = nullptr;
             last_allocation_size = 0;
@@ -351,7 +351,7 @@ namespace granary {
         }
 
         template <typename T, typename... Args>
-        T *allocate(Args&&... args) throw() {
+        T *allocate(Args&&... args) {
             enum {
                 ALIGN = (unsigned) alignof(T),
                 MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
@@ -366,7 +366,7 @@ namespace granary {
             return ptr;
         }
 
-        void *allocate_untyped(unsigned align, unsigned num_bytes) throw() {
+        void *allocate_untyped(unsigned align, unsigned num_bytes) {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
 
             acquire();
@@ -380,7 +380,7 @@ namespace granary {
 
     private:
 
-        bool try_free_curr(bool had_slab) throw() {
+        bool try_free_curr(bool had_slab) {
             if(!had_slab || !curr->index) {
                 bump_pointer_slab *dead_slab(curr);
                 curr = curr->next;
@@ -391,7 +391,7 @@ namespace granary {
             return false;
         }
 
-        void try_share_free(void) throw() {
+        void try_share_free(void) {
             if(free && global_free_lock.try_acquire()) {
                 *(free->connect()) = global_free;
                 global_free = free;
@@ -403,7 +403,7 @@ namespace granary {
     public:
 
         template <typename T>
-        inline const T *allocate_staged(void) throw() {
+        inline const T *allocate_staged(void) {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
@@ -417,7 +417,7 @@ namespace granary {
         }
 
         template <typename T>
-        T *allocate_array(unsigned length) throw() {
+        T *allocate_array(unsigned length) {
             enum {
                 ALIGN = (unsigned) alignof(T),
                 MIN_ALIGN_ = ALIGN < MIN_ALIGN ? (unsigned) MIN_ALIGN : ALIGN
@@ -447,7 +447,7 @@ namespace granary {
         /// If this is a shared allocator, or if the allocator isn't shared but
         /// follows a locking discipline that uses `lock_coarse` (coarse-grained
         /// allocator locking) then this function should be used VERY carefully.
-        void free_last(free_memory_hint hint=FREE_HINT_TRY_FREE_SLAB) throw() {
+        void free_last(free_memory_hint hint=FREE_HINT_TRY_FREE_SLAB) {
             IF_TEST( const void *allocator(__builtin_return_address(0)); )
             acquire();
             IF_TEST( last_allocator = allocator; )
@@ -484,7 +484,7 @@ namespace granary {
         }
 
         /// Free all allocated objects.
-        void free_all(void) throw() {
+        void free_all(void) {
             if(!IS_TRANSIENT || IS_SHARED) {
                 FAULT;
             }
@@ -525,7 +525,7 @@ namespace granary {
         /// to mark an allocator as non-shared (even when it is), but do coarse-
         /// grained locking across multiple operations, rather than fine-grained
         /// locking around individual operations.
-        void lock_coarse(IF_TEST(int cpu_id)) throw() {
+        void lock_coarse(IF_TEST(int cpu_id)) {
             if(!IS_SHARED) {
                 lock.acquire();
                 IF_TEST( curr_owner_cpu_id = cpu_id; )
@@ -534,7 +534,7 @@ namespace granary {
 
 
         /// Release the coarse-grained lock.
-        void unlock_coarse(void) throw() {
+        void unlock_coarse(void) {
             if(!IS_SHARED) {
                 IF_TEST( curr_owner_cpu_id = -1; )
                 lock.release();

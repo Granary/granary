@@ -22,7 +22,7 @@ namespace client { namespace wp {
     ///     `state.set({{was_freed = true}});`
     ///
     /// To set the `was_freed` value.
-    void leak_object_state::set_state(leak_object_state bits_to_set) throw() {
+    void leak_object_state::set_state(leak_object_state bits_to_set) {
         uint8_t old_bits;
         uint8_t new_bits;
         do {
@@ -38,7 +38,7 @@ namespace client { namespace wp {
     ///     `state.unset({{was_freed = true}});`
     ///
     /// To unset the `was_freed` value.
-    void leak_object_state::unset_state(leak_object_state bits_to_unset) throw() {
+    void leak_object_state::unset_state(leak_object_state bits_to_unset) {
         uint8_t old_bits;
         uint8_t new_bits;
         do {
@@ -89,7 +89,7 @@ namespace client { namespace wp {
         leak_detector_descriptor *&desc,
         uintptr_t &counter_index,
         const uintptr_t
-    ) throw() {
+    ) {
         counter_index = 0;
         desc = nullptr;
 
@@ -147,7 +147,7 @@ namespace client { namespace wp {
         leak_detector_descriptor *desc,
         void *base_address,
         size_t size
-    ) throw() {
+    ) {
         desc->base_address = reinterpret_cast<uintptr_t>(base_address);
         desc->size = size;
     }
@@ -158,7 +158,7 @@ namespace client { namespace wp {
     void leak_detector_descriptor::assign(
         leak_detector_descriptor *desc,
         uintptr_t index
-    ) throw() {
+    ) {
         ASSERT(index < MAX_NUM_WATCHPOINTS);
 
         // Here is where we really know that this descriptor is for an app-
@@ -173,7 +173,7 @@ namespace client { namespace wp {
     /// Get the descriptor of a watchpoint based on its index.
     leak_detector_descriptor *leak_detector_descriptor::access(
         uintptr_t index
-    ) throw() {
+    ) {
         ASSERT(index < client::wp::MAX_NUM_WATCHPOINTS);
         return DESCRIPTORS[index];
     }
@@ -183,7 +183,7 @@ namespace client { namespace wp {
     void leak_detector_descriptor::free(
         leak_detector_descriptor *desc,
         uintptr_t index
-    ) throw() {
+    ) {
         leak_object_state desc_state;
 
         if(!is_valid_address(desc)) {

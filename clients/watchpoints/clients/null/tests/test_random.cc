@@ -20,7 +20,7 @@ namespace test {
     }
 
     /// From: python-dbg, _PyObject_DebugDumpAddress+581
-    static uint32_t test_movzbl(void) throw() {
+    static uint32_t test_movzbl(void) {
         register uint32_t ret = 0;
         register uint64_t addr(granary::unsafe_cast<uint64_t>(&WP_R_TEST));
         WP_R_TEST = ~0ULL;

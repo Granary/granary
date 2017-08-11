@@ -35,19 +35,19 @@ namespace granary {
         /// sufficiently large to allow for both user space and kernel
         /// space allocation, and that the user of this allocator will
         /// handle page alignment, etc.
-        void *global_allocate_executable(unsigned long size, int) throw();
+        void *global_allocate_executable(unsigned long size, int) ;
 
 
         /// Free globally allocated executable memory.
-        void global_free_executable(void *addr, unsigned long size) throw();
+        void global_free_executable(void *addr, unsigned long size) ;
 
 
         /// Allocate some non-executable memory.
-        void *global_allocate(unsigned long size) throw();
+        void *global_allocate(unsigned long size) ;
 
 
         /// Free some globally allocated memory.
-        void global_free(void *addr, unsigned long) throw();
+        void global_free(void *addr, unsigned long) ;
     }
 
 
@@ -55,14 +55,14 @@ namespace granary {
 
         template <typename T, bool=false>
         struct memory_allocator {
-            static T *allocate(const unsigned num) throw() {
+            static T *allocate(const unsigned num) {
                 const unsigned size(sizeof(T) * num);
                 T *addr(reinterpret_cast<T *>(detail::global_allocate(size)));
                 memset(addr, 0, size);
                 return addr;
             }
 
-            static void free(T *addr, const unsigned num) throw() {
+            static void free(T *addr, const unsigned num) {
                 const unsigned size(sizeof(T) * num);
                 detail::global_free(addr, size);
             }
@@ -70,13 +70,13 @@ namespace granary {
 
         template <typename T>
         struct memory_allocator<T, true> {
-            static T *allocate(const unsigned num) throw() {
+            static T *allocate(const unsigned num) {
                 T *addr(memory_allocator<T,false>::allocate(num));
                 new (addr) T;
                 return addr;
             }
 
-            static void free(T *addr, const unsigned num) throw() {
+            static void free(T *addr, const unsigned num) {
                 for(unsigned i(0); i < num; ++i) {
                     addr[i].~T();
                 }
@@ -86,7 +86,7 @@ namespace granary {
     }
 
     template <typename T>
-    T *allocate_memory(const unsigned num=1) throw() {
+    T *allocate_memory(const unsigned num=1) {
         return detail::memory_allocator<
             T,
             !std::is_trivial<T>::value
@@ -95,7 +95,7 @@ namespace granary {
 
 
     template <typename T>
-    void free_memory(T *addr, const unsigned num=1) throw() {
+    void free_memory(T *addr, const unsigned num=1) {
         detail::memory_allocator<
             T,
             !std::is_trivial<T>::value

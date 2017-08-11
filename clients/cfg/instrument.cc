@@ -32,7 +32,7 @@ namespace client {
 
 
     /// Chain the basic block into the list of basic blocks.
-    void commit_to_basic_block(basic_block_state &bb) throw() {
+    void commit_to_basic_block(basic_block_state &bb) {
         basic_block_state *prev(nullptr);
         basic_block_state *curr(&bb);
         do {
@@ -44,7 +44,7 @@ namespace client {
 
     /// Invoked if/when Granary discards a basic block (e.g. due to a race
     /// condition when two cores compete to translate the same basic block).
-    void discard_basic_block(basic_block_state &bb) throw() {
+    void discard_basic_block(basic_block_state &bb) {
 #if CFG_RECORD_INDIRECT_TARGETS
         if(bb.indirect_ctis) {
             free_memory<indirect_cti>(bb.indirect_ctis, bb.num_indirect_ctis);
@@ -57,7 +57,7 @@ namespace client {
 
 #if CFG_RECORD_INDIRECT_TARGETS
     /// Add an entry to a basic block's set of indirect CALL/JMP targets.
-    void add_indirect_target(app_pc target_addr, indirect_cti *cti) throw() {
+    void add_indirect_target(app_pc target_addr, indirect_cti *cti) {
         cti->update_lock.acquire();
 
         app_pc *new_targets(nullptr);
@@ -106,7 +106,7 @@ namespace client {
         instruction_list &ls,
         instruction in,
         uint64_t *counter
-    ) throw() {
+    ) {
         IF_USER( ls.insert_before(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
         ls.insert_before(in, pushf_());
@@ -122,7 +122,7 @@ namespace client {
     static void instrument_indirect_cti(
         instruction_list &ls,
         indirect_cti &cti
-    ) throw() {
+    ) {
         instruction hit_in_last_indirect_target(label_());
         ls.append(lea_(
             reg::indirect_clobber_reg,
@@ -158,7 +158,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
 
         // This is a recursive invocation of instrumentation on an indirect
         // CTI that loads from memory. We can find the CTI's address in
@@ -250,7 +250,7 @@ namespace client {
         granary::cpu_state_handle cpu,
         granary::basic_block_state &bb,
         granary::instruction_list &ls
-    ) throw() {
+    ) {
         return visit_app_instructions(cpu, bb, ls);
     }
 
@@ -263,7 +263,7 @@ namespace client {
         granary::basic_block_state &,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 
@@ -275,7 +275,7 @@ namespace client {
         granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw() {
+    ) {
         return granary::INTERRUPT_DEFER;
     }
 

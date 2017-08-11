@@ -36,11 +36,11 @@ namespace granary {
     public:
 
         __attribute__((hot))
-        cpu_state_handle(void) throw();
+        cpu_state_handle(void) ;
 
 
         FORCE_INLINE
-        cpu_state *operator->(void) throw() {
+        cpu_state *operator->(void) {
             return state;
         }
 
@@ -48,13 +48,13 @@ namespace granary {
         /// Implicit conversion operator for marking a location as safe to
         /// access CPU state by virtue of us having already accessed CPU-private
         /// state.
-        inline operator safe_cpu_access_zone(void) const throw() {
+        inline operator safe_cpu_access_zone(void) const {
             return safe_cpu_access_zone();
         }
 
 
         /// Free up transient CPU state.
-        void free_transient_allocators(void) throw();
+        void free_transient_allocators(void) ;
     };
 
 
@@ -64,30 +64,30 @@ namespace granary {
     private:
 
         IF_KERNEL( thread_state **state_ptr; )
-        IF_KERNEL( void init(void) throw(); )
+        IF_KERNEL( void init(void) ; )
 
         thread_state *state;
 
         /// Not allowed to get thread state without CPU state.
-        thread_state_handle(void) throw() = delete;
+        thread_state_handle(void) = delete;
 
     public:
 
 
         /// Initialise some thread-private state.
         __attribute__((hot))
-        thread_state_handle(safe_cpu_access_zone) throw();
+        thread_state_handle(safe_cpu_access_zone) ;
 
 
         /// Some form of internal pointer to the current thread state, used
         /// to semi-uniquely identify this task. It is not safe to convert
         /// between this pointer and any other pointer.
-        FORCE_INLINE const void *identifying_address(void) throw() {
+        FORCE_INLINE const void *identifying_address(void) {
             return operator->();
         }
 
 
-        FORCE_INLINE thread_state *operator->(void) throw() {
+        FORCE_INLINE thread_state *operator->(void) {
 
 #if CONFIG_ENV_KERNEL
             // Used to lazily initialise thread state on access.

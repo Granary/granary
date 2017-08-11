@@ -85,7 +85,7 @@ namespace granary {
 
 
     /// Gets a handle to the current CPU state.
-    cpu_state_handle::cpu_state_handle(void) throw()
+    cpu_state_handle::cpu_state_handle(void) 
         : state(*kernel_get_cpu_state(CPU_STATES))
     { }
 
@@ -130,7 +130,7 @@ namespace granary {
 
 
     /// Initialise the CPU state.
-    void cpu_state::init_early(void) throw() {
+    void cpu_state::init_early(void) {
         kernel_run_on_each_cpu(alloc_cpu_state);
     }
 
@@ -151,7 +151,7 @@ namespace granary {
     }
 
 
-    void cpu_state::init_late(void) throw() {
+    void cpu_state::init_late(void) {
         eflags flags;
         for(unsigned i(0); i < MAX_NUM_CPUS; ++i) {
 

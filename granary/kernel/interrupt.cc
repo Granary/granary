@@ -27,7 +27,7 @@ namespace granary {
 
     /// Return true iff a particular vector will push an error code on the
     /// stack.
-    static bool has_error_code(unsigned vector) throw() {
+    static bool has_error_code(unsigned vector) {
         switch(vector) {
         case 0: // #DE: divide by zero exception
         case 1: // #DB: debug exception
@@ -120,7 +120,7 @@ namespace granary {
     static void mangle_delayed_instruction(
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         switch(in.op_code()) {
 
         // Elide these instructions. This does make a minor second assumption.
@@ -164,7 +164,7 @@ namespace granary {
     /// Mangle a CTI within the delay region. This tries to redirect a CTI to
     /// point back within the delay region. This code will fault if the CTI
     /// cannot be redirected.
-    static void mangle_cti(instruction_list &ls, instruction cti) throw() {
+    static void mangle_cti(instruction_list &ls, instruction cti) {
         if(cti.is_return()) {
             return;
         }
@@ -385,7 +385,7 @@ namespace granary {
         cpu_state_handle cpu,
         interrupt_stack_frame *isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
 
         // Need to access the basic block's info for both interrupt delaying and
         // checking if we might need to deal with an exception table entry.
@@ -443,7 +443,7 @@ namespace granary {
         cpu_state_handle cpu,
         interrupt_stack_frame *isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
         const app_pc pc(isf->instruction_pointer);
 
 #if CONFIG_FEATURE_INTERRUPT_DELAY
@@ -488,7 +488,7 @@ namespace granary {
         cpu_state_handle cpu,
         interrupt_stack_frame *isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
 
 #if CONFIG_DEBUG_ASSERTIONS
         // Used to try to debug when a granary_fault is called.
@@ -533,7 +533,7 @@ namespace granary {
     static interrupt_handled_state handle_module_interrupt(
         cpu_state_handle cpu,
         interrupt_stack_frame *isf
-    ) throw() {
+    ) {
         granary_break_on_interrupt(isf, VECTOR_PAGE_FAULT, cpu);
 
         instrumentation_policy policy(START_POLICY);
@@ -567,7 +567,7 @@ namespace granary {
     interrupt_handled_state handle_interrupt(
         interrupt_stack_frame *isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
 
         cpu_state_handle cpu;
 
@@ -632,7 +632,7 @@ namespace granary {
         unsigned vector_num,
         app_pc original_routine,
         app_pc common_interrupt_routine
-    ) throw() {
+    ) {
         cpu_state_handle cpu;
         instruction_list ls;
         const bool vec_has_error_code(has_error_code(vector_num));
@@ -682,7 +682,7 @@ namespace granary {
 
     /// Emit a common interrupt entry routine. This routine handles the full
     /// interrupt.
-    static app_pc emit_common_interrupt_routine(void) throw() {
+    static app_pc emit_common_interrupt_routine(void) {
 
         if(COMMON_HANDLER_BEGIN) {
             return COMMON_HANDLER_BEGIN;
@@ -915,7 +915,7 @@ namespace granary {
     /// interrupt vector, and assume that:
     ///     1) The call is made on a safe stack;
     ///     2) The call goes into the kernel's interrupt handler code.
-    static app_pc create_interrupt_entrypoint(app_pc native_entrypoint) throw() {
+    static app_pc create_interrupt_entrypoint(app_pc native_entrypoint) {
 
         // Free up memory.
         cpu_state_handle cpu;
@@ -994,7 +994,7 @@ namespace granary {
     }
 
 
-    static bool is_valid_interrupt_handler(app_pc addr) throw() {
+    static bool is_valid_interrupt_handler(app_pc addr) {
 #   ifdef DETACH_ADDR_early_idt_handlers
         const app_pc kernel_early_idt_table(reinterpret_cast<app_pc>(
             DETACH_ADDR_early_idt_handlers));
@@ -1019,7 +1019,7 @@ namespace granary {
     /// Create a Granary version of the interrupt descriptor table. This does
     /// not assume that all CPUs share the same IDT, but benefits from sharing
     /// if it's true.
-    system_table_register_t create_idt(system_table_register_t native) throw() {
+    system_table_register_t create_idt(system_table_register_t native) {
 
         // Unusual; seem to be re-creating based on our own IDT.
         if(native.base == PREV_IDTR_GEN.base) {

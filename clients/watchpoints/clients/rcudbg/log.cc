@@ -82,7 +82,7 @@ namespace client {
         char *buff,
         const message_container *cont,
         int_func *printer
-    ) throw() {
+    ) {
         print_4_func *print_func = (print_4_func *) printer;
         const unsigned id(cont->message_id.load(std::memory_order_relaxed));
 
@@ -101,7 +101,7 @@ namespace client {
         char *buff,
         const message_container *cont,
         int_func *printer
-    ) throw() {
+    ) {
         print_3_func *print_func = (print_3_func *) printer;
         const unsigned id(cont->message_id.load(std::memory_order_relaxed));
 
@@ -119,7 +119,7 @@ namespace client {
         char *buff,
         const message_container *cont,
         int_func *printer
-    ) throw() {
+    ) {
         print_2_func *print_func = (print_2_func *) printer;
         const unsigned id(cont->message_id.load(std::memory_order_relaxed));
 
@@ -136,7 +136,7 @@ namespace client {
         char *buff,
         const message_container *cont,
         int_func *printer
-    ) throw() {
+    ) {
         print_1_func *print_func = (print_1_func *) printer;
         const unsigned id(cont->message_id.load(std::memory_order_relaxed));
 
@@ -163,7 +163,7 @@ namespace client {
         char *buff, \
         const char *format, \
         SPLAT arg_defs \
-    ) throw() { \
+    ) { \
         return sprintf(buff, format, SPLAT arg_splat ); \
     }
 #include "clients/watchpoints/clients/rcudbg/message.h"
@@ -240,7 +240,7 @@ namespace client {
     }
 
 
-    bool log_entry_is(unsigned offset, const log_message_id expect_id) throw() {
+    bool log_entry_is(unsigned offset, const log_message_id expect_id) {
         if(offset >= MAX_NUM_MESSAGES) {
             return false;
         }

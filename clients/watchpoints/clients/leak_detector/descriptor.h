@@ -50,7 +50,7 @@ namespace client { namespace wp {
         ///     `state.set({{was_freed = true}});`
         ///
         /// To set the `was_freed` value.
-        void set_state(leak_object_state bits_to_set) throw();
+        void set_state(leak_object_state bits_to_set) ;
 
 
         /// Set one or more of the state values for this object. To use this, do
@@ -59,7 +59,7 @@ namespace client { namespace wp {
         ///     `state.unset({{was_freed = true}});`
         ///
         /// To unset the `was_freed` value.
-        void unset_state(leak_object_state bits_to_unset) throw();
+        void unset_state(leak_object_state bits_to_unset) ;
 
     } __attribute__((packed));
 
@@ -154,11 +154,11 @@ namespace client { namespace wp {
             leak_detector_descriptor *&,
             uintptr_t &,
             const uintptr_t
-        ) throw();
+        ) ;
 
 
         /// Free a watchpoint descriptor.
-        static void free(leak_detector_descriptor *, uintptr_t) throw();
+        static void free(leak_detector_descriptor *, uintptr_t) ;
 
 
         /// Initialise a watchpoint descriptor.
@@ -166,7 +166,7 @@ namespace client { namespace wp {
             leak_detector_descriptor *,
             void *base_address,
             size_t size
-        ) throw();
+        ) ;
 
 
         /// Notify the leak_detectors policy that the descriptor can be assigned
@@ -174,11 +174,11 @@ namespace client { namespace wp {
         static void assign(
             leak_detector_descriptor *desc,
             uintptr_t index
-        ) throw();
+        ) ;
 
 
         /// Get the assigned descriptor for a given index.
-        static leak_detector_descriptor *access(uintptr_t index) throw();
+        static leak_detector_descriptor *access(uintptr_t index) ;
 
     } __attribute__((packed));
 

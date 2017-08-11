@@ -33,7 +33,7 @@ namespace test {
     }
 
 
-    static void unwatched_move_fp(void) throw() {
+    static void unwatched_move_fp(void) {
         ASM(
             "pushq %rbp;"
             "xorq %rax, %rax;"
@@ -46,7 +46,7 @@ namespace test {
     }
 
 
-    static void watched_move_fp(void) throw() {
+    static void watched_move_fp(void) {
         ASM(
             "pushq %rbp;"
             "xorq %rax, %rax;"

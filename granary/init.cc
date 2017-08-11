@@ -25,7 +25,7 @@ namespace granary {
     static static_init_list *STATIC_INIT_LIST_TAIL(nullptr);
 
     /// Add an entry onto the static initialiser list.
-    void static_init_list::append(static_init_list &entry) throw() {
+    void static_init_list::append(static_init_list &entry) {
         if(!STATIC_INIT_LIST_TAIL) {
             STATIC_INIT_LIST_HEAD.next = &entry;
         } else {
@@ -43,7 +43,7 @@ namespace granary {
     static static_init_list *STATIC_INIT_LIST_SYNC_TAIL(nullptr);
 
     /// Add an entry onto the static initialiser list.
-    void static_init_list::append_sync(static_init_list &entry) throw() {
+    void static_init_list::append_sync(static_init_list &entry) {
         if(!STATIC_INIT_LIST_SYNC_TAIL) {
             STATIC_INIT_LIST_SYNC_HEAD.next = &entry;
         } else {
@@ -68,12 +68,12 @@ namespace granary {
 
 
     namespace detail {
-        extern void init_code_cache(void) throw();
+        extern void init_code_cache(void) ;
     }
 
 
     /// Initialise granary.
-    void init(void) throw() {
+    void init(void) {
 
         detail::init_code_cache();
 
@@ -118,13 +118,13 @@ namespace granary {
 #if CONFIG_ENV_KERNEL
 
     /// Returns true iff there is anything to run in a synchronised way.
-    bool should_init_sync(void) throw() {
+    bool should_init_sync(void) {
         return nullptr != STATIC_INIT_LIST_SYNC_HEAD.next;
     }
 
 
     /// Initialise the synchronised static initialisers.
-    void init_sync(void) throw() {
+    void init_sync(void) {
 
         // Run all static initialiser functions.
         static_init_list *init(STATIC_INIT_LIST_SYNC_HEAD.next);

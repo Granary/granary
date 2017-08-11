@@ -53,7 +53,7 @@ namespace granary {
     void trace_log::add_entry(
         app_pc IF_TRACE(code_cache_addr),
         simple_machine_state *IF_TRACE(state)
-    ) throw() {
+    ) {
 #if CONFIG_DEBUG_TRACE_EXECUTION
 #   if CONFIG_DEBUG_TRACE_PRINT_LOG
         printf("app=%p cache=%p\n", app_addr, target_addr);
@@ -88,7 +88,7 @@ namespace granary {
 
 
 #if CONFIG_DEBUG_TRACE_EXECUTION
-    static app_pc trace_logger(void) throw() {
+    static app_pc trace_logger(void) {
         static volatile app_pc routine(nullptr);
         if(routine) {
             return routine;
@@ -150,7 +150,7 @@ namespace granary {
     static void add_trace_log_call(
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         IF_USER( in = ls.insert_after(in,
             lea_(reg::rsp, reg::rsp[-REDZONE_SIZE])); )
 
@@ -171,7 +171,7 @@ namespace granary {
     /// beginning of an instruction list, as well as replace RET instructions
     /// with tail-calls to the trace logger so that we can observe ourselves
     /// re-entering a given basic block after a CALL.
-    void trace_log::log_execution(instruction_list &IF_TRACE(ls)) throw() {
+    void trace_log::log_execution(instruction_list &IF_TRACE(ls)) {
 #if CONFIG_DEBUG_TRACE_EXECUTION
 
         // The first instruction will be a label.

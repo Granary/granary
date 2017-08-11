@@ -23,7 +23,7 @@ namespace granary {
         instruction in,
         app_pc block_start_pc,
         app_pc next_pc
-    ) throw();
+    ) ;
 
 
     /// Optimise an indirect CTI into a direct CTI. This will potentially add
@@ -32,7 +32,7 @@ namespace granary {
     void profile_optimise_indirect_cti(
         instruction_list &ls,
         instruction in
-    ) throw();
+    ) ;
 }
 
 #endif /* PGO_H_ */

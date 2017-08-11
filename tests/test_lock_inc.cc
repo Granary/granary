@@ -11,7 +11,7 @@ namespace test {
 
     /// The static integer complicates things in user space because it might
     /// be more than 4gb away from the code cache.
-    static int local_lock_inc(void) throw() {
+    static int local_lock_inc(void) {
         static volatile int i(0);
         ASM(
             "lock;"

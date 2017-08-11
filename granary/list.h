@@ -29,11 +29,11 @@ namespace granary {
             PREV_POINTER_OFFSET = 0
         };
 
-        static void *allocate(unsigned size) throw() {
+        static void *allocate(unsigned size) {
             return detail::global_allocate(size);
         }
 
-        static void free(void *val, unsigned size) throw() {
+        static void free(void *val, unsigned size) {
             detail::global_free(val, size);
         }
     };
@@ -45,15 +45,15 @@ namespace granary {
         list_item<T> *next;
         list_item<T> *prev;
 
-        inline T &get_value(void) throw() {
+        inline T &get_value(void) {
             return value;
         }
 
-        inline list_item<T> *&get_next(void) throw() {
+        inline list_item<T> *&get_next(void) {
             return next;
         }
 
-        inline list_item<T> *&get_prev(void) throw() {
+        inline list_item<T> *&get_prev(void) {
             return prev;
         }
     };
@@ -68,16 +68,16 @@ namespace granary {
 
         list_item<T> *prev;
 
-        inline T &get_value(void) throw() {
+        inline T &get_value(void) {
             return value;
         }
 
-        inline list_item<T> *&get_next(void) throw() {
+        inline list_item<T> *&get_next(void) {
             return *unsafe_cast<list_item<T> **>(
                 &(bytes[list_meta<T>::NEXT_POINTER_OFFSET]));
         }
 
-        inline list_item<T> *&get_prev(void) throw() {
+        inline list_item<T> *&get_prev(void) {
             return prev;
         }
     };
@@ -92,16 +92,16 @@ namespace granary {
 
         list_item<T> *next;
 
-        inline T &get_value(void) throw() {
+        inline T &get_value(void) {
             return value;
         }
 
-        inline list_item<T> *&get_prev(void) throw() {
+        inline list_item<T> *&get_prev(void) {
             return *unsafe_cast<list_item<T> **>(
                 &(bytes[list_meta<T>::PREV_POINTER_OFFSET]));
         }
 
-        inline list_item<T> *&get_next(void) throw() {
+        inline list_item<T> *&get_next(void) {
             return next;
         }
     };
@@ -114,16 +114,16 @@ namespace granary {
             char bytes[sizeof(T)];
         };
 
-        T &get_value(void) throw() {
+        T &get_value(void) {
             return value;
         }
 
-        inline list_item<T> *&get_next(void) throw() {
+        inline list_item<T> *&get_next(void) {
             return *unsafe_cast<list_item<T> **>(
                 &(bytes[list_meta<T>::NEXT_POINTER_OFFSET]));
         }
 
-        inline list_item<T> *&get_prev(void) throw() {
+        inline list_item<T> *&get_prev(void) {
             return *unsafe_cast<list_item<T> **>(
                 &(bytes[list_meta<T>::PREV_POINTER_OFFSET]));
         }
@@ -143,15 +143,15 @@ namespace granary {
 
         item_type item;
 
-        inline T &get_value(void) throw() {
+        inline T &get_value(void) {
             return item.get_value();
         }
 
-        inline list_item<T> *&get_next(void) throw() {
+        inline list_item<T> *&get_next(void) {
             return item.get_next();
         }
 
-        inline list_item<T> *&get_prev(void) throw() {
+        inline list_item<T> *&get_prev(void) {
             return item.get_prev();
         }
     };
@@ -166,33 +166,33 @@ namespace granary {
 
         list_item<T> *handle;
 
-        list_item_handle(list_item<T> *handle_) throw()
+        list_item_handle(list_item<T> *handle_) 
             : handle(handle_)
         { }
 
     public:
 
-        list_item_handle(void) throw()
+        list_item_handle(void) 
             : handle(nullptr)
         { }
 
-        inline T &operator*(void) throw() {
+        inline T &operator*(void) {
             return handle->get_value();
         }
 
-        inline T *operator->(void) throw() {
+        inline T *operator->(void) {
             return &(handle->get_value());
         }
 
-        inline bool is_valid(void) const throw() {
+        inline bool is_valid(void) const {
             return nullptr != handle;
         }
 
-        inline list_item_handle next(void) throw() {
+        inline list_item_handle next(void) {
             return list_item_handle(handle->get_next());
         }
 
-        inline list_item_handle prev(void) throw() {
+        inline list_item_handle prev(void) {
             return list_item_handle(handle->get_prev());
         }
     };
@@ -216,7 +216,7 @@ namespace granary {
         unsigned length_;
 
         /// allocate a new list item
-        item_type *allocate_(T val) throw() {
+        item_type *allocate_(T val) {
             item_type *ptr(nullptr);
             if(nullptr != cache_) {
                 ptr = cache_;
@@ -230,12 +230,12 @@ namespace granary {
             return ptr;
         }
 
-        static item_type *allocate(self_type *this_, T val) throw() {
+        static item_type *allocate(self_type *this_, T val) {
             return this_->allocate_(val);
         }
 
         /// cache an item for later use/allocation
-        void cache(item_type *item) throw() {
+        void cache(item_type *item) {
             item->get_prev() = nullptr;
             item->get_next() = cache_;
             cache_ = item;
@@ -244,7 +244,7 @@ namespace granary {
     public:
 
         /// Initialise an empty list.
-        list(void) throw()
+        list(void) 
             : first_(nullptr)
             , last_(nullptr)
             , cache_(nullptr)
@@ -252,7 +252,7 @@ namespace granary {
         { }
 
         /// Move constructor.
-        list(self_type &&that) throw()
+        list(self_type &&that) 
             : first_(that.first_)
             , last_(that.last_)
             , cache_(that.cache_)
@@ -266,18 +266,18 @@ namespace granary {
 
 
         /// Destroy the list by clearing all items.
-        ~list(void) throw() {
+        ~list(void) {
             clear();
         }
 
         /// Returns the number of elements in the list.
-        inline unsigned length(void) const throw() {
+        inline unsigned length(void) const {
             return length_;
         }
 
         /// Clear the elements of the list, with the intention of re-using the
         /// already allocated list elements later.
-        void clear_for_reuse(void) throw() {
+        void clear_for_reuse(void) {
             if(!first_) {
                 return;
             }
@@ -291,7 +291,7 @@ namespace granary {
 
         /// Clear the elements of the list, and release any memory associated
         /// with the elements of the list
-        void clear(void) throw() {
+        void clear(void) {
             if(!first_) {
                 return;
             }
@@ -318,18 +318,18 @@ namespace granary {
             length_ = 0;
         }
 
-        inline handle_type append(T val) throw() {
+        inline handle_type append(T val) {
             return append(allocate(this, val));
         }
 
 
-        inline handle_type prepend(T val) throw() {
+        inline handle_type prepend(T val) {
             return prepend(allocate(this, val));
         }
 
 
         /// Return the first element in the list.
-        inline handle_type first(void) const throw() {
+        inline handle_type first(void) const {
             if(!first_) {
                 return handle_type();
             }
@@ -338,7 +338,7 @@ namespace granary {
         }
 
         /// Return the last element in the list.
-        inline handle_type last(void) const throw() {
+        inline handle_type last(void) const {
             if(!last_) {
                 return handle_type();
             }
@@ -347,21 +347,21 @@ namespace granary {
         }
 
         /// Pop the last element off the list.
-        inline handle_type pop(void) throw() {
+        inline handle_type pop(void) {
             handle_type ret = last();
             remove(ret);
             return ret;
         }
 
-        inline handle_type insert_before(handle_type pos, T val) throw() {
+        inline handle_type insert_before(handle_type pos, T val) {
             return insert_before(pos.handle, val);
         }
 
-        inline handle_type insert_after(handle_type pos, T val) throw() {
+        inline handle_type insert_after(handle_type pos, T val) {
             return insert_after(pos.handle, val);
         }
 
-        void remove(handle_type pos) throw() {
+        void remove(handle_type pos) {
             item_type *item(pos.handle);
             if(!item) {
                 return;
@@ -388,7 +388,7 @@ namespace granary {
     protected:
 
         /// Adds an element on to the end of the list.
-        handle_type append(item_type *item) throw() {
+        handle_type append(item_type *item) {
 
             item_type *before_item(last_);
 
@@ -407,7 +407,7 @@ namespace granary {
         }
 
         /// Adds an element on to the beginning of the list.
-        handle_type prepend(item_type *item) throw() {
+        handle_type prepend(item_type *item) {
             item_type *after_item(first_);
 
             first_ = item;
@@ -425,12 +425,12 @@ namespace granary {
             return handle_type(item);
         }
 
-        inline handle_type insert_before(item_type *at_pos, T val) throw() {
+        inline handle_type insert_before(item_type *at_pos, T val) {
             return insert_before(at_pos, allocate(this, val));
         }
 
         /// Insert an element before another object in the list.
-        handle_type insert_before(item_type *after_item, item_type *item) throw() {
+        handle_type insert_before(item_type *after_item, item_type *item) {
 
             if(1 >= length_ || !after_item) {
                 return prepend(item);
@@ -448,12 +448,12 @@ namespace granary {
             return chain(before_item, item, after_item);
         }
 
-        inline handle_type insert_after(item_type *at_pos, T val) throw() {
+        inline handle_type insert_after(item_type *at_pos, T val) {
             return insert_after(at_pos, allocate(this, val));
         }
 
         /// Insert an element after another object in the list
-        handle_type insert_after(item_type *before_item, item_type *item) throw() {
+        handle_type insert_after(item_type *before_item, item_type *item) {
 
             if(1 >= length_ || !before_item) {
                 return append(item);
@@ -472,7 +472,7 @@ namespace granary {
             item_type *before_item,
             item_type *item,
             item_type *after_item
-        ) throw() {
+        ) {
             ++length_;
 
             item->get_prev() = before_item;

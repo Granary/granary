@@ -107,7 +107,7 @@ namespace granary {
         app_pc detach_addr,
         app_pc redirect_addr,
         runtime_context context
-    ) throw();
+    ) ;
 
 
 	/// Returns the address of a detach point. For example, in the
@@ -118,11 +118,11 @@ namespace granary {
 	/// Returns:
 	///		A translated target address, or nullptr if this isn't a
 	/// 	detach target.
-    app_pc find_detach_target(app_pc pc, runtime_context) throw();
+    app_pc find_detach_target(app_pc pc, runtime_context) ;
 
 
 	/// Detach Granary.
-	DONT_OPTIMISE void detach(void) throw();
+	DONT_OPTIMISE void detach(void) ;
 
 }
 

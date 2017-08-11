@@ -35,7 +35,7 @@ extern "C" {
 
 #if DEBUG_GDB_ATTACH_AT_SIGSEGV
     /// Handle a segfault by trying to attach instrumentation to native code.
-    static void handle_fault(int, siginfo_t *, void *) throw() {
+    static void handle_fault(int, siginfo_t *, void *) {
         detach();
         granary::printf("Process ID for attaching GDB: %d\n", (int) getpid());
         granary::printf("Press enter to continue.\n");
@@ -57,7 +57,7 @@ extern "C" {
 #endif
 
 #if DEBUG_GDB_ATTACH_AT_INIT
-    static unsigned buffer_pid(char *buff, uint64_t data) throw() {
+    static unsigned buffer_pid(char *buff, uint64_t data) {
         if(!data) {
             *buff++ = '0';
             *buff++ = '\0';

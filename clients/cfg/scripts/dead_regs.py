@@ -116,7 +116,7 @@ def gen_bin_search(bbs, indent):
 # about a module.
 def gen_reg_getter(app, bbs):
   bbs.sort(key=lambda t: t[0])
-  O("    static uint32_t get_live_registers_in_", app, "(uint32_t app_offset) throw() {")
+  O("    static uint32_t get_live_registers_in_", app, "(uint32_t app_offset) {")
   gen_bin_search(bbs, "        ")
   O("        return 0;")
   O("    }")
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     O("    /// If we already know about the basic block by having computed the")
     O("    /// (conservative) sets of live registers at the ends of basic blocks")
     O("    /// in advance (e.g. with the CFG tool) then we use that information.")
-    O("    register_manager get_live_registers(const app_pc bb_start_addr) throw() {")
+    O("    register_manager get_live_registers(const app_pc bb_start_addr) {")
     O("        register_manager live_regs; // default = all live")
     O("#if CONFIG_ENV_KERNEL")
     O("        const kernel_module *module(kernel_get_module(bb_start_addr));")

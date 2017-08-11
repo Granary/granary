@@ -84,7 +84,7 @@ namespace granary {
 
 
     /// Replace the IDT with one that Granary controls.
-    system_table_register_t create_idt(system_table_register_t) throw();
+    system_table_register_t create_idt(system_table_register_t) ;
 }
 
 

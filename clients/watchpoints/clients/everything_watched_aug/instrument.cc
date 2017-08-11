@@ -26,7 +26,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         instruction_list &ls
-    ) throw() {
+    ) {
 
         IF_PERF( NUM_NULL_BBS.fetch_add(1); )
 
@@ -43,7 +43,7 @@ namespace client {
         granary::cpu_state_handle,
         granary::basic_block_state &,
         instruction_list &ls
-    ) throw() {
+    ) {
 
         IF_PERF( NUM_NULL_BBS.fetch_add(1); )
 
@@ -60,7 +60,7 @@ namespace client {
             instruction_list &,
             watchpoint_tracker &,
             unsigned
-        ) throw() { }
+        ) { }
 
 
         void watched_policy::visit_write(
@@ -68,7 +68,7 @@ namespace client {
             instruction_list &,
             watchpoint_tracker &,
             unsigned
-        ) throw() { }
+        ) { }
 
 #if CONFIG_FEATURE_CLIENT_HANDLE_INTERRUPT
         interrupt_handled_state watched_policy::handle_interrupt(
@@ -77,7 +77,7 @@ namespace client {
             granary::basic_block_state &,
             interrupt_stack_frame &,
             interrupt_vector
-        ) throw() {
+        ) {
             return INTERRUPT_DEFER;
         }
 #endif
@@ -101,7 +101,7 @@ namespace client {
         granary::basic_block_state &bb,
         app_pc cache_pc,
         instrumentation_policy policy
-    ) throw() {
+    ) {
 
         app_pc start_pc(cache_pc);
 
@@ -144,7 +144,7 @@ namespace client {
         granary::basic_block_state &bb,
         granary::interrupt_stack_frame &isf,
         granary::interrupt_vector vector
-    ) throw() {
+    ) {
         if(likely(VECTOR_GENERAL_PROTECTION != vector || isf.error_code)) {
             return granary::INTERRUPT_DEFER;
         }
@@ -237,7 +237,7 @@ namespace client {
         thread_state_handle,
         interrupt_stack_frame &isf,
         interrupt_vector vector
-    ) throw() {
+    ) {
         if(likely(VECTOR_GENERAL_PROTECTION != vector || isf.error_code)) {
             return INTERRUPT_DEFER;
         }

@@ -35,7 +35,7 @@ namespace test {
      * and load r/m64 into RAX.
      */
 
-    static void unwatched_cmpxchg(void) throw() {
+    static void unwatched_cmpxchg(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_ATOMIC_FOO_32)) ", %rbx;"
             "movq $1, %rcx;"
@@ -45,7 +45,7 @@ namespace test {
         );
     }
 
-    static void watched_cmpxchg(void) throw() {
+    static void watched_cmpxchg(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_ATOMIC_MASK)) ", %rbx;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_ATOMIC_FOO_32)) ", %rbx;" // mask the address of FOO
@@ -64,7 +64,7 @@ namespace test {
      * load m64 into EDX:EAX.
      */
 
-    static void unwatched_cmpxchg8b(void) throw() {
+    static void unwatched_cmpxchg8b(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_ATOMIC_FOO)) ", %r8;"
 
@@ -79,7 +79,7 @@ namespace test {
         );
     }
 
-    static void watched_cmpxchg8b(void) throw() {
+    static void watched_cmpxchg8b(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_ATOMIC_MASK)) ", %r8;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_ATOMIC_FOO)) ", %r8;" // mask the address of FOO

@@ -48,10 +48,10 @@ GR_PGO_TARGET =
 
 # Compilation toolchain
 GR_CPP = cpp
-GR_CC = clang-3.8
-GR_LD = clang-3.8
+GR_CC ?= $(which cc)
+GR_LD ?= $GR_CC
 GR_LDD = ldd
-GR_CXX = clang++-3.8
+GR_CXX ?= $(which c++)
 GR_CXX_STD = -std=gnu++0x
 GR_PYTHON = python
 

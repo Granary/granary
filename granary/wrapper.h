@@ -173,13 +173,13 @@ namespace granary {
             HAS_META_INFO_TRACKER   = 0
         };
 
-        inline static void pre_in_wrap(T &, const int /* depth__ */) throw() { }
-        inline static void post_in_wrap(T &, const int /* depth__ */) throw() { }
-        inline static void return_in_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void pre_in_wrap(T &, const int /* depth__ */) { }
+        inline static void post_in_wrap(T &, const int /* depth__ */) { }
+        inline static void return_in_wrap(T &, const int /* depth__ */) { }
 
-        inline static void pre_out_wrap(T &, const int /* depth__ */) throw() { }
-        inline static void post_out_wrap(T &, const int /* depth__ */) throw() { }
-        inline static void return_out_wrap(T &, const int /* depth__ */) throw() { }
+        inline static void pre_out_wrap(T &, const int /* depth__ */) { }
+        inline static void post_out_wrap(T &, const int /* depth__ */) { }
+        inline static void return_out_wrap(T &, const int /* depth__ */) { }
     };
 
 
@@ -231,7 +231,7 @@ namespace granary {
     inline static void CAT(prefix, _wrap)( \
         qual T suffix&val, \
         const int depth \
-    ) throw() { \
+    ) { \
         type_wrapper<T suffix>::CAT(prefix, _wrap)( \
             cast<T suffix&>(val), depth); \
     }
@@ -264,7 +264,7 @@ namespace granary {
 
     /// Defines a wrapper function for a pointer of type T.
 #define WRAP_POINTER_VALUE(prefix) \
-    inline static void CAT(prefix, _wrap)(T *val, const int depth) throw() { \
+    inline static void CAT(prefix, _wrap)(T *val, const int depth) { \
         if(is_valid_address(val)) { \
             type_wrapper<T>::CAT(prefix, _wrap)(*val, depth); \
         } \
@@ -434,13 +434,13 @@ namespace granary {
         \
         typedef basic_type T; \
         \
-        inline static void pre_in_wrap(T, const int) throw() { } \
-        inline static void post_in_wrap(T, const int) throw() { } \
-        inline static void return_in_wrap(T, const int) throw() { } \
+        inline static void pre_in_wrap(T, const int) { } \
+        inline static void post_in_wrap(T, const int) { } \
+        inline static void return_in_wrap(T, const int) { } \
         \
-        inline static void pre_out_wrap(T, const int) throw() { } \
-        inline static void post_out_wrap(T, const int) throw() { } \
-        inline static void return_out_wrap(T, const int) throw() { } \
+        inline static void pre_out_wrap(T, const int) { } \
+        inline static void post_out_wrap(T, const int) { } \
+        inline static void return_out_wrap(T, const int) { } \
     };
 
 
@@ -466,7 +466,7 @@ namespace granary {
     struct pre_in_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_in_wrapper<T>::VALUE | PRE_WRAP_MASK) {
                 type_wrapper<T>::pre_in_wrap(val, MAX_PRE_WRAP_DEPTH);
             }
@@ -476,7 +476,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_in_wrapper<T>::VALUE | PRE_WRAP_MASK) {
                 type_wrapper<T>::pre_in_wrap(val, depth);
             }
@@ -487,7 +487,7 @@ namespace granary {
     struct pre_out_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_out_wrapper<T>::VALUE | PRE_WRAP_MASK) {
                 type_wrapper<T>::pre_out_wrap(val, MAX_PRE_WRAP_DEPTH);
             }
@@ -497,7 +497,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_out_wrapper<T>::VALUE | PRE_WRAP_MASK) {
                 type_wrapper<T>::pre_out_wrap(val, depth);
             }
@@ -508,7 +508,7 @@ namespace granary {
     struct post_in_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_in_wrapper<T>::VALUE | POST_WRAP_MASK) {
                 type_wrapper<T>::post_in_wrap(val, MAX_POST_WRAP_DEPTH);
             }
@@ -518,7 +518,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_in_wrapper<T>::VALUE | POST_WRAP_MASK) {
                 type_wrapper<T>::post_in_wrap(val, depth);
             }
@@ -529,7 +529,7 @@ namespace granary {
     struct post_out_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_out_wrapper<T>::VALUE | POST_WRAP_MASK) {
                 type_wrapper<T>::post_out_wrap(val, MAX_POST_WRAP_DEPTH);
             }
@@ -539,7 +539,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_out_wrapper<T>::VALUE | POST_WRAP_MASK) {
                 type_wrapper<T>::post_out_wrap(val, depth);
             }
@@ -550,7 +550,7 @@ namespace granary {
     struct return_in_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_in_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
                 type_wrapper<T>::return_in_wrap(val, MAX_RETURN_WRAP_DEPTH);
             }
@@ -560,7 +560,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_in_wrapper<T>::VALUE |RETURN_WRAP_MASK) {
                 type_wrapper<T>::return_in_wrap(val, depth);
             }
@@ -571,7 +571,7 @@ namespace granary {
     struct return_out_wrap {
     public:
         template <typename T>
-        static inline void apply(typename referenced<T>::type val) throw() {
+        static inline void apply(typename referenced<T>::type val) {
             if(has_out_wrapper<T>::VALUE | RETURN_WRAP_MASK) {
                 type_wrapper<T>::return_out_wrap(val, MAX_RETURN_WRAP_DEPTH);
             }
@@ -581,7 +581,7 @@ namespace granary {
         static inline void apply(
             typename referenced<T>::type val,
             const int depth
-        ) throw() {
+        ) {
             if(has_out_wrapper<T>::VALUE |RETURN_WRAP_MASK) {
                 type_wrapper<T>::return_out_wrap(val, depth);
             }
@@ -649,7 +649,7 @@ namespace granary {
         /// Call the function to be wrapped. Before calling, this will first
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
-        static R apply(Args... args) throw() {
+        static R apply(Args... args) {
 #   if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #   else
@@ -707,7 +707,7 @@ namespace granary {
         /// Call the function to be wrapped. Before calling, this will first
         /// pre-wrap the arguments. After the function is called, it will post-
         /// wrap the arguments.
-        static void apply(Args... args) throw() {
+        static void apply(Args... args) {
 #   if CONFIG_ENV_KERNEL
             func_type *func((func_type *) kernel_address<id>::VALUE);
 #   else
@@ -827,7 +827,7 @@ namespace granary {
     template <typename R, typename... Args>
     struct dynamically_wrapped_function {
     public:
-        static R apply(Args... args) throw() {
+        static R apply(Args... args) {
             GET_DYNAMIC_ADDR(func_addr, R, Args);
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             R ret(func_addr(args...));
@@ -861,7 +861,7 @@ namespace granary {
     template <typename... Args>
     struct dynamically_wrapped_function<void, Args...> {
     public:
-        static void apply(Args... args) throw() {
+        static void apply(Args... args) {
             GET_DYNAMIC_ADDR(func_addr, void, Args);
             apply_to_values<pre_in_wrap, Args...>::apply(args...);
             func_addr(args...);
@@ -884,12 +884,12 @@ namespace granary {
 
     /// Return the dynamic wrapper address for a wrapper / wrappee.
     /// See granary/dynamic_wrapper.cc
-    app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) throw();
+    app_pc dynamic_wrapper_of(app_pc wrapper, app_pc wrappee) ;
 
 
     /// Returns True iff we will will/would dynamic wrap this function.
     template <typename R, typename... Args>
-    bool will_dynamic_wrap(R (*app_addr)(Args...)) throw() {
+    bool will_dynamic_wrap(R (*app_addr)(Args...)) {
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
 
         if(!is_valid_address(app_addr_pc)) {
@@ -911,7 +911,7 @@ namespace granary {
 
     /// Return true if an address points to a dynamic wrapper.
     template <typename R, typename... Args>
-    inline bool is_dynamically_wrapped(R (*app_addr)(Args...)) throw() {
+    inline bool is_dynamically_wrapped(R (*app_addr)(Args...)) {
         app_pc app_addr_pc(reinterpret_cast<app_pc>(app_addr));
         return is_wrapper_address(app_addr_pc);
     }
@@ -919,7 +919,7 @@ namespace granary {
 
     /// Return the address of a dynamic wrapper for a function.
     template <typename R, typename... Args>
-    R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) throw() {
+    R (*dynamic_wrapper_of(R (*app_addr)(Args...)))(Args...) {
         typedef R (func_type)(Args...);
 
         detach();
@@ -956,28 +956,28 @@ namespace granary {
 
         typedef R (*T)(Args...);
 
-        FORCE_INLINE static void pre_in_wrap(T &func_ptr, const int) throw() {
+        FORCE_INLINE static void pre_in_wrap(T &func_ptr, const int) {
             func_ptr = dynamic_wrapper_of(func_ptr);
         }
 
-        FORCE_INLINE static void post_in_wrap(T &, const int) throw() { }
+        FORCE_INLINE static void post_in_wrap(T &, const int) { }
 
-        FORCE_INLINE static void return_in_wrap(T &, const int) throw() { }
+        FORCE_INLINE static void return_in_wrap(T &, const int) { }
 
-        FORCE_INLINE static void pre_out_wrap(T &func_ptr, const int) throw() {
+        FORCE_INLINE static void pre_out_wrap(T &func_ptr, const int) {
             func_ptr = dynamic_wrapper_of(func_ptr);
         }
 
-        FORCE_INLINE static void post_out_wrap(T &, const int) throw() { }
+        FORCE_INLINE static void post_out_wrap(T &, const int) { }
 
-        FORCE_INLINE static void return_out_wrap(T &, const int) throw() { }
+        FORCE_INLINE static void return_out_wrap(T &, const int) { }
     };
 }
 
 
 #define TYPE_WRAPPER_FUNCTION(prefix) \
     FORCE_INLINE static void \
-    CAT(prefix, _wrap)(referenced<wrapped_type__>::type arg__, int depth__) throw() { \
+    CAT(prefix, _wrap)(referenced<wrapped_type__>::type arg__, int depth__) { \
         if(0 < depth__) { \
             impl__::CAT(prefix, _wrap)(arg__, depth__ - 1); \
         } \
@@ -989,7 +989,7 @@ namespace granary {
     CAT(prefix, _wrap)(\
         typename referenced<wrapped_type__>::type arg__, \
         int depth__\
-    ) throw() { \
+    ) { \
         if(0 < depth__) { \
             impl__::CAT(prefix, _wrap)(arg__, depth__); \
         } \
@@ -1181,7 +1181,7 @@ namespace granary {
         > { \
         public: \
             typedef referenceless<PARAMS return_type>::type R; \
-            static R apply arg_list throw() { \
+            static R apply arg_list { \
                 IF_KERNEL( typedef R (*func_type__) arg_list; ) \
                 IF_KERNEL( func_type__ function_name((func_type__) \
                     CAT(DETACH_ADDR_, function_name) ); ) \
@@ -1210,7 +1210,7 @@ namespace granary {
         > { \
         public: \
             typedef void R; \
-            static void apply arg_list throw() { \
+            static void apply arg_list { \
                 IF_KERNEL( typedef R (*func_type__) arg_list; ) \
                 IF_KERNEL( func_type__ function_name((func_type__) \
                     CAT(DETACH_ADDR_, function_name) ); ) \
@@ -1230,7 +1230,7 @@ namespace granary {
         public: \
             typedef referenceless<PARAMS return_type>::type R; \
             static R (*function_name) arg_list; \
-            static R apply arg_list throw() { \
+            static R apply arg_list { \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
@@ -1270,7 +1270,7 @@ namespace granary {
         public: \
             typedef void R; \
             static R (*function_name) arg_list; \
-            static R apply arg_list throw() { \
+            static R apply arg_list { \
                 int depth__(MAX_PRE_WRAP_DEPTH); \
                 (void) depth__; \
                 wrapper_code \
@@ -1537,14 +1537,14 @@ namespace granary {
     static FORCE_INLINE void kind ## _wrap(\
         typename referenced<wrapped_type__>::type arg,\
         int depth__\
-    ) throw()
+    ) 
 
 
 #define EMPTY_WRAP_FUNC_IMPL(kind) \
     static FORCE_INLINE void kind ## _wrap(\
         typename referenced<wrapped_type__>::type,\
         int\
-    ) throw() { }
+    ) { }
 
 
 #define APP RUNNING_AS_APP

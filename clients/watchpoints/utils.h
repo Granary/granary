@@ -14,12 +14,12 @@
 namespace client { namespace wp {
 
     /// Convert a register into an index between [0, 14].
-    unsigned register_to_index(dynamorio::reg_id_t) throw();
+    unsigned register_to_index(dynamorio::reg_id_t) ;
 
 
     /// Convert an operand size into an integer `i` such that `2^i` is the
     /// number of bytes required to represent an operand of that size.
-    unsigned operand_size_order(operand_size) throw();
+    unsigned operand_size_order(operand_size) ;
 }}
 
 #endif /* CLIENT_WP_UTILS_H_ */

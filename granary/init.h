@@ -16,19 +16,19 @@ namespace granary {
         static_init_list *next;
         void (*exec)(void);
 
-        static void append(static_init_list &) throw();
-        IF_KERNEL( static void append_sync(static_init_list &) throw(); )
+        static void append(static_init_list &) ;
+        IF_KERNEL( static void append_sync(static_init_list &) ; )
     };
 
 
-    void init(void) throw();
+    void init(void) ;
 
 #if CONFIG_ENV_KERNEL
     /// Returns true iff there is anything to run in a synchronised way.
-    bool should_init_sync(void) throw();
+    bool should_init_sync(void) ;
 
     /// Initialise the synchronised static initialisers.
-    void init_sync(void) throw();
+    void init_sync(void) ;
 #endif
 }
 

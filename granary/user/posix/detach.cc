@@ -30,7 +30,7 @@ namespace granary {
         void *handle,
         const char *alias,
         function_wrapper &wrapper
-    ) throw() {
+    ) {
         void *detach_addr(dlsym(handle, alias));
         if(!detach_addr || wrapper.original_address == detach_addr) {
             return;
@@ -58,7 +58,7 @@ namespace granary {
     }
 
 
-    static void add_detach_entry(void *handle, const char *name) throw() {
+    static void add_detach_entry(void *handle, const char *name) {
         void *detach_addr(dlsym(handle, name));
         app_pc detach_app_pc(unsafe_cast<app_pc>(detach_addr));
 
@@ -94,7 +94,7 @@ namespace granary {
 
     /// Build up the map file name without depending on any of the cstring
     /// functions.
-    static void make_map_file_name(uint64_t pid, char *buff) throw() {
+    static void make_map_file_name(uint64_t pid, char *buff) {
         memcpy(buff, "/proc/", 6);
         buff += 6;
         if(!pid) {
@@ -120,7 +120,7 @@ namespace granary {
     static void parse_proc_maps(
         void (*for_each_path)(const char *, unsigned, char *),
         char *last_path
-    ) throw() {
+    ) {
         char map_file[30];
         make_map_file_name(getpid(), &(map_file[0]));
 
@@ -223,7 +223,7 @@ namespace granary {
         const char *path,
         unsigned path_len,
         char *last_path
-    ) throw() {
+    ) {
 
         // Don't re-visit the same ELF path name twice in a row.
         if(0 == memcmp(path, last_path, path_len)) {

@@ -33,7 +33,7 @@ namespace granary {
     /// Initialise an individual system call. This will create a new allocator
     /// for basic blocks executed by that system call, thus contributing to
     /// "tracing" that basic block.
-    static void init_mm(uintptr_t addr_) throw() {
+    static void init_mm(uintptr_t addr_) {
 
         app_pc addr(reinterpret_cast<app_pc>(addr_));
         cpu_state_handle cpu;

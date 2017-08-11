@@ -83,7 +83,7 @@ namespace client {
 
 
     /// Log out information about an individual basic block.
-    static int report_bb(const basic_block_state *state) throw() {
+    static int report_bb(const basic_block_state *state) {
         const basic_block bb(state->label.translation);
         const app_pc native_pc_start(
             bb.info->generating_pc.unmangled_address());
@@ -169,7 +169,7 @@ namespace client {
 
 
     /// Report on all instrumented basic blocks.
-    void report(void) throw() {
+    void report(void) {
         const basic_block_state *bb(BASIC_BLOCKS.load());
 
         for(; bb; bb = bb->next) {

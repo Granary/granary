@@ -45,7 +45,7 @@ namespace granary {
     static void find_relative_memory_operand(
         const operand_ref op,
         bool &has_far_op
-    ) throw() {
+    ) {
         if(has_far_op || dynamorio::REL_ADDR_kind != op->kind) {
             return;
         }
@@ -55,7 +55,7 @@ namespace granary {
 
 
     /// Create a duplicate version of a function.
-    static app_pc duplicate_function(const app_pc addr, int len) throw() {
+    static app_pc duplicate_function(const app_pc addr, int len) {
         app_pc pc(addr);
         const app_pc end_addr(addr + len);
         const int new_len(len + ALIGN_TO(len, 16));
@@ -111,7 +111,7 @@ namespace granary {
 
 
     /// Create a fully instrumented version of the function in question.
-    static app_pc instrument_function(const app_pc addr, int len) throw() {
+    static app_pc instrument_function(const app_pc addr, int len) {
         list<app_pc> process_bbs;
         list<app_pc> lookup_bbs;
         list<app_pc>::handle_type next;
@@ -209,7 +209,7 @@ namespace granary {
     /// contiguous bytes, copy the instructions directly from `addr` into a
     /// new buffer of the same size, re-relativize those instructions, and
     /// return a pointer to the new instructions.
-    app_pc copy_and_rerelativize_function(const app_pc addr, int len) throw() {
+    app_pc copy_and_rerelativize_function(const app_pc addr, int len) {
         ASSERT(0 < len);
 
 #if CONFIG_FEATURE_INSTRUMENT_PATCH_WRAPPERS
@@ -221,13 +221,13 @@ namespace granary {
     }
 
     /// Prepare to redirect a function.
-    void prepare_redirect_function(app_pc old_address) throw() {
+    void prepare_redirect_function(app_pc old_address) {
         kernel_make_memory_writeable(old_address);
     }
 
 
     /// Hot-patch a kernel function.
-    void redirect_function(app_pc old_address, app_pc new_address) throw() {
+    void redirect_function(app_pc old_address, app_pc new_address) {
 
         ASSERT(0 == (reinterpret_cast<uintptr_t>(old_address) % 8));
 

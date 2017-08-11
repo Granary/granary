@@ -19,7 +19,7 @@ namespace client { namespace wp {
 
 
     /// Return the next counter index.
-    uintptr_t next_counter_index(uintptr_t) throw() {
+    uintptr_t next_counter_index(uintptr_t) {
         return NEXT_COUNTER_INDEX.fetch_add(1);
     }
 
@@ -30,7 +30,7 @@ namespace client { namespace wp {
     void find_memory_operand(
         const operand_ref &op,
         watchpoint_tracker &tracker
-    ) throw() {
+    ) {
 
         // Ignore non-address kinds.
         const operand ref_to_op(*op);
@@ -195,7 +195,7 @@ namespace client { namespace wp {
     /// determine if the address is a watched address.
     void watchpoint_tracker::track_carry_flag(
         bool &next_reads_carry_flag
-    ) throw() {
+    ) {
         const unsigned eflags(dynamorio::instr_get_eflags(in));
 
         // Assume flags do not propagate through RETs or CALLs.
@@ -255,7 +255,7 @@ namespace client { namespace wp {
     void region_register_spiller(
         watchpoint_tracker &tracker,
         instruction_list &ls
-    ) throw() {
+    ) {
 
         // Live regs throughout the entire instruction list. Used to try to
         // predict which registers will be live in a region to see if it's
@@ -388,7 +388,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         instruction ret(in);
         operand op(*(tracker.ops[0]));
         dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
@@ -422,7 +422,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         instruction ret(in);
         operand op(*(tracker.ops[0]));
         dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
@@ -456,7 +456,7 @@ namespace client { namespace wp {
         watchpoint_tracker &tracker,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         instruction ret(in);
         dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
 
@@ -480,7 +480,7 @@ namespace client { namespace wp {
 
 
     /// Get an operand reference to a source operand that is `%RSP`.
-    static void get_rsp(operand_ref op, operand_ref &rsp_op) throw() {
+    static void get_rsp(operand_ref op, operand_ref &rsp_op) {
         if(SOURCE_OPERAND != op.kind
         || dynamorio::REG_kind != op->kind
         || dynamorio::DR_REG_RSP != op->value.reg) {
@@ -497,7 +497,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         instruction in,
         operand_ref &rsp_op
-    ) throw() {
+    ) {
         dynamorio::reg_id_t spill_reg = tracker.live_regs.get_zombie();
 
         if(spill_reg) {
@@ -517,7 +517,7 @@ namespace client { namespace wp {
 
 
     /// Perform watchpoint-specific mangling of an instruction.
-    bool watchpoint_tracker::mangle(instruction_list &ls) throw() {
+    bool watchpoint_tracker::mangle(instruction_list &ls) {
         instruction ret(in);
         bool mangled(true);
 
@@ -584,7 +584,7 @@ namespace client { namespace wp {
         instruction_list &ls,
         instruction before,
         bool &spilled_carry_flag
-    ) throw() {
+    ) {
 
         dynamorio::reg_id_t carry_flag(dynamorio::DR_REG_NULL);
         dynamorio::reg_id_t carry_flag_64(dynamorio::DR_REG_NULL);
@@ -826,7 +826,7 @@ namespace client { namespace wp {
         const operand_ref &op,
         register_manager &mem_regs,
         register_manager &reg_regs
-    ) throw() {
+    ) {
         if(SOURCE_OPERAND != op.kind) {
             return;
         }
@@ -845,7 +845,7 @@ namespace client { namespace wp {
     /// that `CMP %rbx, (%rbx)` can have its memory operand changed, and so
     /// that instruction will be incorrectly translated to potentially compare
     /// an unwatched `%rbx` to a watched version of `%rbx` stored in memory.
-    static bool must_change_regs_but_cant(instruction in) throw() {
+    static bool must_change_regs_but_cant(instruction in) {
 
         register_manager mem_regs;
         register_manager reg_regs;
@@ -880,7 +880,7 @@ namespace client { namespace wp {
     /// update the `sources` and `dests` field appropriately so that the
     /// `Watcher`s read/write visitors can access operands containing the
     /// watched addresses.
-    void watchpoint_tracker::visit_operands(instruction_list &ls) throw() {
+    void watchpoint_tracker::visit_operands(instruction_list &ls) {
 
         instruction before(ls.insert_before(in, label_()));
 

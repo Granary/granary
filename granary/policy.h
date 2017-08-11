@@ -31,7 +31,7 @@ namespace granary {
     interrupt_handled_state handle_interrupt(
         interrupt_stack_frame *isf,
         interrupt_vector vector
-    ) throw();
+    ) ;
 #endif
 
 
@@ -73,7 +73,7 @@ namespace granary {
         friend interrupt_handled_state handle_interrupt(
             interrupt_stack_frame *isf,
             interrupt_vector vector
-        ) throw();
+        ) ;
 
 
         /// Type of a client-specific interrupt handler.
@@ -100,7 +100,7 @@ namespace granary {
             basic_block_state &,
             interrupt_stack_frame &,
             interrupt_vector
-        ) throw();
+        ) ;
 #endif
 
 #if !CONFIG_FEATURE_INSTRUMENT_HOST
@@ -188,7 +188,7 @@ namespace granary {
 
         /// Initialise a policy given a policy id. This policy will be
         /// initialised with no properties.
-        inline static instrumentation_policy from_id(uint16_t id) throw() {
+        inline static instrumentation_policy from_id(uint16_t id) {
             instrumentation_policy policy;
             policy.as_raw_bits = 0;
             policy.u.id = id;
@@ -197,7 +197,7 @@ namespace granary {
 
         /// Initialise a policy given a the mangled policy bits, which include
         /// the policy's id and properties.
-        inline static instrumentation_policy decode(uint16_t bits) throw() {
+        inline static instrumentation_policy decode(uint16_t bits) {
             instrumentation_policy policy;
             policy.as_raw_bits = bits;
             return policy;
@@ -210,7 +210,7 @@ namespace granary {
             cpu_state_handle cpu,
             basic_block_state &bb,
             instruction_list &ls
-        ) const throw() {
+        ) const {
             basic_block_visitor visitor;
 
             if(is_in_host_context()) {
@@ -234,7 +234,7 @@ namespace granary {
             basic_block_state &bb,
             interrupt_stack_frame &isf,
             interrupt_vector vector
-        ) throw() {
+        ) {
             interrupt_visitor visitor(INTERRUPT_VISITORS[u.id]);
             if(!visitor) {
                 return INTERRUPT_DEFER;
@@ -247,71 +247,71 @@ namespace granary {
 
         /// Do not allow default initialisations of policies: require that they
         /// have IDs through some well-defined means.
-        inline instrumentation_policy(void) throw() {
+        inline instrumentation_policy(void) {
             as_raw_bits = 0;
         }
 
-        inline instrumentation_policy(const instrumentation_policy &that) throw() {
+        inline instrumentation_policy(const instrumentation_policy &that) {
             as_raw_bits = that.as_raw_bits;
         }
 
-        inline instrumentation_policy(const instrumentation_policy &&that) throw() {
+        inline instrumentation_policy(const instrumentation_policy &&that) {
             as_raw_bits = that.as_raw_bits;
         }
 
-        instrumentation_policy(const mangled_address &) throw();
+        instrumentation_policy(const mangled_address &) ;
 
         inline instrumentation_policy &
-        operator=(const instrumentation_policy &that) throw() {
+        operator=(const instrumentation_policy &that) {
             as_raw_bits = that.as_raw_bits;
             return *this;
         }
 
         inline instrumentation_policy &
-        operator=(const instrumentation_policy &&that) throw() {
+        operator=(const instrumentation_policy &&that) {
             as_raw_bits = that.as_raw_bits;
             return *this;
         }
 
         /// Weak form of equivalence defined over policies.
-        inline bool operator==(const instrumentation_policy that) const throw() {
+        inline bool operator==(const instrumentation_policy that) const {
             return u.id == that.u.id;
         }
 
-        inline bool operator!=(const instrumentation_policy that) const throw() {
+        inline bool operator!=(const instrumentation_policy that) const {
             return u.id != that.u.id;
         }
 
-        inline bool operator!(void) const throw() {
+        inline bool operator!(void) const {
             return !u.id;
         }
 
         /// Does the code instrumented by this policy access user data?
-        inline bool is_beginning_of_functional_unit(void) const throw() {
+        inline bool is_beginning_of_functional_unit(void) const {
             return u.begins_functional_unit;
         }
 
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
-        inline void begins_functional_unit(bool val=true) throw() {
+        inline void begins_functional_unit(bool val=true) {
             u.begins_functional_unit = val;
         }
 
 #if CONFIG_ENV_KERNEL
         /// Does the code instrumented by this policy access user data?
-        inline bool accesses_user_data(void) const throw() {
+        inline bool accesses_user_data(void) const {
             return u.accesses_user_data;
         }
 
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
-        inline void access_user_data(bool val=true) throw() {
+        inline void access_user_data(bool val=true) {
             u.accesses_user_data = val;
         }
 #endif
 
         /// Does the code instrumented by this policy access user data?
-        inline bool return_address_is_in_code_cache(void) const throw() {
+        inline bool return_address_is_in_code_cache(void) const {
 #if CONFIG_OPTIMISE_DIRECT_RETURN
             return true;
 #else
@@ -321,7 +321,7 @@ namespace granary {
 
         /// Mark the code instrumented by this policy as accessing user space
         /// data.
-        inline void return_address_in_code_cache(bool val=true) throw() {
+        inline void return_address_in_code_cache(bool val=true) {
 #if CONFIG_OPTIMISE_DIRECT_RETURN
             (void) val;
 #else
@@ -331,34 +331,34 @@ namespace granary {
 
         /// Convert this policy (or pseudo policy) to the equivalent indirect
         /// CTI policy. The indirect CTI pseudo policy is used for IBL lookups.
-        inline void indirect_cti_target(bool val=true) throw() {
+        inline void indirect_cti_target(bool val=true) {
             u.is_indirect_target = val;
         }
 
         /// Is this an indirect CTI pseudo policy? The indirect CTI pseudo
         /// policy is used to help us "leave" the indirect branch lookup
         /// mechanism and restore any saved state.
-        inline bool is_indirect_cti_target(void) const throw() {
+        inline bool is_indirect_cti_target(void) const {
             return u.is_indirect_target;
         }
 
 
         /// Update the properties of this policy to be inside of an xmm context.
-        inline void return_target(bool val=true) throw() {
+        inline void return_target(bool val=true) {
             u.is_return_target = val;
         }
 
 
         /// Returns whether or not the policy in the current context is xmm
         /// safe.
-        inline bool is_return_target(void) const throw() {
+        inline bool is_return_target(void) const {
             return u.is_return_target;
         }
 
 
         /// Return the "base" policy for this policy. The effect of this is to
         /// remove temporary properties, but NOT inherited properties.
-        inline instrumentation_policy base_policy(void) throw() {
+        inline instrumentation_policy base_policy(void) {
             instrumentation_policy policy;
             policy.as_raw_bits = as_raw_bits;
             policy.u.begins_functional_unit = false;
@@ -375,13 +375,13 @@ namespace granary {
 
         /// Get the mangled bits that would represent this policy when an
         /// address is extended to include a policy (and its properties).
-        inline uint16_t encode(void) const throw() {
+        inline uint16_t encode(void) const {
             return as_raw_bits;
         }
 
 
         /// Get the detach context for this policy.
-        inline runtime_context context(void) const throw() {
+        inline runtime_context context(void) const {
             if(is_in_host_context()) {
                 return RUNNING_AS_HOST;
             } else {
@@ -392,20 +392,20 @@ namespace granary {
 
         /// Update the propertings of this policy to be inside of a host code
         /// context.
-        inline void in_host_context(bool val=true) throw() {
+        inline void in_host_context(bool val=true) {
             u.is_in_host_context = val;
         }
 
 
         /// Returns true iff we are instrumenting host code (kernel, libc).
-        inline bool is_in_host_context(void) const throw() {
+        inline bool is_in_host_context(void) const {
             return u.is_in_host_context;
         }
 
 
         /// Returns true iff we should automatically switch to the host context
         /// instead of detaching.
-        inline bool is_host_auto_instrumented(void) const throw() {
+        inline bool is_host_auto_instrumented(void) const {
 #if CONFIG_FEATURE_INSTRUMENT_HOST
             return true;
 #else
@@ -415,27 +415,27 @@ namespace granary {
 
 
         /// Update the properties of this policy to be inside of an xmm context.
-        inline void in_xmm_context(bool val=true) throw() {
+        inline void in_xmm_context(bool val=true) {
             u.is_in_xmm_context = val;
         }
 
 
         /// Returns whether or not the policy in the current context is xmm
         /// safe.
-        inline bool is_in_xmm_context(void) const throw() {
+        inline bool is_in_xmm_context(void) const {
             return u.is_in_xmm_context;
         }
 
 
         /// Set this policy to forcibly attach (or not) to some code.
-        inline void force_attach(bool val=true) throw() {
+        inline void force_attach(bool val=true) {
             u.force_attach = val;
         }
 
 
         /// Check whether or not some code, regardless of if it's a detach
         /// point, must be instrumented.
-        inline bool can_detach(void) throw() {
+        inline bool can_detach(void) {
             return !u.force_attach;
         }
 
@@ -444,7 +444,7 @@ namespace granary {
         inline void inherit_properties(
             instrumentation_policy that_,
             property_inherit_constraint constraint=INHERIT_ALL
-        ) throw() {
+        ) {
             const uint16_t id(u.id);
 
             // Make sure that we don't inherit the temporary properties.
@@ -464,7 +464,7 @@ namespace granary {
 
 
         /// Clear all properties.
-        inline void clear_properties(void) throw() {
+        inline void clear_properties(void) {
             const uint16_t id(u.id);
             as_raw_bits = 0;
             u.id = id;
@@ -507,17 +507,17 @@ namespace granary {
         int64_t as_int;
         uint64_t as_uint;
 
-        inline mangled_address(void) throw()
+        inline mangled_address(void) 
             : as_uint(0ULL)
         { }
 
         mangled_address(
             app_pc addr_,
             const instrumentation_policy policy_
-        ) throw();
+        ) ;
 
         /// Extract the original, unmangled address from this mangled address.
-        app_pc unmangled_address(void) const throw();
+        app_pc unmangled_address(void) const ;
 
     } __attribute__((packed));
 
@@ -537,7 +537,7 @@ namespace granary {
         typename detail::method_pointer<RetT, instrumentation_policy, Args...>::type
         unsafe_policy_method_cast(
             typename detail::method_pointer<RetT, FromT, Args...>::type v
-        ) throw() {
+        ) {
             typename detail::method_pointer<RetT, instrumentation_policy, Args...>::type ret;
             void **v_ptr(unsafe_cast<void **>(&v));
             ret = *unsafe_cast<decltype(&ret)>(v_ptr);
@@ -563,7 +563,7 @@ namespace granary {
         static unsigned POLICY_ID;
 
         /// Initialise the policy `T`.
-        static unsigned init_policy(void) throw() {
+        static unsigned init_policy(void) {
 
             unsigned policy_id(
                 instrumentation_policy::NEXT_POLICY_ID.fetch_add(1));
@@ -609,7 +609,7 @@ namespace granary {
 
     public:
 
-        operator instrumentation_policy(void) const throw() {
+        operator instrumentation_policy(void) const {
 
             // TODO: race condition?
             if(!POLICY_ID) {

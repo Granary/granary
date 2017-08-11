@@ -10,7 +10,7 @@ namespace granary {
 
     /// Called (through a tail call) by `granary::attach`, which is defined in
     /// `granary/x86/attach.asm`.
-    void do_attach(instrumentation_policy policy, app_pc *ret_addr) throw() {
+    void do_attach(instrumentation_policy policy, app_pc *ret_addr) {
         granary::basic_block bb(granary::code_cache::find(*ret_addr, policy));
         *ret_addr = bb.cache_pc_start;
     }

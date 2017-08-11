@@ -65,7 +65,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
-        ) throw() {
+        ) {
             ASSERT(false);
             return granary::policy_for<self_type>();
         }
@@ -74,7 +74,7 @@ namespace client {
             granary::cpu_state_handle,
             granary::basic_block_state &,
             granary::instruction_list &
-        ) throw() {
+        ) {
             ASSERT(false);
             return granary::policy_for<self_type>();
         }
@@ -85,7 +85,7 @@ namespace client {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw() {
+        ) {
             return granary::INTERRUPT_DEFER;
         }
     };
@@ -95,7 +95,7 @@ namespace client {
     /// depth.
     granary::instrumentation_policy policy_for_depth(
         const unsigned depth
-    ) throw();
+    ) ;
 
 
     /// Add CTI-specific instrumentation for an RCU read-side critical section.
@@ -104,7 +104,7 @@ namespace client {
         unsigned &curr_depth,
         granary::instruction_list &ls,
         granary::instruction in
-    ) throw();
+    ) ;
 
 
     /// Policy to apply while instrumenting code executing in a read-side for
@@ -122,7 +122,7 @@ namespace client {
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
             using namespace granary;
 
             unsigned curr_depth(depth);
@@ -164,7 +164,7 @@ namespace client {
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
             return visit_instructions(cpu, bb, ls);
         }
 
@@ -172,7 +172,7 @@ namespace client {
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw() {
+        ) {
             return visit_instructions(cpu, bb, ls);
         }
     };
@@ -191,13 +191,13 @@ namespace client {
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
         granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
         granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
@@ -205,7 +205,7 @@ namespace client {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw();
+        ) ;
     };
 
 
@@ -221,13 +221,13 @@ namespace client {
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
         granary::instrumentation_policy visit_host_instructions(
             granary::cpu_state_handle cpu,
             granary::basic_block_state &bb,
             granary::instruction_list &ls
-        ) throw();
+        ) ;
 
         granary::interrupt_handled_state handle_interrupt(
             granary::cpu_state_handle,
@@ -235,7 +235,7 @@ namespace client {
             granary::basic_block_state &,
             granary::interrupt_stack_frame &,
             granary::interrupt_vector
-        ) throw();
+        ) ;
     };
 
 
@@ -246,7 +246,7 @@ namespace client {
         granary::thread_state_handle,
         granary::interrupt_stack_frame &,
         granary::interrupt_vector
-    ) throw();
+    ) ;
 }
 
 #endif /* _RCUDBG_INSTRUMENT_H_ */

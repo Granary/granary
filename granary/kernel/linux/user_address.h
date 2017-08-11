@@ -21,14 +21,14 @@ namespace granary {
     bool kernel_code_accesses_user_data(
         instruction_list &ls,
         app_pc start_pc
-    ) throw();
+    ) ;
 
 
     /// Try to get a kernel exception table entry for any instruction within
     /// an instruction list.
     ///
     /// Note: This is very Linux-specific!!
-    void *kernel_find_exception_metadata(instruction_list &ls) throw();
+    void *kernel_find_exception_metadata(instruction_list &ls) ;
 }
 
 

@@ -62,7 +62,7 @@ namespace client {
 
 
     template <typename A0>
-    void log(log_message_id id, A0 a0) throw() {
+    void log(log_message_id id, A0 a0) {
 
         if(MIN_LOG_LEVEL > MESSAGE_INFO[id].level) {
             return;
@@ -83,7 +83,7 @@ namespace client {
 
 
     template <typename A0, typename A1>
-    void log(log_message_id id, A0 a0, A1 a1) throw() {
+    void log(log_message_id id, A0 a0, A1 a1) {
 
         if(MIN_LOG_LEVEL > MESSAGE_INFO[id].level) {
             return;
@@ -105,7 +105,7 @@ namespace client {
 
 
     template <typename A0, typename A1, typename A2>
-    void log(log_message_id id, A0 a0, A1 a1, A2 a2) throw() {
+    void log(log_message_id id, A0 a0, A1 a1, A2 a2) {
 
         if(MIN_LOG_LEVEL > MESSAGE_INFO[id].level) {
             return;
@@ -128,7 +128,7 @@ namespace client {
 
 
     template <typename A0, typename A1, typename A2, typename A3>
-    void log(log_message_id id, A0 a0, A1 a1, A2 a2, A3 a3) throw() {
+    void log(log_message_id id, A0 a0, A1 a1, A2 a2, A3 a3) {
 
         if(MIN_LOG_LEVEL > MESSAGE_INFO[id].level) {
             return;
@@ -151,19 +151,19 @@ namespace client {
     }
 
 
-    inline void clear_log(void) throw() {
+    inline void clear_log(void) {
         NEXT_LOG_OFFSET.store(0);
     }
 
 
-    inline uint64_t log_size(void) throw() {
+    inline uint64_t log_size(void) {
         return NEXT_LOG_OFFSET.load();
     }
 
 
     /// Used for testing. Returns true iff the log entry at offset `offset` has
     /// the expected log message identifier, `expect_id`.
-    bool log_entry_is(unsigned offset, const log_message_id expect_id) throw();
+    bool log_entry_is(unsigned offset, const log_message_id expect_id) ;
 }
 
 #endif /* RCUDBG_LOG_H_ */

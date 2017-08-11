@@ -255,7 +255,7 @@ with open("deps/dr/x86/instr_create.h") as lines_:
   C('}')
   C()
 
-  H('    inline instruction cmpxchg16b_(operand d) throw() { d.size = dynamorio::OPSZ_8_rex16; return cmpxchg8b_(d); }')
+  H('    inline instruction cmpxchg16b_(operand d) { d.size = dynamorio::OPSZ_8_rex16; return cmpxchg8b_(d); }')
   H('}')
   H('#endif /* GRANARY_GEN_INSTRUCTION_H_ */')
   H()

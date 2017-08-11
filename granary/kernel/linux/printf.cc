@@ -17,7 +17,7 @@ namespace granary {
 #if LOG
     int (*printf)(const char *, ...) = types::printk;
 #else
-    static int sink_printf(const char *, ...) throw() { return 0; }
+    static int sink_printf(const char *, ...) { return 0; }
     int (*printf)(const char *, ...) = sink_printf;
 #endif
 }

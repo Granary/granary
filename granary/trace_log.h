@@ -24,16 +24,16 @@ namespace granary {
         static void add_entry(
             app_pc code_cache_addr,
             simple_machine_state *state
-        ) throw();
+        ) ;
 
 
         /// Log the run of some code. This will add a lot of instructions to the
         /// beginning of an instruction list.
-        static void log_execution(instruction_list &) throw();
+        static void log_execution(instruction_list &) ;
 
 
         /// A generic reverse-execution debugger.
-        static void debug(app_pc pc) throw();
+        static void debug(app_pc pc) ;
     };
 }
 

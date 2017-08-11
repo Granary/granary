@@ -26,7 +26,7 @@ namespace test {
         uint64_t WP_ARITH_MASK = client::wp::DISTINGUISHING_BIT_MASK;
     }
 
-    static void unwatched_add(void) throw() {
+    static void unwatched_add(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "movq $1, %rbx;"
@@ -35,7 +35,7 @@ namespace test {
         );
     }
 
-    static void watched_add(void) throw() {
+    static void watched_add(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO
@@ -45,7 +45,7 @@ namespace test {
         );
     }
 
-    static void unwatched_xadd(void) throw() {
+    static void unwatched_xadd(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "movq $1, %rbx;"
@@ -54,7 +54,7 @@ namespace test {
         );
     }
 
-    static void watched_xadd(void) throw() {
+    static void watched_xadd(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO
@@ -64,7 +64,7 @@ namespace test {
         );
     }
 
-    static void unwatched_inc(void) throw() {
+    static void unwatched_inc(void) {
         ASM(
             "movq $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;"
             "incq (%rax);"
@@ -72,7 +72,7 @@ namespace test {
         );
     }
 
-    static void watched_inc(void) throw() {
+    static void watched_inc(void) {
         ASM(
             "movq " TO_STRING(SYMBOL(WP_ARITH_MASK)) ", %rax;"
             MASK_OP " $" TO_STRING(SYMBOL(WP_ARITH_FOO)) ", %rax;" // mask the address of FOO

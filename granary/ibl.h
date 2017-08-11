@@ -21,7 +21,7 @@ namespace granary {
 
 
     extern "C" {
-        unsigned granary_ibl_hash(app_pc) throw();
+        unsigned granary_ibl_hash(app_pc) ;
     }
 
 
@@ -33,7 +33,7 @@ namespace granary {
         instruction_list &ibl,
         instruction in,
         instrumentation_policy policy
-    ) throw();
+    ) ;
 
 
     /// Coarse-grained locks used to guard the creation and addition of
@@ -42,8 +42,8 @@ namespace granary {
     /// bootstrapping on the global code cache's inability to have duplication.
     ///
     /// Note: Must be called around a use of `ibl_exit_routine`.
-    void ibl_lock(void) throw();
-    void ibl_unlock(void) throw();
+    void ibl_lock(void) ;
+    void ibl_unlock(void) ;
 
 
     /// Return or generate the IBL exit routine for a particular jump target.
@@ -53,7 +53,7 @@ namespace granary {
     app_pc ibl_exit_routine(
         app_pc mangled_target_pc,
         app_pc instrumented_target_pc
-    ) throw();
+    ) ;
 }
 
 #endif /* GRANARY_IBL_H_ */

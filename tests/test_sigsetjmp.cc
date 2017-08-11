@@ -26,13 +26,13 @@ namespace test {
 
     static int after_all(0);
 
-    static void rollback(sigjmp_buf &env) throw() {
+    static void rollback(sigjmp_buf &env) {
         ++before_longjmp;
         siglongjmp(env, 1);
         ++after_longjmp;
     }
 
-    static void jmp_loc(void) throw() {
+    static void jmp_loc(void) {
         sigjmp_buf env;
 
         if(!sigsetjmp(env, 0)) {

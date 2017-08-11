@@ -53,29 +53,29 @@ namespace granary {
 
 
         /// Initialise the register manager so that every register is live.
-        register_manager(void) throw();
+        register_manager(void) ;
 
 
         /// Visit the registers in the instruction; kill the destination
         /// registers and revive the source registers.
-        void visit(dynamorio::instr_t *) throw();
-        inline void visit(instruction in) throw() {
+        void visit(dynamorio::instr_t *) ;
+        inline void visit(instruction in) {
             return visit(in.instr);
         }
 
         /// Visit the destination operands of an instruction. This will kill
         /// register destinations and revive registers that are used in base/
         /// disp operands.
-        void visit_dests(dynamorio::instr_t *in) throw();
-        inline void visit_dests(instruction in) throw() {
+        void visit_dests(dynamorio::instr_t *in) ;
+        inline void visit_dests(instruction in) {
             return visit_dests(in.instr);
         }
 
 #if CONFIG_DEBUG_ASSERTIONS
-        void visit_dests_check(dynamorio::instr_t *in) throw();
-        void visit_dests_simple_forward(dynamorio::instr_t *in) throw();
-        void visit_dests_simple_backward(dynamorio::instr_t *in) throw();
-        inline void visit_dests_check(instruction in) throw() {
+        void visit_dests_check(dynamorio::instr_t *in) ;
+        void visit_dests_simple_forward(dynamorio::instr_t *in) ;
+        void visit_dests_simple_backward(dynamorio::instr_t *in) ;
+        inline void visit_dests_check(instruction in) {
             return visit_dests_check(in.instr);
         }
 #endif
@@ -84,147 +84,147 @@ namespace granary {
         /// Visit the source operands of an instruction. This will kill
         /// register destinations and revive registers that are used in base/
         /// disp operands.
-        void visit_sources(dynamorio::instr_t *in) throw();
-        inline void visit_sources(instruction in) throw() {
+        void visit_sources(dynamorio::instr_t *in) ;
+        inline void visit_sources(instruction in) {
             return visit_sources(in.instr);
         }
 
 
         /// Forcibly kill all registers used within an instruction.
-        void kill(dynamorio::instr_t *) throw();
-        inline void kill(instruction in) throw() {
+        void kill(dynamorio::instr_t *) ;
+        inline void kill(instruction in) {
             return kill(in.instr);
         }
 
 
         /// Forcibly kill all source registers used within an instruction.
-        inline void kill_sources(dynamorio::instr_t *in) throw() {
+        inline void kill_sources(dynamorio::instr_t *in) {
             kill(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
         }
-        inline void kill_sources(instruction in) throw() {
+        inline void kill_sources(instruction in) {
             return kill_sources(in.instr);
         }
 
 
         /// Forcibly kill all destination registers used within an instruction.
-        inline void kill_dests(dynamorio::instr_t *in) throw() {
+        inline void kill_dests(dynamorio::instr_t *in) {
             kill(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
         }
-        inline void kill_dests(instruction in) throw() {
+        inline void kill_dests(instruction in) {
             return kill_dests(in.instr);
         }
 
 
         /// Forcibly revive all registers used within an instruction.
-        void revive(dynamorio::instr_t *) throw();
-        inline void revive(instruction in) throw() {
+        void revive(dynamorio::instr_t *) ;
+        inline void revive(instruction in) {
             return revive(in.instr);
         }
 
 
         /// Forcibly revive all source registers used within an instruction.
-        inline void revive_sources(dynamorio::instr_t *in) throw() {
+        inline void revive_sources(dynamorio::instr_t *in) {
             revive(in, dynamorio::instr_num_srcs, dynamorio::instr_get_src);
         }
-        inline void revive_sources(instruction in) throw() {
+        inline void revive_sources(instruction in) {
             return revive_sources(in.instr);
         }
 
 
         /// Forcibly revive all destination registers used within an instruction.
-        inline void revive_dests(dynamorio::instr_t *in) throw() {
+        inline void revive_dests(dynamorio::instr_t *in) {
             revive(in, dynamorio::instr_num_dsts, dynamorio::instr_get_dst);
         }
-        inline void revive_dests(instruction in) throw() {
+        inline void revive_dests(instruction in) {
             return revive_dests(in.instr);
         }
 
 
         /// Revive all registers.
-        void revive_all(void) throw();
-        void revive_all_xmm(void) throw();
+        void revive_all(void) ;
+        void revive_all_xmm(void) ;
 
 
         /// Revive all registers used in another register manager (including
         /// zombies). This is like a set union.
-        void revive_all(register_manager) throw();
+        void revive_all(register_manager) ;
 
 
         /// Kill all registers.
-        void kill_all(void) throw();
-        void kill_all_live(void) throw();
+        void kill_all(void) ;
+        void kill_all_live(void) ;
 
 
         /// Forcibly kill/revive all registers used in a particular operand.
         /// Note: zombies can be re-killed/revived.
-        void kill(dynamorio::opnd_t) throw();
-        void revive(dynamorio::opnd_t) throw();
+        void kill(dynamorio::opnd_t) ;
+        void revive(dynamorio::opnd_t) ;
 
 
         /// Forcibly kill/revive a particular register. Note: zombies can be
         /// re-killed/revived.
-        void kill(dynamorio::reg_id_t) throw();
-        void revive(dynamorio::reg_id_t) throw();
+        void kill(dynamorio::reg_id_t) ;
+        void revive(dynamorio::reg_id_t) ;
 
     private:
 
-        void kill_64(dynamorio::reg_id_t) throw();
-        void revive_64(dynamorio::reg_id_t) throw();
+        void kill_64(dynamorio::reg_id_t) ;
+        void revive_64(dynamorio::reg_id_t) ;
 
-        void kill_xmm(dynamorio::reg_id_t) throw();
-        void revive_xmm(dynamorio::reg_id_t) throw();
+        void kill_xmm(dynamorio::reg_id_t) ;
+        void revive_xmm(dynamorio::reg_id_t) ;
 
     public:
 
 
         /// Returns true iff there are any dead registers available.
-        inline bool has_dead(void) const throw() {
+        inline bool has_dead(void) const {
             return uint16_t(~0) != live;
         }
 
 
         /// Returns true iff there are any live registers available.
-        inline bool has_live(void) const throw() {
+        inline bool has_live(void) const {
             return uint16_t(0) != live;
         }
 
 
         /// Returns true iff there are any dead XMM registers available.
-        inline bool has_dead_xmm(void) const throw() {
+        inline bool has_dead_xmm(void) const {
             return uint16_t(~0) != live_xmm;
         }
 
 
         /// Returns true iff there are any live XMM registers available.
-        inline bool has_live_xmm(void) const throw() {
+        inline bool has_live_xmm(void) const {
             return uint16_t(0) != live_xmm;
         }
 
 
         /// Returns true iff a particular register is alive.
-        bool is_live(dynamorio::reg_id_t) const throw();
+        bool is_live(dynamorio::reg_id_t) const ;
 
 
         /// Returns true iff a particular register is dead.
-        bool is_dead(dynamorio::reg_id_t) const throw();
+        bool is_dead(dynamorio::reg_id_t) const ;
 
 
         /// Returns true iff a particular register is a walker, i.e.
         /// living or a zombie!
-        bool is_undead(dynamorio::reg_id_t) const throw();
+        bool is_undead(dynamorio::reg_id_t) const ;
 
 
         /// Returns the next 64-bit "free" dead register.
-        dynamorio::reg_id_t get_zombie(void) throw();
+        dynamorio::reg_id_t get_zombie(void) ;
 
 
         /// Returns the next xmm "free" dead register.
-        dynamorio::reg_id_t get_xmm_zombie(void) throw();
+        dynamorio::reg_id_t get_xmm_zombie(void) ;
 
 
         /// Returns the next "free" dead register that is at the same scale as
         /// another register/operand.
-        inline dynamorio::reg_id_t get_zombie(register_scale scale_) throw() {
+        inline dynamorio::reg_id_t get_zombie(register_scale scale_) {
             return scale(get_zombie(), scale_);
         }
 
@@ -233,13 +233,13 @@ namespace granary {
         static dynamorio::reg_id_t scale(
             dynamorio::reg_id_t,
             register_scale
-        ) throw();
+        ) ;
 
 
         /// Encode the live registers to an integer.
         ///
         /// Note: This ignores zombies.
-        inline uint32_t encode(void) throw() {
+        inline uint32_t encode(void) {
             uint32_t regs = live_xmm;
             regs <<= 16;
             regs |= live;
@@ -250,7 +250,7 @@ namespace granary {
         /// Decode the live registers from an integer.
         ///
         /// Note: This ignores zombies.
-        inline void decode(uint32_t bitmask) throw() {
+        inline void decode(uint32_t bitmask) {
             undead = 0;
             undead_xmm = 0;
             live = bitmask & 0xFF;
@@ -266,14 +266,14 @@ namespace granary {
 
 
         /// Kill registers used in some class op operands within an instruction.
-        void revive(dynamorio::instr_t *, opnd_counter *, opnd_getter *) throw();
-        void kill(dynamorio::instr_t *, opnd_counter *, opnd_getter *) throw();
+        void revive(dynamorio::instr_t *, opnd_counter *, opnd_getter *) ;
+        void kill(dynamorio::instr_t *, opnd_counter *, opnd_getter *) ;
 
         inline void revive(
             instruction in,
             opnd_counter *counter,
             opnd_getter *getter
-        ) throw() {
+        ) {
             return revive(in.instr, counter, getter);
         }
 
@@ -281,15 +281,15 @@ namespace granary {
             instruction in,
             opnd_counter *counter,
             opnd_getter *getter
-        ) throw() {
+        ) {
             return kill(in.instr, counter, getter);
         }
 
 
         /// Do opcode-specific killing/reviving.
-        void visit(dynamorio::instr_t *in, unsigned num_dests) throw();
+        void visit(dynamorio::instr_t *in, unsigned num_dests) ;
 
-        inline void visit(instruction in, unsigned num_dests) throw() {
+        inline void visit(instruction in, unsigned num_dests) {
             return visit(in.instr, num_dests);
         }
     };
@@ -346,7 +346,7 @@ namespace granary {
 
         general_purpose_register regs[16];
 
-        general_purpose_register &operator[](dynamorio::reg_id_t) throw();
+        general_purpose_register &operator[](dynamorio::reg_id_t) ;
     };
 
 
@@ -355,7 +355,7 @@ namespace granary {
     /// (conservative) sets of live registers at the ends of basic blocks
     /// in advance (e.g. with the CFG tool) then we use that information.
     register_manager WEAK_SYMBOL
-    get_live_registers(const app_pc) throw();
+    get_live_registers(const app_pc) ;
 }
 
 

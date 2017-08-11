@@ -58,14 +58,14 @@ namespace client { namespace wp {
 
 
     /// Convert a register into an index between [0, 14].
-    unsigned register_to_index(dynamorio::reg_id_t reg) throw() {
+    unsigned register_to_index(dynamorio::reg_id_t reg) {
         return REG_TO_INDEX[register_manager::scale(reg, REG_64)];
     }
 
 
     /// Convert an operand size into an integer `i` such that `2^i` is the
     /// number of bytes required to represent an operand of that size.
-    unsigned operand_size_order(operand_size size) throw() {
+    unsigned operand_size_order(operand_size size) {
         return SIZE_TO_ORDER[size];
     }
 }}

@@ -36,16 +36,16 @@ struct object_metadata {
       // to `add_watchpoint`.
       void *addr_,
       size_t size_,
-      void *allocator_addr_) throw();
+      void *allocator_addr_) ;
 
   // Get the descriptor of a watchpoint based on its index.
-  static object_metadata *access(uintptr_t index) throw();
+  static object_metadata *access(uintptr_t index) ;
 
   // Free the descriptor.
-  static void free(object_metadata *, uintptr_t) throw();
+  static void free(object_metadata *, uintptr_t) ;
 
   // Not used but needed.
-  static void assign(object_metadata *, uintptr_t) throw() {}
+  static void assign(object_metadata *, uintptr_t) {}
 };
 
 namespace wp {

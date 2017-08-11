@@ -70,7 +70,7 @@ namespace client {
     /// Invoked when Granary commits to putting a basic block into the code
     /// cache.
     GR_GRANARY_DEFINES_COMMIT_TO_BB(inline)
-    void commit_to_basic_block(basic_block_state &) throw()
+    void commit_to_basic_block(basic_block_state &) 
     GR_GRANARY_DEFINES_COMMIT_TO_BB({})
     GR_CLIENT_DEFINES_COMMIT_TO_BB(;)
 
@@ -78,7 +78,7 @@ namespace client {
     /// Invoked when Granary detects a race condition and discards a basic
     /// block.
     GR_GRANARY_DEFINES_COMMIT_TO_BB(inline)
-    void discard_basic_block(basic_block_state &) throw()
+    void discard_basic_block(basic_block_state &) 
     GR_GRANARY_DEFINES_COMMIT_TO_BB({})
     GR_CLIENT_DEFINES_COMMIT_TO_BB(;)
 

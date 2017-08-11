@@ -44,7 +44,7 @@ namespace granary {
         } __attribute__((packed));
 
 
-        inline app_pc start_pc(void) const throw() {
+        inline app_pc start_pc(void) const {
             if(is_trace) {
                 generic_info_ptr untraced_ptr(*this);
                 untraced_ptr.is_trace = false;
@@ -55,7 +55,7 @@ namespace granary {
         }
 
 
-        inline app_pc end_pc(void) const throw() {
+        inline app_pc end_pc(void) const {
             if(is_trace) {
                 generic_info_ptr untraced_ptr(*this);
                 untraced_ptr.is_trace = false;
@@ -68,7 +68,7 @@ namespace granary {
 
 
         /// Get the basic block info from this trace data.
-        const basic_block_info *get_block(app_pc cache_pc) const throw() {
+        const basic_block_info *get_block(app_pc cache_pc) const {
             if(is_trace) {
                 generic_info_ptr untraced_ptr(*this);
                 untraced_ptr.is_trace = false;
@@ -94,7 +94,7 @@ namespace granary {
         generic_info_ptr *array,
         const long max,
         app_pc cache_pc
-    ) throw() {
+    ) {
         if(!max) {
             return nullptr;
         }
@@ -136,7 +136,7 @@ namespace granary {
 
 
     /// Commit to storing information about a trace.
-    void store_trace_meta_info(const trace_info &trace) throw() {
+    void store_trace_meta_info(const trace_info &trace) {
 
         // Make sure the fragment locator for this fragment slab exists.
         fragment_locator **slab_(granary_find_fragment_slab(trace.start_pc));
@@ -182,7 +182,7 @@ namespace granary {
     /// Find the basic block info given an address into our code cache of
     /// basic blocks.
     __attribute__((hot))
-    const basic_block_info *find_basic_block_info(app_pc cache_pc) throw() {
+    const basic_block_info *find_basic_block_info(app_pc cache_pc) {
         fragment_locator **slab_(granary_find_fragment_slab(cache_pc));
         fragment_locator *slab(*slab_);
 
@@ -205,7 +205,7 @@ namespace granary {
     ///
     /// Note: We assume that there is a coarse grained lock that is guarding
     ///       these operations!
-    void remove_basic_block_info(app_pc cache_pc) throw() {
+    void remove_basic_block_info(app_pc cache_pc) {
         fragment_locator **slab_(granary_find_fragment_slab(cache_pc));
         fragment_locator *slab(*slab_);
 

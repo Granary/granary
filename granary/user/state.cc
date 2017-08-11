@@ -20,12 +20,12 @@ namespace granary {
         return &(cpu_state_handle()->stack.top[0]);
     }
 
-    thread_state_handle::thread_state_handle(safe_cpu_access_zone) throw()
+    thread_state_handle::thread_state_handle(safe_cpu_access_zone) 
         : state(&(cpu_state_handle()->thread_data))
     { }
 
 
-    cpu_state_handle::cpu_state_handle(void) throw()
+    cpu_state_handle::cpu_state_handle(void) 
         : state(CPU_STATE)
     {
         if(!state) {

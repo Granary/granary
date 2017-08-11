@@ -28,7 +28,7 @@ namespace granary {
         instruction_list &ls,
         instruction &in,
         bool &redzone_safe
-    ) throw() {
+    ) {
         redzone_safe = IF_USER_ELSE(false, true);
         unsigned eflags(0);
         for(instruction in_(ls.first()); in_.is_valid(); in_ = in_.next()) {
@@ -72,7 +72,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         unsigned num_nops
-    ) throw() {
+    ) {
         if(!num_nops) {
             return in;
         } else if(1 == num_nops) {
@@ -101,7 +101,7 @@ namespace granary {
     register_manager find_used_regs_in_func(
         app_pc func,
         instruction_traversal_constraint constraint
-    ) throw() {
+    ) {
         register_manager used_regs;
         list<app_pc> process_bbs;
         list<app_pc>::handle_type next;
@@ -184,7 +184,7 @@ namespace granary {
         register_manager regs,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         for(;;) {
             dynamorio::reg_id_t reg_id(regs.get_zombie());
             if(!reg_id) {
@@ -203,7 +203,7 @@ namespace granary {
         register_manager regs,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         instruction last(ls.insert_after(in, label_()));
         in = last;
         for(;;) {
@@ -232,7 +232,7 @@ namespace granary {
         register_manager regs,
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         for(;;) {
             dynamorio::reg_id_t reg_id(regs.get_zombie());
             if(!reg_id) {
@@ -256,7 +256,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         xmm_save_constraint is_aligned
-    ) throw() {
+    ) {
         instruction (*mov_xmm)(dynamorio::opnd_t, dynamorio::opnd_t) = (
             XMM_SAVE_ALIGNED == is_aligned ? movaps_ : movups_);
 
@@ -301,7 +301,7 @@ namespace granary {
         cti_register_steal_constraint steal_constraint,
         operand clobber_reg,
         cti_kind kind
-    ) throw() {
+    ) {
 
         instruction (*cti_)(dynamorio::opnd_t);
         instruction (*cti_ind_)(dynamorio::opnd_t);
@@ -353,7 +353,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         flag_save_constraint constraint
-    ) throw() {
+    ) {
         if(REG_AH_IS_LIVE == constraint) {
             in = ls.insert_after(in, push_(reg::rax));
             in = ls.insert_after(in, push_(reg::rax));
@@ -373,7 +373,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         flag_save_constraint constraint
-    ) throw() {
+    ) {
         if(REG_AH_IS_LIVE == constraint) {
             in = ls.insert_after(in, push_(reg::rax));
             in = ls.insert_after(in, mov_ld_(reg::rax, reg::rsp[8]));
@@ -393,7 +393,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         flag_save_constraint constraint
-    ) throw() {
+    ) {
         (void) constraint;
 #if CONFIG_ENV_KERNEL
         in = ls.insert_after(in, pushf_());
@@ -410,7 +410,7 @@ namespace granary {
         instruction_list &ls,
         instruction in,
         flag_save_constraint constraint
-    ) throw() {
+    ) {
         (void) constraint;
 #if CONFIG_ENV_KERNEL
         in = ls.insert_after(in, popf_());
@@ -426,7 +426,7 @@ namespace granary {
     instruction insert_align_stack_after(
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         in = ls.insert_after(in, push_(reg::rsp));
         in = ls.insert_after(in, push_(reg::rsp[0]));
         in = ls.insert_after(in, and_(reg::rsp, int8_(-16)));
@@ -438,7 +438,7 @@ namespace granary {
     instruction insert_restore_old_stack_alignment_after(
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         in = ls.insert_after(in, mov_ld_(reg::rsp, reg::rsp[8]));
         return in;
     }
@@ -467,7 +467,7 @@ namespace granary {
             app_pc func_pc,
             unsigned num_args,
             register_exit_constaint constraint
-        ) throw() {
+        ) {
 
             // How should we look for used registers?
             instruction_traversal_constraint used_reg_constraint;

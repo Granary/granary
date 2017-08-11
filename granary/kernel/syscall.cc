@@ -23,7 +23,7 @@ namespace granary {
 
 
     /// Generate a system call entry point for the current CPU.
-    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) throw() {
+    uint64_t create_syscall_entrypoint(uint64_t native_msr_lstar) {
         app_pc native_syscall_handler = unsafe_cast<app_pc>(native_msr_lstar);
         cpu_state_handle cpu;
 

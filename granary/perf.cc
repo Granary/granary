@@ -101,11 +101,11 @@ namespace granary {
 #endif
 
 
-    void perf::visit_address_lookup(void) throw() {
+    void perf::visit_address_lookup(void) {
         NUM_ADDRESS_LOOKUPS.fetch_add(1);
     }
 
-    void perf::visit_address_lookup_cpu(bool hit) throw() {
+    void perf::visit_address_lookup_cpu(bool hit) {
         if(hit) {
             NUM_ADDRESS_LOOKUPS_CPU_HIT.fetch_add(1);
         } else {
@@ -114,12 +114,12 @@ namespace granary {
     }
 
 
-    void perf::visit_address_lookup_hit(void) throw() {
+    void perf::visit_address_lookup_hit(void) {
         NUM_ADDRESS_LOOKUP_HITS.fetch_add(1);
     }
 
 
-    void perf::visit_decoded(const instruction in) throw() {
+    void perf::visit_decoded(const instruction in) {
         if(in.is_valid()) {
             NUM_DECODED_INSTRUCTIONS.fetch_add(1);
             NUM_DECODED_BYTES.fetch_add(in.instr->length);
@@ -127,14 +127,14 @@ namespace granary {
     }
 
 
-    void perf::visit_encoded(const instruction in) throw() {
+    void perf::visit_encoded(const instruction in) {
         if(in.is_valid()) {
             NUM_ENCODED_INSTRUCTIONS.fetch_add(1);
             NUM_ENCODED_BYTES.fetch_add(in.instr->length);
         }
     }
 
-    void perf::visit_trace(unsigned num_bbs) throw() {
+    void perf::visit_trace(unsigned num_bbs) {
         NUM_BBS.fetch_add(num_bbs);
 
         if(num_bbs > 1) {
@@ -144,42 +144,42 @@ namespace granary {
     }
 
 
-    void perf::visit_split_block(void) throw() {
+    void perf::visit_split_block(void) {
         NUM_SPLIT_BBS.fetch_add(1);
     }
 
 
-    void perf::visit_unsplittable_block(void) throw() {
+    void perf::visit_unsplittable_block(void) {
         NUM_UNSPLITTABLE_BBS.fetch_add(1);
     }
 
 
-    void perf::visit_mangle_indirect_jmp(void) throw() {
+    void perf::visit_mangle_indirect_jmp(void) {
         NUM_INDIRECT_JMPS.fetch_add(1);
     }
 
 
-    void perf::visit_mangle_indirect_call(void) throw() {
+    void perf::visit_mangle_indirect_call(void) {
         NUM_INDIRECT_CALLS.fetch_add(1);
     }
 
 
-    void perf::visit_mangle_return(void) throw() {
+    void perf::visit_mangle_return(void) {
         NUM_RETURNS.fetch_add(1);
     }
 
 
-    void perf::visit_ibl(const instruction_list &ls) throw() {
+    void perf::visit_ibl(const instruction_list &ls) {
         NUM_IBL_INSTRUCTIONS.fetch_add(ls.length());
     }
 
 
-    void perf::visit_ibl_stub(unsigned num_instructions) throw() {
+    void perf::visit_ibl_stub(unsigned num_instructions) {
         NUM_IBL_ENTRY_INSTRUCTIONS.fetch_add(num_instructions);
     }
 
 
-    void perf::visit_ibl_exit(const instruction_list &ls) throw() {
+    void perf::visit_ibl_exit(const instruction_list &ls) {
         NUM_IBL_EXIT_INSTRUCTIONS.fetch_add(ls.length());
     }
 
@@ -200,7 +200,7 @@ namespace granary {
     ] = {ATOMIC_VAR_INIT(0)};
 
 
-    void perf::visit_ibl_add_entry(app_pc pc) throw() {
+    void perf::visit_ibl_add_entry(app_pc pc) {
         const unsigned i(NUM_IBL_HTABLE_ENTRIES.fetch_add(1));
 
         if(i < NUM_IBL_PROFILE_ENTRIES) {
@@ -210,93 +210,93 @@ namespace granary {
     }
 
 
-    void perf::visit_ibl_miss(app_pc) throw() {
+    void perf::visit_ibl_miss(app_pc) {
         NUM_IBL_MISSES.fetch_add(1);
     }
 
 
-    void perf::visit_ibl_conflict(app_pc) throw() {
+    void perf::visit_ibl_conflict(app_pc) {
         NUM_IBL_CONFLICTS.fetch_add(1);
     }
 
 
-    void perf::visit_dbl_stub(void) throw() {
+    void perf::visit_dbl_stub(void) {
         NUM_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_fall_through_dbl(void) throw() {
+    void perf::visit_fall_through_dbl(void) {
         NUM_FALL_THROUGH_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_conditional_dbl(void) throw() {
+    void perf::visit_conditional_dbl(void) {
         NUM_COND_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_patched_dbl(void) throw() {
+    void perf::visit_patched_dbl(void) {
         NUM_PATCHED_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_patched_fall_through_dbl(void) throw() {
+    void perf::visit_patched_fall_through_dbl(void) {
         NUM_PATCHED_FALL_THROUGH_DBL_STUBS.fetch_add(1);
     }
 
 
-    void perf::visit_patched_conditional_dbl(void) throw() {
+    void perf::visit_patched_conditional_dbl(void) {
         NUM_PATCHED_COND_DBL_STUBS.fetch_add(1);
     }
 
 
 
-    void perf::visit_mem_ref(unsigned num) throw() {
+    void perf::visit_mem_ref(unsigned num) {
         NUM_MEM_REF_INSTRUCTIONS.fetch_add(num);
     }
 
 
-    void perf::visit_align_nop(unsigned num) throw() {
+    void perf::visit_align_nop(unsigned num) {
         NUM_ALIGN_NOP_INSTRUCTIONS.fetch_add(num);
     }
 
 
-    void perf::visit_align_prefix(void) throw() {
+    void perf::visit_align_prefix(void) {
         NUM_ALIGN_PREFIXES.fetch_add(1);
     }
 
 
-    void perf::visit_functional_unit(void) throw() {
+    void perf::visit_functional_unit(void) {
         NUM_FUNCTIONAL_UNITS.fetch_add(1);
     }
 
 
 #if CONFIG_ENV_KERNEL
 
-    void perf::visit_takeover_interrupt(void) throw() {
+    void perf::visit_takeover_interrupt(void) {
         NUM_CONTROLLED_INTERRUPTS.fetch_add(1);
     }
 
 
-    void perf::visit_interrupt(void) throw() {
+    void perf::visit_interrupt(void) {
         NUM_INTERRUPTS.fetch_add(1);
     }
 
-    void perf::visit_delayed_interrupt(void) throw() {
+    void perf::visit_delayed_interrupt(void) {
         NUM_DELAYED_INTERRUPTS.fetch_add(1);
     }
 
 
-    void perf::visit_recursive_interrupt(void) throw() {
+    void perf::visit_recursive_interrupt(void) {
         NUM_RECURSIVE_INTERRUPTS.fetch_add(1);
     }
 
 
-    unsigned long perf::num_delayed_interrupts(void) throw() {
+    unsigned long perf::num_delayed_interrupts(void) {
         return NUM_DELAYED_INTERRUPTS.load();
     }
 
-    void perf::visit_protected_module(void) throw() {
+    void perf::visit_protected_module(void) {
         NUM_BAD_MODULE_EXECS.fetch_add(1);
     }
 #endif
@@ -309,7 +309,7 @@ namespace granary {
 #   define printf printk
 #endif
 
-    void perf::report(void) throw() {
+    void perf::report(void) {
 
         printf("Number of decoded instructions: %u\n",
             NUM_DECODED_INSTRUCTIONS.load());

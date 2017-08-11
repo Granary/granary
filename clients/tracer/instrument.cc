@@ -27,7 +27,7 @@ void init(void) {
 /// Instruction a basic block.
 granary::instrumentation_policy tracer_policy::visit_app_instructions(
     granary::cpu_state_handle, granary::basic_block_state &,
-    granary::instruction_list &ls) throw() {
+    granary::instruction_list &ls) {
   for (instruction in(ls.first()); in.is_valid(); in = in.next()) {
     insert_clean_call_after(ls, in, print_pc, in.pc());
   }
@@ -37,7 +37,7 @@ granary::instrumentation_policy tracer_policy::visit_app_instructions(
 /// Instruction a basic block.
 granary::instrumentation_policy tracer_policy::visit_host_instructions(
     granary::cpu_state_handle cpu, granary::basic_block_state &bb,
-    granary::instruction_list &ls) throw() {
+    granary::instruction_list &ls) {
   return visit_app_instructions(cpu, bb, ls);
 }
 

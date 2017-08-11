@@ -40,7 +40,7 @@ namespace granary {
         const cti_info *array,
         const long max,
         uint32_t search_key
-    ) throw() {
+    ) {
         long first(0);
         long last(max - 1);
         long middle((first + last) / 2);
@@ -115,7 +115,7 @@ namespace granary {
     void profile_optimise_indirect_cti(
         instruction_list &ls,
         instruction in
-    ) throw() {
+    ) {
         UNUSED(ls);
         UNUSED(in);
     }
@@ -130,7 +130,7 @@ namespace granary {
         instruction in,
         app_pc block_start_pc,
         app_pc next_pc
-    ) throw() {
+    ) {
 #if CONFIG_OPTIMISE_PGO
         const uintptr_t block_start_offset(
             reinterpret_cast<uintptr_t>(block_start_pc) - LINUX_KERNEL_BASE);

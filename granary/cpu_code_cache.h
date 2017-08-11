@@ -38,11 +38,11 @@ namespace granary {
 
         /// Find the value associated with a key in the hash table.
         __attribute__((hot, optimize("O3")))
-        app_pc find(const app_pc key) const throw();
+        app_pc find(const app_pc key) const ;
 
         /// Search for an entry in the hash table.
         __attribute__((hot))
-        inline bool load(const app_pc key, app_pc &value) const throw() {
+        inline bool load(const app_pc key, app_pc &value) const {
             value = find(key);
             return nullptr != value;
         }
@@ -53,7 +53,7 @@ namespace granary {
             app_pc key,
             app_pc value,
             hash_store_policy update=HASH_OVERWRITE_PREV_ENTRY
-        ) throw();
+        ) ;
 
     private:
 
@@ -63,10 +63,10 @@ namespace granary {
             app_pc key,
             app_pc value,
             bool update
-        ) throw();
+        ) ;
 
         /// Grow the hash table. This increases the hash table's size by two.
-        void grow(void) throw();
+        void grow(void) ;
 
     } __attribute__((packed));
 
