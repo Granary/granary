@@ -123,7 +123,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 1
+#define CONFIG_DEBUG_TRACE_EXECUTION 0
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024
@@ -190,7 +190,7 @@
 ///
 /// Note: If a non-zero number is given, then that number represents the maximum
 ///       number of conditional branch fall-throughs to follow.
-#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 0
+#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 4
 
 
 /// If we're following fall-through branches, then this option lets us also

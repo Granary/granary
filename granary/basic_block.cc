@@ -610,12 +610,15 @@ namespace granary {
 
             // Some other instruction.
             } else {
+#if !CONFIG_ENV_KERNEL
 
                 // update the policy to be in an xmm context.
                 if(!uses_xmm && dynamorio::instr_is_sse_or_sse2(in)) {
                     policy.in_xmm_context();
                     uses_xmm = true;
+                    granary_break_on_curiosity();
                 }
+#endif
             }
         }
 
@@ -623,9 +626,10 @@ namespace granary {
         // Look for potential code that accesses user-space data. This type of
         // code follows some rough binary patterns, so we first search for the
         // patterns, then verify by invoking the kernel itself.
-        if(policy.accesses_user_data()
-        || kernel_code_accesses_user_data(ls, start_pc)) {
-            user_exception_metadata = kernel_find_exception_metadata(ls);
+        user_exception_metadata = kernel_find_exception_metadata(ls);
+
+        if(policy.accesses_user_data() || user_exception_metadata) {
+            
 
             // We don't un-set the accesses user data policy property, as there
             // is some value in leaving it set.
