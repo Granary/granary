@@ -28,9 +28,9 @@ set-user-detect
 
 # Kernel setup
 if !$in_user_space
-  file ~/Code/linuxrcu/vmlinux
+  file ~/Code/linux-4.4.0/vmlinux
   target remote : 9999
-  source ~/Code/Granary/granary.syms
+  source ~/Code/granary/granary.syms
 end
 
 
@@ -62,6 +62,7 @@ if !$in_user_space
   b show_stack
   b show_trace
   b show_trace_log_lvl
+  b do_simd_coprocessor_error
   #b kernel/hung_task.c:101
 else
   b __assert_fail

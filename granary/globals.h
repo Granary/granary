@@ -61,7 +61,7 @@
 /// latency because Granary won't add in additional code on each interrupt
 /// invocation.
 #if CONFIG_ENV_KERNEL
-#   define CONFIG_FEATURE_HANDLE_INTERRUPTS 1 // shouldn't be 0, but can be sometimes.
+#   define CONFIG_FEATURE_HANDLE_INTERRUPTS 0 // shouldn't be 0, but can be sometimes.
 #else
 #   define CONFIG_FEATURE_HANDLE_INTERRUPTS 0 // can't change in user space
 #endif
@@ -123,7 +123,7 @@
 /// Should execution be traced? This is a debugging option, not to be confused
 /// with the trace allocator or trace building, where we record the entry PCs
 /// of basic blocks as they execute for later inspection by gdb.
-#define CONFIG_DEBUG_TRACE_EXECUTION 0
+#define CONFIG_DEBUG_TRACE_EXECUTION 1
 #define CONFIG_DEBUG_TRACE_PRINT_LOG 0
 #define CONFIG_DEBUG_TRACE_RECORD_REGS 1
 #define CONFIG_DEBUG_NUM_TRACE_LOG_ENTRIES 1024

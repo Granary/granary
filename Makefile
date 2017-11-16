@@ -406,7 +406,7 @@ endif
 
 # Try to disable memset/memcpy/memmove synthesizing optimisations, as well as
 # optimisations that use SSE registers.
-GR_FLOAT_FLAGS = -mno-mmx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
+GR_FLOAT_FLAGS = -mno-mmx -mno-avx -mno-sse -mno-sse2 -mno-mmx -mno-3dnow
 GR_FLOAT_FLAGS += -fno-builtin -ffreestanding -msoft-float -mtune=generic
 
 # User space.

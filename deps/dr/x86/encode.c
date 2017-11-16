@@ -2342,6 +2342,19 @@ instr_encode_common(dcontext_t *dcontext, instr_t *instr, byte *copy_pc, byte *f
         /* copy raw bits, possibly re-relativizing */
         return copy_and_re_relativize_raw_instr(dcontext, instr, cache_pc, final_pc);
     }
+
+#ifdef GRANARY
+    if (!instr_operands_valid(instr)) {
+        instr->opcode = OP_ud2a;
+        instr->length = 2;
+        instr->num_srcs = 0;
+        instr->num_dsts = 0;
+        instr->prefixes = 0;
+        instr->bytes = 0;
+        instr->flags |= INSTR_OPERANDS_VALID;
+    }
+#endif
+
     CLIENT_ASSERT(instr_operands_valid(instr), "instr_encode error: operands invalid");
     opc = instr_get_opcode(instr);
     if ((instr_is_cbr(instr) &&

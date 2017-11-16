@@ -951,6 +951,11 @@ namespace granary {
             }
         }
 
+        if (!seen_jump || !last_call.is_valid()) {
+            cpu.free_transient_allocators();
+            return nullptr;
+        }
+
         ASSERT(seen_jump);
         ASSERT(last_call.is_valid());
 
@@ -995,6 +1000,13 @@ namespace granary {
 
 
     static bool is_valid_interrupt_handler(app_pc addr) {
+        if (!addr) {
+            return false;  // Starts with an `add    BYTE PTR [rax],al`??
+        }
+        instruction in(instruction::decode(&addr));
+        if (!in.is_valid()) {
+            return false;
+        }
 #   ifdef DETACH_ADDR_early_idt_handlers
         const app_pc kernel_early_idt_table(reinterpret_cast<app_pc>(
             DETACH_ADDR_early_idt_handlers));
@@ -1080,7 +1092,10 @@ namespace granary {
                 && VECTOR_SYSCALL != i
                 && is_valid_interrupt_handler(native_handler)
                 && 0U != *unsafe_cast<uint16_t *>(native_handler)) {
-                    native_handler = create_interrupt_entrypoint(native_handler);
+                    auto new_handler = create_interrupt_entrypoint(native_handler);
+                    if (new_handler) {
+                        native_handler = new_handler;
+                    }
                 }
 #endif
                 app_pc target(native_handler);
