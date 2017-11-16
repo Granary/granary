@@ -110,6 +110,10 @@ class CToken(object):
     "__inline":       SPECIFIER_FUNCTION,
     "int":            TYPE_BUILT_IN,
     "long":           TYPE_BUILT_IN,
+    "__int32":        TYPE_BUILT_IN,
+    "__uint32":       TYPE_BUILT_IN,
+    "__int64":        TYPE_BUILT_IN,
+    "__uint64":       TYPE_BUILT_IN,
     "register":       SPECIFIER_STORAGE,
     "restrict":       TYPE_QUALIFIER,
     "__restrict":     TYPE_QUALIFIER,
@@ -143,6 +147,10 @@ class CToken(object):
     "asm_":           EXTENSION,
     "asm__":          EXTENSION,
     "__asm__":        EXTENSION,
+
+    "__ptr32":        EXTENSION_NO_PARAM,
+    "__ptr64":        EXTENSION_NO_PARAM,
+    "__unaligned":    EXTENSION_NO_PARAM,
         
     "_volatile":      EXTENSION_NO_PARAM,
     "__volatile":     EXTENSION_NO_PARAM,
@@ -152,6 +160,7 @@ class CToken(object):
     
     "__attribute__":  EXTENSION,
     "__attribute":    EXTENSION,
+    "__declspec":     EXTENSION,
     "noinline":       EXTENSION_NO_PARAM,
     
     # note: not an exhaustive list
@@ -165,12 +174,16 @@ class CToken(object):
     "__flatten__":    EXTENSION_NO_PARAM,
     "__error__":      EXTENSION,
     "__warning__":    EXTENSION,
+    "__cdecl":        EXTENSION_NO_PARAM,
+    "__stdcall":      EXTENSION_NO_PARAM,
     "__cdecl__":      EXTENSION_NO_PARAM,
     "__const__":      EXTENSION_NO_PARAM,
     "__format__":     EXTENSION,
     "__format_arg__": EXTENSION,
     "__leaf__":       EXTENSION_NO_PARAM,
     "__malloc__":     EXTENSION_NO_PARAM,
+    "__forceinline":  EXTENSION_NO_PARAM,
+    "__inline":       EXTENSION_NO_PARAM,
     "__noinline__":   EXTENSION_NO_PARAM,
     "__noclone__":    EXTENSION_NO_PARAM,
     "__nonnull__":    EXTENSION,
@@ -196,6 +209,7 @@ class CToken(object):
 
     "typeof":         TYPEOF,
     "__typeof__":     TYPEOF,
+    "__typeof":       TYPEOF,
     "decltype":       TYPEOF,
 
     # os/compiler-specific extensions
@@ -267,11 +281,12 @@ class CCharacterReader(object):
 
     c = self.buff[idx]
     diff = idx - self.last_idx
+    self.last_idx = idx
+
     if not 0 <= diff:
       assert False
 
     if 0 < diff:
-      self.last_idx = idx
       if "\t" == c:
         self.col += (diff - 1) + CCharacterReader.TAB_SIZE
       elif "\n" == c:
@@ -316,10 +331,10 @@ class CCharacterReader(object):
       if self.MACRO_LINE.match(line):
         continue
       line = line.rstrip(" \t\r\n")
-      line = self.COMMENT.sub("", line)
+      #line = self.COMMENT.sub("", line)
       line = line.rstrip(" \t")
       buff.append(line)
-    return " ".join(buff)
+    return "\n".join(buff)
 
 
 class CTokenizer(object):
@@ -470,9 +485,9 @@ class CTokenizer(object):
     # long string / character literals
     if "L" == c and c2 in "\"'":
       self.pos += 1
-      c = c2
       cs.append(c)
-      # fall-through to stirng literal
+      c = c2
+      # fall-through to string literal
 
     # string/character literal
     if c in "\"'":
@@ -482,13 +497,15 @@ class CTokenizer(object):
       cs.append(end_char)
       while self.pos < self.len:
         c = self.buff[self.pos]
-        if not escape and end_char == c:
-          break
-        escape = "\\" == c
         cs.append(c)
+        if c == end_char and not escape:
+          break
+        if c == "\\":
+          escape = not escape
+        else:
+          escape = False
         self.pos += 1
       self.pos += 1
-      cs.append(end_char)
       return CToken("".join(cs), CToken.LITERAL_STRING)
 
     # identifier
@@ -562,7 +579,8 @@ class CTokenizer(object):
     if c in OPERATORS[1]:
       self.pos += 1
       return CToken(c, CToken.OPERATOR)
-
+    
+    print "Unrecognized token '{}' at position {}".format(c, self.pos)
     assert False
 
 
@@ -1145,6 +1163,9 @@ class CSymbolTable(object):
   # Get a type by its name and it's type constructor
   def get_type(self, name, const):
     assert const in self._types
+    if name not in self._types[const]:
+      type_obj = const(name)
+      self._types[const][name] = type_obj
     assert name in self._types[const]
     return self._types[const][name]
 
@@ -1240,6 +1261,12 @@ class CParser(object):
     ("long", "signed"):               T_L,
     ("__signed__", "long"):           T_L,
     ("long", "unsigned"):             T_UL,
+
+    # Needed for windows.
+    ("__int32",):                     T_I,
+    ("__uint32",):                    T_UI,
+    ("__int64",):                     T_LL,
+    ("__uint64",):                    T_ULL,
 
     ("int", "long", "long"):          T_LL,
     ("int", "long", "long", "signed"):T_LL,
@@ -1525,6 +1552,13 @@ class CParser(object):
       if "typedef" == t.str:
         defines_type = True
 
+      # Handle `extern "C"` in the case `extern extern "C" void blah();`.
+      elif "extern" == t.str and \
+           i < len(toks) and \
+           CToken.LITERAL_STRING == toks[i].kind:  # Note: i is the next token.
+        i += 1
+        continue
+
       # special case 1: these can either set the type, or modify it.
       elif t.str in ("signed", "__signed__"):
         assert not attrs.is_unsigned
@@ -1674,13 +1708,34 @@ class CParser(object):
         assert i < len(toks)
         might_have_type = True
         t2 = toks[i]
-        t3 = None
 
+        # Eat up things like `alignas` in `struct alignas(..) Foo`. This is
+        # mostly a C++11 feature.
+        while t2.kind == CToken.EXTENSION:
+          extension_toks = []
+          i = self._get_up_to_balanced(toks, extension_toks, i - 1, "(", include=True)
+          name_attrs.attrs[name_attrs.LEFT].extend(extension_toks)
+          t2 = toks[i]
+
+        t3 = None
         if (i + 1) < len(toks): # might not be if we're in a param list
           t3 = toks[i + 1]
 
         constructor = CParser.COMPOUND_TYPE[t.str]
         parser = CParser.COMPOUND_TYPE_PARSER[t.str]
+
+        # Handle enums with their backing storage being defined, e.g.
+        # `enum Foo : int;`, `enum : int`, or `enum Foo : int { ... };`.
+        # This is a C++11 feature.
+        if t.str == "enum" and ((t2.kind == CToken.LITERAL_IDENTIFIER and \
+           t3 and t3.str == ":") or t2.str == ":"):
+          j = i + 1
+          while j < len(toks):
+            if toks[j].str in ";{":
+              t3 = toks[j]
+              i = j - 1
+              break
+            j += 1
 
         # type definition
         if t2.kind == CToken.LITERAL_IDENTIFIER and t3 and "{" == t3.str:
@@ -1759,13 +1814,15 @@ class CParser(object):
     if built_in_names:
       ctype = CParser.BUILT_IN_TYPES[tuple(sorted(built_in_names))]
 
-    # if not ctype:
-    #   print toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
-    #   print carat.line, carat.column
 
     if not attrs.has_default_attrs():
       ctype = CTypeAttributed(ctype, attrs)
 
+
+    if not ctype:
+      print >> sys.stderr, toks[i:i+20]
+      print >> sys.stderr, toks[i].str, toks[i].kind, stab.has_type(toks[i].str, CTypeDefinition)
+      print >> sys.stderr, carat.line, carat.column
     assert ctype
     return i, ctype, defines_type
 

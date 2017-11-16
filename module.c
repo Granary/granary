@@ -50,7 +50,7 @@
 
 #include "granary/gen/kernel_detach.inc"
 
-#ifndef DETACH_ADDR_module_alloc_update_bounds
+#ifndef DETACH_ADDR_module_alloc
 #   error "Unable to compile; need to be able to allocate module memory."
 #endif
 
@@ -99,7 +99,6 @@ void kernel_run_on_each_cpu(void (*func)(void)) {
     on_each_cpu(((void (*)(void *)) func), NULL, 1);
 }
 
-
 /// Search for an exception table entry.
 const void *kernel_search_exception_tables(void *pc) {
 #ifdef DETACH_ADDR_search_exception_tables
@@ -111,6 +110,20 @@ const void *kernel_search_exception_tables(void *pc) {
 #endif
 }
 
+typedef int (allocator)(unsigned long addr, int numpages);
+
+int kernel_set_memory_ro(unsigned long addr, int numpages) {
+  return ((allocator *) DETACH_ADDR_set_memory_ro)(addr, numpages);
+}
+int kernel_set_memory_rw(unsigned long addr, int numpages) {
+  return ((allocator *) DETACH_ADDR_set_memory_rw)(addr, numpages);
+}
+int kernel_set_memory_x(unsigned long addr, int numpages) {
+  return ((allocator *) DETACH_ADDR_set_memory_x)(addr, numpages);
+}
+int kernel_set_memory_nx(unsigned long addr, int numpages) {
+  return ((allocator *) DETACH_ADDR_set_memory_nx)(addr, numpages);
+}
 
 /// Assembly function to run constructors for globally-defined C++ data
 /// structures.
@@ -294,7 +307,7 @@ static void set_page_perms(
 /// Set a module's text to be non-executable
 static void module_set_exec_perms(struct kernel_module *module) {
     set_page_perms(
-        set_memory_nx,
+        kernel_set_memory_nx,
         module->text_begin,
         module->text_end
     );
@@ -316,13 +329,13 @@ void granary_before_module_bootstrap(struct kernel_module *module) {
 /// is invoked.
 void granary_before_module_init(struct kernel_module *module) {
     set_page_perms(
-        set_memory_rw,
+        kernel_set_memory_rw,
         module->ro_text_begin,
         module->ro_text_end
     );
 
     set_page_perms(
-        set_memory_rw,
+        kernel_set_memory_rw,
         module->ro_init_begin,
         module->ro_init_end
     );
@@ -339,7 +352,7 @@ void kernel_make_memory_writeable(void *addr) {
 
 /// Mark a page as being only readable.
 void kernel_make_page_read_only(void *addr) {
-    set_page_perms(set_memory_ro, addr, (void *) (((uintptr_t) addr) + 1));
+    set_page_perms(kernel_set_memory_ro, addr, (void *) (((uintptr_t) addr) + 1));
 }
 
 
@@ -347,7 +360,7 @@ void kernel_make_page_read_only(void *addr) {
 /// two adjacent pages.
 void kernel_make_page_executable(void *addr) {
     set_page_perms(
-        set_memory_x,
+        kernel_set_memory_x,
         addr,
         (void *) (((uintptr_t) addr) + PAGE_SIZE)
     );
@@ -357,7 +370,7 @@ void kernel_make_page_executable(void *addr) {
 /// Mark a range of memory as being executable.
 void kernel_make_pages_executable(void *begin, void *end) {
     set_page_perms(
-        set_memory_x,
+        kernel_set_memory_x,
         begin,
         end
     );
@@ -378,7 +391,7 @@ static struct kernel_module *find_internal_module(void *vmod) {
     struct module *mod = (struct module *) vmod;
 
     for(; NULL != module; module = module->next) {
-        if(module->text_begin == mod->module_core) {
+        if(module->text_begin == mod->core_layout.base) {
 
             // If we're re-loading this module then re-initialise it.
             if(MODULE_STATE_COMING == mod->state) {
@@ -413,17 +426,16 @@ static struct kernel_module *find_internal_module(void *vmod) {
     module->exit = NULL;
 #endif
     module->address = vmod;
-    module->text_begin = mod->module_core;
-    module->text_end = mod->module_core + mod->core_text_size;
+    module->text_begin = (uint8_t *) mod->core_layout.base;
+    module->text_end = module->text_begin + mod->core_layout.text_size;
 
     // read-only data sections
     module->ro_text_begin = module->text_end;
-    module->ro_text_end =
-        module->ro_text_begin + (mod->core_ro_size - mod->core_text_size);
+    module->ro_text_end = module->ro_text_begin +
+                          (mod->core_layout.ro_size - mod->core_layout.text_size);
 
-    module->ro_init_begin = mod->module_init + mod->init_text_size;
-    module->ro_init_end =
-        module->ro_init_begin + (mod->init_ro_size - mod->init_text_size);
+    module->ro_init_begin = (uint8_t *) mod->init_layout.base;
+    module->ro_init_end = module->ro_init_begin + mod->init_layout.text_size;
 
     module->max_text_end = module->text_end;
     if(module->ro_text_end > module->text_end) {
@@ -456,7 +468,7 @@ int module_load_notifier(
     struct kernel_module *internal_mod = NULL;
     struct module *mod = (struct module *) vmod;
     printk("[granary] Notified of module 0x%p [.text = %p]\n",
-        vmod, mod->module_core);
+        vmod, mod->core_layout.base);
     printk("[granary] Module's name is: %s.\n", mod->name);
 
     internal_mod = find_internal_module(vmod);

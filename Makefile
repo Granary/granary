@@ -48,10 +48,10 @@ GR_PGO_TARGET =
 
 # Compilation toolchain
 GR_CPP = cpp
-GR_CC ?= $(which cc)
+GR_CC ?= gcc-4.8
 GR_LD ?= $GR_CC
 GR_LDD = ldd
-GR_CXX ?= $(which c++)
+GR_CXX ?= g++-4.8
 GR_CXX_STD = -std=gnu++0x
 GR_PYTHON = python
 
@@ -712,7 +712,7 @@ types:
 
 
 # auto-generate wrappers
-wrappers: types
+wrappers: #types
 	@echo "  WRAPPERS [GR] $(GR_OUTPUT_WRAPPERS)"
 	@$(GR_PYTHON) $(SOURCE_DIR)/scripts/generate_wrappers.py $(GR_OUTPUT_TYPES) > $(GR_OUTPUT_WRAPPERS)
 ifeq ($(GR_CLIENT),watchpoint_leak)
@@ -722,7 +722,7 @@ endif
 
 
 # auto-generate the hash table stuff needed for wrappers and detaching
-detach: types
+detach: #types
 	@echo "  DETACH [GR] $(GR_DETACH_FILE)"
 	@$(call GR_GET_LD_LIBRARIES)
 

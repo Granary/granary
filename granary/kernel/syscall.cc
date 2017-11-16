@@ -16,7 +16,6 @@
 
 namespace granary {
 
-
     /// Try to share syscall entry points across CPUs if they are common.
     static uint64_t LAST_SYSCALL_ENTRYPOINT = 0;
     static uint64_t LAST_GEN_SYSCALL_ENTRYPOINT = 0;
@@ -69,4 +68,5 @@ namespace granary {
 
         return LAST_GEN_SYSCALL_ENTRYPOINT;
     }
+
 }

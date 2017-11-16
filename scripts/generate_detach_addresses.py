@@ -27,10 +27,11 @@ if "__main__" == __name__:
   
   # special function that we need!
   EXTRA_SYMBOLS = set([
-    "module_alloc_update_bounds", "process_one_work", "idt_table",
+    "module_alloc", "process_one_work", "idt_table",
     "rcu_process_callbacks", "flush_tlb_mm_range", "printk",
     "__schedule_bug", "show_fault_oops", "__stack_chk_fail",
-    "sys_call_table", "early_idt_handlers",
+    "sys_call_table", "early_idt_handlers", "set_memory_ro",
+    "set_memory_rw", "set_memory_x", "set_memory_nx",
   ])
   EXTRA_SYMBOLS.update(SYSCALL_NAMES)
   

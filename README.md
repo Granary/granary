@@ -44,6 +44,7 @@ Common Makefile Options
    or user space instrumentation (`0`). The default value is `0`.
  * `KERNEL_DIR` specifies the location of one's kernel build directory. This is
    only relevant if `KERNEL=1`. The default value is `/lib/modules/$(shell uname -r)/build`.
+ * `GR_WHOLE_KERNEL=1`. Specifies whether or not Granary should be compiled to instrument all kernel and module code, instead of just module code.
  * `GR_CC` specifies the C compiler to be used. The default is `gcc-4.8`.
  * `GR_CXX` specifies the C++ compiler to be used. The default is `g++-4.8`.
  * `GR_PYTHON` specifies the version of Python to use. Granary depends on Python 2.7;
@@ -90,8 +91,9 @@ is because `{fast,slow}load.py --symbols` makes a copy of `/proc/kallsyms`.
 
 ```basemake
 python scripts/slowload.py --symbols
-make detach KERNEL=1
-make wrappers KERNEL=1
+make types KERNEL=1 KERNEL_DIR=/path/to/kernel/source/dir
+make detach KERNEL=1 KERNEL_DIR=/path/to/kernel/source/dir
+make wrappers KERNEL=1 KERNEL_DIR=/path/to/kernel/source/dir
 ```
 
 The next command cleans and builds Granary. Because of the amount of template
@@ -109,7 +111,8 @@ files. Todo: make it so that this last dependency depends on all others, so that
 parallel make is supported.
 
 ```basemake
-make clean KERNEL=1 ; make all KERNEL=1
+make clean KERNEL=1 KERNEL_DIR=/path/to/kernel/source/dir
+make all KERNEL=1 KERNEL_DIR=/path/to/kernel/source/dir
 ```
 
 Instrumenting kernel modules
@@ -124,7 +127,7 @@ typing the administrator password, either for the local or remote machine, depen
 on the `--remote` flag.
 
 ```basemake
-python scripts/slowload.py --remote
+python scripts/slowload.py --remote slothvm
 ```
 
 If SSH is properly configured, then you can use `fastload.py` in place of `slowload.py`.
@@ -167,9 +170,11 @@ highly experimental and mostly suited toward prototyping and debugging small Gra
 features.
 
 ```basemake
+make types KERNEL=0
 make detach KERNEL=0
 make wrappers KERNEL=0
-make clean KERNEL=0 ; make all KERNEL=0
+make clean KERNEL=0
+make all KERNEL=0
 ```
 
 ### Compiling with clang

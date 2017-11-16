@@ -37,6 +37,8 @@
 #endif
 
 
+/// Should specify `GR_WHOLE_KERNEL=1` at the `make` command-line to override
+/// this.
 #ifndef GRANARY_WHOLE_KERNEL
 #   define GRANARY_WHOLE_KERNEL 0
 #endif
@@ -188,7 +190,7 @@
 ///
 /// Note: If a non-zero number is given, then that number represents the maximum
 ///       number of conditional branch fall-throughs to follow.
-#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 8
+#define CONFIG_FOLLOW_FALL_THROUGH_BRANCHES 0
 
 
 /// If we're following fall-through branches, then this option lets us also

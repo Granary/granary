@@ -50,7 +50,6 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/errno.h>
@@ -95,6 +94,7 @@
 #include <linux/rtnetlink.h>
 #include <asm/unaligned.h>
 
+#if 0
 /* Also taken from e1000 */
 
 #include <linux/stddef.h>
@@ -154,7 +154,6 @@
 #include <linux/rbtree.h>
 #include <linux/seqlock.h>
 #include <linux/mutex.h>
-#include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/blockgroup_lock.h>
 #include <linux/percpu_counter.h>
@@ -222,6 +221,7 @@
 #include <linux/posix_acl.h>
 #include <asm/traps.h>
 /* taken from ext3/ext2*/
+#endif
 
 /* Manual additions */
 #ifdef __ASSEMBLY__
@@ -257,7 +257,11 @@ bool __rcu_reclaim(char *rn, struct rcu_head *head);
 struct task_struct *__switch_to(struct task_struct *prev_p, struct task_struct *next_p);
 void __schedule(void);
 void process_one_work(struct worker *worker, struct work_struct *work);
-void *module_alloc_update_bounds(unsigned long size);
+void *module_alloc(unsigned long size);
 
+int set_memory_ro(unsigned long addr, int numpages);
+int set_memory_rw(unsigned long addr, int numpages);
+int set_memory_x(unsigned long addr, int numpages);
+int set_memory_nx(unsigned long addr, int numpages);
 
 #endif /* GR_KERNEL_TYPES_H_ */

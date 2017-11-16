@@ -196,7 +196,7 @@ GRANARY_DETACH_POINT_ERROR(granary::detail::global_allocate_executable)
 GRANARY_DETACH_POINT_ERROR(granary::detail::global_free_executable)
 
 
-#define ENABLE_SPLITTING 1
+#define ENABLE_SPLITTING 0
 
 
 namespace granary { namespace detail {
